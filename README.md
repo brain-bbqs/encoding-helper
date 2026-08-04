@@ -1,8 +1,8 @@
 # Encoding Helper
 
-**Live:** https://vibes.tlab.sh/encoding-helper/
+**Live:** https://encoding-helper.brain-bbqs.org
 
-A didactic, in-browser video **encoding lab**. Load an MP4 and it inspects the container, teaches you how MP4 storage and H.264 encoding actually work (tied to the numbers in *your* file), runs empirical seeking tests, and re-encodes video directly in the browser — while always producing a copy-paste `ffmpeg` command for local/headless/batch use.
+A didactic, in-browser video **encoding lab**. Load an MP4 and it inspects the container, teaches you how MP4 storage and H.264 encoding actually work (tied to the numbers in _your_ file), runs empirical seeking tests, and re-encodes video directly in the browser — while always producing a copy-paste `ffmpeg` command for local/headless/batch use.
 
 Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Frame-Accurate Video Player](https://vibes.tlab.sh/video-player/).
 
@@ -29,18 +29,32 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
 6. Try different CRF/preset values on a short clip in the **Encode Test** tab and compare against the original side-by-side before running the full encode
 7. Head to the **Report** tab to copy/download a Markdown summary of everything above, or print it to PDF
 
-## Dependencies (CDN)
+## Dependencies
 
-- [mediabunny@1.50.8](https://github.com/Vanilagy/mediabunny) - metadata, packet/GOP analysis, frame seeking, WebCodecs-based fast re-encode
-- [mp4box.js@0.5.2](https://github.com/gpac/mp4box.js) - MP4 atom map and sample table (keyframes/GOP/B-frames)
-- [@ffmpeg/ffmpeg@0.12.15](https://github.com/ffmpegwasm/ffmpeg.wasm) + `@ffmpeg/core@0.12.10` - exact in-browser re-encode (lazy-loaded on demand; `@ffmpeg/util`'s helpers are reimplemented locally since its UMD build throws when loaded via a plain `<script>` tag)
+A TypeScript + [Vite](https://vite.dev) app; the video-handling libraries are ordinary npm dependencies rather than CDN `<script>` tags:
+
+- [mediabunny](https://github.com/Vanilagy/mediabunny) - metadata, packet/GOP analysis, frame seeking, WebCodecs-based fast re-encode (lazy-loaded via a dynamic `import()` the first time a file is loaded, and bundled into its own chunk)
+- [mp4box.js](https://github.com/gpac/mp4box.js) - MP4 atom map and sample table (keyframes/GOP/B-frames); ships no TypeScript types, so a small local `.d.ts` (`src/lib/mp4box.d.ts`) declares the slice this app actually uses
+- [@ffmpeg/ffmpeg](https://github.com/ffmpegwasm/ffmpeg.wasm) + [@ffmpeg/util](https://github.com/ffmpegwasm/ffmpeg.wasm) - exact in-browser re-encode. As a proper ESM package, Vite bundles and loads its worker itself; the `ffmpeg-core.js`/`.wasm` binaries (~30 MB) are still fetched from the jsdelivr CDN at runtime via `@ffmpeg/util`'s `toBlobURL()`, the officially documented pattern, and only once an "exact" encode actually runs
 
 ## Notes
 
 - GitHub Pages serves no custom headers, so only the **single-thread** ffmpeg.wasm core is used (no COOP/COEP, no `coi-serviceworker`) - this keeps the tool a single self-contained page at the cost of some encode speed
 - WebCodecs exposes no CRF control, only target bitrate/quality presets - the "fast" engine cannot byte-match the CLI command, and the UI says so
-- Firefox's H.264 WebCodecs *encoder* support is weak; the fast engine feature-detects and falls back to ffmpeg.wasm/CLI-only
+- Firefox's H.264 WebCodecs _encoder_ support is weak; the fast engine feature-detects and falls back to ffmpeg.wasm/CLI-only
 - ffmpeg.wasm is GPL-licensed; credited in the footer
+
+## Development
+
+```sh
+npm install       # install dependencies
+npm run dev       # start the Vite dev server
+npm run build     # typecheck + production build to dist/
+npm test          # run the unit test suite (vitest)
+npm run lint      # eslint (type-aware, strict)
+```
+
+Source lives under `src/`: `src/lib/` holds pure logic (formatting, the MP4/codec parsers, the CLI-command builder, the ffmpeg.wasm/mediabunny encode engines), `src/ui/` holds one renderer module per tab, and `src/main.ts` wires it all up to the static skeleton markup in `index.html`. Unit tests for the pure `lib/` modules live under `tests/unit/`.
 
 ## Initial prompt
 

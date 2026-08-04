@@ -1,0 +1,5 @@
+[codespell]
+skip = package-lock.json,*.svg,*.png,*.jpg,*.jpeg,*.gif,*.ico,*.mp4,dist,node_modules
+# "reencode" is sleap-io's actual function name (referenced verbatim), not a typo for
+# "re-encode"; "ans" is a real variable name (binary search accumulator), not "and".
+ignore-words-list = reencode,ans
