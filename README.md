@@ -1,6 +1,6 @@
 # Encoding Helper
 
-**Live:** https://vibes.tlab.sh/encoding-helper/
+**Live:** https://encoding-helper.brain-bbqs.org
 
 A didactic, in-browser video **encoding lab**. Load an MP4 and it inspects the container, teaches you how MP4 storage and H.264 encoding actually work (tied to the numbers in *your* file), runs empirical seeking tests, and re-encodes video directly in the browser — while always producing a copy-paste `ffmpeg` command for local/headless/batch use.
 
