@@ -74,7 +74,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "Advanced Video Coding",
     year: 2003,
     description:
-      'The most widely supported video codec in existence &mdash; nearly every browser, phone, and hardware decoder handles it natively. Block-based motion compensation with in-loop deblocking; this is the codec sleap-io\'s <code>reencode</code> baseline targets specifically for its universal compatibility and predictable I/P/B-frame random access.',
+      "The most widely supported video codec in existence &mdash; nearly every browser, phone, and hardware decoder handles it natively. Block-based motion compensation with in-loop deblocking; this is the codec sleap-io's <code>reencode</code> baseline targets specifically for its universal compatibility and predictable I/P/B-frame random access.",
     parse: (cs) => {
       const m = /^avc[13]\.([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(cs || "");
       if (!m) return [];
@@ -91,7 +91,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "High Efficiency Video Coding",
     year: 2013,
     description:
-      'Roughly 2&times; more efficient than H.264 at equal visual quality, using larger coding-tree blocks and richer intra/inter prediction &mdash; at the cost of much slower encoding and patchier hardware decode support (older devices and some browsers can\'t play it back at all, which is a poor fit for a shared QC/annotation pipeline).',
+      "Roughly 2&times; more efficient than H.264 at equal visual quality, using larger coding-tree blocks and richer intra/inter prediction &mdash; at the cost of much slower encoding and patchier hardware decode support (older devices and some browsers can't play it back at all, which is a poor fit for a shared QC/annotation pipeline).",
     parse: (cs) => {
       const m = /^(?:hev1|hvc1)\.[ABC]?(\d+)\.[0-9A-Fa-f]+\.([LH])(\d+)/.exec(cs || "");
       if (!m) return [];
@@ -175,14 +175,16 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "MP3",
     fullName: "MPEG-1/2 Audio Layer III",
     year: 1993,
-    description: "The classic lossy audio format. Universally compatible, but less efficient than AAC or Opus at the same bitrate.",
+    description:
+      "The classic lossy audio format. Universally compatible, but less efficient than AAC or Opus at the same bitrate.",
     parse: () => [],
   },
   vorbis: {
     family: "Vorbis",
     fullName: "Ogg Vorbis",
     year: 2000,
-    description: "A royalty-free codec and the predecessor to Opus, commonly paired with VP8/VP9 in WebM and OGG containers.",
+    description:
+      "A royalty-free codec and the predecessor to Opus, commonly paired with VP8/VP9 in WebM and OGG containers.",
     parse: () => [],
   },
   flac: {
@@ -204,7 +206,8 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "Dolby Digital Plus (E-AC-3)",
     fullName: "Enhanced AC-3",
     year: 2005,
-    description: "An extension of AC-3 with higher efficiency and up to 7.1 channels; common in modern streaming and broadcast.",
+    description:
+      "An extension of AC-3 with higher efficiency and up to 7.1 channels; common in modern streaming and broadcast.",
     parse: () => [],
   },
 };
@@ -223,5 +226,11 @@ export function describeCodec(shortCodec: string | null | undefined, codecString
   }
   const info = CODEC_KB[shortCodec];
   if (!info) return null;
-  return { family: info.family, fullName: info.fullName, year: info.year, description: info.description, details: info.parse(codecString) };
+  return {
+    family: info.family,
+    fullName: info.fullName,
+    year: info.year,
+    description: info.description,
+    details: info.parse(codecString),
+  };
 }

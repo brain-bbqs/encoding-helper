@@ -50,14 +50,19 @@ function buildVideoTrackSection(vt: TrackInfo): ReportSection {
   if (vt.rotation) items.push(["Rotation", vt.rotation + "°"]);
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
   if (vt.colorSpace) {
-    items.push(["Color Space", [vt.colorSpace.primaries, vt.colorSpace.transfer, vt.colorSpace.matrix].filter(Boolean).join(" / ") || "–"]);
+    items.push([
+      "Color Space",
+      [vt.colorSpace.primaries, vt.colorSpace.transfer, vt.colorSpace.matrix].filter(Boolean).join(" / ") || "–",
+    ]);
   }
   if (vt.hdr) items.push(["HDR", "Yes"]);
   return {
     title: "Video Track",
     kind: "kv",
     items,
-    note: vt.codecInfo ? `${vt.codecInfo.family}${vt.codecInfo.year ? " (" + vt.codecInfo.year + ")" : ""}: ${stripHtml(vt.codecInfo.description)}` : null,
+    note: vt.codecInfo
+      ? `${vt.codecInfo.family}${vt.codecInfo.year ? " (" + vt.codecInfo.year + ")" : ""}: ${stripHtml(vt.codecInfo.description)}`
+      : null,
   };
 }
 
@@ -73,7 +78,9 @@ function buildAudioTrackSection(at: TrackInfo): ReportSection {
     title: "Audio Track",
     kind: "kv",
     items,
-    note: at.codecInfo ? `${at.codecInfo.family}${at.codecInfo.year ? " (" + at.codecInfo.year + ")" : ""}: ${stripHtml(at.codecInfo.description)}` : null,
+    note: at.codecInfo
+      ? `${at.codecInfo.family}${at.codecInfo.year ? " (" + at.codecInfo.year + ")" : ""}: ${stripHtml(at.codecInfo.description)}`
+      : null,
   };
 }
 
@@ -81,7 +88,9 @@ function buildAtomMapSection(): ReportSection | null {
   if (!state.boxes.length) return null;
   const lines: string[] = [];
   const walk = (box: (typeof state.boxes)[number], depth: number): void => {
-    lines.push(`${"  ".repeat(depth)}${box.type.padEnd(6)} offset ${box.start.toLocaleString()}  ${fmtBytes(box.size)} (${box.size.toLocaleString()} B)`);
+    lines.push(
+      `${"  ".repeat(depth)}${box.type.padEnd(6)} offset ${box.start.toLocaleString()}  ${fmtBytes(box.size)} (${box.size.toLocaleString()} B)`,
+    );
     box.children.forEach((c) => walk(c, depth + 1));
   };
   state.boxes.forEach((b) => walk(b, 0));
@@ -145,7 +154,10 @@ function buildEncodeTestSection(): ReportSection | null {
     kind: "kv",
     items: [
       ["Segment", `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`],
-      ["Quality", cli.quality === "custom" ? `Custom (CRF ${cli.crf})` : `${cli.quality} (CRF ${CRF_MAP[cli.quality]})`],
+      [
+        "Quality",
+        cli.quality === "custom" ? `Custom (CRF ${cli.crf})` : `${cli.quality} (CRF ${CRF_MAP[cli.quality]})`,
+      ],
       ["Preset", cli.preset],
       ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
     ],
@@ -163,7 +175,11 @@ function buildReportSections(): ReportSection[] {
     vt ? buildVideoTrackSection(vt) : null,
     at ? buildAudioTrackSection(at) : null,
     Object.keys(flatTags).length
-      ? { title: "Metadata Tags", kind: "kv", items: Object.entries(flatTags).map(([k, v]): [string, string] => [k, String(v)]) }
+      ? {
+          title: "Metadata Tags",
+          kind: "kv",
+          items: Object.entries(flatTags).map(([k, v]): [string, string] => [k, String(v)]),
+        }
       : null,
     buildAtomMapSection(),
     buildGopSection(),
@@ -216,7 +232,12 @@ function renderReportSectionsToHtml(sections: ReportSection[]): DocumentFragment
 
 function renderReportSectionsToMarkdown(sections: ReportSection[], title: string): string {
   const esc = (s: string | number): string => String(s).replace(/\|/g, "\\|");
-  const lines = [`# Encoding Helper Report — ${title}`, "", `_Generated ${new Date().toLocaleString()} · https://vibes.tlab.sh/encoding-helper/_`, ""];
+  const lines = [
+    `# Encoding Helper Report — ${title}`,
+    "",
+    `_Generated ${new Date().toLocaleString()} · https://vibes.tlab.sh/encoding-helper/_`,
+    "",
+  ];
   sections.forEach((sec) => {
     lines.push(`## ${sec.title}`, "");
     if (sec.kind === "kv") {

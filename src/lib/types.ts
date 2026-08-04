@@ -97,15 +97,7 @@ export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 
 /** x264 presets offered in the CLI Command Builder / Encode Test tabs. */
 export type X264Preset =
-  | "ultrafast"
-  | "superfast"
-  | "veryfast"
-  | "faster"
-  | "fast"
-  | "medium"
-  | "slow"
-  | "slower"
-  | "veryslow";
+  "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow" | "slower" | "veryslow";
 
 /** Shared CLI-command state, edited from both the Re-encode tab and the Encode Test tab. */
 export interface CliState {

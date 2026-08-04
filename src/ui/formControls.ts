@@ -3,7 +3,12 @@
 
 import { h } from "../lib/dom";
 
-export function fieldSelect(id: string, label: string, options: (string | [string, string])[], value: string): HTMLDivElement {
+export function fieldSelect(
+  id: string,
+  label: string,
+  options: (string | [string, string])[],
+  value: string,
+): HTMLDivElement {
   const f = h("div", "field");
   f.append(h("label", "field-label", label));
   const sel = h("select");
@@ -74,7 +79,11 @@ export function engineBox(kind: "fast" | "exact", title: string, desc: string): 
   return { el, button, progress, note, log, result };
 }
 
-export function logLine(container: HTMLDivElement, msg: string, level: "info" | "success" | "warn" | "error" = "info"): void {
+export function logLine(
+  container: HTMLDivElement,
+  msg: string,
+  level: "info" | "success" | "warn" | "error" = "info",
+): void {
   container.style.display = "block";
   const line = h("div", "l " + level, msg);
   container.append(line);

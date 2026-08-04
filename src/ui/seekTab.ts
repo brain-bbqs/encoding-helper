@@ -170,7 +170,9 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   const table = h("table", "data");
   const thead = h("thead");
   const headRow = h("tr");
-  ["Timestamp", "Nearest Keyframe ≤ t", "Distance", "Distance (frames)", "Decode Time"].forEach((t) => headRow.append(h("th", null, t)));
+  ["Timestamp", "Nearest Keyframe ≤ t", "Distance", "Distance (frames)", "Decode Time"].forEach((t) =>
+    headRow.append(h("th", null, t)),
+  );
   thead.append(headRow);
   table.append(thead);
   const tbody = h("tbody");
@@ -225,12 +227,20 @@ function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
     const xLabel = svgEl("text", { x: gx, y: MT + plotH + 16, fill: "#888", "font-size": 10, "text-anchor": "middle" });
     xLabel.textContent = ((maxX * i) / STEPS).toFixed(2);
     svg.append(xLabel);
-    const yLabel = svgEl("text", { x: ML - 8, y: MT + plotH - (plotH * i) / STEPS + 3, fill: "#888", "font-size": 10, "text-anchor": "end" });
+    const yLabel = svgEl("text", {
+      x: ML - 8,
+      y: MT + plotH - (plotH * i) / STEPS + 3,
+      fill: "#888",
+      "font-size": 10,
+      "text-anchor": "end",
+    });
     yLabel.textContent = String(Math.round((maxY * i) / STEPS));
     svg.append(yLabel);
   }
   svg.append(svgEl("line", { x1: ML, y1: MT, x2: ML, y2: MT + plotH, stroke: "#444", "stroke-width": 1 }));
-  svg.append(svgEl("line", { x1: ML, y1: MT + plotH, x2: ML + plotW, y2: MT + plotH, stroke: "#444", "stroke-width": 1 }));
+  svg.append(
+    svgEl("line", { x1: ML, y1: MT + plotH, x2: ML + plotW, y2: MT + plotH, stroke: "#444", "stroke-width": 1 }),
+  );
 
   const xTitle = svgEl("text", { x: ML + plotW / 2, y: H - 4, fill: "#999", "font-size": 11, "text-anchor": "middle" });
   xTitle.textContent = "Keyframe distance (s)";

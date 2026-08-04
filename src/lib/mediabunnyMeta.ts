@@ -21,7 +21,10 @@ async function describeTrack(t: InputTrack): Promise<TrackInfo> {
     bitrate: stats ? stats.averageBitrate : null,
   };
   if (t.isVideoTrack()) {
-    const [color, hdr] = await Promise.all([t.getColorSpace().catch(() => null), t.hasHighDynamicRange().catch(() => false)]);
+    const [color, hdr] = await Promise.all([
+      t.getColorSpace().catch(() => null),
+      t.hasHighDynamicRange().catch(() => false),
+    ]);
     d.codedWidth = t.codedWidth;
     d.codedHeight = t.codedHeight;
     d.displayWidth = t.displayWidth;

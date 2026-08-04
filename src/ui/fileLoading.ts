@@ -81,7 +81,9 @@ async function loadSource(
 
     setLoadingUi(els, "Reading metadata (mediabunny)…");
     const mb = await ensureMediabunny();
-    const mbSource = fileForMediabunny ? new mb.BlobSource(fileForMediabunny) : new mb.UrlSource(urlForMediabunny ?? "");
+    const mbSource = fileForMediabunny
+      ? new mb.BlobSource(fileForMediabunny)
+      : new mb.UrlSource(urlForMediabunny ?? "");
     const input = new mb.Input({ source: mbSource, formats: mb.ALL_FORMATS });
     const meta = await loadMediabunnyMetadata(input);
     state.input = input;

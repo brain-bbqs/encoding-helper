@@ -27,7 +27,10 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
 
   const maxDuration = Math.max(1, Math.min(10, state.duration || 10));
   encodeTest.duration = Math.min(Math.max(1, encodeTest.duration || 3), maxDuration);
-  encodeTest.startTime = Math.min(Math.max(0, encodeTest.startTime), Math.max(0, (state.duration || 0) - encodeTest.duration));
+  encodeTest.startTime = Math.min(
+    Math.max(0, encodeTest.startTime),
+    Math.max(0, (state.duration || 0) - encodeTest.duration),
+  );
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "Encode Test — A/B Comparison"));
@@ -40,7 +43,16 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   );
 
   const row1 = h("div", "row");
-  row1.append(fieldNumber("etStart", "Start Time (s)", encodeTest.startTime.toFixed(1), 0, Math.max(0, (state.duration || 1) - 1), 0.5));
+  row1.append(
+    fieldNumber(
+      "etStart",
+      "Start Time (s)",
+      encodeTest.startTime.toFixed(1),
+      0,
+      Math.max(0, (state.duration || 1) - 1),
+      0.5,
+    ),
+  );
   row1.append(fieldNumber("etDuration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5));
   sec.append(row1);
 
@@ -66,7 +78,9 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
     fieldSelect(
       "etPreset",
       "x264 Preset",
-      ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map((p) => [p, p] as [string, string]),
+      ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map(
+        (p) => [p, p] as [string, string],
+      ),
       cli.preset,
     ),
   );
@@ -184,8 +198,14 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
 
   const g = h("div", "grid");
   g.append(
-    gridItem("Segment", `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`),
-    gridItem("Quality", cli.quality === "custom" ? `Custom (CRF ${cli.crf})` : `${cli.quality} (CRF ${CRF_MAP[cli.quality]})`),
+    gridItem(
+      "Segment",
+      `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`,
+    ),
+    gridItem(
+      "Quality",
+      cli.quality === "custom" ? `Custom (CRF ${cli.crf})` : `${cli.quality} (CRF ${CRF_MAP[cli.quality]})`,
+    ),
     gridItem("Preset", cli.preset),
     gridItem("Encoded Segment Size", fmtBytes(encodeTest.encodedSize)),
   );
@@ -201,7 +221,9 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   const origGrid = h("div", "pixel-grid");
   origPane.append(origGrid);
   const encPane = h("div", "compare-pane");
-  encPane.append(h("span", "pane-label", `Encoded (${cli.quality === "custom" ? "CRF " + cli.crf : cli.quality}, ${cli.preset})`));
+  encPane.append(
+    h("span", "pane-label", `Encoded (${cli.quality === "custom" ? "CRF " + cli.crf : cli.quality}, ${cli.preset})`),
+  );
   const encCanvas = h("canvas");
   encCanvas.width = vt.codedWidth ?? 0;
   encCanvas.height = vt.codedHeight ?? 0;
@@ -241,7 +263,10 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   fitBtn.addEventListener("click", () => zoomPan.fit());
   actualBtn.addEventListener("click", () => zoomPan.actualSize());
 
-  const drawFrame = (canvas: HTMLCanvasElement, frame: { canvas: HTMLCanvasElement | OffscreenCanvas } | null): void => {
+  const drawFrame = (
+    canvas: HTMLCanvasElement,
+    frame: { canvas: HTMLCanvasElement | OffscreenCanvas } | null,
+  ): void => {
     if (!frame) return;
     if (canvas.width !== frame.canvas.width || canvas.height !== frame.canvas.height) {
       canvas.width = frame.canvas.width;
@@ -367,7 +392,8 @@ function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElemen
   stageEl.addEventListener(
     "touchstart",
     (e) => {
-      if (e.touches.length === 1) activeZoomDrag = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY, zoom, apply };
+      if (e.touches.length === 1)
+        activeZoomDrag = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY, zoom, apply };
     },
     { passive: true },
   );

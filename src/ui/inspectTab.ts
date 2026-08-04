@@ -73,9 +73,10 @@ function renderOverviewSection(): HTMLDivElement {
 function chromaSubsamplingExplainer(width: number, height: number): string {
   const evenW = width % 2 === 0;
   const evenH = height % 2 === 0;
-  const fitText = evenW && evenH
-    ? "<b>already even</b> in both dimensions."
-    : `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height}) — an encoder must pad or crop before it can write yuv420p.`;
+  const fitText =
+    evenW && evenH
+      ? "<b>already even</b> in both dimensions."
+      : `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height}) — an encoder must pad or crop before it can write yuv420p.`;
   return (
     `<b>Chroma subsampling (yuv420p)</b> halves the horizontal &amp; vertical resolution of the color ` +
     `channels while keeping full-resolution luma &mdash; the human eye is far less sensitive to color detail ` +
@@ -91,7 +92,10 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Video Track"));
   const g = h("div", "grid");
-  g.append(gridItem("Codec", vt.codecString || vt.codec, { sm: true }), gridItem("Resolution", `${vt.codedWidth}×${vt.codedHeight}`));
+  g.append(
+    gridItem("Codec", vt.codecString || vt.codec, { sm: true }),
+    gridItem("Resolution", `${vt.codedWidth}×${vt.codedHeight}`),
+  );
   if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
     g.append(gridItem("Display Size", `${vt.displayWidth}×${vt.displayHeight}`));
   }

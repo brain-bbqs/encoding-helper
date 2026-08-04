@@ -22,7 +22,7 @@ const info: VideoInfo = { fps: 30, width: 640, height: 480 };
 
 describe("computeGop", () => {
   it("rounds keyframeInterval * fps to the nearest frame", () => {
-    expect(computeGop(baseCli({ keyframeInterval: 2 }), 30)) .toBe(60);
+    expect(computeGop(baseCli({ keyframeInterval: 2 }), 30)).toBe(60);
   });
 
   it("is never less than 1 frame", () => {

@@ -5,7 +5,8 @@ export function extOf(name: string | null | undefined): string {
   return m ? m[0] : ".mp4";
 }
 
-export type SaveTarget = { kind: "stream"; handle: FileSystemFileHandle; writable: FileSystemWritableFileStream } | { kind: "buffer" };
+export type SaveTarget =
+  { kind: "stream"; handle: FileSystemFileHandle; writable: FileSystemWritableFileStream } | { kind: "buffer" };
 
 export async function pickSaveTarget(suggestedName: string): Promise<SaveTarget | null> {
   if (window.showSaveFilePicker) {

@@ -2,7 +2,10 @@
   box-sizing: border-box;
 }
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   max-width: 980px;
   margin: 0 auto;
   padding: 20px;
@@ -377,7 +380,10 @@ details.teach-more summary {
   max-width: 600px;
   display: block;
   margin: 4px 0 14px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 .seek-scatter g {
   cursor: default;
@@ -601,7 +607,10 @@ footer .gpl {
     display: block !important;
     background: #fff;
     color: #111;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      sans-serif;
     max-width: none;
     padding: 0;
     margin: 0;
