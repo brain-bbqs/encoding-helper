@@ -5,6 +5,7 @@
 #### 🏠 Internal
 
 - Added Storybook (`stories/`) and Chromatic visual regression testing (both a Storybook build and a dedicated Playwright suite under `tests/chromatic/`), plus a Playwright integration test suite (`tests/integration/`), modeled on [brain-bbqs/bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader) ([#5](https://github.com/brain-bbqs/encoding-helper/pull/5))
+- Added the `reuse` pre-commit hook, plus `REUSE.toml`, `LICENSES/MIT.txt`, and a root `LICENSE` file, to bring the repository into REUSE license compliance, modeled on [brain-bbqs/bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader) ([#6](https://github.com/brain-bbqs/encoding-helper/pull/6))
 
 ## 0.1.0
 
