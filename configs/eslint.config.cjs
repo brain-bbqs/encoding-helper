@@ -7,14 +7,14 @@ const path = require("node:path");
 
 module.exports = tseslint.config(
   {
-    ignores: ["dist/", "coverage/", "reports/"],
+    ignores: ["dist/", "coverage/", "reports/", "storybook-static/", "test-results/", "playwright-report/"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
     // Type-aware linting for everything the TypeScript project covers (src/ plus the
-    // *.ts files under configs/; tests/ is outside the tsconfig, so type information
-    // is not available there).
+    // *.ts files under configs/; tests/ and stories/ are outside the tsconfig, so
+    // type information is not available there).
     files: ["src/**/*.ts", "configs/**/*.ts"],
     extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
