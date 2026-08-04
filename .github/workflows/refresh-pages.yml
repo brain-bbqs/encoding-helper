@@ -1,4 +1,4 @@
-name: Deploy to Pages
+name: Refresh pages
 
 on:
     push:
@@ -6,23 +6,17 @@ on:
             - main
     workflow_dispatch:
 
-concurrency:
-    group: pages
-    cancel-in-progress: false
-
-permissions:
-    contents: write
-
 jobs:
-    deploy:
+    refresh:
         runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
         steps:
-            - name: Checkout
+            - name: Checkout code
               uses: actions/checkout@v7
 
-            # No build step: this app is a static index.html with no package.json.
-
-            - name: Deploy to gh-pages branch
+            - name: Deploy to gh-pages
               uses: peaceiris/actions-gh-pages@v4
               with:
                   github_token: ${{ secrets.GITHUB_TOKEN }}
