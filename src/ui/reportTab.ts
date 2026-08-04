@@ -231,10 +231,7 @@ function renderReportSectionsToHtml(sections: ReportSection[]): DocumentFragment
 }
 
 function renderReportSectionsToMarkdown(sections: ReportSection[], title: string): string {
-  const esc = (s: string | number): string =>
-    String(s)
-      .replace(/\\/g, "\\\\")
-      .replace(/\|/g, "\\|");
+  const esc = (s: string | number): string => String(s).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
   const lines = [
     `# Encoding Helper Report — ${title}`,
     "",
