@@ -47,14 +47,16 @@ A TypeScript + [Vite](https://vite.dev) app; the video-handling libraries are or
 ## Development
 
 ```sh
-npm install       # install dependencies
-npm run dev       # start the Vite dev server
-npm run build     # typecheck + production build to dist/
-npm test          # run the unit test suite (vitest)
-npm run lint      # eslint (type-aware, strict)
+npm install                # install dependencies
+npm run dev                # start the Vite dev server
+npm run build               # typecheck + production build to dist/
+npm test                    # run the unit test suite (vitest)
+npm run lint                 # eslint (type-aware, strict)
+npm run test:integration      # Playwright integration tests (tests/integration/)
+npm run storybook             # component sandbox at http://localhost:6006 (stories/)
 ```
 
-Source lives under `src/`: `src/lib/` holds pure logic (formatting, the MP4/codec parsers, the CLI-command builder, the ffmpeg.wasm/mediabunny encode engines), `src/ui/` holds one renderer module per tab, and `src/main.ts` wires it all up to the static skeleton markup in `index.html`. Unit tests for the pure `lib/` modules live under `tests/unit/`.
+Source lives under `src/`: `src/lib/` holds pure logic (formatting, the MP4/codec parsers, the CLI-command builder, the ffmpeg.wasm/mediabunny encode engines), `src/ui/` holds one renderer module per tab, and `src/main.ts` wires it all up to the static skeleton markup in `index.html`. Unit tests for the pure `lib/` modules live under `tests/unit/`; Playwright integration tests live under `tests/integration/`. Component snapshots are driven by [Storybook](stories/) and [Chromatic](https://www.chromatic.com/) (both a Storybook build and a dedicated Playwright suite under `tests/chromatic/`), which visually regression-test the UI on every push.
 
 ## Initial prompt
 
