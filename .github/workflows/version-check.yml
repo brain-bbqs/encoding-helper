@@ -24,6 +24,11 @@ jobs:
       - name: Check version bump
         run: |
           PR_VERSION=$(node -p "require('./package.json').version")
+          if ! git cat-file -e origin/${{ github.base_ref }}:package.json 2>/dev/null; then
+            echo "No package.json on origin/${{ github.base_ref }} yet (this PR introduces it) — nothing to compare against."
+            echo "PR version: $PR_VERSION ✓"
+            exit 0
+          fi
           BASE_VERSION=$(git show origin/${{ github.base_ref }}:package.json | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).version))")
           echo "Base version: $BASE_VERSION"
           echo "PR version:   $PR_VERSION"

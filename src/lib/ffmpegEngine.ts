@@ -11,12 +11,19 @@
 // The ffmpeg-core.js/.wasm binaries themselves are still fetched from the jsdelivr CDN at runtime
 // (via `@ffmpeg/util`'s `toBlobURL()`, the officially documented pattern) rather than bundled — they
 // are ~30 MB and only needed by the minority of visits that actually run an "exact" encode.
+//
+// Must be the ESM core build, not the UMD one: @ffmpeg/ffmpeg's own worker (dist/esm/worker.js) is
+// bundled by Vite as a module worker (`worker: { format: "es" }`), where `importScripts()` throws
+// immediately, so the worker always falls into its `await import(coreURL)` branch. The UMD build
+// isn't a valid ES module (no `default` export), so that import silently resolves to `undefined`
+// and the worker throws "failed to import ffmpeg-core.js". The ESM build is a real module with a
+// `default` export, matching what `import()` expects.
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { toBlobURL } from "@ffmpeg/util";
 
 // GitHub Pages serves no COOP/COEP headers, so only the single-threaded core can be used (no
 // SharedArrayBuffer support) — same constraint the original CDN version worked under.
-const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
 
 export type FfmpegLogHandler = (message: string) => void;
 export type FfmpegProgressHandler = (ratio: number) => void;
