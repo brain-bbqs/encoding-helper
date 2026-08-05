@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+#### 🚀 Enhancement
+
+- Added logo/favicon assets (`src/assets/`) and wired them into the app: browser favicon (SVG + PNG fallbacks + `favicon.ico`), a logo next to the app title, and a logo in the README ([#8](https://github.com/brain-bbqs/encoding-helper/pull/8))
+
 ## 0.2.0
 
 #### 🏠 Internal

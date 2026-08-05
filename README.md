@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/assets/encoding-helper-icon.svg" alt="Encoding Helper logo" width="120" height="120" />
+</p>
+
 # Encoding Helper
 
 **Live:** https://encoding-helper.brain-bbqs.org
