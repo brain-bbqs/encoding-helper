@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Encoding Helper</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/encoding-helper-favicon-CLuF_230.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/encoding-helper-favicon-32-cQA5nP7k.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="./assets/encoding-helper-favicon-16-Dqgprokd.png" />
+    <link rel="shortcut icon" href="./assets/favicon-CGsWD6Qy.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/encoding-helper-favicon-180-09xaEkI7.png" />
+    <link rel="mask-icon" href="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%20width='512'%20height='512'%3e%3ctitle%3eEMBER%20Encoding%20Helper%20(mono)%3c/title%3e%3ccircle%20cx='256'%20cy='256'%20r='256'%20fill='%23810915'%3e%3c/circle%3e%3cg%20transform='translate(38.4,38.4)%20scale(4.352)'%3e%3crect%20x='21'%20y='29'%20width='26'%20height='42'%20rx='6'%20fill='%23fff'%3e%3c/rect%3e%3crect%20x='56.5'%20y='32.5'%20width='19'%20height='35'%20rx='4'%20fill='none'%20stroke='%23fff'%20stroke-width='7'%3e%3c/rect%3e%3c/g%3e%3c/svg%3e" color="#810915" />
+    <script type="module" crossorigin src="./assets/index-dBzX9YiV.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
+    <link rel="modulepreload" crossorigin href="./assets/ffmpeg-CE8ij1ZE.js">
+    <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-BYLslxpk.css">
+  </head>
+  <body>
+    <div class="brand">
+      <img class="brand-logo" src="./assets/encoding-helper-icon-Cglou9l3.svg" alt="" width="48" height="48" />
+      <h1>Encoding Helper</h1>
+    </div>
+    <p class="subtitle">
+      A didactic video encoding lab &middot; metadata via
+      <a href="https://mediabunny.dev" target="_blank" rel="noopener">mediabunny</a> &amp;
+      <a href="https://github.com/gpac/mp4box.js" target="_blank" rel="noopener">mp4box.js</a> &middot;
+      <a href="https://github.com/talmolab/vibes" target="_blank" rel="noopener">vibes</a>
+    </p>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-full">
+        <div><strong>Drop a video file here</strong>, or choose an option below</div>
+        <div class="hint">Inspects MP4/H.264 files entirely in your browser &mdash; nothing is uploaded</div>
+        <div class="load-actions">
+          <button class="btn" id="pickFileBtn" type="button">Choose File</button>
+          <button class="btn sec" id="loadSampleBtn" type="button">Load Sample</button>
+          <button class="btn sec" id="showUrlBtn" type="button">Load from URL</button>
+        </div>
+        <div class="url-row" id="urlRow" style="display: none">
+          <input type="text" id="urlInput" placeholder="https://example.com/video.mp4" />
+          <button class="btn sm" id="loadUrlBtn" type="button">Load</button>
+        </div>
+      </div>
+      <div class="drop-mini">
+        <span class="fname" id="miniName"></span>
+        <span class="fsize" id="miniSize"></span>
+        <button class="btn sm sec" id="loadAnotherBtn" type="button">Load Another</button>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />
+
+    <div id="app" style="display: none">
+      <div class="tabs">
+        <button class="tab on" data-tab="inspect" type="button">Inspect</button>
+        <button class="tab" data-tab="atoms" type="button">Atom Map</button>
+        <button class="tab" data-tab="seek" type="button">GOP &amp; Seeking</button>
+        <button class="tab" data-tab="encode" type="button">Re-encode &amp; CLI</button>
+        <button class="tab" data-tab="compare" type="button">Encode Test</button>
+        <button class="tab" data-tab="report" type="button">Report</button>
+      </div>
+
+      <!-- Tab: Inspect -->
+      <div class="tab-panel on" id="panel-inspect"></div>
+      <!-- Tab: Atom Map -->
+      <div class="tab-panel" id="panel-atoms"></div>
+      <!-- Tab: GOP & Seeking -->
+      <div class="tab-panel" id="panel-seek"></div>
+      <!-- Tab: Re-encode & CLI -->
+      <div class="tab-panel" id="panel-encode"></div>
+      <!-- Tab: Encode Test (side-by-side CRF/preset comparison) -->
+      <div class="tab-panel" id="panel-compare"></div>
+      <!-- Tab: Report / Export -->
+      <div class="tab-panel" id="panel-report"></div>
+    </div>
+
+    <!-- Populated only when the Report tab renders; the only thing @media print shows. -->
+    <div id="printArea"></div>
+
+    <footer>
+      Part of <a href="https://github.com/talmolab/vibes" target="_blank" rel="noopener">vibes</a> &middot; companion to
+      <a href="https://vibes.tlab.sh/video-info-tool/">Video Info Tool</a> &amp;
+      <a href="https://vibes.tlab.sh/video-player/">Frame-Accurate Video Player</a>
+      <div class="gpl">
+        The &ldquo;exact&rdquo; re-encode engine uses
+        <a href="https://github.com/ffmpegwasm/ffmpeg.wasm" target="_blank" rel="noopener">ffmpeg.wasm</a>
+        (GPL-licensed, lazy-loaded on demand).
+      </div>
+    </footer>
+
+  </body>
+</html>
