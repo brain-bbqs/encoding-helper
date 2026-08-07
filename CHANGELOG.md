@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+#### 🚀 Enhancement
+
+- Added Google Analytics with a GDPR consent banner: tracking is only loaded after the user explicitly accepts, modeled on [brain-bbqs/bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader) ([#10](https://github.com/brain-bbqs/encoding-helper/pull/10))
+
 ## 0.2.2
 
 #### 🚀 Enhancement
