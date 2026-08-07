@@ -10,11 +10,77 @@
     <link rel="shortcut icon" href="./assets/favicon-CGsWD6Qy.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/encoding-helper-favicon-180-09xaEkI7.png" />
     <link rel="mask-icon" href="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%20width='512'%20height='512'%3e%3ctitle%3eEMBER%20Encoding%20Helper%20(mono)%3c/title%3e%3ccircle%20cx='256'%20cy='256'%20r='256'%20fill='%23810915'%3e%3c/circle%3e%3cg%20transform='translate(38.4,38.4)%20scale(4.352)'%3e%3crect%20x='21'%20y='29'%20width='26'%20height='42'%20rx='6'%20fill='%23fff'%3e%3c/rect%3e%3crect%20x='56.5'%20y='32.5'%20width='19'%20height='35'%20rx='4'%20fill='none'%20stroke='%23fff'%20stroke-width='7'%3e%3c/rect%3e%3c/g%3e%3c/svg%3e" color="#810915" />
-    <script type="module" crossorigin src="./assets/index-Cpev-GIX.js"></script>
+    <script>
+      // Google Analytics is never loaded until the user explicitly accepts via the consent
+      // banner below; declining (or leaving the choice unset) never touches gtag.js or any GA
+      // cookie. Consent is re-checked on every page load from this localStorage key.
+      var GA_MEASUREMENT_ID = "G-HXPBRFNRJV";
+      var ANALYTICS_CONSENT_KEY = "encoding-helper.analytics-consent";
+
+      function getAnalyticsConsent() {
+        try {
+          return localStorage.getItem(ANALYTICS_CONSENT_KEY);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function setAnalyticsConsent(value) {
+        try {
+          localStorage.setItem(ANALYTICS_CONSENT_KEY, value);
+        } catch (e) {}
+      }
+
+      function loadGoogleAnalytics() {
+        if (window.gtag) return;
+
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+          window.dataLayer.push(arguments);
+        }
+        window.gtag = gtag;
+        window.gtag("js", new Date());
+        window.gtag("config", GA_MEASUREMENT_ID);
+
+        var gtagScript = document.createElement("script");
+        gtagScript.async = true;
+        gtagScript.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_MEASUREMENT_ID;
+        document.head.appendChild(gtagScript);
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        var banner = document.getElementById("analytics-consent-banner");
+        var acceptBtn = document.getElementById("analytics-accept-btn");
+        var declineBtn = document.getElementById("analytics-decline-btn");
+        if (!banner || !acceptBtn || !declineBtn) return;
+
+        var consent = getAnalyticsConsent();
+        if (consent === "accepted") {
+          loadGoogleAnalytics();
+          banner.hidden = true;
+        } else if (consent === "declined") {
+          banner.hidden = true;
+        } else {
+          banner.hidden = false;
+        }
+
+        acceptBtn.addEventListener("click", function () {
+          setAnalyticsConsent("accepted");
+          loadGoogleAnalytics();
+          banner.hidden = true;
+        });
+
+        declineBtn.addEventListener("click", function () {
+          setAnalyticsConsent("declined");
+          banner.hidden = true;
+        });
+      });
+    </script>
+    <script type="module" crossorigin src="./assets/index-BAnkLybC.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/ffmpeg-CE8ij1ZE.js">
     <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-BYLslxpk.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-D692TnvN.css">
   </head>
   <body>
     <div class="brand">
@@ -89,6 +155,16 @@
         (GPL-licensed, lazy-loaded on demand).
       </div>
     </footer>
+
+    <div id="analytics-consent-banner" class="consent-banner" hidden role="region" aria-label="Analytics consent">
+      <p class="consent-banner-text">
+        We use analytics tracking to understand how this page is used. No tracking is enabled unless you accept.
+      </p>
+      <div class="consent-banner-actions">
+        <button type="button" id="analytics-accept-btn" class="btn sm">Accept</button>
+        <button type="button" id="analytics-decline-btn" class="btn sm sec">Decline</button>
+      </div>
+    </div>
 
   </body>
 </html>
