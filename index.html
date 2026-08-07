@@ -10,6 +10,72 @@
     <link rel="shortcut icon" href="/src/assets/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/src/assets/encoding-helper-favicon-180.png" />
     <link rel="mask-icon" href="/src/assets/encoding-helper-favicon-mono.svg" color="#810915" />
+    <script>
+      // Google Analytics is never loaded until the user explicitly accepts via the consent
+      // banner below; declining (or leaving the choice unset) never touches gtag.js or any GA
+      // cookie. Consent is re-checked on every page load from this localStorage key.
+      var GA_MEASUREMENT_ID = "G-HXPBRFNRJV";
+      var ANALYTICS_CONSENT_KEY = "encoding-helper.analytics-consent";
+
+      function getAnalyticsConsent() {
+        try {
+          return localStorage.getItem(ANALYTICS_CONSENT_KEY);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function setAnalyticsConsent(value) {
+        try {
+          localStorage.setItem(ANALYTICS_CONSENT_KEY, value);
+        } catch (e) {}
+      }
+
+      function loadGoogleAnalytics() {
+        if (window.gtag) return;
+
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+          window.dataLayer.push(arguments);
+        }
+        window.gtag = gtag;
+        window.gtag("js", new Date());
+        window.gtag("config", GA_MEASUREMENT_ID);
+
+        var gtagScript = document.createElement("script");
+        gtagScript.async = true;
+        gtagScript.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_MEASUREMENT_ID;
+        document.head.appendChild(gtagScript);
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        var banner = document.getElementById("analytics-consent-banner");
+        var acceptBtn = document.getElementById("analytics-accept-btn");
+        var declineBtn = document.getElementById("analytics-decline-btn");
+        if (!banner || !acceptBtn || !declineBtn) return;
+
+        var consent = getAnalyticsConsent();
+        if (consent === "accepted") {
+          loadGoogleAnalytics();
+          banner.hidden = true;
+        } else if (consent === "declined") {
+          banner.hidden = true;
+        } else {
+          banner.hidden = false;
+        }
+
+        acceptBtn.addEventListener("click", function () {
+          setAnalyticsConsent("accepted");
+          loadGoogleAnalytics();
+          banner.hidden = true;
+        });
+
+        declineBtn.addEventListener("click", function () {
+          setAnalyticsConsent("declined");
+          banner.hidden = true;
+        });
+      });
+    </script>
   </head>
   <body>
     <div class="brand">
@@ -84,6 +150,16 @@
         (GPL-licensed, lazy-loaded on demand).
       </div>
     </footer>
+
+    <div id="analytics-consent-banner" class="consent-banner" hidden role="region" aria-label="Analytics consent">
+      <p class="consent-banner-text">
+        We use analytics tracking to understand how this page is used. No tracking is enabled unless you accept.
+      </p>
+      <div class="consent-banner-actions">
+        <button type="button" id="analytics-accept-btn" class="btn sm">Accept</button>
+        <button type="button" id="analytics-decline-btn" class="btn sm sec">Decline</button>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
