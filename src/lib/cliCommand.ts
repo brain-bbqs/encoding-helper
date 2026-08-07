@@ -48,8 +48,7 @@ export function buildFfmpegArgs(cliState: CliState, info: VideoInfo, inName?: st
 }
 
 export function formatCliCommand(args: string[]): string {
-  const quote = (a: string): string =>
-    /[\s"']/.test(a) ? `"${a.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : a;
+  const quote = (a: string): string => (/[\s"']/.test(a) ? `"${a.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : a);
   const BREAK_AFTER = new Set(["-i", "-c:v", "-vf", "-c:a", "-movflags"]);
   const lines: string[] = [];
   let line = "ffmpeg";
