@@ -150,6 +150,17 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+/* Links follow the theme accent; the browser default (#0000EE) is unreadably dark on the dark
+   background. Components with their own link colors (footer links, the version stamp) override
+   this by class. */
+a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+a:hover,
+a:focus-visible {
+  color: var(--accent-hover);
+}
 /* Mirrors brain-bbqs/clip-extractor's header: equal 1fr side columns keep the title truly
    centered on the page, with the logo pinned to the left of it and the theme toggle to the
    right. */
@@ -437,6 +448,98 @@ label.field-label {
 .grid .item.wide {
   grid-column: span 2;
 }
+/* Raw container tag names (©too, TIT2, ISFT) are case-sensitive, so they keep their own casing
+   instead of the uppercase treatment the other labels get. */
+.grid .item label.raw {
+  text-transform: none;
+  font-family: Monaco, Consolas, monospace;
+}
+.grid .item .item-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+.grid .item .item-head label {
+  margin-bottom: 0;
+}
+
+/* Info icons: an ⓘ button next to a field label that reveals an explainer popover on hover, on
+   keyboard focus, or on click (the click path is what makes it work on touch). */
+.info {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+.info-btn:hover,
+.info-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.info-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -10px;
+  z-index: 30;
+  width: max-content;
+  max-width: min(340px, 70vw);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  box-shadow: 0 6px 20px var(--shadow);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+}
+.info.above .info-pop {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.info.flip-x .info-pop {
+  left: auto;
+  right: -10px;
+}
+.info:hover .info-pop,
+.info:focus-within .info-pop,
+.info.open .info-pop {
+  display: block;
+}
+.info-pop b {
+  color: var(--teach-strong);
+}
+.info-pop p {
+  margin: 6px 0 0;
+}
+.info-pop .info-pop-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
 
 /* Badges */
 .badge {
@@ -471,6 +574,16 @@ label.field-label {
 }
 .teach b {
   color: var(--teach-strong);
+}
+.teach p {
+  margin: 8px 0 0;
+}
+.teach ul {
+  margin: 8px 0 0;
+  padding-left: 22px;
+}
+.teach li {
+  margin: 2px 0;
 }
 details.teach-more {
   margin-top: 6px;
@@ -685,7 +798,7 @@ table.data th {
   overflow-x: auto;
 }
 
-/* Encode Test: side-by-side zoom/pan comparison. The panes show decoded video, so their
+/* Compare Quality: side-by-side zoom/pan comparison. The panes show decoded video, so their
    letterbox, label chip, and pixel grid stay fixed regardless of the page theme. */
 .compare-stage {
   display: flex;

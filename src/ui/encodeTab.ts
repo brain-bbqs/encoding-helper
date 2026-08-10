@@ -1,17 +1,12 @@
-// Tab: Re-encode & CLI — the CLI Command Builder plus the two in-browser re-encode engines (fast /
-// mediabunny-WebCodecs and exact / ffmpeg.wasm).
+// Tab: Reencode & CLI — the FFmpeg Command Builder. The in-browser engines that consume these
+// settings live in their own tab (reencodeTab.ts).
 
-import { fetchFile } from "@ffmpeg/util";
-import { buildFfmpegArgs, computeGop } from "../lib/cliCommand";
+import { computeGop } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
-import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
-import { prepareMediabunnyConversion } from "../lib/fastEngine";
-import { ensureMediabunny } from "../lib/mediabunny";
-import { downloadBlob, extOf, pickSaveTarget } from "../lib/save";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
-import { refreshCliCommand, showReencodeResult, syncQualityControls } from "./cliControls";
-import { engineBox, fieldNumber, fieldSelect, logLine, type EngineBox } from "./formControls";
+import { refreshCliCommand, syncQualityControls } from "./cliControls";
+import { fieldNumber, fieldSelect } from "./formControls";
 
 export function renderEncodeTab(panel: HTMLElement): void {
   panel.innerHTML = "";
@@ -20,12 +15,26 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const info: VideoInfo = { fps: state.fps, width: vt.codedWidth, height: vt.codedHeight };
 
   const builderSec = h("div", "section");
-  builderSec.append(h("h2", null, "CLI Command Builder"));
+  builderSec.append(h("h2", null, "FFmpeg Command Builder"));
   builderSec.append(
     teachBox(
-      `This mirrors <a href="https://github.com/talmolab/sleap-io" target="_blank" rel="noopener">sleap-io</a>'s ` +
-        `<code>reencode</code> baseline &mdash; the shared transcoding target for the BBQS consortium's pose ` +
-        `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.`,
+      `<b>Reencoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
+        `lets you change quality, resolution, frame rate or keyframe spacing, and it is lossy: each pass throws ` +
+        `away detail the previous pass kept, so start from the original whenever you can.` +
+        `<p><b>Transcoding</b> is the same operation into a <i>different</i> codec (H.265 to H.264, say); the ` +
+        `terms are often used interchangeably, but transcoding implies the codec itself changes. Neither is ` +
+        `<b>remuxing</b> (<code>ffmpeg -c copy</code>), which lifts the already-compressed frames into a ` +
+        `different container untouched, and so is lossless and nearly instant.</p>` +
+        `<p>The command below runs <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">` +
+        `<b>ffmpeg</b></a> on your own machine, which is the way to do this for real work: it is a native ` +
+        `multi-threaded build with no 30 MB download and no browser memory ceiling, so it is far faster on a ` +
+        `full-length video; it scripts over a whole dataset; and the exact same command reruns later or on a ` +
+        `colleague's machine and produces the same bytes. The in-browser engines further down are for judging a ` +
+        `setting quickly, not for processing a corpus.</p>` +
+        `<p>The settings here mirror ` +
+        `<a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io</a>'s ` +
+        `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
+        `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.</p>`,
     ),
   );
 
@@ -37,7 +46,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
       [
         ["lossless", "Lossless (CRF 0)"],
         ["high", "High (CRF 18)"],
-        ["medium", "Medium (CRF 25) — default"],
+        ["medium", "Medium (CRF 25), default"],
         ["low", "Low (CRF 32)"],
         ["custom", "Custom CRF"],
       ],
@@ -54,7 +63,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
       "cliPreset",
       "x264 Preset",
       ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map(
-        (p) => [p, p + (p === "superfast" ? " — default (sleap-io)" : "")] as [string, string],
+        (p) => [p, p + (p === "superfast" ? " (default, sleap-io)" : "")] as [string, string],
       ),
       cli.preset,
     ),
@@ -164,123 +173,4 @@ export function renderEncodeTab(panel: HTMLElement): void {
   });
   bindNumber("cliFps", "fps", false);
   refreshCliCommand();
-
-  // ---- In-browser engines ----
-  const engineSec = h("div", "section");
-  engineSec.append(h("h2", null, "Re-encode In-Browser"));
-
-  const fastBox = engineBox(
-    "fast",
-    "Fast (WebCodecs / mediabunny)",
-    "Hardware-accelerated. No CRF control &mdash; WebCodecs only exposes target bitrate / quality presets, so this is an approximation, not a byte-match of the CLI command.",
-  );
-  engineSec.append(fastBox.el);
-  const exactBox = engineBox(
-    "exact",
-    "Exact (ffmpeg.wasm)",
-    "Runs the literal command above. Lazy-loads ~30 MB on first use and runs single-threaded (no COOP/COEP needed on static hosting), so it is slower than realtime but byte-for-byte matches the CLI.",
-  );
-  engineSec.append(exactBox.el);
-  panel.append(engineSec);
-
-  fastBox.button.addEventListener("click", () => void runFastEncode(info, fastBox));
-  exactBox.button.addEventListener("click", () => void runExactEncode(info, exactBox));
-
-  void ensureMediabunny().then(async (mb) => {
-    try {
-      const ok = await mb.canEncodeVideo("avc");
-      if (!ok) {
-        fastBox.button.disabled = true;
-        fastBox.note.textContent =
-          "This browser cannot hardware-encode H.264 via WebCodecs. Use the Exact (ffmpeg.wasm) engine or the CLI command instead.";
-      }
-    } catch {
-      /* leave enabled; the click handler will surface any error */
-    }
-  });
-}
-
-async function runFastEncode(info: VideoInfo, box: EngineBox): Promise<void> {
-  box.button.disabled = true;
-  box.progress.style.display = "block";
-  const fill = box.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) fill.style.width = "0%";
-  box.note.textContent = "Preparing…";
-  box.result.innerHTML = "";
-  try {
-    if (!state.input || !state.source) throw new Error("No video loaded");
-    const baseName = (state.source.name || "video").replace(/\.[^.]+$/, "");
-    const target = await pickSaveTarget(baseName + ".fast.mp4");
-    if (!target) return;
-    const { outputTarget, execute } = await prepareMediabunnyConversion(state.input, target, cli, info);
-    await execute((ratio) => {
-      if (fill) fill.style.width = (ratio * 100).toFixed(0) + "%";
-      box.note.textContent = `Encoding… ${(ratio * 100).toFixed(0)}%`;
-    });
-    let outSize: number;
-    const mb = await ensureMediabunny();
-    if (target.kind === "stream") {
-      outSize = (await target.handle.getFile()).size;
-    } else if (outputTarget instanceof mb.BufferTarget && outputTarget.buffer) {
-      const blob = new Blob([outputTarget.buffer], { type: "video/mp4" });
-      outSize = blob.size;
-      downloadBlob(blob, baseName + ".fast.mp4");
-    } else {
-      outSize = 0;
-    }
-    showReencodeResult(box, state.source.size, outSize);
-  } catch (err) {
-    console.error("[encoding-helper] fast encode failed:", err);
-    box.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
-  } finally {
-    box.button.disabled = false;
-    box.progress.style.display = "none";
-  }
-}
-
-async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
-  box.button.disabled = true;
-  box.progress.style.display = "block";
-  const fill = box.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) fill.style.width = "0%";
-  box.note.textContent = "Loading ffmpeg.wasm…";
-  box.result.innerHTML = "";
-  box.log.innerHTML = "";
-  setFfmpegHandlers(
-    (msg) => logLine(box.log, msg, "info"),
-    (ratio) => {
-      const pct = Math.min(1, Math.max(0, ratio)) * 100;
-      if (fill) fill.style.width = pct.toFixed(0) + "%";
-      box.note.textContent = `Encoding… ${pct.toFixed(0)}%`;
-    },
-  );
-  try {
-    if (!state.source) throw new Error("No video loaded");
-    await ensureFfmpegLoaded();
-    const inputName = "in" + extOf(state.source.name);
-    const outputName = "out.reencoded.mp4";
-    box.note.textContent = "Writing input to virtual filesystem…";
-    const inputData = await fetchFile(state.file ?? state.source.url ?? undefined);
-    const args = buildFfmpegArgs(cli, info, inputName, outputName);
-    logLine(box.log, "$ ffmpeg " + args.join(" "), "success");
-    box.note.textContent = "Encoding (single-threaded — this can take a while)…";
-    const { data } = await runFfmpegEncode(args, inputName, inputData, outputName);
-    const blob = new Blob([data], { type: "video/mp4" });
-    const baseName = (state.source.name || "video").replace(/\.[^.]+$/, "");
-    const target = await pickSaveTarget(baseName + ".exact.mp4");
-    if (target && target.kind === "stream") {
-      await target.writable.write(blob);
-      await target.writable.close();
-    } else {
-      downloadBlob(blob, baseName + ".exact.mp4");
-    }
-    showReencodeResult(box, state.source.size, blob.size);
-  } catch (err) {
-    console.error("[encoding-helper] exact encode failed:", err);
-    box.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
-    logLine(box.log, String(err instanceof Error ? err.message : err), "error");
-  } finally {
-    box.button.disabled = false;
-    box.progress.style.display = "none";
-  }
 }

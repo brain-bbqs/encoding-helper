@@ -1,7 +1,7 @@
-// Small reusable form-field / engine-progress-box builders shared by the Re-encode and Encode Test
+// Small reusable form-field / engine-progress-box builders shared by the Reencode and Compare Quality
 // tabs.
 
-import { h } from "../lib/dom";
+import { h, teachBox } from "../lib/dom";
 
 export function fieldSelect(
   id: string,
@@ -58,7 +58,9 @@ export function engineBox(kind: "fast" | "exact", title: string, desc: string): 
   const el = h("div");
   el.style.marginBottom = "18px";
   el.append(h("h3", null, title));
-  el.append(h("div", "teach", desc));
+  // `desc` is author-authored explainer markup (entities, <b>, <code>), so it goes through
+  // teachBox's innerHTML rather than being set as text.
+  el.append(teachBox(desc));
   const button = h("button", "btn", kind === "fast" ? "Encode (fast)" : "Encode (exact)");
   button.type = "button";
   button.style.marginTop = "8px";

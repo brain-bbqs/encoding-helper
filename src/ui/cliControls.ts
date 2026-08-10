@@ -1,5 +1,5 @@
-// CLI preview refresh + quality/preset control syncing, shared by the CLI Command Builder (Re-encode
-// tab) and the Encode Test tab — both edit the same `cli` state object.
+// CLI preview refresh + quality/preset control syncing, shared by the FFmpeg Command Builder (Reencode
+// tab) and the Compare Quality tab — both edit the same `cli` state object.
 
 import { buildFfmpegArgs, computeGop, formatCliCommand } from "../lib/cliCommand";
 import { gridItem, h } from "../lib/dom";
@@ -21,7 +21,7 @@ export function refreshCliCommand(): void {
   }
 }
 
-// Quality/CRF/preset controls exist in both the CLI Command Builder ("cli" prefix) and the Encode
+// Quality/CRF/preset controls exist in both the FFmpeg Command Builder ("cli" prefix) and the Encode
 // Test tab ("et" prefix), bound to the same `cli` object — this keeps both sets of controls (and the
 // CLI preview) showing the same values after either edits.
 export function syncQualityControls(): void {

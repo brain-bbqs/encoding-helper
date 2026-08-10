@@ -19,6 +19,25 @@ export function renderSeekTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "GOP / Keyframe Structure"));
+  // Explainer first, like the Atom Map tab: read what a GOP is before reading this file's numbers.
+  sec.append(
+    teachBox(
+      `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
+        `reference to other frames). Shorter GOPs → more, larger keyframes → faster seeking &amp; scrubbing but ` +
+        `worse compression.` +
+        `<ul>` +
+        `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
+        `<li><b>P-frames</b> reference earlier frames, storing only what changed since then.</li>` +
+        `<li><b>B-frames</b> reference both earlier <i>and later</i> frames, which compresses better but makes ` +
+        `decode order ≠ presentation order, complicating random access.</li>` +
+        `</ul>` +
+        `<p><a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io's ` +
+        `<code>reencode</code></a> baseline forces a <b>fixed GOP</b> (<code>-g</code> + ` +
+        `<code>-keyint_min</code> + <code>-sc_threshold 0</code>) and <b>disables B-frames</b> ` +
+        `(<code>-bf 0</code>) specifically to make random-access seeking fast and predictable for ` +
+        `pose-estimation pipelines that jump around a video rather than playing it linearly.</p>`,
+    ),
+  );
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
@@ -50,18 +69,6 @@ export function renderSeekTab(panel: HTMLElement): void {
     sec.append(h("div", "progress-label", "GOP length per keyframe interval (hover a bar for its frame count)"));
   }
 
-  sec.append(
-    teachBox(
-      `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
-        `reference to other frames). Shorter GOPs → more, larger keyframes → faster seeking &amp; scrubbing but ` +
-        `worse compression. <b>I-frames</b> are self-contained; <b>P-frames</b> reference earlier frames; ` +
-        `<b>B-frames</b> reference both earlier <i>and later</i> frames (better compression, but decode order ` +
-        `≠ presentation order, which complicates random access). sleap-io's <code>reencode</code> baseline forces ` +
-        `a <b>fixed GOP</b> (<code>-g</code> + <code>-keyint_min</code> + <code>-sc_threshold 0</code>) and ` +
-        `<b>disables B-frames</b> (<code>-bf 0</code>) specifically to make random-access seeking fast and predictable ` +
-        `for pose-estimation pipelines that jump around a video rather than playing it linearly.`,
-    ),
-  );
   panel.append(sec);
 
   const seekSec = h("div", "section");
@@ -162,7 +169,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
 
   const scatter = renderSeekScatter(results);
   if (scatter) {
-    wrap.append(h("div", "progress-label", "Keyframe distance vs. decode time — hover a point for its timestamp"));
+    wrap.append(h("div", "progress-label", "Keyframe distance vs. decode time; hover a point for its timestamp"));
     wrap.append(scatter);
   }
 
@@ -180,9 +187,9 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
     const tr = h("tr");
     tr.append(
       h("td", null, r.t.toFixed(3) + "s"),
-      h("td", null, r.kf != null ? r.kf.toFixed(3) + "s" : "—"),
-      h("td", null, r.dist != null ? r.dist.toFixed(3) + "s" : "—"),
-      h("td", null, r.distFrames != null ? String(r.distFrames) : "—"),
+      h("td", null, r.kf != null ? r.kf.toFixed(3) + "s" : "–"),
+      h("td", null, r.dist != null ? r.dist.toFixed(3) + "s" : "–"),
+      h("td", null, r.distFrames != null ? String(r.distFrames) : "–"),
       h("td", null, fmtMs(r.decodeMs)),
     );
     tbody.append(tr);

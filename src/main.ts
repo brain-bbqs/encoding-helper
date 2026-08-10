@@ -6,6 +6,7 @@ import { getElements } from "./ui/elements";
 import { renderEncodeTab } from "./ui/encodeTab";
 import { initFileLoadingUi } from "./ui/fileLoading";
 import { renderInspect } from "./ui/inspectTab";
+import { renderReencodeTab } from "./ui/reencodeTab";
 import { renderReportTab } from "./ui/reportTab";
 import { renderSeekTab } from "./ui/seekTab";
 import { initTabs } from "./ui/tabs";
@@ -18,6 +19,7 @@ function renderAll(): void {
   renderSeekTab(els.panels.seek);
   renderEncodeTab(els.panels.encode);
   renderEncodeTestTab(els.panels.compare);
+  renderReencodeTab(els.panels.reencode);
   renderReportTab(els.panels.report, els.printArea);
 }
 
@@ -45,7 +47,7 @@ els.themeToggle.addEventListener("click", () => {
 initFileLoadingUi(els, { onLoaded: renderAll });
 initTabs(() => renderReportTab(els.panels.report, els.printArea));
 
-// Preloaded (not deferred to first file drop) so the fast/exact engine checks in the Re-encode tab
+// Preloaded (not deferred to first file drop) so the fast/exact engine checks in the Reencode tab
 // don't stall on it later — matches the original CDN version's eager `ensureMediabunny()` call.
 ensureMediabunny().catch((err: unknown) => {
   console.warn("[encoding-helper] mediabunny preload failed:", err);

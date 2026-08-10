@@ -95,11 +95,11 @@ export interface SeekResult {
 /** Quality preset keys understood by both the ffmpeg CLI builder and the mediabunny fast engine. */
 export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 
-/** x264 presets offered in the CLI Command Builder / Encode Test tabs. */
+/** x264 presets offered in the FFmpeg Command Builder / Compare Quality tabs. */
 export type X264Preset =
   "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow" | "slower" | "veryslow";
 
-/** Shared CLI-command state, edited from both the Re-encode tab and the Encode Test tab. */
+/** Shared CLI-command state, edited from both the Reencode tab and the Compare Quality tab. */
 export interface CliState {
   quality: QualityPreset;
   crf: number;
@@ -121,7 +121,7 @@ export interface VideoInfo {
   height: number;
 }
 
-/** Mutable Encode Test (A/B comparison) state. */
+/** Mutable Compare Quality (A/B comparison) state. */
 export interface EncodeTestState {
   startTime: number;
   duration: number;
@@ -134,14 +134,14 @@ export interface EncodeTestState {
   zoom: ZoomPanState | null;
 }
 
-/** Shared pan/zoom transform for the Encode Test comparison canvases. */
+/** Shared pan/zoom transform for the Compare Quality comparison canvases. */
 export interface ZoomPanState {
   scale: number;
   tx: number;
   ty: number;
 }
 
-/** Result of a completed in-browser re-encode. */
+/** Result of a completed in-browser reencode. */
 export interface ReencodeResult {
   blob: Blob;
   size: number;
@@ -176,7 +176,14 @@ export interface AppState {
 
 /** One section of the compiled Report tab, renderer-agnostic (HTML preview, print view, Markdown). */
 export type ReportSection =
-  | { title: string; kind: "kv"; items: [string, string | number][]; note?: string | null }
+  | {
+      title: string;
+      kind: "kv";
+      items: [string, string | number][];
+      note?: string | null;
+      /** Keeps label casing as-is; set for sections whose labels are container-native tag names. */
+      rawLabels?: boolean;
+    }
   | { title: string; kind: "code"; lang: string; content: string }
   | {
       title: string;

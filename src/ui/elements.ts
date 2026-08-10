@@ -30,6 +30,7 @@ export function getElements() {
       seek: required<HTMLDivElement>("panel-seek"),
       encode: required<HTMLDivElement>("panel-encode"),
       compare: required<HTMLDivElement>("panel-compare"),
+      reencode: required<HTMLDivElement>("panel-reencode"),
       report: required<HTMLDivElement>("panel-report"),
     },
   };

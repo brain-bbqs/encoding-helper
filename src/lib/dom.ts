@@ -14,12 +14,85 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 export interface GridItemOptions {
   wide?: boolean;
   sm?: boolean;
+  /** Trusted, author-authored explainer markup, shown from an ⓘ button next to the label. */
+  info?: string | null;
+  /** Keeps the label's own casing instead of the grid's uppercase styling (for raw tag names). */
+  rawLabel?: boolean;
 }
 
 export function gridItem(label: string, value: string | number, opts: GridItemOptions = {}): HTMLDivElement {
   const d = h("div", "item" + (opts.wide ? " wide" : ""));
-  d.append(h("label", null, label), h("div", opts.sm ? "val sm" : "val", String(value)));
+  const labelEl = h("label", opts.rawLabel ? "raw" : null, label);
+  if (opts.info) {
+    // The button is a sibling of the label rather than a child of it: <label> may not contain
+    // labelable elements, and a click on the label would otherwise be forwarded to the button.
+    const head = h("div", "item-head");
+    head.append(labelEl, infoIcon(opts.info, `About ${label}`));
+    d.append(head);
+  } else {
+    d.append(labelEl);
+  }
+  d.append(h("div", opts.sm ? "val sm" : "val", String(value)));
   return d;
+}
+
+/** Closes every open info popover. Exported for the document-level dismiss handlers below. */
+export function closeInfoPopovers(): void {
+  document.querySelectorAll<HTMLElement>(".info.open").forEach((wrap) => {
+    wrap.classList.remove("open");
+    wrap.querySelector(".info-btn")?.setAttribute("aria-expanded", "false");
+  });
+}
+
+let infoDismissBound = false;
+
+// Hover and keyboard focus reveal the popover in CSS alone; the `open` class is what makes it
+// usable on touch, where there is no hover. One document-level pair of listeners serves every
+// icon on the page, however many tabs have been rendered.
+function bindInfoDismiss(): void {
+  if (infoDismissBound) return;
+  infoDismissBound = true;
+  document.addEventListener("click", () => closeInfoPopovers());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeInfoPopovers();
+  });
+}
+
+/**
+ * A small ⓘ affordance with a popover explainer. `html` is trusted, author-authored markup; never
+ * pass in text read out of a media file without escaping it first.
+ */
+export function infoIcon(html: string, label = "More information"): HTMLSpanElement {
+  bindInfoDismiss();
+  const wrap = h("span", "info");
+  const btn = h("button", "info-btn", "i");
+  btn.type = "button";
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("aria-expanded", "false");
+  const pop = h("div", "info-pop");
+  pop.setAttribute("role", "tooltip");
+  pop.innerHTML = html;
+  // Decided just before the popover becomes visible, so an icon low on the page opens upward and
+  // one in the last grid column opens leftward instead of off the edge.
+  const place = (): void => {
+    const box = btn.getBoundingClientRect();
+    wrap.classList.toggle("above", box.bottom > window.innerHeight * 0.55);
+    wrap.classList.toggle("flip-x", box.left + 360 > window.innerWidth);
+  };
+  wrap.addEventListener("mouseenter", place);
+  wrap.addEventListener("focusin", place);
+  btn.addEventListener("click", (e) => {
+    place();
+    e.stopPropagation();
+    const wasOpen = wrap.classList.contains("open");
+    closeInfoPopovers();
+    wrap.classList.toggle("open", !wasOpen);
+    btn.setAttribute("aria-expanded", String(!wasOpen));
+  });
+  // A click inside the popover (e.g. on a link) must not bubble up to the dismiss handler.
+  pop.addEventListener("click", (e) => e.stopPropagation());
+  wrap.append(btn, pop);
+  return wrap;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -33,6 +106,16 @@ export function svgEl<K extends keyof SVGElementTagNameMap>(
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
   }
   return el;
+}
+
+/** Escapes text read out of a media file so it can be embedded in author-authored explainer markup. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /** A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup. */

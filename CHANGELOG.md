@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.5
+
+#### 🚀 Enhancement
+
+- Renamed the Inspect tab's "Format" field to "Container" and gave it an ⓘ explainer covering the container-vs-codec distinction plus, per container (MP4, QuickTime, Matroska, WebM, Ogg, MP3, WAVE, FLAC, ADTS, MPEG-TS, HLS), which video and audio codecs it can carry and where it plays ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Added ⓘ explainers to the bitrate fields, including why the Overview's is labelled "overall" (whole file, every track plus container overhead, versus the per-track figures below it) ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Explained the Metadata Tags card: tag names are now shown as readable labels backed by a knowledge base of MP4/QuickTime atoms, ID3v2 frames, Vorbis comments and RIFF INFO chunks, each with an ⓘ giving the raw name and what it means. This answers what `©too` is (the encoding tool; the leading `©` is byte `0xA9`, QuickTime's text-atom marker, not a copyright statement), and recognizable encoder signatures such as `Lavf60.16.100` are decoded in place ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Gave every tab a shareable URL (`?tab=…`), restored on load and navigable with browser back/forward; a video loaded from a remote URL is also recorded (`?src=…`) and re-opened automatically, so a link carries both the file and the tab ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Added a plain-language preamble to the CLI Command Builder describing what reencoding, transcoding and remuxing are and how they differ ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Moved the GOP explainer directly under the "GOP / Keyframe Structure" heading so it reads before the numbers, matching the Atom Map tab ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Renamed the "Encode Test" tab to "Compare Quality" ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Retitled the Inspect tab's first card to "Video Container Overview" with the container explainer as a description under the heading (rather than an ⓘ popover) and the field itself relabelled "Type" ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Broke the I/P/B-frame definitions in the GOP explainer out into a bulleted list, and moved the sleap-io note to its own paragraph linking to the [`sio reencode` CLI reference](https://io.sleap.ai/latest/cli/#sio-reencode) ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Retitled "CLI Command Builder" to "FFmpeg Command Builder", linked to [ffmpeg's install page](https://ffmpeg.org/download.html), and explained why running ffmpeg natively is preferable to the in-browser engines for real work ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Moved the in-browser reencode engines out of the Reencode & CLI tab into their own "Reencode In-Browser" tab, to the right of Compare Quality. Both engines already processed the whole video and saved it to a file of your choosing; the new tab says so up front ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+
+#### 🐛 Bug Fix
+
+- Styled hyperlinks with the theme accent color; they were falling back to the browser default `#0000EE`, which was nearly unreadable in dark mode (the sleap-io link on the Reencode & CLI card) ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Fixed the two reencode engine descriptions rendering their markup as literal text, so "No CRF control &mdash; WebCodecs…" showed the raw entity ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+
 ## 0.2.4
 
 #### 🚀 Enhancement

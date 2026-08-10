@@ -89,7 +89,7 @@ export function resetState(): void {
   encodeTest.zoom = null;
 }
 
-/** Basic video-track info shared by the CLI Command Builder and Encode Test tabs, or null pre-load. */
+/** Basic video-track info shared by the FFmpeg Command Builder and Compare Quality tabs, or null pre-load. */
 export function currentVideoInfo(): { fps: number | null; width: number; height: number } | null {
   const vt = state.tracks && state.tracks.find((t) => t.kind === "video");
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;

@@ -1,9 +1,75 @@
 // Tab: Inspect — file overview, video/audio track details, codec explainers, metadata tags.
 
-import { gridItem, h, teachBox } from "../lib/dom";
+import { CONTAINER_PREAMBLE, describeContainer, type ContainerInfo } from "../lib/containerKb";
+import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
 import { fmtBits, fmtBytes, fmtDur, fmtRate } from "../lib/format";
+import { describeMetadataTag, describeMetadataTagValue, type MetadataTagInfo } from "../lib/metadataTagKb";
 import { state } from "../lib/state";
 import type { CodecInfo } from "../lib/types";
+
+/** Explainer for the Overview's whole-file bitrate, which is not the same as any track's bitrate. */
+const OVERALL_BITRATE_INFO =
+  "<b>Bitrate</b> is how many bits of file it takes to store one second of playback, so it is the main lever " +
+  "on both file size and quality. This one is <b>overall</b> because it is measured across the entire file: " +
+  "file size &times; 8 &divide; duration, counting the video track, the audio track, and the container's own " +
+  "overhead (headers, the sample index, metadata) together. The per-track bitrates in the Video Track and " +
+  "Audio Track sections below cover only their own packets, so they add up to slightly less than this number. " +
+  "<p>It is also an average. Unless the encoder was told to hold a constant bitrate, the instantaneous rate " +
+  "rises on keyframes and busy scenes and falls on still ones.</p>";
+
+const VIDEO_BITRATE_INFO =
+  "Average bitrate of the video track alone: the total size of its packets &times; 8 &divide; duration. " +
+  "Compare it with <b>Overall Bitrate</b> in the Overview, which also counts the audio track and the " +
+  "container overhead. Lowering it (a higher CRF, in the Reencode tab) is what shrinks the file, at the " +
+  "cost of visible compression artifacts.";
+
+const AUDIO_BITRATE_INFO =
+  "Average bitrate of the audio track alone. Speech stays clean at low rates, while music needs more; for " +
+  "AAC, roughly 128 kbps stereo is transparent for most listeners. This is separate from the video bitrate, " +
+  "and both are included in the Overview's <b>Overall Bitrate</b>.";
+
+const METADATA_TAGS_TEACH =
+  "<b>Metadata tags</b> are descriptive labels stored beside the media data. They never affect playback or " +
+  "quality, and most are written automatically by whatever tool produced the file. The names below are the " +
+  "container's own, which is why some look cryptic: MP4 and QuickTime use four-character atom names where a " +
+  "leading <code>©</code> (byte <code>0xA9</code>) marks a text atom, so <code>©too</code> is the encoding " +
+  "<i>tool</i> and <code>©nam</code> is the title. MP3 uses ID3v2 frame ids such as <code>TIT2</code>, WAVE " +
+  "uses RIFF <code>INFO</code> chunk ids such as <code>ISFT</code>, and Ogg, FLAC and Matroska use plain " +
+  "words such as <code>ENCODER</code>. Hover the ⓘ on any tag for what it means.";
+
+/**
+ * What this particular file's container is, as its own card so it reads as file-specific rather
+ * than as part of the general container-vs-codec explainer above it. The heading carries the
+ * container name, so loading a different file visibly retitles the card.
+ */
+function renderContainerDetailSection(info: ContainerInfo | null): HTMLDivElement | null {
+  if (!info) return null;
+  const sec = h("div", "section");
+  sec.append(h("h2", null, `This File's Container: ${info.name}`));
+  sec.append(
+    teachBox(
+      `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}` +
+        `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
+        `<b>Audio codecs:</b> ${info.audio}<br>` +
+        `<b>Playback:</b> ${info.support}</p>`,
+    ),
+  );
+  return sec;
+}
+
+/**
+ * Builds the popover for one metadata tag. The tag name comes from the file, so it is escaped
+ * before being interpolated; everything else is knowledge-base text.
+ */
+function metadataTagInfoHtml(key: string, info: MetadataTagInfo | null, value: string): string | null {
+  const valueHint = describeMetadataTagValue(value);
+  if (!info && !valueHint) return null;
+  const head = info
+    ? `<b>${info.label}</b> <code>${escapeHtml(key)}</code><br><span class="info-pop-meta">${info.origin}</span>` +
+      `<p>${info.description}</p>`
+    : "";
+  return head + (valueHint ? `<p>${valueHint}</p>` : "");
+}
 
 export function codecTeachBox(codecInfo: CodecInfo | null | undefined): HTMLDivElement | null {
   if (!codecInfo) return null;
@@ -11,7 +77,7 @@ export function codecTeachBox(codecInfo: CodecInfo | null | undefined): HTMLDivE
     ? "<br>" + codecInfo.details.map((d) => `<b>${d.label}:</b> ${String(d.value)}`).join(" &nbsp;&middot;&nbsp; ")
     : "";
   const yearStr = codecInfo.year ? ` (${codecInfo.year})` : "";
-  const nameStr = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? ` &mdash; ${codecInfo.fullName}` : "";
+  const nameStr = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? `, ${codecInfo.fullName}` : "";
   return teachBox(`<b>${codecInfo.family}</b>${yearStr}${nameStr}. ${codecInfo.description}${detailsStr}`);
 }
 
@@ -40,14 +106,15 @@ export function flattenMetadataTags(): Record<string, unknown> {
 
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
-  overview.append(h("h2", null, "Overview"));
+  overview.append(h("h2", null, "Video Container Overview"));
+  overview.append(teachBox(CONTAINER_PREAMBLE));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   const og = h("div", "grid");
   og.append(
-    gridItem("Format", state.format || "–"),
+    gridItem("Type", state.format || "–"),
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
-    gridItem("Overall Bitrate", fmtBits(fileBitrate)),
+    gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
     gridItem("MIME Type", state.mimeType || "–", { sm: true, wide: true }),
   );
   overview.append(og);
@@ -76,10 +143,10 @@ function chromaSubsamplingExplainer(width: number, height: number): string {
   const fitText =
     evenW && evenH
       ? "<b>already even</b> in both dimensions."
-      : `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height}) — an encoder must pad or crop before it can write yuv420p.`;
+      : `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height}), so an encoder must pad or crop before it can write yuv420p.`;
   return (
     `<b>Chroma subsampling (yuv420p)</b> halves the horizontal &amp; vertical resolution of the color ` +
-    `channels while keeping full-resolution luma &mdash; the human eye is far less sensitive to color detail ` +
+    `channels while keeping full-resolution luma. The human eye is far less sensitive to color detail ` +
     `than brightness, so this cuts data ~2&times; with minimal visible loss. It requires <b>even</b> width ` +
     `and height so every 2&times;2 luma block maps to one chroma sample. This file is ${fitText}`
   );
@@ -102,7 +169,7 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   g.append(
     gridItem("Frame Rate", vt.packetRate != null ? fmtRate(vt.packetRate) + " fps" : "–"),
     gridItem("Frames", state.frameCount != null ? state.frameCount.toLocaleString() : "–"),
-    gridItem("Bitrate", fmtBits(vt.bitrate)),
+    gridItem("Bitrate", fmtBits(vt.bitrate), { info: VIDEO_BITRATE_INFO }),
   );
   if (vt.rotation) g.append(gridItem("Rotation", vt.rotation + "°"));
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
@@ -134,7 +201,7 @@ function renderAudioTrackSection(): HTMLDivElement | null {
     gridItem("Codec", at.codecString || at.codec, { sm: true }),
     gridItem("Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : "–"),
     gridItem("Channels", at.channels != null ? at.channels : "–"),
-    gridItem("Bitrate", fmtBits(at.bitrate)),
+    gridItem("Bitrate", fmtBits(at.bitrate), { info: AUDIO_BITRATE_INFO }),
   );
   if (at.codecInfo) at.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
   sec.append(g);
@@ -149,9 +216,18 @@ function renderMetadataTagsSection(): HTMLDivElement | null {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "Metadata Tags"));
+  sec.append(teachBox(METADATA_TAGS_TEACH));
   const g = h("div", "grid");
   for (const [k, v] of Object.entries(flatTags)) {
-    g.append(gridItem(k, String(v), { sm: true }));
+    const value = String(v);
+    const info = describeMetadataTag(k);
+    g.append(
+      gridItem(info ? info.label : k, value, {
+        sm: true,
+        rawLabel: !info,
+        info: metadataTagInfoHtml(k, info, value),
+      }),
+    );
   }
   sec.append(g);
   return sec;
@@ -162,6 +238,8 @@ export function renderInspect(panel: HTMLElement): void {
   if (!state.source) return;
 
   panel.append(renderOverviewSection());
+  const containerSec = renderContainerDetailSection(describeContainer(state.format));
+  if (containerSec) panel.append(containerSec);
   const videoSec = renderVideoTrackSection();
   if (videoSec) panel.append(videoSec);
   const audioSec = renderAudioTrackSection();

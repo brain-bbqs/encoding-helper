@@ -7,6 +7,7 @@
 import { buildFfmpegArgs, CRF_MAP, formatCliCommand } from "../lib/cliCommand";
 import { copyToClipboard, gridItem, h, teachBox } from "../lib/dom";
 import { fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate } from "../lib/format";
+import { describeMetadataTag } from "../lib/metadataTagKb";
 import { downloadBlob } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { ReportSection, TrackInfo } from "../lib/types";
@@ -21,16 +22,20 @@ function stripHtml(html: string): string {
 function buildOverviewSection(): ReportSection {
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   return {
-    title: "Overview",
+    title: "Video Container Overview",
     kind: "kv",
     items: [
-      ["Format", state.format || "–"],
+      ["Type", state.format || "–"],
       ["File Size", fmtBytes(state.source?.size)],
       ["Duration", fmtDur(state.duration)],
       ["Overall Bitrate", fmtBits(fileBitrate)],
       ["MIME Type", state.mimeType || "–"],
       ["Faststart", state.faststart ? "Yes (moov before mdat)" : "No (moov after mdat)"],
     ],
+    note:
+      "Type is the container format: the wrapper holding the tracks, the index and the tags. The codecs listed " +
+      "below are the compression inside it. Overall Bitrate is measured across the whole file, file size × 8 ÷ " +
+      "duration, so it covers every track plus container overhead and is larger than any single track's bitrate.",
   };
 }
 
@@ -132,9 +137,9 @@ function buildSeekingSection(): ReportSection | null {
     headers: ["Timestamp", "Nearest Keyframe ≤ t", "Distance", "Distance (frames)", "Decode Time"],
     rows: results.map((r) => [
       r.t.toFixed(3) + "s",
-      r.kf != null ? r.kf.toFixed(3) + "s" : "—",
-      r.dist != null ? r.dist.toFixed(3) + "s" : "—",
-      r.distFrames != null ? String(r.distFrames) : "—",
+      r.kf != null ? r.kf.toFixed(3) + "s" : "–",
+      r.dist != null ? r.dist.toFixed(3) + "s" : "–",
+      r.distFrames != null ? String(r.distFrames) : "–",
       fmtMs(r.decodeMs),
     ]),
   };
@@ -144,13 +149,13 @@ function buildCliCommandSection(): ReportSection | null {
   const info = currentVideoInfo();
   if (!info) return null;
   const args = buildFfmpegArgs(cli, info);
-  return { title: "Re-encode CLI Command", kind: "code", lang: "bash", content: formatCliCommand(args) };
+  return { title: "Reencode CLI Command", kind: "code", lang: "bash", content: formatCliCommand(args) };
 }
 
 function buildEncodeTestSection(): ReportSection | null {
   if (!encodeTest.originalSink || !encodeTest.encodedSink) return null;
   return {
-    title: "Encode Test (A/B) Result",
+    title: "Compare Quality (A/B) Result",
     kind: "kv",
     items: [
       ["Segment", `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`],
@@ -178,7 +183,15 @@ function buildReportSections(): ReportSection[] {
       ? {
           title: "Metadata Tags",
           kind: "kv",
-          items: Object.entries(flatTags).map(([k, v]): [string, string] => [k, String(v)]),
+          rawLabels: true,
+          items: Object.entries(flatTags).map(([k, v]): [string, string] => {
+            const info = describeMetadataTag(k);
+            return [info ? `${k} (${info.label})` : k, String(v)];
+          }),
+          note:
+            "Tag names are the container's own: MP4/QuickTime four-character atoms (a leading © is byte 0xA9, " +
+            "the marker for a text atom, so ©too is the encoding tool), ID3v2 frame ids in MP3, RIFF INFO ids " +
+            "in WAVE, and plain words in Ogg, FLAC and Matroska.",
         }
       : null,
     buildAtomMapSection(),
@@ -197,7 +210,7 @@ function renderReportSectionsToHtml(sections: ReportSection[]): DocumentFragment
     secEl.append(h("h2", null, sec.title));
     if (sec.kind === "kv") {
       const g = h("div", "grid");
-      sec.items.forEach(([k, v]) => g.append(gridItem(k, v, { sm: String(v).length > 18 })));
+      sec.items.forEach(([k, v]) => g.append(gridItem(k, v, { sm: String(v).length > 18, rawLabel: sec.rawLabels })));
       secEl.append(g);
       if (sec.note) secEl.append(h("div", "teach", sec.note));
     } else if (sec.kind === "code") {
@@ -233,7 +246,7 @@ function renderReportSectionsToHtml(sections: ReportSection[]): DocumentFragment
 function renderReportSectionsToMarkdown(sections: ReportSection[], title: string): string {
   const esc = (s: string | number): string => String(s).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
   const lines = [
-    `# Encoding Helper Report — ${title}`,
+    `# Encoding Helper Report: ${title}`,
     "",
     `_Generated ${new Date().toLocaleString()} · https://vibes.tlab.sh/encoding-helper/_`,
     "",
@@ -269,8 +282,8 @@ export function renderReportTab(panel: HTMLElement, printArea: HTMLElement): voi
   sec.append(h("h2", null, "Report / Export"));
   sec.append(
     teachBox(
-      `Compiles everything above &mdash; metadata, the codec explainer, the atom map, GOP/keyframe stats, the ` +
-        `seeking test and Encode Test results (if you've run them), and the CLI command &mdash; into one ` +
+      `Compiles everything above (metadata, the codec explainer, the atom map, GOP/keyframe stats, the ` +
+        `seeking test and Compare Quality results if you've run them, and the CLI command) into one ` +
         `shareable report.`,
     ),
   );
@@ -295,7 +308,7 @@ export function renderReportTab(panel: HTMLElement, printArea: HTMLElement): voi
 
     printArea.innerHTML = "";
     printArea.append(
-      h("h1", null, `Encoding Helper Report — ${state.source?.name ?? ""}`),
+      h("h1", null, `Encoding Helper Report: ${state.source?.name ?? ""}`),
       h("p", "report-meta", `Generated ${new Date().toLocaleString()} · vibes.tlab.sh/encoding-helper`),
       renderReportSectionsToHtml(sections),
     );
