@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.6
+
+#### 🚀 Enhancement
+
+- Added the BBQS corner watermark from [brain-bbqs/bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader), circle-cropped and linking to [brain-bbqs.org](https://brain-bbqs.org), fixed to the top-left of the page ([#13](https://github.com/brain-bbqs/encoding-helper/pull/13))
+- Added the CON watermark to the bottom-right of the footer bar, linking to [centerforopenneuroscience.org](https://centerforopenneuroscience.org), again matching bbqs-uploader ([#13](https://github.com/brain-bbqs/encoding-helper/pull/13))
+- Added the Talmo Lab logo beside CON, linking to [talmolab.org](https://talmolab.org/). The lab draws its flask with a near-black outline that vanishes against the dark theme, so each theme loads the stroke variant it can see ([#13](https://github.com/brain-bbqs/encoding-helper/pull/13))
+- Below 1420px of viewport width there is no longer room for the watermarks to frame the page without overlapping content, so the BBQS mark is dropped and the footer bar flows into the document instead of staying fixed ([#13](https://github.com/brain-bbqs/encoding-helper/pull/13))
+
 ## 0.2.5
 
 #### 🚀 Enhancement

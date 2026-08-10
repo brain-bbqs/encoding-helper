@@ -178,6 +178,26 @@ a:focus-visible {
   width: 48px;
   height: 48px;
 }
+/* Fixed corner watermark, mirroring brain-bbqs/bbqs-uploader: the BBQS org logo top-left,
+   diametrically opposed to the CON/Talmo Lab watermarks in the bottom-right (see .footer-brands).
+   It frames the page rather than joining the header, so it stays outside .site-header's grid. */
+.brand-watermark-link {
+  position: fixed;
+  top: 2px;
+  left: 6px;
+  z-index: 1;
+  line-height: 0;
+}
+/* The BBQS org logo is square with a lot of surrounding whitespace, so it is cropped to a circle
+   the same way bbqs-uploader crops it. */
+.brand-watermark-logo {
+  display: block;
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 50%;
+  opacity: 0.484;
+}
 .header-actions {
   display: flex;
   align-items: center;
@@ -885,7 +905,8 @@ table.data th {
   bottom: 0;
   display: flex;
   align-items: flex-end;
-  justify-content: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   padding: 0 12px 6px 8px;
   /* The bar spans the full viewport width but is mostly empty middle; without this, that empty
      stretch swallows clicks aimed at page content behind it. Pointer events are re-enabled on the
@@ -917,6 +938,40 @@ table.data th {
   font-size: 13px;
   font-weight: 600;
   text-decoration: underline;
+}
+/* Supporting-institution watermarks, bottom-right: CON (as in bbqs-uploader) plus the Talmo Lab
+   logo beside it. */
+.footer-brands {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.footer-brands img {
+  display: block;
+  height: 60px;
+  width: auto;
+  opacity: 0.312;
+}
+/* The Talmo Lab flask is drawn with a near-black outline in the lab's default logo and a white one
+   in the variant they use on dark backgrounds, so each theme loads the variant it can actually
+   see. The dark blocks below must stay in sync with the two dark palette blocks at the top of this
+   file. */
+.talmo-brand-logo.on-dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .talmo-brand-logo.on-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .talmo-brand-logo.on-dark {
+    display: block;
+  }
+}
+:root[data-theme="dark"] .talmo-brand-logo.on-light {
+  display: none;
+}
+:root[data-theme="dark"] .talmo-brand-logo.on-dark {
+  display: block;
 }
 
 /* Google Analytics consent banner */
@@ -974,6 +1029,36 @@ table.data th {
   .tab {
     padding: 7px 10px;
     font-size: 12px;
+  }
+}
+
+/* body caps out at a 940px-wide content box (980px max-width minus its own 20px side padding);
+   above that it is centred with (viewport - 980) / 2 px of margin on either side. The footer bar's
+   right column (the CON and Talmo Lab logos, plus the bar's own right padding) is the widest thing
+   needing that margin at 205px, so page content stops clearing the fixed corner watermarks once
+   the viewport drops below 1390px. Below that, as the page scrolls, they end up pinned on top of
+   content instead of framing it: take them out of fixed positioning so the footer sits in normal
+   document flow (and drop the BBQS watermark entirely, since the top-left of the page is where the
+   header already sits). The 1420px threshold leaves a little slack past that measured 1390px.
+
+   This block must stay after the max-width: 600px one above, whose body padding it overrides. */
+@media (max-width: 1420px) {
+  .brand-watermark-link {
+    display: none;
+  }
+  body {
+    /* No fixed footer to clear anymore, so only the normal page padding is left. */
+    padding-bottom: 20px;
+  }
+  .page-footer-bar {
+    position: static;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 12px 0;
+  }
+  .footer-left {
+    align-items: center;
   }
 }
 
