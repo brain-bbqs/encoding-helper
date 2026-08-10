@@ -1,4 +1,4 @@
-// CLI preview refresh + quality/preset control syncing, shared by the FFmpeg Command Builder (Re-encode
+// CLI preview refresh + quality/preset control syncing, shared by the FFmpeg Command Builder (Reencode
 // tab) and the Compare Quality tab — both edit the same `cli` state object.
 
 import { buildFfmpegArgs, computeGop, formatCliCommand } from "../lib/cliCommand";

@@ -1,4 +1,4 @@
-// Tab: Re-encode & CLI — the FFmpeg Command Builder. The in-browser engines that consume these
+// Tab: Reencode & CLI — the FFmpeg Command Builder. The in-browser engines that consume these
 // settings live in their own tab (reencodeTab.ts).
 
 import { computeGop } from "../lib/cliCommand";
@@ -18,7 +18,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   builderSec.append(h("h2", null, "FFmpeg Command Builder"));
   builderSec.append(
     teachBox(
-      `<b>Re-encoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
+      `<b>Reencoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
         `lets you change quality, resolution, frame rate or keyframe spacing, and it is lossy: each pass throws ` +
         `away detail the previous pass kept, so start from the original whenever you can.` +
         `<p><b>Transcoding</b> is the same operation into a <i>different</i> codec (H.265 to H.264, say); the ` +

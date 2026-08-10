@@ -149,7 +149,7 @@ function buildCliCommandSection(): ReportSection | null {
   const info = currentVideoInfo();
   if (!info) return null;
   const args = buildFfmpegArgs(cli, info);
-  return { title: "Re-encode CLI Command", kind: "code", lang: "bash", content: formatCliCommand(args) };
+  return { title: "Reencode CLI Command", kind: "code", lang: "bash", content: formatCliCommand(args) };
 }
 
 function buildEncodeTestSection(): ReportSection | null {

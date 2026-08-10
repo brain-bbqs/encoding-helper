@@ -47,7 +47,7 @@ els.themeToggle.addEventListener("click", () => {
 initFileLoadingUi(els, { onLoaded: renderAll });
 initTabs(() => renderReportTab(els.panels.report, els.printArea));
 
-// Preloaded (not deferred to first file drop) so the fast/exact engine checks in the Re-encode tab
+// Preloaded (not deferred to first file drop) so the fast/exact engine checks in the Reencode tab
 // don't stall on it later — matches the original CDN version's eager `ensureMediabunny()` call.
 ensureMediabunny().catch((err: unknown) => {
   console.warn("[encoding-helper] mediabunny preload failed:", err);

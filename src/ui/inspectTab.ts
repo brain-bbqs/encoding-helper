@@ -20,7 +20,7 @@ const OVERALL_BITRATE_INFO =
 const VIDEO_BITRATE_INFO =
   "Average bitrate of the video track alone: the total size of its packets &times; 8 &divide; duration. " +
   "Compare it with <b>Overall Bitrate</b> in the Overview, which also counts the audio track and the " +
-  "container overhead. Lowering it (a higher CRF, in the Re-encode tab) is what shrinks the file, at the " +
+  "container overhead. Lowering it (a higher CRF, in the Reencode tab) is what shrinks the file, at the " +
   "cost of visible compression artifacts.";
 
 const AUDIO_BITRATE_INFO =
@@ -38,19 +38,23 @@ const METADATA_TAGS_TEACH =
   "words such as <code>ENCODER</code>. Hover the ⓘ on any tag for what it means.";
 
 /**
- * The container explainer, sized for a full-width teach box under the section title (the way the
- * Atom Map tab introduces itself) rather than a popover: what a container is, then what this
- * file's container is and which codecs it can hold.
+ * What this particular file's container is, as its own card so it reads as file-specific rather
+ * than as part of the general container-vs-codec explainer above it. The heading carries the
+ * container name, so loading a different file visibly retitles the card.
  */
-function containerTeachBox(info: ContainerInfo | null): HTMLDivElement {
-  if (!info) return teachBox(CONTAINER_PREAMBLE);
-  return teachBox(
-    CONTAINER_PREAMBLE +
-      `<p>This file is <b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}</p>` +
-      `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
-      `<b>Audio codecs:</b> ${info.audio}<br>` +
-      `<b>Playback:</b> ${info.support}</p>`,
+function renderContainerDetailSection(info: ContainerInfo | null): HTMLDivElement | null {
+  if (!info) return null;
+  const sec = h("div", "section");
+  sec.append(h("h2", null, `This File's Container: ${info.name}`));
+  sec.append(
+    teachBox(
+      `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}` +
+        `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
+        `<b>Audio codecs:</b> ${info.audio}<br>` +
+        `<b>Playback:</b> ${info.support}</p>`,
+    ),
   );
+  return sec;
 }
 
 /**
@@ -103,7 +107,7 @@ export function flattenMetadataTags(): Record<string, unknown> {
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
   overview.append(h("h2", null, "Video Container Overview"));
-  overview.append(containerTeachBox(describeContainer(state.format)));
+  overview.append(teachBox(CONTAINER_PREAMBLE));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   const og = h("div", "grid");
   og.append(
@@ -234,6 +238,8 @@ export function renderInspect(panel: HTMLElement): void {
   if (!state.source) return;
 
   panel.append(renderOverviewSection());
+  const containerSec = renderContainerDetailSection(describeContainer(state.format));
+  if (containerSec) panel.append(containerSec);
   const videoSec = renderVideoTrackSection();
   if (videoSec) panel.append(videoSec);
   const audioSec = renderAudioTrackSection();

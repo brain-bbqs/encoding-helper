@@ -1,4 +1,4 @@
-// Small reusable form-field / engine-progress-box builders shared by the Re-encode and Compare Quality
+// Small reusable form-field / engine-progress-box builders shared by the Reencode and Compare Quality
 // tabs.
 
 import { h, teachBox } from "../lib/dom";

@@ -99,7 +99,7 @@ export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 export type X264Preset =
   "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow" | "slower" | "veryslow";
 
-/** Shared CLI-command state, edited from both the Re-encode tab and the Compare Quality tab. */
+/** Shared CLI-command state, edited from both the Reencode tab and the Compare Quality tab. */
 export interface CliState {
   quality: QualityPreset;
   crf: number;
@@ -141,7 +141,7 @@ export interface ZoomPanState {
   ty: number;
 }
 
-/** Result of a completed in-browser re-encode. */
+/** Result of a completed in-browser reencode. */
 export interface ReencodeResult {
   blob: Blob;
   size: number;

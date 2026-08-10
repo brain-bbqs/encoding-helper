@@ -22,8 +22,10 @@ export const CONTAINER_PREAMBLE =
   "A <b>video container</b> is the wrapper around the media, not the compression method itself. It stores the " +
   "encoded tracks, the index that maps timestamps to byte ranges, and the metadata tags. The <b>codec</b> is what " +
   "actually compresses the pixels and samples. The same H.264 video can sit in an MP4, a MOV (.mov), or a " +
-  "Matroska (.mkv) file unchanged, and rewrapping it is lossless and fast because no frame is re-encoded. " +
-  "Which codecs are legal inside, though, depends on the container.";
+  "Matroska (.mkv) file unchanged: moving it from one to another copies the already-compressed frames across " +
+  "byte for byte, without decoding or compressing anything again, so it takes seconds and the picture that " +
+  "comes out is the picture that went in. Containers differ in which codecs they accept, though, so not every " +
+  "codec fits in every container.";
 
 export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
   MP4: {
@@ -33,7 +35,9 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     description:
       "The default delivery container for the web: a tree of boxes (atoms) where <code>moov</code> holds the " +
       "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> tab for this file's layout.",
-    video: "H.264/AVC (near universal), H.265/HEVC, AV1, VP9 and ProRes are legal but far less widely played",
+    video:
+      "H.264/AVC (near universal), plus H.265/HEVC, AV1, VP9 and ProRes, which the format accepts but far " +
+      "fewer players handle",
     audio: "AAC (the usual pairing), MP3, AC-3/E-AC-3, plus Opus and FLAC in newer players",
     support:
       "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
@@ -94,7 +98,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
       "A simple RIFF chunk list, almost always holding uncompressed samples. Metadata lives in an optional " +
       "<code>INFO</code> chunk.",
     video: "none, this is an audio-only format",
-    audio: "uncompressed PCM in the common case; a few compressed payloads are legal but rare",
+    audio: "uncompressed PCM in the common case; a few compressed payloads are accepted but rare",
     support: "Universal, at the cost of very large files.",
   },
   Ogg: {
