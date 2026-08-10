@@ -86,6 +86,17 @@
     </script>
   </head>
   <body>
+    <a
+      class="brand-watermark-link"
+      href="https://brain-bbqs.org"
+      target="_blank"
+      rel="noopener"
+      aria-label="BBQS"
+      title="BBQS"
+    >
+      <img class="brand-watermark-logo" src="/src/assets/bbqs-logo.png" alt="BBQS" />
+    </a>
+
     <header class="site-header">
       <img class="brand-logo" src="/src/assets/encoding-helper-icon.svg" alt="" width="48" height="48" />
       <h1>Encoding Helper</h1>
@@ -237,6 +248,34 @@
             title="View source on GitHub"
           ></a>
         </div>
+      </div>
+      <div class="footer-brands">
+        <a
+          class="talmo-brand-link"
+          href="https://talmolab.org/"
+          target="_blank"
+          rel="noopener"
+          aria-label="Talmo Lab"
+          title="Talmo Lab"
+        >
+          <!-- Two files rather than one, because the lab's logo is a dark-stroked flask that
+               disappears against the dark theme; CSS shows whichever matches the active theme. -->
+          <img class="talmo-brand-logo on-light" src="/src/assets/talmolab-logo.svg" alt="" aria-hidden="true" />
+          <img class="talmo-brand-logo on-dark" src="/src/assets/talmolab-logo-on-dark.svg" alt="" aria-hidden="true" />
+          <!-- The CON logo carries its own name in the artwork; the lab's flask is wordless, so the
+               name is set here to match. -->
+          <span class="talmo-brand-name">Talmo Lab</span>
+        </a>
+        <a
+          class="con-brand-link"
+          href="https://centerforopenneuroscience.org"
+          target="_blank"
+          rel="noopener"
+          aria-label="Center for Open Neuroscience"
+          title="Center for Open Neuroscience"
+        >
+          <img src="/src/assets/con-logo.png" alt="Center for Open Neuroscience" />
+        </a>
       </div>
     </div>
 
