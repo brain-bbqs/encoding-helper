@@ -13,6 +13,7 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
 ## Features
 
 - **Inspect** - rich metadata plus a visual MP4 **atom map** (`ftyp`/`moov`/`mdat`/`moof`, byte offsets & sizes, moov-before-mdat "faststart" detection) and per-frame GOP/I-frame/B-frame structure
+- **Atom Map, in either orientation** - **horizontal** draws the boxes onto the file's byte axis, one lane per nesting level, so it stays the same height whether the video runs ten seconds or ten hours (a fragmented recording's thousands of `moof`+`mdat` pairs collapse into blocks you click to zoom into); **vertical** is the indented tree with every offset and size spelled out. The toggle is remembered
 - **Identify the codec** - infers the codec family from the container (H.264/AVC, H.265/HEVC, VP8/VP9, AV1, AAC, Opus, FLAC, MP3, AC-3/E-AC-3, PCM) and decodes its embedded profile/level/tier straight out of the RFC 6381 codec string, with a short explainer on what that codec actually is and why you'd (not) choose it
 - **Teach** - interactive explanations tied to the loaded file: CRF vs. bitrate, x264 presets, GOP/keyframe interval, I/P/B frames, `yuv420p` chroma subsampling, even-dimension requirements, and the moov-atom/faststart tradeoff
 - **Measure** - empirical seeking tests (nearest-keyframe distance per timestamp, decode wall-clock, keyframe-interval histogram) with a scatter plot of distance vs. decode time, plus before/after compression stats

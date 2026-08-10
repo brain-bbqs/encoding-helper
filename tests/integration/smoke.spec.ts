@@ -60,6 +60,42 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator(".talmo-brand-logo.on-light")).toBeHidden();
   });
 
+  test("maps the file's boxes along its byte axis, and zooms into one on click", async ({ page }) => {
+    await page.goto("/?tab=atoms");
+    await page.locator("#loadSampleBtn").click();
+    const panel = page.locator("#panel-atoms");
+    await expect(panel.locator(".atom-map")).toBeVisible();
+
+    // mdat is nearly the whole sample file, so it is the one box wide enough to carry its label.
+    await expect(panel.locator(".atom-block.wide .lbl")).toHaveText(["mdat"]);
+    await expect(panel.locator(".crumb")).toHaveText(["Whole file"]);
+
+    // The moov subtree is too small a slice of the file to draw box by box; zooming opens it.
+    await panel.locator(".atom-block.grouped").first().click();
+    await expect(panel.locator(".crumb")).toHaveCount(2);
+    await expect(panel.locator(".atom-block.wide .lbl").first()).toHaveText("moov");
+    await expect(panel.locator(".atom-block.wide .lbl")).toContainText(["moov", "trak", "mdia"]);
+
+    await panel.locator(".crumb").first().click();
+    await expect(panel.locator(".crumb")).toHaveCount(1);
+  });
+
+  test("switches the Atom Map to the indented tree and remembers the choice", async ({ page }) => {
+    await page.goto("/?tab=atoms");
+    await page.locator("#loadSampleBtn").click();
+    const panel = page.locator("#panel-atoms");
+    await expect(panel.locator(".atom-map")).toBeVisible();
+
+    await panel.getByRole("button", { name: "Vertical" }).click();
+    await expect(panel.locator(".atom-tree")).toBeVisible();
+    await expect(panel.locator(".atom-map")).toHaveCount(0);
+    await expect(panel.locator(".atom-row").first()).toContainText("ftyp");
+
+    await page.reload();
+    await page.locator("#loadSampleBtn").click();
+    await expect(panel.locator(".atom-tree")).toBeVisible();
+  });
+
   test("drops the fixed watermarks once the viewport is too narrow to frame the page", async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 900 });
     await page.goto("/");

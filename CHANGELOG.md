@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.7
+
+#### 🚀 Enhancement
+
+- Gave the Atom Map a horizontal orientation, and made it the default. It draws the boxes onto the file itself: left to right is byte offset, each row down is one level of nesting, so the map is a handful of rows tall whether the video runs ten seconds or ten hours. The indented tree grew one row per box, which for a fragmented recording (a `moof`+`mdat` pair per fragment) meant thousands of rows ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Added a Horizontal/Vertical toggle to the Atom Map, remembered across visits; the vertical view is the original indented tree, unchanged apart from the size formatting below ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Made the horizontal map zoomable: clicking any block narrows the view to that block's byte range and a breadcrumb walks back out. Boxes too narrow to draw at the current zoom are not dropped but merged into one block saying how many it stands for, so a 20,000-fragment file is a few blocks that open up as you zoom rather than 60,000 rows or an empty map ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Colored the map by which top-level box a byte belongs to (`moov`, `mdat`, `moof`, or everything else), with a legend, a byte-offset ruler, and a readout naming the box under the cursor. The palette was checked for colorblind separation and contrast against both themes' card surface ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Labelled `moof`, `mfra`, `free` and `skip` in the vertical tree, which previously tagged only `ftyp`, `moov` and `mdat` ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+
+#### 🐛 Bug Fix
+
+- Stopped the Atom Map printing sub-kilobyte sizes twice, as `32 B (32 B)` ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+
 ## 0.2.6
 
 #### 🚀 Enhancement
