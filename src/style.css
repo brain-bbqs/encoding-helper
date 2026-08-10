@@ -939,18 +939,41 @@ table.data th {
   font-weight: 600;
   text-decoration: underline;
 }
-/* Supporting-institution watermarks, bottom-right: CON (as in bbqs-uploader) plus the Talmo Lab
-   logo beside it. */
+/* Supporting-institution watermarks, bottom-right: the Talmo Lab logo, then CON (as in
+   bbqs-uploader). Fading the whole link rather than just the image keeps the Talmo Lab name below
+   at the same weight as the name baked into the CON artwork. */
 .footer-brands {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 12px;
+}
+.footer-brands > a {
+  opacity: 0.312;
 }
 .footer-brands img {
   display: block;
-  height: 60px;
   width: auto;
-  opacity: 0.312;
+}
+.con-brand-link img {
+  height: 60px;
+}
+/* Flask plus name, stacked, sized so the pair totals the 60px of the CON logo beside it. */
+.talmo-brand-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-decoration: none;
+}
+.talmo-brand-logo {
+  height: 44px;
+}
+.talmo-brand-name {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
 }
 /* The Talmo Lab flask is drawn with a near-black outline in the lab's default logo and a white one
    in the variant they use on dark backgrounds, so each theme loads the variant it can actually
@@ -1034,12 +1057,13 @@ table.data th {
 
 /* body caps out at a 940px-wide content box (980px max-width minus its own 20px side padding);
    above that it is centred with (viewport - 980) / 2 px of margin on either side. The footer bar's
-   right column (the CON and Talmo Lab logos, plus the bar's own right padding) is the widest thing
-   needing that margin at 205px, so page content stops clearing the fixed corner watermarks once
-   the viewport drops below 1390px. Below that, as the page scrolls, they end up pinned on top of
+   right column (the Talmo Lab and CON logos, plus the bar's own right padding) is the widest thing
+   needing that margin at 212px, so page content stops clearing the fixed corner watermarks once
+   the viewport drops below 1404px. Below that, as the page scrolls, they end up pinned on top of
    content instead of framing it: take them out of fixed positioning so the footer sits in normal
    document flow (and drop the BBQS watermark entirely, since the top-left of the page is where the
-   header already sits). The 1420px threshold leaves a little slack past that measured 1390px.
+   header already sits). The 1420px threshold leaves a little slack past that measured 1404px, and
+   has to stay under 1440 so it does not fire on the many laptops exactly that wide.
 
    This block must stay after the max-width: 600px one above, whose body padding it overrides. */
 @media (max-width: 1420px) {

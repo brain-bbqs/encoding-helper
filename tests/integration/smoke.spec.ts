@@ -32,11 +32,21 @@ test.describe("Encoding Helper shell", () => {
     await expect(versionLink).toHaveText(/^v\d+\.\d+\.\d+$/);
     await expect(versionLink).toHaveAttribute("href", "https://github.com/brain-bbqs/encoding-helper");
 
-    await expect(page.locator('a.con-brand-link[href="https://centerforopenneuroscience.org"]')).toBeVisible();
-    await expect(page.locator('a.talmo-brand-link[href="https://talmolab.org/"]')).toBeVisible();
+    const conLink = page.locator('a.con-brand-link[href="https://centerforopenneuroscience.org"]');
+    const talmoLink = page.locator('a.talmo-brand-link[href="https://talmolab.org/"]');
+    await expect(conLink).toBeVisible();
+    await expect(talmoLink).toBeVisible();
+    await expect(page.locator(".talmo-brand-name")).toHaveText("Talmo Lab");
     // Only the variant matching the active theme is rendered.
     await expect(page.locator(".talmo-brand-logo.on-light")).toBeVisible();
     await expect(page.locator(".talmo-brand-logo.on-dark")).toBeHidden();
+
+    // Talmo Lab sits to the left of CON, and both clear the centered page content.
+    const talmoBox = (await talmoLink.boundingBox())!;
+    const conBox = (await conLink.boundingBox())!;
+    expect(talmoBox.x + talmoBox.width).toBeLessThanOrEqual(conBox.x);
+    const contentRight = (await page.locator("#dropZone").boundingBox())!;
+    expect(talmoBox.x).toBeGreaterThan(contentRight.x + contentRight.width);
   });
 
   test("swaps to the light-stroked Talmo Lab logo in dark mode", async ({ page }) => {
