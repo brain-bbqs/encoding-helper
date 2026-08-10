@@ -35,7 +35,8 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
       "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> tab for this file's layout.",
     video: "H.264/AVC (near universal), H.265/HEVC, AV1, VP9 and ProRes are legal but far less widely played",
     audio: "AAC (the usual pairing), MP3, AC-3/E-AC-3, plus Opus and FLAC in newer players",
-    support: "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
+    support:
+      "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
   },
   "QuickTime File Format": {
     name: "QuickTime File Format",
