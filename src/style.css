@@ -1,7 +1,9 @@
 /* Theme variables mirror brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: light by
    default, dark via the OS preference or the header toggle (which sets data-theme on <html> to
-   override that preference). The dark values below are the app's original hardcoded palette, so
-   dark mode looks exactly as it did before the light theme was added. The two dark blocks must
+   override that preference). The dark values below are the app's original hardcoded palette apart
+   from the accent, which now takes those two apps' indigo (#4f46e5 light, #818cf8 dark) so the
+   shared footer links read the same across all three; --accent-hover, --accent-bright and
+   --accent-tint are re-derived from it and have no counterpart there. The two dark blocks must
    stay identical — update both together. */
 :root {
   --bg: #f6f7fb;
@@ -18,10 +20,10 @@
   --faint: #7b8296;
   --border: #d5dae8;
   --border-soft: #e4e8f2;
-  --accent: #2952cc;
-  --accent-hover: #1f42ab;
-  --accent-bright: #4a72e0;
-  --accent-tint: rgb(41 82 204 / 0.12);
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-bright: #6366f1;
+  --accent-tint: rgb(79 70 229 / 0.12);
   --accent-soft: #eef0ff;
   --on-accent: #ffffff;
   --btn-sec-bg: #e7ebf7;
@@ -63,10 +65,10 @@
     --faint: #666666;
     --border: #444444;
     --border-soft: #333333;
-    --accent: #6c9fff;
-    --accent-hover: #5a8ae6;
-    --accent-bright: #8fb4ff;
-    --accent-tint: rgb(108 159 255 / 0.15);
+    --accent: #818cf8;
+    --accent-hover: #6366f1;
+    --accent-bright: #a5b4fc;
+    --accent-tint: rgb(129 140 248 / 0.15);
     --accent-soft: #262b45;
     --on-accent: #ffffff;
     --btn-sec-bg: #333a54;
@@ -106,10 +108,10 @@
   --faint: #666666;
   --border: #444444;
   --border-soft: #333333;
-  --accent: #6c9fff;
-  --accent-hover: #5a8ae6;
-  --accent-bright: #8fb4ff;
-  --accent-tint: rgb(108 159 255 / 0.15);
+  --accent: #818cf8;
+  --accent-hover: #6366f1;
+  --accent-bright: #a5b4fc;
+  --accent-tint: rgb(129 140 248 / 0.15);
   --accent-soft: #262b45;
   --on-accent: #ffffff;
   --btn-sec-bg: #333a54;
@@ -144,8 +146,9 @@ body {
     sans-serif;
   max-width: 980px;
   margin: 0 auto;
-  /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar. */
-  padding: 20px 20px 90px;
+  /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar, whose tallest
+     column is the three rows of footer links at ~86px. */
+  padding: 20px 20px 100px;
   line-height: 1.6;
   background: var(--bg);
   color: var(--text);
@@ -897,7 +900,10 @@ table.data th {
   gap: 6px;
 }
 
-/* Fixed bottom-left links, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader. */
+/* Fixed bottom-left links, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader. The
+   rem lengths through this block are lifted verbatim from those two apps rather than converted to
+   the px this stylesheet otherwise uses, so the three footers stay pixel-identical and a future
+   diff against them is a straight read. */
 .page-footer-bar {
   position: fixed;
   left: 0;
@@ -906,8 +912,8 @@ table.data th {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 12px 6px 8px;
+  gap: 1rem;
+  padding: 0 0.75rem 0.35rem 0.5rem;
   /* The bar spans the full viewport width but is mostly empty middle; without this, that empty
      stretch swallows clicks aimed at page content behind it. Pointer events are re-enabled on the
      bar's real contents below. */
@@ -920,22 +926,22 @@ table.data th {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
+  gap: 0.3rem;
 }
 .footer-row {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 0.75rem;
 }
 .footer-text-link {
   color: var(--accent);
-  font-size: 13px;
+  font-size: 0.92rem;
   font-weight: 600;
   text-decoration: underline;
 }
 .version-link {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.92rem;
   font-weight: 600;
   text-decoration: underline;
 }
@@ -1001,7 +1007,7 @@ table.data th {
 .consent-banner {
   position: fixed;
   /* Clears the fixed footer bar rather than covering its links. */
-  bottom: 80px;
+  bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
   width: min(760px, calc(100% - 32px));
@@ -1127,7 +1133,7 @@ table.data th {
     color: #555;
   }
   #printArea .grid .item .val {
-    color: #2952cc;
+    color: #4f46e5;
   }
   #printArea .grid .item .val.sm {
     color: #222;
@@ -1137,7 +1143,7 @@ table.data th {
   }
   #printArea .teach {
     background: #eef2ff;
-    border-left-color: #2952cc;
+    border-left-color: #4f46e5;
     color: #333;
   }
   #printArea pre.cmd {
@@ -1166,7 +1172,7 @@ table.data th {
   }
   #printArea .badge.info {
     background: #e8effe;
-    color: #2952cc;
+    color: #4f46e5;
   }
   /* The scatter plot follows the theme on screen; on paper it is always on white. */
   #printArea .seek-scatter .grid-line {
@@ -1180,7 +1186,7 @@ table.data th {
     fill: #666;
   }
   #printArea .seek-scatter .pt {
-    fill: #2952cc;
+    fill: #4f46e5;
     stroke: #fff;
   }
 }
