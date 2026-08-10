@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.4
+
+#### 🚀 Enhancement
+
+- Mirrored [brain-bbqs/clip-extractor](https://github.com/brain-bbqs/clip-extractor)'s header banner (logo pinned left, title centered on the page) and added its fixed bottom-left footer links, "🐛 Report a bug" and "💡 Request a feature", which open the matching issue form ([#11](https://github.com/brain-bbqs/encoding-helper/pull/11))
+- Added an app version stamp to the footer that links to the source repository; it uses the `__APP_VERSION__` build-time define, which was already wired up but unused ([#11](https://github.com/brain-bbqs/encoding-helper/pull/11))
+
+#### 🏠 Internal
+
+- Added GitHub issue forms (`.github/ISSUE_TEMPLATE/`) for bug reports and feature requests, plus a `config.yml` pointing general questions at EMBER and the BBQS helpdesk, copied from [brain-bbqs/clip-extractor](https://github.com/brain-bbqs/clip-extractor) ([#11](https://github.com/brain-bbqs/encoding-helper/pull/11))
+
 ## 0.2.3
 
 #### 🚀 Enhancement

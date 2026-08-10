@@ -78,10 +78,10 @@
     </script>
   </head>
   <body>
-    <div class="brand">
+    <header class="site-header">
       <img class="brand-logo" src="/src/assets/encoding-helper-icon.svg" alt="" width="48" height="48" />
       <h1>Encoding Helper</h1>
-    </div>
+    </header>
     <p class="subtitle">
       A didactic video encoding lab &middot; metadata via
       <a href="https://mediabunny.dev" target="_blank" rel="noopener">mediabunny</a> &amp;
@@ -158,6 +158,41 @@
       <div class="consent-banner-actions">
         <button type="button" id="analytics-accept-btn" class="btn sm">Accept</button>
         <button type="button" id="analytics-decline-btn" class="btn sm sec">Decline</button>
+      </div>
+    </div>
+
+    <div class="page-footer-bar">
+      <div class="footer-left">
+        <div class="footer-row">
+          <a
+            class="footer-text-link"
+            href="https://github.com/brain-bbqs/encoding-helper/issues/new?template=bug_report.yml"
+            target="_blank"
+            rel="noopener"
+          >
+            🐛 Report a bug
+          </a>
+        </div>
+        <div class="footer-row">
+          <a
+            class="footer-text-link"
+            href="https://github.com/brain-bbqs/encoding-helper/issues/new?template=feature_request.yml"
+            target="_blank"
+            rel="noopener"
+          >
+            💡 Request a feature
+          </a>
+        </div>
+        <div class="footer-row">
+          <!-- Text is filled in from __APP_VERSION__ by src/main.ts. -->
+          <a
+            class="footer-version-link"
+            id="appVersionLink"
+            href="https://github.com/brain-bbqs/encoding-helper"
+            target="_blank"
+            rel="noopener"
+          ></a>
+        </div>
       </div>
     </div>
 

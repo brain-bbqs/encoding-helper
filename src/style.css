@@ -8,21 +8,27 @@ body {
     sans-serif;
   max-width: 980px;
   margin: 0 auto;
-  padding: 20px;
+  /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar. */
+  padding: 20px 20px 90px;
   line-height: 1.6;
   background: #1a1a2e;
   color: #eee;
 }
-.brand {
-  display: flex;
+/* Mirrors brain-bbqs/clip-extractor's header: equal 1fr side columns keep the title truly
+   centered on the page, with the logo pinned to the left of it. */
+.site-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
   gap: 12px;
 }
+.site-header h1 {
+  margin: 0;
+}
 .brand-logo {
+  justify-self: start;
   width: 48px;
   height: 48px;
-  flex-shrink: 0;
 }
 h1 {
   text-align: center;
@@ -582,10 +588,56 @@ footer .gpl {
   font-size: 12px;
 }
 
+/* Fixed bottom-left links, mirroring brain-bbqs/clip-extractor. */
+.page-footer-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 12px 6px 8px;
+  /* The bar spans the full viewport width but is mostly empty middle; without this, that empty
+     stretch swallows clicks aimed at page content behind it. Pointer events are re-enabled on the
+     bar's real contents below. */
+  pointer-events: none;
+}
+.page-footer-bar > * {
+  pointer-events: auto;
+}
+.footer-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.footer-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.footer-text-link {
+  color: #6c9fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.footer-version-link {
+  color: #888;
+  font-size: 12px;
+  text-decoration: none;
+}
+.footer-version-link:hover {
+  color: #6c9fff;
+  text-decoration: underline;
+}
+
 /* Google Analytics consent banner */
 .consent-banner {
   position: fixed;
-  bottom: 20px;
+  /* Clears the fixed footer bar rather than covering its links. */
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   width: min(760px, calc(100% - 32px));
@@ -649,6 +701,10 @@ footer .gpl {
   display: none;
 }
 @media print {
+  /* The on-screen bottom padding only exists to clear the fixed footer bar, which print hides. */
+  body {
+    padding: 20px;
+  }
   body > *:not(#printArea) {
     display: none !important;
   }

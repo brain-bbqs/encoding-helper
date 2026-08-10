@@ -21,6 +21,10 @@ function renderAll(): void {
   renderReportTab(els.panels.report, els.printArea);
 }
 
+// Footer version stamp; the anchor itself already points at the source repository.
+els.appVersionLink.textContent = `v${__APP_VERSION__}`;
+els.appVersionLink.title = `Encoding Helper v${__APP_VERSION__}: view the source on GitHub`;
+
 initFileLoadingUi(els, { onLoaded: renderAll });
 initTabs(() => renderReportTab(els.panels.report, els.printArea));
 
