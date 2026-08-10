@@ -42,7 +42,7 @@ export function renderReencodeTab(panel: HTMLElement): void {
   const fastBox = engineBox(
     "fast",
     "Fast (WebCodecs / mediabunny)",
-    "Hardware-accelerated. No CRF control &mdash; WebCodecs only exposes target bitrate / quality presets, so this is an approximation, not a byte-match of the CLI command.",
+    "Hardware-accelerated. No CRF control: WebCodecs only exposes target bitrate / quality presets, so this is an approximation, not a byte-match of the CLI command.",
   );
   sec.append(fastBox.el);
   const exactBox = engineBox(
@@ -133,7 +133,7 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     const inputData = await fetchFile(state.file ?? state.source.url ?? undefined);
     const args = buildFfmpegArgs(cli, info, inputName, outputName);
     logLine(box.log, "$ ffmpeg " + args.join(" "), "success");
-    box.note.textContent = "Encoding (single-threaded — this can take a while)…";
+    box.note.textContent = "Encoding (single-threaded, so this can take a while)…";
     const { data } = await runFfmpegEncode(args, inputName, inputData, outputName);
     const blob = new Blob([data], { type: "video/mp4" });
     const baseName = (state.source.name || "video").replace(/\.[^.]+$/, "");

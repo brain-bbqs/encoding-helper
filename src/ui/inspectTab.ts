@@ -77,7 +77,7 @@ export function codecTeachBox(codecInfo: CodecInfo | null | undefined): HTMLDivE
     ? "<br>" + codecInfo.details.map((d) => `<b>${d.label}:</b> ${String(d.value)}`).join(" &nbsp;&middot;&nbsp; ")
     : "";
   const yearStr = codecInfo.year ? ` (${codecInfo.year})` : "";
-  const nameStr = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? ` &mdash; ${codecInfo.fullName}` : "";
+  const nameStr = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? `, ${codecInfo.fullName}` : "";
   return teachBox(`<b>${codecInfo.family}</b>${yearStr}${nameStr}. ${codecInfo.description}${detailsStr}`);
 }
 
@@ -143,10 +143,10 @@ function chromaSubsamplingExplainer(width: number, height: number): string {
   const fitText =
     evenW && evenH
       ? "<b>already even</b> in both dimensions."
-      : `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height}) — an encoder must pad or crop before it can write yuv420p.`;
+      : `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height}), so an encoder must pad or crop before it can write yuv420p.`;
   return (
     `<b>Chroma subsampling (yuv420p)</b> halves the horizontal &amp; vertical resolution of the color ` +
-    `channels while keeping full-resolution luma &mdash; the human eye is far less sensitive to color detail ` +
+    `channels while keeping full-resolution luma. The human eye is far less sensitive to color detail ` +
     `than brightness, so this cuts data ~2&times; with minimal visible loss. It requires <b>even</b> width ` +
     `and height so every 2&times;2 luma block maps to one chroma sample. This file is ${fitText}`
   );

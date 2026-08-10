@@ -33,7 +33,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   );
 
   const sec = h("div", "section");
-  sec.append(h("h2", null, "Compare Quality — A/B Comparison"));
+  sec.append(h("h2", null, "Compare Quality: A/B Comparison"));
   sec.append(
     teachBox(`Try changing various reencoding parameters and visualize their effect on rendering a part of the video.`),
   );
@@ -251,7 +251,7 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     h(
       "div",
       "progress-label",
-      "Scroll to zoom toward the cursor, drag to pan — both panes move together. Slide to scrub the test segment. A pixel grid appears once zoomed in far enough.",
+      "Scroll to zoom toward the cursor, drag to pan; both panes move together. Slide to scrub the test segment. A pixel grid appears once zoomed in far enough.",
     ),
   );
 

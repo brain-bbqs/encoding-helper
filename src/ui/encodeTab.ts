@@ -46,7 +46,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
       [
         ["lossless", "Lossless (CRF 0)"],
         ["high", "High (CRF 18)"],
-        ["medium", "Medium (CRF 25) — default"],
+        ["medium", "Medium (CRF 25), default"],
         ["low", "Low (CRF 32)"],
         ["custom", "Custom CRF"],
       ],
@@ -63,7 +63,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
       "cliPreset",
       "x264 Preset",
       ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map(
-        (p) => [p, p + (p === "superfast" ? " — default (sleap-io)" : "")] as [string, string],
+        (p) => [p, p + (p === "superfast" ? " (default, sleap-io)" : "")] as [string, string],
       ),
       cli.preset,
     ),

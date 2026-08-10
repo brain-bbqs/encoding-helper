@@ -169,7 +169,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
 
   const scatter = renderSeekScatter(results);
   if (scatter) {
-    wrap.append(h("div", "progress-label", "Keyframe distance vs. decode time — hover a point for its timestamp"));
+    wrap.append(h("div", "progress-label", "Keyframe distance vs. decode time; hover a point for its timestamp"));
     wrap.append(scatter);
   }
 
@@ -187,9 +187,9 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
     const tr = h("tr");
     tr.append(
       h("td", null, r.t.toFixed(3) + "s"),
-      h("td", null, r.kf != null ? r.kf.toFixed(3) + "s" : "—"),
-      h("td", null, r.dist != null ? r.dist.toFixed(3) + "s" : "—"),
-      h("td", null, r.distFrames != null ? String(r.distFrames) : "—"),
+      h("td", null, r.kf != null ? r.kf.toFixed(3) + "s" : "–"),
+      h("td", null, r.dist != null ? r.dist.toFixed(3) + "s" : "–"),
+      h("td", null, r.distFrames != null ? String(r.distFrames) : "–"),
       h("td", null, fmtMs(r.decodeMs)),
     );
     tbody.append(tr);

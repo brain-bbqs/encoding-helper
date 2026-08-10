@@ -74,7 +74,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "Advanced Video Coding",
     year: 2003,
     description:
-      "The most widely supported video codec in existence &mdash; nearly every browser, phone, and hardware decoder handles it natively. Block-based motion compensation with in-loop deblocking; this is the codec sleap-io's <code>reencode</code> baseline targets specifically for its universal compatibility and predictable I/P/B-frame random access.",
+      "The most widely supported video codec in existence: nearly every browser, phone, and hardware decoder handles it natively. Block-based motion compensation with in-loop deblocking; this is the codec sleap-io's <code>reencode</code> baseline targets specifically for its universal compatibility and predictable I/P/B-frame random access.",
     parse: (cs) => {
       const m = /^avc[13]\.([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(cs || "");
       if (!m) return [];
@@ -91,7 +91,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "High Efficiency Video Coding",
     year: 2013,
     description:
-      "Roughly 2&times; more efficient than H.264 at equal visual quality, using larger coding-tree blocks and richer intra/inter prediction &mdash; at the cost of much slower encoding and patchier hardware decode support (older devices and some browsers can't play it back at all, which is a poor fit for a shared QC/annotation pipeline).",
+      "Roughly 2&times; more efficient than H.264 at equal visual quality, using larger coding-tree blocks and richer intra/inter prediction, at the cost of much slower encoding and patchier hardware decode support (older devices and some browsers can't play it back at all, which is a poor fit for a shared QC/annotation pipeline).",
     parse: (cs) => {
       const m = /^(?:hev1|hvc1)\.[ABC]?(\d+)\.[0-9A-Fa-f]+\.([LH])(\d+)/.exec(cs || "");
       if (!m) return [];
@@ -123,7 +123,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "AOMedia Video 1",
     year: 2018,
     description:
-      "The newest royalty-free, open codec, developed by the Alliance for Open Media (Google, Netflix, Amazon, Mozilla, and others). Roughly 30% more efficient than HEVC/VP9 at equal quality and historically very slow to encode, with hardware decode support still spreading &mdash; increasingly used for high-volume streaming where the bitrate savings outweigh the encoding cost.",
+      "The newest royalty-free, open codec, developed by the Alliance for Open Media (Google, Netflix, Amazon, Mozilla, and others). Roughly 30% more efficient than HEVC/VP9 at equal quality and historically very slow to encode, with hardware decode support still spreading, so it is increasingly used for high-volume streaming where the bitrate savings outweigh the encoding cost.",
     parse: (cs) => {
       const m = /^av01\.(\d)\.(\d{2})([MH])\.(\d{2})/.exec(cs || "");
       if (!m) return [];
@@ -148,7 +148,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "ProRes",
     year: 2007,
     description:
-      "A high-bitrate, intraframe-only professional mezzanine codec &mdash; every frame is a keyframe, so it's trivially and instantly seekable, at the cost of much larger files. Meant for editing workflows, not final delivery.",
+      "A high-bitrate, intraframe-only professional mezzanine codec in which every frame is a keyframe, so it's trivially and instantly seekable, at the cost of much larger files. Meant for editing workflows, not final delivery.",
     parse: () => [],
   },
   aac: {
@@ -168,7 +168,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "Opus",
     year: 2012,
     description:
-      "A modern, royalty-free, low-latency codec tuned for both speech and music &mdash; the default for WebRTC and increasingly used for general-purpose streaming audio.",
+      "A modern, royalty-free, low-latency codec tuned for both speech and music; it is the default for WebRTC and increasingly used for general-purpose streaming audio.",
     parse: () => [],
   },
   mp3: {
@@ -192,7 +192,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "Free Lossless Audio Codec",
     year: 2001,
     description:
-      "Lossless compression &mdash; bit-exact reconstruction of the original samples, at roughly 50&ndash;60% the size of raw PCM. Not used for lossy delivery, but common for archival audio.",
+      "Lossless compression, meaning bit-exact reconstruction of the original samples, at roughly 50&ndash;60% the size of raw PCM. Not used for lossy delivery, but common for archival audio.",
     parse: () => [],
   },
   ac3: {
@@ -220,7 +220,7 @@ export function describeCodec(shortCodec: string | null | undefined, codecString
       fullName: "Pulse-Code Modulation",
       year: null,
       description:
-        "Raw, uncompressed audio samples &mdash; no encoding at all. Simple and lossless, but large; mostly seen in short clips or intermediate/editing files rather than delivery formats.",
+        "Raw, uncompressed audio samples, with no encoding at all. Simple and lossless, but large; mostly seen in short clips or intermediate/editing files rather than delivery formats.",
       details: [],
     };
   }

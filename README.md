@@ -6,7 +6,7 @@
 
 **Live:** https://encoding-helper.brain-bbqs.org
 
-A didactic, in-browser video **encoding lab**. Load an MP4 and it inspects the container, teaches you how MP4 storage and H.264 encoding actually work (tied to the numbers in _your_ file), runs empirical seeking tests, and reencodes video directly in the browser — while always producing a copy-paste `ffmpeg` command for local/headless/batch use.
+A didactic, in-browser video **encoding lab**. Load an MP4 and it inspects the container, teaches you how MP4 storage and H.264 encoding actually work (tied to the numbers in _your_ file), runs empirical seeking tests, and reencodes video directly in the browser, while always producing a copy-paste `ffmpeg` command for local/headless/batch use.
 
 Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Frame-Accurate Video Player](https://vibes.tlab.sh/video-player/).
 
@@ -19,9 +19,9 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
 - **Reencode In-Browser** - encodes the whole video to H.264/MP4 in its own tab, saved back to disk via the File System Access API, with two engines:
   - **ffmpeg.wasm (exact)** - runs the literal CRF/preset command, byte-for-byte equivalent to the CLI, lazy-loaded (~30 MB), GPL
   - **mediabunny / WebCodecs (fast)** - hardware-accelerated, no CRF (bitrate/quality-preset only), surfaced honestly as an approximation
-- **Compare Quality (A/B)** - encodes just a short window (1-10s) of the video at the chosen CRF/preset, then decodes the original and the result side-by-side with synchronized pixel-level zoom & pan, one-click **Fit**/**Actual Size (100%)** buttons, a pixel grid that appears once zoomed in far enough to make individual pixels visible, and a scrub slider — so you can judge a quality setting before committing to a full reencode
+- **Compare Quality (A/B)** - encodes just a short window (1-10s) of the video at the chosen CRF/preset, then decodes the original and the result side-by-side with synchronized pixel-level zoom & pan, one-click **Fit**/**Actual Size (100%)** buttons, a pixel grid that appears once zoomed in far enough to make individual pixels visible, and a scrub slider, so you can judge a quality setting before committing to a full reencode
 - **Always emits a CLI command** - a live, editable `ffmpeg` command mirroring [sleap-io](https://github.com/talmolab/sleap-io)'s `reencode`, for anyone who wants to run it locally, headless, or in batch
-- **Report / Export** - compiles metadata, the codec explainer, the atom map, GOP/keyframe stats, the seeking test and Compare Quality results (if run), and the CLI command into one report — copy as Markdown, download a `.md` file, or print to PDF via the browser's native print dialog
+- **Report / Export** - compiles metadata, the codec explainer, the atom map, GOP/keyframe stats, the seeking test and Compare Quality results (if run), and the CLI command into one report: copy as Markdown, download a `.md` file, or print to PDF via the browser's native print dialog
 - **Shareable links** - the active tab lives in the URL (`?tab=seek`), and a video loaded from a remote URL is recorded alongside it (`?src=…`) and re-opened automatically, so a link points a colleague at the same file on the same tab
 - **Light/dark theme** with an OS-preference default and a header toggle, styled after [clip-extractor](https://github.com/brain-bbqs/clip-extractor) and [bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader)
 

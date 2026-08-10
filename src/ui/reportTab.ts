@@ -137,9 +137,9 @@ function buildSeekingSection(): ReportSection | null {
     headers: ["Timestamp", "Nearest Keyframe ≤ t", "Distance", "Distance (frames)", "Decode Time"],
     rows: results.map((r) => [
       r.t.toFixed(3) + "s",
-      r.kf != null ? r.kf.toFixed(3) + "s" : "—",
-      r.dist != null ? r.dist.toFixed(3) + "s" : "—",
-      r.distFrames != null ? String(r.distFrames) : "—",
+      r.kf != null ? r.kf.toFixed(3) + "s" : "–",
+      r.dist != null ? r.dist.toFixed(3) + "s" : "–",
+      r.distFrames != null ? String(r.distFrames) : "–",
       fmtMs(r.decodeMs),
     ]),
   };
@@ -246,7 +246,7 @@ function renderReportSectionsToHtml(sections: ReportSection[]): DocumentFragment
 function renderReportSectionsToMarkdown(sections: ReportSection[], title: string): string {
   const esc = (s: string | number): string => String(s).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
   const lines = [
-    `# Encoding Helper Report — ${title}`,
+    `# Encoding Helper Report: ${title}`,
     "",
     `_Generated ${new Date().toLocaleString()} · https://vibes.tlab.sh/encoding-helper/_`,
     "",
@@ -282,8 +282,8 @@ export function renderReportTab(panel: HTMLElement, printArea: HTMLElement): voi
   sec.append(h("h2", null, "Report / Export"));
   sec.append(
     teachBox(
-      `Compiles everything above &mdash; metadata, the codec explainer, the atom map, GOP/keyframe stats, the ` +
-        `seeking test and Compare Quality results (if you've run them), and the CLI command &mdash; into one ` +
+      `Compiles everything above (metadata, the codec explainer, the atom map, GOP/keyframe stats, the ` +
+        `seeking test and Compare Quality results if you've run them, and the CLI command) into one ` +
         `shareable report.`,
     ),
   );
@@ -308,7 +308,7 @@ export function renderReportTab(panel: HTMLElement, printArea: HTMLElement): voi
 
     printArea.innerHTML = "";
     printArea.append(
-      h("h1", null, `Encoding Helper Report — ${state.source?.name ?? ""}`),
+      h("h1", null, `Encoding Helper Report: ${state.source?.name ?? ""}`),
       h("p", "report-meta", `Generated ${new Date().toLocaleString()} · vibes.tlab.sh/encoding-helper`),
       renderReportSectionsToHtml(sections),
     );
