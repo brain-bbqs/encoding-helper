@@ -21,9 +21,9 @@ export interface ContainerInfo {
 export const CONTAINER_PREAMBLE =
   "A <b>video container</b> is the wrapper around the media, not the compression method itself. It stores the " +
   "encoded tracks, the index that maps timestamps to byte ranges, and the metadata tags. The <b>codec</b> is what " +
-  "actually compresses the pixels and samples. The same H.264 video can sit in an MP4, a MOV, or a Matroska " +
-  "file unchanged, and rewrapping it (<code>ffmpeg -c copy</code>) is lossless and fast because no frame is " +
-  "re-encoded. Which codecs are legal inside, though, depends on the container.";
+  "actually compresses the pixels and samples. The same H.264 video can sit in an MP4, a MOV (.mov), or a " +
+  "Matroska (.mkv) file unchanged, and rewrapping it is lossless and fast because no frame is re-encoded. " +
+  "Which codecs are legal inside, though, depends on the container.";
 
 export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
   MP4: {
