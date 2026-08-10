@@ -22,6 +22,7 @@
   --accent-hover: #1f42ab;
   --accent-bright: #4a72e0;
   --accent-tint: rgb(41 82 204 / 0.12);
+  --accent-soft: #eef0ff;
   --on-accent: #ffffff;
   --btn-sec-bg: #e7ebf7;
   --btn-sec-bg-hover: #dae0f2;
@@ -66,6 +67,7 @@
     --accent-hover: #5a8ae6;
     --accent-bright: #8fb4ff;
     --accent-tint: rgb(108 159 255 / 0.15);
+    --accent-soft: #262b45;
     --on-accent: #ffffff;
     --btn-sec-bg: #333a54;
     --btn-sec-bg-hover: #3f4768;
@@ -108,6 +110,7 @@
   --accent-hover: #5a8ae6;
   --accent-bright: #8fb4ff;
   --accent-tint: rgb(108 159 255 / 0.15);
+  --accent-soft: #262b45;
   --on-accent: #ffffff;
   --btn-sec-bg: #333a54;
   --btn-sec-bg-hover: #3f4768;
@@ -170,6 +173,9 @@ body {
   gap: 12px;
   justify-self: end;
 }
+/* Same outlined circle as in clip-extractor/bbqs-uploader, where the toggle picks up its border
+   and card background from their base `button` rule; this app has no such rule, so they are
+   spelled out here. */
 .theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -178,16 +184,20 @@ body {
   width: 48px;
   height: 48px;
   padding: 0;
-  border: none;
+  border: 1px solid var(--border);
   border-radius: 50%;
-  background: none;
+  background: var(--card);
   color: var(--muted);
   cursor: pointer;
   flex-shrink: 0;
 }
 .theme-toggle:hover {
-  background: var(--accent-tint);
+  background: var(--accent-soft);
   color: var(--text);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 /* The moon (switch to dark) shows in light mode, the sun (switch to light) in dark mode, keyed
    off the same data-theme/OS-preference combination that selects the theme variables above. */
@@ -234,11 +244,6 @@ h1 {
 .drop-zone.dragover {
   border-color: var(--accent);
   background: var(--accent-tint);
-}
-.drop-zone .hint {
-  color: var(--muted);
-  font-size: 13px;
-  margin-top: 8px;
 }
 .drop-zone .drop-mini {
   display: none;
