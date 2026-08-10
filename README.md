@@ -22,6 +22,7 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
 - **Encode Test (A/B)** - encodes just a short window (1-10s) of the video at the chosen CRF/preset, then decodes the original and the result side-by-side with synchronized pixel-level zoom & pan, one-click **Fit**/**Actual Size (100%)** buttons, a pixel grid that appears once zoomed in far enough to make individual pixels visible, and a scrub slider — so you can judge a quality setting before committing to a full re-encode
 - **Always emits a CLI command** - a live, editable `ffmpeg` command mirroring [sleap-io](https://github.com/talmolab/sleap-io)'s `reencode`, for anyone who wants to run it locally, headless, or in batch
 - **Report / Export** - compiles metadata, the codec explainer, the atom map, GOP/keyframe stats, the seeking test and Encode Test results (if run), and the CLI command into one report — copy as Markdown, download a `.md` file, or print to PDF via the browser's native print dialog
+- **Light/dark theme** with an OS-preference default and a header toggle, styled after [clip-extractor](https://github.com/brain-bbqs/clip-extractor) and [bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader)
 
 ## Usage
 
@@ -46,7 +47,7 @@ A TypeScript + [Vite](https://vite.dev) app; the video-handling libraries are or
 - GitHub Pages serves no custom headers, so only the **single-thread** ffmpeg.wasm core is used (no COOP/COEP, no `coi-serviceworker`) - this keeps the tool a single self-contained page at the cost of some encode speed
 - WebCodecs exposes no CRF control, only target bitrate/quality presets - the "fast" engine cannot byte-match the CLI command, and the UI says so
 - Firefox's H.264 WebCodecs _encoder_ support is weak; the fast engine feature-detects and falls back to ffmpeg.wasm/CLI-only
-- ffmpeg.wasm is GPL-licensed; credited in the footer
+- ffmpeg.wasm is GPL-licensed and lazy-loaded on demand; credited in the dependency list above and in the Re-encode tab, which names the engine at the point of use
 
 ## Development
 

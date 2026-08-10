@@ -1,3 +1,139 @@
+/* Theme variables mirror brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: light by
+   default, dark via the OS preference or the header toggle (which sets data-theme on <html> to
+   override that preference). The dark values below are the app's original hardcoded palette, so
+   dark mode looks exactly as it did before the light theme was added. The two dark blocks must
+   stay identical — update both together. */
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --card-border: #e4e8f2;
+  /* Recessed surfaces: the log console and the CLI command block. */
+  --sunken: #eef0f7;
+  --field: #ffffff;
+  --hover: #eef0f8;
+  --text: #1c2333;
+  --text-strong: #0b1020;
+  --muted: #5b6478;
+  --muted-2: #6b7488;
+  --faint: #7b8296;
+  --border: #d5dae8;
+  --border-soft: #e4e8f2;
+  --accent: #2952cc;
+  --accent-hover: #1f42ab;
+  --accent-bright: #4a72e0;
+  --accent-tint: rgb(41 82 204 / 0.12);
+  --accent-soft: #eef0ff;
+  --on-accent: #ffffff;
+  --btn-sec-bg: #e7ebf7;
+  --btn-sec-bg-hover: #dae0f2;
+  --btn-sec-text: #1c2333;
+  /* Inert fills: disabled buttons and the progress-bar track. */
+  --btn-off-bg: #e4e8f2;
+  --chip-bg: #e7ebf7;
+  --chip-text: #5b6478;
+  --code-text: #1f2b52;
+  --tab-bg: #ffffff;
+  --teach-bg: #eef2ff;
+  --teach-text: #333a4d;
+  --teach-strong: #111827;
+  --chart-grid: #e4e8f2;
+  --ok: #1a7d42;
+  --ok-tint: #e6f9ee;
+  --warn: #92620a;
+  --warn-tint: #fff4e0;
+  --err: #b91c1c;
+  --err-border: #ef4444;
+  --err-tint: rgb(239 68 68 / 0.1);
+  --shadow: rgb(0 0 0 / 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1a2e;
+    --card: #252540;
+    /* Dark cards read as raised against the page on their own, so no outline. */
+    --card-border: transparent;
+    --sunken: #12121f;
+    --field: #14142a;
+    --hover: #1a1a2e;
+    --text: #eeeeee;
+    --text-strong: #ffffff;
+    --muted: #888888;
+    --muted-2: #999999;
+    --faint: #666666;
+    --border: #444444;
+    --border-soft: #333333;
+    --accent: #6c9fff;
+    --accent-hover: #5a8ae6;
+    --accent-bright: #8fb4ff;
+    --accent-tint: rgb(108 159 255 / 0.15);
+    --accent-soft: #262b45;
+    --on-accent: #ffffff;
+    --btn-sec-bg: #333a54;
+    --btn-sec-bg-hover: #3f4768;
+    --btn-sec-text: #ffffff;
+    --btn-off-bg: #444444;
+    --chip-bg: #333a54;
+    --chip-text: #aaaaaa;
+    --code-text: #c9d6ff;
+    --tab-bg: #1a1a2e;
+    --teach-bg: #1a1a2e;
+    --teach-text: #bbbbbb;
+    --teach-strong: #dddddd;
+    --chart-grid: #333333;
+    --ok: #4ade80;
+    --ok-tint: rgb(74 222 128 / 0.15);
+    --warn: #fbbf24;
+    --warn-tint: rgb(251 191 36 / 0.15);
+    --err: #ff8080;
+    --err-border: #ef4444;
+    --err-tint: rgb(239 68 68 / 0.12);
+    --shadow: rgb(0 0 0 / 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1a1a2e;
+  --card: #252540;
+  --card-border: transparent;
+  --sunken: #12121f;
+  --field: #14142a;
+  --hover: #1a1a2e;
+  --text: #eeeeee;
+  --text-strong: #ffffff;
+  --muted: #888888;
+  --muted-2: #999999;
+  --faint: #666666;
+  --border: #444444;
+  --border-soft: #333333;
+  --accent: #6c9fff;
+  --accent-hover: #5a8ae6;
+  --accent-bright: #8fb4ff;
+  --accent-tint: rgb(108 159 255 / 0.15);
+  --accent-soft: #262b45;
+  --on-accent: #ffffff;
+  --btn-sec-bg: #333a54;
+  --btn-sec-bg-hover: #3f4768;
+  --btn-sec-text: #ffffff;
+  --btn-off-bg: #444444;
+  --chip-bg: #333a54;
+  --chip-text: #aaaaaa;
+  --code-text: #c9d6ff;
+  --tab-bg: #1a1a2e;
+  --teach-bg: #1a1a2e;
+  --teach-text: #bbbbbb;
+  --teach-strong: #dddddd;
+  --chart-grid: #333333;
+  --ok: #4ade80;
+  --ok-tint: rgb(74 222 128 / 0.15);
+  --warn: #fbbf24;
+  --warn-tint: rgb(251 191 36 / 0.15);
+  --err: #ff8080;
+  --err-border: #ef4444;
+  --err-tint: rgb(239 68 68 / 0.12);
+  --shadow: rgb(0 0 0 / 0.35);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -8,21 +144,79 @@ body {
     sans-serif;
   max-width: 980px;
   margin: 0 auto;
-  padding: 20px;
+  /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar. */
+  padding: 20px 20px 90px;
   line-height: 1.6;
-  background: #1a1a2e;
-  color: #eee;
+  background: var(--bg);
+  color: var(--text);
 }
-.brand {
-  display: flex;
+/* Mirrors brain-bbqs/clip-extractor's header: equal 1fr side columns keep the title truly
+   centered on the page, with the logo pinned to the left of it and the theme toggle to the
+   right. */
+.site-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
   gap: 12px;
 }
+.site-header h1 {
+  margin: 0;
+}
 .brand-logo {
+  justify-self: start;
   width: 48px;
   height: 48px;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: end;
+}
+/* Same outlined circle as in clip-extractor/bbqs-uploader, where the toggle picks up its border
+   and card background from their base `button` rule; this app has no such rule, so they are
+   spelled out here. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Matches .brand-logo, so the two circles flanking the header are the same size. */
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
   flex-shrink: 0;
+}
+.theme-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* The moon (switch to dark) shows in light mode, the sun (switch to light) in dark mode, keyed
+   off the same data-theme/OS-preference combination that selects the theme variables above. */
+.theme-toggle-sun {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle-sun {
+    display: block;
+  }
+  :root:not([data-theme="light"]) .theme-toggle-moon {
+    display: none;
+  }
+}
+:root[data-theme="dark"] .theme-toggle-sun {
+  display: block;
+}
+:root[data-theme="dark"] .theme-toggle-moon {
+  display: none;
 }
 h1 {
   text-align: center;
@@ -30,21 +224,14 @@ h1 {
 }
 .subtitle {
   text-align: center;
-  color: #888;
+  color: var(--muted);
   margin-bottom: 20px;
   font-size: 14px;
-}
-.subtitle a {
-  color: #6c9fff;
-  text-decoration: none;
-}
-.subtitle a:hover {
-  text-decoration: underline;
 }
 
 /* Drop zone / file loading */
 .drop-zone {
-  border: 2px dashed #444;
+  border: 2px dashed var(--border);
   border-radius: 10px;
   padding: 40px 20px;
   text-align: center;
@@ -55,13 +242,8 @@ h1 {
   margin-bottom: 16px;
 }
 .drop-zone.dragover {
-  border-color: #6c9fff;
-  background: rgba(108, 159, 255, 0.08);
-}
-.drop-zone .hint {
-  color: #888;
-  font-size: 13px;
-  margin-top: 8px;
+  border-color: var(--accent);
+  background: var(--accent-tint);
 }
 .drop-zone .drop-mini {
   display: none;
@@ -90,7 +272,7 @@ h1 {
   word-break: break-all;
 }
 .drop-mini .fsize {
-  color: #888;
+  color: var(--muted);
   font-size: 13px;
 }
 .load-actions {
@@ -115,8 +297,8 @@ h1 {
 
 /* Buttons / inputs */
 .btn {
-  background: #6c9fff;
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
   border: none;
   padding: 9px 18px;
   border-radius: 6px;
@@ -125,18 +307,19 @@ h1 {
   font-weight: 500;
 }
 .btn:hover {
-  background: #5a8ae6;
+  background: var(--accent-hover);
 }
 .btn:disabled {
-  background: #444;
-  color: #888;
+  background: var(--btn-off-bg);
+  color: var(--muted);
   cursor: not-allowed;
 }
 .btn.sec {
-  background: #333a54;
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
 }
 .btn.sec:hover {
-  background: #3f4768;
+  background: var(--btn-sec-bg-hover);
 }
 .btn.sm {
   padding: 6px 12px;
@@ -146,18 +329,17 @@ input,
 select {
   width: 100%;
   padding: 10px;
-  border: 1px solid #444;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 16px;
-  background: #12122080;
-  color: #eee;
+  background: var(--field);
+  color: var(--text);
   margin-bottom: 10px;
-  background: #14142a;
 }
 input:focus,
 select:focus {
   outline: none;
-  border-color: #6c9fff;
+  border-color: var(--accent);
 }
 input[type="range"] {
   padding: 0;
@@ -170,7 +352,7 @@ input[type="checkbox"] {
 label.field-label {
   display: block;
   font-size: 12px;
-  color: #999;
+  color: var(--muted-2);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-bottom: 4px;
@@ -179,7 +361,7 @@ label.field-label {
   margin-bottom: 14px;
 }
 .field .hint {
-  color: #777;
+  color: var(--faint);
   font-size: 12px;
   margin-top: -6px;
   margin-bottom: 8px;
@@ -196,9 +378,9 @@ label.field-label {
 
 /* Error banner */
 .error-msg {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid #ef4444;
-  color: #ff8080;
+  background: var(--err-tint);
+  border: 1px solid var(--err-border);
+  color: var(--err);
   padding: 12px 16px;
   border-radius: 8px;
   margin: 14px 0;
@@ -207,7 +389,8 @@ label.field-label {
 
 /* Cards / sections */
 .section {
-  background: #252540;
+  background: var(--card);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 16px 20px;
   margin-bottom: 14px;
@@ -215,13 +398,13 @@ label.field-label {
 .section h2 {
   font-size: 13px;
   text-transform: uppercase;
-  color: #888;
+  color: var(--muted);
   letter-spacing: 0.5px;
   margin: 0 0 12px;
 }
 .section h3 {
   font-size: 14px;
-  color: #ccc;
+  color: var(--text);
   margin: 16px 0 8px;
 }
 .section h3:first-child {
@@ -235,21 +418,21 @@ label.field-label {
 .grid .item label {
   display: block;
   font-size: 11px;
-  color: #666;
+  color: var(--faint);
   text-transform: uppercase;
   margin-bottom: 2px;
 }
 .grid .item .val {
   font-size: 16px;
   font-weight: 600;
-  color: #6c9fff;
+  color: var(--accent);
   word-break: break-word;
 }
 .grid .item .val.sm {
   font-size: 13px;
   font-family: Monaco, Consolas, monospace;
   font-weight: 400;
-  color: #eee;
+  color: var(--text);
 }
 .grid .item.wide {
   grid-column: span 2;
@@ -264,37 +447,37 @@ label.field-label {
   font-weight: 600;
 }
 .badge.good {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--ok-tint);
+  color: var(--ok);
 }
 .badge.bad {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
+  background: var(--warn-tint);
+  color: var(--warn);
 }
 .badge.info {
-  background: rgba(108, 159, 255, 0.15);
-  color: #6c9fff;
+  background: var(--accent-tint);
+  color: var(--accent);
 }
 
 /* Teach boxes */
 .teach {
-  background: #1a1a2e;
-  border-left: 3px solid #6c9fff;
+  background: var(--teach-bg);
+  border-left: 3px solid var(--accent);
   border-radius: 4px;
   padding: 10px 14px;
   margin: 10px 0;
   font-size: 13px;
-  color: #bbb;
+  color: var(--teach-text);
 }
 .teach b {
-  color: #ddd;
+  color: var(--teach-strong);
 }
 details.teach-more {
   margin-top: 6px;
 }
 details.teach-more summary {
   cursor: pointer;
-  color: #6c9fff;
+  color: var(--accent);
   font-size: 12px;
 }
 
@@ -306,9 +489,9 @@ details.teach-more summary {
   flex-wrap: wrap;
 }
 .tab {
-  background: #1a1a2e;
-  border: 1px solid #444;
-  color: #999;
+  background: var(--tab-bg);
+  border: 1px solid var(--border);
+  color: var(--muted-2);
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
@@ -316,13 +499,13 @@ details.teach-more summary {
   font-weight: 500;
 }
 .tab:hover {
-  border-color: #6c9fff;
-  color: #fff;
+  border-color: var(--accent);
+  color: var(--text-strong);
 }
 .tab.on {
-  background: #6c9fff;
-  border-color: #6c9fff;
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 .tab-panel {
   display: none;
@@ -344,27 +527,27 @@ details.teach-more summary {
   align-items: baseline;
 }
 .atom-row:hover {
-  background: #1a1a2e;
+  background: var(--hover);
 }
 .atom-row .type {
-  color: #6c9fff;
+  color: var(--accent);
   font-weight: 700;
   min-width: 4.2em;
 }
 .atom-row .off {
-  color: #888;
+  color: var(--muted);
   min-width: 9em;
 }
 .atom-row .sz {
-  color: #999;
+  color: var(--muted-2);
   min-width: 9em;
 }
 .atom-row .tag {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 8px;
-  background: #333a54;
-  color: #aaa;
+  background: var(--chip-bg);
+  color: var(--chip-text);
 }
 
 /* Histogram bars */
@@ -377,14 +560,15 @@ details.teach-more summary {
 }
 .hist .bar {
   flex: 1;
-  background: #6c9fff;
+  background: var(--accent);
   border-radius: 2px 2px 0 0;
   min-height: 2px;
 }
 .hist .bar.tall {
-  background: #fbbf24;
+  background: var(--warn);
 }
 
+/* Seek scatter plot (built in src/ui/seekTab.ts; colors live here so it follows the theme) */
 .seek-scatter {
   width: 100%;
   height: auto;
@@ -396,16 +580,32 @@ details.teach-more summary {
     -apple-system,
     sans-serif;
 }
+.seek-scatter .grid-line {
+  stroke: var(--chart-grid);
+}
+.seek-scatter .axis {
+  stroke: var(--border);
+}
+.seek-scatter .tick {
+  fill: var(--muted);
+}
+.seek-scatter .axis-title {
+  fill: var(--muted-2);
+}
+.seek-scatter .pt {
+  fill: var(--accent);
+  stroke: var(--card);
+}
 .seek-scatter g {
   cursor: default;
 }
-.seek-scatter g:hover circle:last-child {
-  fill: #8fb4ff;
+.seek-scatter g:hover .pt {
+  fill: var(--accent-bright);
 }
 
 /* Progress */
 .progress-wrap {
-  background: #444;
+  background: var(--btn-off-bg);
   border-radius: 4px;
   height: 10px;
   overflow: hidden;
@@ -413,18 +613,18 @@ details.teach-more summary {
 }
 .progress-wrap .fill {
   height: 100%;
-  background: #6c9fff;
+  background: var(--accent);
   width: 0%;
   transition: width 0.15s;
 }
 .progress-label {
   font-size: 12px;
-  color: #888;
+  color: var(--muted);
 }
 
 /* Log console */
 .log-console {
-  background: #12121f;
+  background: var(--sunken);
   border-radius: 6px;
   padding: 8px 10px;
   max-height: 160px;
@@ -437,21 +637,21 @@ details.teach-more summary {
   padding: 1px 0;
 }
 .log-console .l.info {
-  color: #6c9fff;
+  color: var(--accent);
 }
 .log-console .l.success {
-  color: #4ade80;
+  color: var(--ok);
 }
 .log-console .l.warn {
-  color: #fbbf24;
+  color: var(--warn);
 }
 .log-console .l.error {
-  color: #ff6b6b;
+  color: var(--err);
 }
 
 /* Command output */
 pre.cmd {
-  background: #12121f;
+  background: var(--sunken);
   padding: 14px;
   border-radius: 6px;
   font-size: 12.5px;
@@ -460,7 +660,7 @@ pre.cmd {
   word-break: break-all;
   margin: 0 0 10px;
   font-family: Monaco, Consolas, monospace;
-  color: #c9d6ff;
+  color: var(--code-text);
 }
 
 /* Table */
@@ -473,10 +673,10 @@ table.data th,
 table.data td {
   text-align: left;
   padding: 5px 8px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-soft);
 }
 table.data th {
-  color: #888;
+  color: var(--muted);
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
@@ -485,7 +685,8 @@ table.data th {
   overflow-x: auto;
 }
 
-/* Encode Test: side-by-side zoom/pan comparison */
+/* Encode Test: side-by-side zoom/pan comparison. The panes show decoded video, so their
+   letterbox, label chip, and pixel grid stay fixed regardless of the page theme. */
 .compare-stage {
   display: flex;
   gap: 8px;
@@ -563,29 +764,53 @@ table.data th {
   gap: 6px;
 }
 
-footer {
-  text-align: center;
-  margin-top: 30px;
-  color: #666;
+/* Fixed bottom-left links, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader. */
+.page-footer-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 12px 6px 8px;
+  /* The bar spans the full viewport width but is mostly empty middle; without this, that empty
+     stretch swallows clicks aimed at page content behind it. Pointer events are re-enabled on the
+     bar's real contents below. */
+  pointer-events: none;
+}
+.page-footer-bar > * {
+  pointer-events: auto;
+}
+.footer-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.footer-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.footer-text-link {
+  color: var(--accent);
   font-size: 13px;
-}
-footer a {
-  color: #6c9fff;
-  text-decoration: none;
-}
-footer a:hover {
+  font-weight: 600;
   text-decoration: underline;
 }
-footer .gpl {
-  color: #888;
-  margin-top: 4px;
-  font-size: 12px;
+.version-link {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 /* Google Analytics consent banner */
 .consent-banner {
   position: fixed;
-  bottom: 20px;
+  /* Clears the fixed footer bar rather than covering its links. */
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   width: min(760px, calc(100% - 32px));
@@ -594,10 +819,10 @@ footer .gpl {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  background: #14142a;
-  border: 1px solid #444;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  box-shadow: 0 8px 24px var(--shadow);
   z-index: 30;
 }
 .consent-banner[hidden] {
@@ -605,7 +830,7 @@ footer .gpl {
 }
 .consent-banner-text {
   margin: 0;
-  color: #aaa;
+  color: var(--muted);
   font-size: 13px;
 }
 .consent-banner-actions {
@@ -622,7 +847,7 @@ footer .gpl {
 
 @media (max-width: 600px) {
   body {
-    padding: 12px;
+    padding: 12px 12px 90px;
   }
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -641,7 +866,7 @@ footer .gpl {
 
 /* Report tab preview + print-only view */
 .report-meta {
-  color: #888;
+  color: var(--muted);
   font-size: 12px;
   margin: -6px 0 14px;
 }
@@ -649,6 +874,10 @@ footer .gpl {
   display: none;
 }
 @media print {
+  /* The on-screen bottom padding only exists to clear the fixed footer bar, which print hides. */
+  body {
+    padding: 20px;
+  }
   body > *:not(#printArea) {
     display: none !important;
   }
@@ -716,5 +945,20 @@ footer .gpl {
   #printArea .badge.info {
     background: #e8effe;
     color: #2952cc;
+  }
+  /* The scatter plot follows the theme on screen; on paper it is always on white. */
+  #printArea .seek-scatter .grid-line {
+    stroke: #ddd;
+  }
+  #printArea .seek-scatter .axis {
+    stroke: #999;
+  }
+  #printArea .seek-scatter .tick,
+  #printArea .seek-scatter .axis-title {
+    fill: #666;
+  }
+  #printArea .seek-scatter .pt {
+    fill: #2952cc;
+    stroke: #fff;
   }
 }

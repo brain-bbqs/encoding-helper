@@ -10,7 +10,6 @@ function buildDropzone(mode: Mode): HTMLElement {
   dz.innerHTML = `
     <div class="drop-full">
       <div><strong>Drop a video file here</strong>, or choose an option below</div>
-      <div class="hint">Inspects MP4/H.264 files entirely in your browser &mdash; nothing is uploaded</div>
       <div class="load-actions">
         <button class="btn" type="button">Choose File</button>
         <button class="btn sec" type="button">Load Sample</button>

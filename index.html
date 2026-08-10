@@ -11,6 +11,14 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/src/assets/encoding-helper-favicon-180.png" />
     <link rel="mask-icon" href="/src/assets/encoding-helper-favicon-mono.svg" color="#810915" />
     <script>
+      // Applies the stored theme override before first paint so a saved dark/light choice doesn't
+      // flash the OS-preferred theme first. Key kept in sync with THEME_KEY in src/main.ts.
+      try {
+        var storedTheme = localStorage.getItem("encoding-helper.theme");
+        if (storedTheme === "light" || storedTheme === "dark") document.documentElement.dataset.theme = storedTheme;
+      } catch (e) {}
+    </script>
+    <script>
       // Google Analytics is never loaded until the user explicitly accepts via the consent
       // banner below; declining (or leaving the choice unset) never touches gtag.js or any GA
       // cookie. Consent is re-checked on every page load from this localStorage key.
@@ -78,15 +86,59 @@
     </script>
   </head>
   <body>
-    <div class="brand">
+    <header class="site-header">
       <img class="brand-logo" src="/src/assets/encoding-helper-icon.svg" alt="" width="48" height="48" />
       <h1>Encoding Helper</h1>
-    </div>
+      <div class="header-actions">
+        <button
+          type="button"
+          id="themeToggle"
+          class="theme-toggle"
+          aria-label="Toggle light/dark mode"
+          title="Toggle light/dark mode"
+        >
+          <svg
+            class="theme-toggle-moon"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+          <svg
+            class="theme-toggle-sun"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+        </button>
+      </div>
+    </header>
     <p class="subtitle">
-      A didactic video encoding lab &middot; metadata via
-      <a href="https://mediabunny.dev" target="_blank" rel="noopener">mediabunny</a> &amp;
-      <a href="https://github.com/gpac/mp4box.js" target="_blank" rel="noopener">mp4box.js</a> &middot;
-      <a href="https://github.com/talmolab/vibes" target="_blank" rel="noopener">vibes</a>
+      Explore video file layouts &middot; Learn more about codec parameterizations &middot; Compare reencoding
+      strategies
     </p>
 
     <div class="error-msg" id="errorMsg"></div>
@@ -94,7 +146,6 @@
     <div class="drop-zone" id="dropZone">
       <div class="drop-full">
         <div><strong>Drop a video file here</strong>, or choose an option below</div>
-        <div class="hint">Inspects MP4/H.264 files entirely in your browser &mdash; nothing is uploaded</div>
         <div class="load-actions">
           <button class="btn" id="pickFileBtn" type="button">Choose File</button>
           <button class="btn sec" id="loadSampleBtn" type="button">Load Sample</button>
@@ -140,17 +191,6 @@
     <!-- Populated only when the Report tab renders; the only thing @media print shows. -->
     <div id="printArea"></div>
 
-    <footer>
-      Part of <a href="https://github.com/talmolab/vibes" target="_blank" rel="noopener">vibes</a> &middot; companion to
-      <a href="https://vibes.tlab.sh/video-info-tool/">Video Info Tool</a> &amp;
-      <a href="https://vibes.tlab.sh/video-player/">Frame-Accurate Video Player</a>
-      <div class="gpl">
-        The &ldquo;exact&rdquo; re-encode engine uses
-        <a href="https://github.com/ffmpegwasm/ffmpeg.wasm" target="_blank" rel="noopener">ffmpeg.wasm</a>
-        (GPL-licensed, lazy-loaded on demand).
-      </div>
-    </footer>
-
     <div id="analytics-consent-banner" class="consent-banner" hidden role="region" aria-label="Analytics consent">
       <p class="consent-banner-text">
         We use analytics tracking to understand how this page is used. No tracking is enabled unless you accept.
@@ -158,6 +198,42 @@
       <div class="consent-banner-actions">
         <button type="button" id="analytics-accept-btn" class="btn sm">Accept</button>
         <button type="button" id="analytics-decline-btn" class="btn sm sec">Decline</button>
+      </div>
+    </div>
+
+    <div class="page-footer-bar">
+      <div class="footer-left">
+        <div class="footer-row">
+          <a
+            class="footer-text-link"
+            href="https://github.com/brain-bbqs/encoding-helper/issues/new?template=bug_report.yml"
+            target="_blank"
+            rel="noopener"
+          >
+            🐛 Report a bug
+          </a>
+        </div>
+        <div class="footer-row">
+          <a
+            class="footer-text-link"
+            href="https://github.com/brain-bbqs/encoding-helper/issues/new?template=feature_request.yml"
+            target="_blank"
+            rel="noopener"
+          >
+            💡 Request a feature
+          </a>
+        </div>
+        <div class="footer-row">
+          <!-- Text is filled in from __APP_VERSION__ by src/main.ts. -->
+          <a
+            id="version-indicator"
+            class="version-link"
+            href="https://github.com/brain-bbqs/encoding-helper"
+            target="_blank"
+            rel="noopener"
+            title="View source on GitHub"
+          ></a>
+        </div>
       </div>
     </div>
 
