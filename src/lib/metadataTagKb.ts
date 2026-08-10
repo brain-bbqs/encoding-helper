@@ -208,13 +208,15 @@ const VALUE_HINTS: { pattern: RegExp; describe: (version: string) => string }[] 
     describe: (v) => `Written by <b>HandBrake</b>${v ? " " + v : ""}, a GUI front end over FFmpeg's libraries.`,
   },
   {
-    pattern: /\bx264(?:\s+core\s+([\d.]*))?/i,
+    // Every version group is written so it always participates in the match, even when the value
+    // carries no version at all: that keeps the capture a string rather than undefined.
+    pattern: /\bx264(?:\s+core)?\s*([\d.]*)/i,
     describe: (v) =>
       `Encoded with <b>x264</b>${v ? " core " + v : ""}, the open source H.264 encoder; the rest of the string is ` +
       "its full parameter list.",
   },
   {
-    pattern: /\bx265(?:\s+([\d.]*))?/i,
+    pattern: /\bx265\s*([\d.]*)/i,
     describe: (v) => `Encoded with <b>x265</b>${v ? " " + v : ""}, the open source H.265/HEVC encoder.`,
   },
   {
@@ -230,7 +232,7 @@ export function describeMetadataTagValue(value: string | null | undefined): stri
   if (!value) return null;
   for (const hint of VALUE_HINTS) {
     const m = hint.pattern.exec(value);
-    if (m) return hint.describe(m[1] ?? "");
+    if (m) return hint.describe(m[1]);
   }
   return null;
 }

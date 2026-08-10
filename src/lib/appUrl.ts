@@ -5,7 +5,7 @@
 // shared this way (the browser gives no readable path, and the recipient would not have the file),
 // so loading one clears `src`.
 
-export const TAB_IDS = ["inspect", "atoms", "seek", "encode", "compare", "report"] as const;
+export const TAB_IDS = ["inspect", "atoms", "seek", "encode", "compare", "reencode", "report"] as const;
 
 export type TabId = (typeof TAB_IDS)[number];
 

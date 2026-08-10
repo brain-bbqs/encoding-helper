@@ -22,10 +22,10 @@ function stripHtml(html: string): string {
 function buildOverviewSection(): ReportSection {
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   return {
-    title: "Overview",
+    title: "Video Container Overview",
     kind: "kv",
     items: [
-      ["Container", state.format || "–"],
+      ["Type", state.format || "–"],
       ["File Size", fmtBytes(state.source?.size)],
       ["Duration", fmtDur(state.duration)],
       ["Overall Bitrate", fmtBits(fileBitrate)],
@@ -33,9 +33,9 @@ function buildOverviewSection(): ReportSection {
       ["Faststart", state.faststart ? "Yes (moov before mdat)" : "No (moov after mdat)"],
     ],
     note:
-      "Container is the wrapper (the box layout, the index, the tags); the codecs listed below are the " +
-      "compression inside it. Overall Bitrate is measured across the whole file, file size × 8 ÷ duration, so " +
-      "it covers every track plus container overhead and is larger than any single track's bitrate.",
+      "Type is the container format: the wrapper holding the tracks, the index and the tags. The codecs listed " +
+      "below are the compression inside it. Overall Bitrate is measured across the whole file, file size × 8 ÷ " +
+      "duration, so it covers every track plus container overhead and is larger than any single track's bitrate.",
   };
 }
 

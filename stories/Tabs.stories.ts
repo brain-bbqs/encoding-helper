@@ -6,6 +6,7 @@ const TAB_LABELS: Record<string, string> = {
   seek: "GOP & Seeking",
   encode: "Re-encode & CLI",
   compare: "Compare Quality",
+  reencode: "Re-encode In-Browser",
   report: "Report",
 };
 

@@ -578,6 +578,13 @@ label.field-label {
 .teach p {
   margin: 8px 0 0;
 }
+.teach ul {
+  margin: 8px 0 0;
+  padding-left: 22px;
+}
+.teach li {
+  margin: 2px 0;
+}
 details.teach-more {
   margin-top: 6px;
 }

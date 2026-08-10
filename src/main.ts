@@ -6,6 +6,7 @@ import { getElements } from "./ui/elements";
 import { renderEncodeTab } from "./ui/encodeTab";
 import { initFileLoadingUi } from "./ui/fileLoading";
 import { renderInspect } from "./ui/inspectTab";
+import { renderReencodeTab } from "./ui/reencodeTab";
 import { renderReportTab } from "./ui/reportTab";
 import { renderSeekTab } from "./ui/seekTab";
 import { initTabs } from "./ui/tabs";
@@ -18,6 +19,7 @@ function renderAll(): void {
   renderSeekTab(els.panels.seek);
   renderEncodeTab(els.panels.encode);
   renderEncodeTestTab(els.panels.compare);
+  renderReencodeTab(els.panels.reencode);
   renderReportTab(els.panels.report, els.printArea);
 }
 

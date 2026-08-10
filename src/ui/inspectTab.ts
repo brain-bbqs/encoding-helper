@@ -37,14 +37,19 @@ const METADATA_TAGS_TEACH =
   "uses RIFF <code>INFO</code> chunk ids such as <code>ISFT</code>, and Ogg, FLAC and Matroska use plain " +
   "words such as <code>ENCODER</code>. Hover the ⓘ on any tag for what it means.";
 
-function containerInfoHtml(info: ContainerInfo | null): string {
-  if (!info) return CONTAINER_PREAMBLE;
-  return (
-    `<b>${info.name}</b> &mdash; ${info.fullName}. <span class="info-pop-meta">${info.extensions}</span>` +
-    `<p>${info.description}</p>` +
-    `<p><b>Video codecs:</b> ${info.video}<br><b>Audio codecs:</b> ${info.audio}</p>` +
-    `<p><b>Playback:</b> ${info.support}</p>` +
-    `<p>${CONTAINER_PREAMBLE}</p>`
+/**
+ * The container explainer, sized for a full-width teach box under the section title (the way the
+ * Atom Map tab introduces itself) rather than a popover: what a container is, then what this
+ * file's container is and which codecs it can hold.
+ */
+function containerTeachBox(info: ContainerInfo | null): HTMLDivElement {
+  if (!info) return teachBox(CONTAINER_PREAMBLE);
+  return teachBox(
+    CONTAINER_PREAMBLE +
+      `<p>This file is <b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}</p>` +
+      `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
+      `<b>Audio codecs:</b> ${info.audio}<br>` +
+      `<b>Playback:</b> ${info.support}</p>`,
   );
 }
 
@@ -97,11 +102,12 @@ export function flattenMetadataTags(): Record<string, unknown> {
 
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
-  overview.append(h("h2", null, "Overview"));
+  overview.append(h("h2", null, "Video Container Overview"));
+  overview.append(containerTeachBox(describeContainer(state.format)));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   const og = h("div", "grid");
   og.append(
-    gridItem("Container", state.format || "–", { info: containerInfoHtml(describeContainer(state.format)) }),
+    gridItem("Type", state.format || "–"),
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
     gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),

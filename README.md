@@ -16,7 +16,7 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
 - **Identify the codec** - infers the codec family from the container (H.264/AVC, H.265/HEVC, VP8/VP9, AV1, AAC, Opus, FLAC, MP3, AC-3/E-AC-3, PCM) and decodes its embedded profile/level/tier straight out of the RFC 6381 codec string, with a short explainer on what that codec actually is and why you'd (not) choose it
 - **Teach** - interactive explanations tied to the loaded file: CRF vs. bitrate, x264 presets, GOP/keyframe interval, I/P/B frames, `yuv420p` chroma subsampling, even-dimension requirements, and the moov-atom/faststart tradeoff
 - **Measure** - empirical seeking tests (nearest-keyframe distance per timestamp, decode wall-clock, keyframe-interval histogram) with a scatter plot of distance vs. decode time, plus before/after compression stats
-- **Re-encode** - H.264/MP4 directly in the browser, saved back to disk via the File System Access API, with two engines:
+- **Re-encode In-Browser** - encodes the whole video to H.264/MP4 in its own tab, saved back to disk via the File System Access API, with two engines:
   - **ffmpeg.wasm (exact)** - runs the literal CRF/preset command, byte-for-byte equivalent to the CLI, lazy-loaded (~30 MB), GPL
   - **mediabunny / WebCodecs (fast)** - hardware-accelerated, no CRF (bitrate/quality-preset only), surfaced honestly as an approximation
 - **Compare Quality (A/B)** - encodes just a short window (1-10s) of the video at the chosen CRF/preset, then decodes the original and the result side-by-side with synchronized pixel-level zoom & pan, one-click **Fit**/**Actual Size (100%)** buttons, a pixel grid that appears once zoomed in far enough to make individual pixels visible, and a scrub slider — so you can judge a quality setting before committing to a full re-encode
@@ -30,8 +30,8 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
 1. Load a video via drag-and-drop, the file picker, or **Load Sample** (bundled `mice.mp4`)
 2. Explore the **Inspect** tab for metadata, the codec explainer, the atom map, and GOP/frame structure
 3. Run the **Seeking Test** to measure nearest-keyframe distance and decode latency across the timeline (and see it plotted)
-4. Tune CRF, preset, keyframe interval, B-frames, faststart, and audio handling in the **Re-encode** tab
-5. Copy the generated `ffmpeg` command, or click **Encode (exact)** / **Encode (fast)** to transcode in-browser and save the result
+4. Tune CRF, preset, keyframe interval, B-frames, faststart, and audio handling in the **Re-encode & CLI** tab
+5. Copy the generated `ffmpeg` command, or head to the **Re-encode In-Browser** tab and click **Encode (exact)** / **Encode (fast)** to transcode the whole video in the page and save the result
 6. Try different CRF/preset values on a short clip in the **Compare Quality** tab and compare against the original side-by-side before running the full encode
 7. Head to the **Report** tab to copy/download a Markdown summary of everything above, or print it to PDF
 

@@ -35,11 +35,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Compare Quality — A/B Comparison"));
   sec.append(
-    teachBox(
-      `Encodes a short window of the video at the CRF/preset below via ffmpeg.wasm (byte-matching the CLI ` +
-        `command), then decodes the original and the result side-by-side so you can pixel-peep the actual ` +
-        `difference before committing to a full re-encode.`,
-    ),
+    teachBox(`Try changing various reencoding parameters and visualize their effect on rendering a part of the video.`),
   );
 
   const row1 = h("div", "row");

@@ -11,6 +11,7 @@ describe("appUrl", () => {
   it("recognizes only the tabs the app actually has", () => {
     expect(isTabId("inspect")).toBe(true);
     expect(isTabId("compare")).toBe(true);
+    expect(isTabId("reencode")).toBe(true);
     expect(isTabId("nope")).toBe(false);
     expect(isTabId(null)).toBe(false);
   });

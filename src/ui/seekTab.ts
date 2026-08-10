@@ -24,12 +24,18 @@ export function renderSeekTab(panel: HTMLElement): void {
     teachBox(
       `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
         `reference to other frames). Shorter GOPs → more, larger keyframes → faster seeking &amp; scrubbing but ` +
-        `worse compression. <b>I-frames</b> are self-contained; <b>P-frames</b> reference earlier frames; ` +
-        `<b>B-frames</b> reference both earlier <i>and later</i> frames (better compression, but decode order ` +
-        `≠ presentation order, which complicates random access). sleap-io's <code>reencode</code> baseline forces ` +
-        `a <b>fixed GOP</b> (<code>-g</code> + <code>-keyint_min</code> + <code>-sc_threshold 0</code>) and ` +
-        `<b>disables B-frames</b> (<code>-bf 0</code>) specifically to make random-access seeking fast and predictable ` +
-        `for pose-estimation pipelines that jump around a video rather than playing it linearly.`,
+        `worse compression.` +
+        `<ul>` +
+        `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
+        `<li><b>P-frames</b> reference earlier frames, storing only what changed since then.</li>` +
+        `<li><b>B-frames</b> reference both earlier <i>and later</i> frames, which compresses better but makes ` +
+        `decode order ≠ presentation order, complicating random access.</li>` +
+        `</ul>` +
+        `<p><a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io's ` +
+        `<code>reencode</code></a> baseline forces a <b>fixed GOP</b> (<code>-g</code> + ` +
+        `<code>-keyint_min</code> + <code>-sc_threshold 0</code>) and <b>disables B-frames</b> ` +
+        `(<code>-bf 0</code>) specifically to make random-access seeking fast and predictable for ` +
+        `pose-estimation pipelines that jump around a video rather than playing it linearly.</p>`,
     ),
   );
   const g = h("div", "grid");

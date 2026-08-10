@@ -95,7 +95,7 @@ export interface SeekResult {
 /** Quality preset keys understood by both the ffmpeg CLI builder and the mediabunny fast engine. */
 export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 
-/** x264 presets offered in the CLI Command Builder / Compare Quality tabs. */
+/** x264 presets offered in the FFmpeg Command Builder / Compare Quality tabs. */
 export type X264Preset =
   "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow" | "slower" | "veryslow";
 

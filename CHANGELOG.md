@@ -11,10 +11,15 @@
 - Added a plain-language preamble to the CLI Command Builder describing what re-encoding, transcoding and remuxing are and how they differ ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
 - Moved the GOP explainer directly under the "GOP / Keyframe Structure" heading so it reads before the numbers, matching the Atom Map tab ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
 - Renamed the "Encode Test" tab to "Compare Quality" ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Retitled the Inspect tab's first card to "Video Container Overview" with the container explainer as a description under the heading (rather than an ⓘ popover) and the field itself relabelled "Type" ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Broke the I/P/B-frame definitions in the GOP explainer out into a bulleted list, and moved the sleap-io note to its own paragraph linking to the [`sio reencode` CLI reference](https://io.sleap.ai/latest/cli/#sio-reencode) ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Retitled "CLI Command Builder" to "FFmpeg Command Builder", linked to [ffmpeg's install page](https://ffmpeg.org/download.html), and explained why running ffmpeg natively is preferable to the in-browser engines for real work ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Moved the in-browser re-encode engines out of the Re-encode & CLI tab into their own "Re-encode In-Browser" tab, to the right of Compare Quality. Both engines already processed the whole video and saved it to a file of your choosing; the new tab says so up front ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
 
 #### 🐛 Bug Fix
 
 - Styled hyperlinks with the theme accent color; they were falling back to the browser default `#0000EE`, which was nearly unreadable in dark mode (the sleap-io link on the Re-encode & CLI card) ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Fixed the two re-encode engine descriptions rendering their markup as literal text, so "No CRF control &mdash; WebCodecs…" showed the raw entity ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
 
 ## 0.2.4
 
