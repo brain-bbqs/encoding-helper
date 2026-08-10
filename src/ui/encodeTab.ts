@@ -23,9 +23,17 @@ export function renderEncodeTab(panel: HTMLElement): void {
   builderSec.append(h("h2", null, "CLI Command Builder"));
   builderSec.append(
     teachBox(
-      `This mirrors <a href="https://github.com/talmolab/sleap-io" target="_blank" rel="noopener">sleap-io</a>'s ` +
-        `<code>reencode</code> baseline &mdash; the shared transcoding target for the BBQS consortium's pose ` +
-        `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.`,
+      `<b>Re-encoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
+        `lets you change quality, resolution, frame rate or keyframe spacing, and it is lossy: each pass throws ` +
+        `away detail the previous pass kept, so start from the original whenever you can. <b>Transcoding</b> is ` +
+        `the same operation into a <i>different</i> codec (H.265 to H.264, say); the terms are often used ` +
+        `interchangeably, but transcoding implies the codec itself changes. Neither is <b>remuxing</b> ` +
+        `(<code>ffmpeg -c copy</code>), which lifts the already-compressed frames into a different container ` +
+        `untouched, and so is lossless and nearly instant.` +
+        `<p>The settings here mirror ` +
+        `<a href="https://github.com/talmolab/sleap-io" target="_blank" rel="noopener">sleap-io</a>'s ` +
+        `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
+        `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.</p>`,
     ),
   );
 

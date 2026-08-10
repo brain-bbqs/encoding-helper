@@ -1,4 +1,4 @@
-// Tab: Encode Test — short-segment A/B comparison with synchronized pixel-level zoom & pan.
+// Tab: Compare Quality — short-segment A/B comparison with synchronized pixel-level zoom & pan.
 
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, CRF_MAP } from "../lib/cliCommand";
@@ -33,7 +33,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   );
 
   const sec = h("div", "section");
-  sec.append(h("h2", null, "Encode Test — A/B Comparison"));
+  sec.append(h("h2", null, "Compare Quality — A/B Comparison"));
   sec.append(
     teachBox(
       `Encodes a short window of the video at the CRF/preset below via ffmpeg.wasm (byte-matching the CLI ` +

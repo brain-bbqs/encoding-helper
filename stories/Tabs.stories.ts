@@ -5,7 +5,7 @@ const TAB_LABELS: Record<string, string> = {
   atoms: "Atom Map",
   seek: "GOP & Seeking",
   encode: "Re-encode & CLI",
-  compare: "Encode Test",
+  compare: "Compare Quality",
   report: "Report",
 };
 

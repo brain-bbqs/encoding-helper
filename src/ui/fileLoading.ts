@@ -2,6 +2,7 @@
 // with both mp4box.js (box tree + sample table) and mediabunny (metadata), then hands off to the
 // per-tab renderers.
 
+import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
 import { ChunkedSource } from "../lib/chunkedSource";
 import { fmtBytes } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -98,6 +99,8 @@ async function loadSource(
     state.frameCount = state.samples.length;
 
     els.app.style.display = "block";
+    // Only a remote URL can be handed to someone else; a local file leaves the address bar clean.
+    writeSrcToUrl(kind === "url" ? (payload as string) : null);
     callbacks.onLoaded();
     showMiniLoaded(els, source.name, source.size);
   } catch (err) {
@@ -175,4 +178,12 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     const file = e.dataTransfer?.files[0];
     if (file) void loadSource(els, callbacks, "file", file);
   });
+
+  // A shared link carries ?src=…, so open it the same way the URL box would have.
+  const sharedSrc = readSrcFromUrl();
+  if (sharedSrc) {
+    els.urlRow.style.display = "flex";
+    els.urlInput.value = sharedSrc;
+    void loadSource(els, callbacks, "url", sharedSrc);
+  }
 }

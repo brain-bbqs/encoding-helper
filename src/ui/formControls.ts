@@ -1,4 +1,4 @@
-// Small reusable form-field / engine-progress-box builders shared by the Re-encode and Encode Test
+// Small reusable form-field / engine-progress-box builders shared by the Re-encode and Compare Quality
 // tabs.
 
 import { h } from "../lib/dom";

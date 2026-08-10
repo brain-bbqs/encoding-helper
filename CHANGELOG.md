@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.5
+
+#### 🚀 Enhancement
+
+- Renamed the Inspect tab's "Format" field to "Container" and gave it an ⓘ explainer covering the container-vs-codec distinction plus, per container (MP4, QuickTime, Matroska, WebM, Ogg, MP3, WAVE, FLAC, ADTS, MPEG-TS, HLS), which video and audio codecs it can carry and where it plays ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Added ⓘ explainers to the bitrate fields, including why the Overview's is labelled "overall" (whole file, every track plus container overhead, versus the per-track figures below it) ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Explained the Metadata Tags card: tag names are now shown as readable labels backed by a knowledge base of MP4/QuickTime atoms, ID3v2 frames, Vorbis comments and RIFF INFO chunks, each with an ⓘ giving the raw name and what it means. This answers what `©too` is (the encoding tool; the leading `©` is byte `0xA9`, QuickTime's text-atom marker, not a copyright statement), and recognizable encoder signatures such as `Lavf60.16.100` are decoded in place ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Gave every tab a shareable URL (`?tab=…`), restored on load and navigable with browser back/forward; a video loaded from a remote URL is also recorded (`?src=…`) and re-opened automatically, so a link carries both the file and the tab ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Added a plain-language preamble to the CLI Command Builder describing what re-encoding, transcoding and remuxing are and how they differ ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Moved the GOP explainer directly under the "GOP / Keyframe Structure" heading so it reads before the numbers, matching the Atom Map tab ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+- Renamed the "Encode Test" tab to "Compare Quality" ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+
+#### 🐛 Bug Fix
+
+- Styled hyperlinks with the theme accent color; they were falling back to the browser default `#0000EE`, which was nearly unreadable in dark mode (the sleap-io link on the Re-encode & CLI card) ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
+
 ## 0.2.4
 
 #### 🚀 Enhancement

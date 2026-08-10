@@ -1,5 +1,5 @@
 // CLI preview refresh + quality/preset control syncing, shared by the CLI Command Builder (Re-encode
-// tab) and the Encode Test tab — both edit the same `cli` state object.
+// tab) and the Compare Quality tab — both edit the same `cli` state object.
 
 import { buildFfmpegArgs, computeGop, formatCliCommand } from "../lib/cliCommand";
 import { gridItem, h } from "../lib/dom";
