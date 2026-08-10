@@ -22,7 +22,8 @@ export function getElements() {
     fileInput: required<HTMLInputElement>("fileInput"),
     app: required<HTMLDivElement>("app"),
     printArea: required<HTMLDivElement>("printArea"),
-    appVersionLink: required<HTMLAnchorElement>("appVersionLink"),
+    themeToggle: required<HTMLButtonElement>("themeToggle"),
+    versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),
       atoms: required<HTMLDivElement>("panel-atoms"),

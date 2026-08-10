@@ -22,8 +22,25 @@ function renderAll(): void {
 }
 
 // Footer version stamp; the anchor itself already points at the source repository.
-els.appVersionLink.textContent = `v${__APP_VERSION__}`;
-els.appVersionLink.title = `Encoding Helper v${__APP_VERSION__}: view the source on GitHub`;
+els.versionIndicator.textContent = `v${__APP_VERSION__}`;
+
+// Light/dark theme, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: the toggle
+// writes an explicit override to data-theme on <html> (pre-applied before first paint by the
+// inline script in index.html); with nothing stored, data-theme is unset and the OS preference
+// applies. Key kept in sync with that script.
+const THEME_KEY = "encoding-helper.theme";
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+els.themeToggle.addEventListener("click", () => {
+  const current = document.documentElement.dataset.theme ?? (prefersDark.matches ? "dark" : "light");
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch (e) {
+    console.warn("Could not save theme preference:", e);
+  }
+});
 
 initFileLoadingUi(els, { onLoaded: renderAll });
 initTabs(() => renderReportTab(els.panels.report, els.printArea));

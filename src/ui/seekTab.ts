@@ -222,33 +222,45 @@ function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
   for (let i = 0; i <= STEPS; i++) {
     const gx = ML + (plotW * i) / STEPS;
     const gy = MT + (plotH * i) / STEPS;
-    svg.append(svgEl("line", { x1: gx, y1: MT, x2: gx, y2: MT + plotH, stroke: "#333", "stroke-width": 1 }));
-    svg.append(svgEl("line", { x1: ML, y1: gy, x2: ML + plotW, y2: gy, stroke: "#333", "stroke-width": 1 }));
-    const xLabel = svgEl("text", { x: gx, y: MT + plotH + 16, fill: "#888", "font-size": 10, "text-anchor": "middle" });
+    svg.append(svgEl("line", { class: "grid-line", x1: gx, y1: MT, x2: gx, y2: MT + plotH, "stroke-width": 1 }));
+    svg.append(svgEl("line", { class: "grid-line", x1: ML, y1: gy, x2: ML + plotW, y2: gy, "stroke-width": 1 }));
+    const xLabel = svgEl("text", {
+      class: "tick",
+      x: gx,
+      y: MT + plotH + 16,
+      "font-size": 10,
+      "text-anchor": "middle",
+    });
     xLabel.textContent = ((maxX * i) / STEPS).toFixed(2);
     svg.append(xLabel);
     const yLabel = svgEl("text", {
+      class: "tick",
       x: ML - 8,
       y: MT + plotH - (plotH * i) / STEPS + 3,
-      fill: "#888",
       "font-size": 10,
       "text-anchor": "end",
     });
     yLabel.textContent = String(Math.round((maxY * i) / STEPS));
     svg.append(yLabel);
   }
-  svg.append(svgEl("line", { x1: ML, y1: MT, x2: ML, y2: MT + plotH, stroke: "#444", "stroke-width": 1 }));
+  svg.append(svgEl("line", { class: "axis", x1: ML, y1: MT, x2: ML, y2: MT + plotH, "stroke-width": 1 }));
   svg.append(
-    svgEl("line", { x1: ML, y1: MT + plotH, x2: ML + plotW, y2: MT + plotH, stroke: "#444", "stroke-width": 1 }),
+    svgEl("line", { class: "axis", x1: ML, y1: MT + plotH, x2: ML + plotW, y2: MT + plotH, "stroke-width": 1 }),
   );
 
-  const xTitle = svgEl("text", { x: ML + plotW / 2, y: H - 4, fill: "#999", "font-size": 11, "text-anchor": "middle" });
+  const xTitle = svgEl("text", {
+    class: "axis-title",
+    x: ML + plotW / 2,
+    y: H - 4,
+    "font-size": 11,
+    "text-anchor": "middle",
+  });
   xTitle.textContent = "Keyframe distance (s)";
   svg.append(xTitle);
   const yTitle = svgEl("text", {
+    class: "axis-title",
     x: 12,
     y: MT + plotH / 2,
-    fill: "#999",
     "font-size": 11,
     "text-anchor": "middle",
     transform: `rotate(-90 12 ${MT + plotH / 2})`,
@@ -264,7 +276,7 @@ function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
     title.textContent = `t=${r.t.toFixed(2)}s  ·  distance=${r.dist.toFixed(3)}s  ·  decode=${r.decodeMs.toFixed(1)}ms`;
     g.append(title);
     g.append(svgEl("circle", { cx, cy, r: 12, fill: "transparent" }));
-    g.append(svgEl("circle", { cx, cy, r: 5, fill: "#6c9fff", stroke: "#252540", "stroke-width": 2 }));
+    g.append(svgEl("circle", { class: "pt", cx, cy, r: 5, "stroke-width": 2 }));
     svg.append(g);
   });
   return svg;
