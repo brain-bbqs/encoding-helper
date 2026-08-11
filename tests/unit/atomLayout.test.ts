@@ -49,12 +49,7 @@ describe("layoutAtoms", () => {
     const mdat = rects.find((r) => r.box?.type === "mdat");
     expect(mdat?.x).toBeCloseTo(0.02032);
     expect(mdat?.w).toBeCloseTo(0.97968);
-    expect(rects.filter((r) => r.kind === "box").map((r) => r.box?.type)).toEqual([
-      "ftyp",
-      "moov",
-      "trak",
-      "mdat",
-    ]);
+    expect(rects.filter((r) => r.kind === "box").map((r) => r.box?.type)).toEqual(["ftyp", "moov", "trak", "mdat"]);
     expect(laneCount).toBe(3);
   });
 
