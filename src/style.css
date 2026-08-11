@@ -781,8 +781,7 @@ details.teach-more summary {
   --fam: var(--atom-moof);
   --fam-ink: var(--atom-moof-ink);
 }
-.f-other,
-.grouped {
+.f-other {
   --fam: var(--atom-other);
   --fam-ink: var(--atom-other-ink);
 }
@@ -804,13 +803,14 @@ details.teach-more summary {
   color: var(--fam-ink);
   /* A block that would round to nothing still has to be clickable, and the inset keeps a surface
      gap between neighbours so two same-colored siblings never read as one. */
-  min-width: 4px;
+  min-width: 3px;
   box-shadow: inset -2px 0 0 var(--card);
 }
-/* Runs of boxes too narrow to draw individually: hatched, so the count never reads as one real box. */
+/* Runs of boxes too narrow to draw individually keep the color of whichever family fills most of
+   the run, and carry a hatch over it so the count never reads as one real box. */
 .atom-block.grouped,
 .swatch.grouped {
-  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.28) 0 3px, transparent 3px 6px);
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.3) 0 3px, transparent 3px 6px);
 }
 .atom-block:hover {
   filter: brightness(1.12);
@@ -821,14 +821,21 @@ details.teach-more summary {
   outline-offset: -2px;
   z-index: 1;
 }
-/* Set from the measured panel width: a label is drawn only where it actually fits. */
+/* Set from the measured panel width: a label is drawn only where it actually fits, in the larger
+   size when there is room and a tighter one when that is the difference between naming the box
+   and leaving it a bare sliver. */
 .atom-block .lbl {
   display: none;
   padding: 0 5px;
   white-space: nowrap;
 }
-.atom-block.wide .lbl {
+.atom-block.wide .lbl,
+.atom-block.snug .lbl {
   display: block;
+}
+.atom-block.snug .lbl {
+  padding: 0 2px;
+  font-size: 9.5px;
 }
 .atom-readout {
   margin-top: 8px;

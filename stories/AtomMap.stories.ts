@@ -1,12 +1,12 @@
 import { state } from "../src/lib/state";
 import type { BoxNode } from "../src/lib/types";
-import { renderAtomMap, type AtomOrientation } from "../src/ui/atomsTab";
+import { renderAtomMap, type AtomView } from "../src/ui/atomsTab";
 
 function box(type: string, start: number, size: number, children: BoxNode[] = []): BoxNode {
   return { type, start, size, hdrSize: 8, children };
 }
 
-/** A progressive file: ftyp, a moov small enough to collapse, then the sample payload. */
+/** A progressive file: ftyp, a moov under 1% of the file, then the sample payload. */
 const PROGRESSIVE: BoxNode[] = [
   box("ftyp", 0, 32),
   box("moov", 32, 17531, [
@@ -29,12 +29,12 @@ const FRAGMENTED: BoxNode[] = (() => {
   return boxes;
 })();
 
-// The orientation is passed explicitly rather than left to the remembered preference, so a
-// snapshot never depends on which view was last clicked.
-function renderWith(boxes: BoxNode[], orientation: AtomOrientation): HTMLElement {
+// The view is passed explicitly rather than left to the remembered preference, so a snapshot never
+// depends on which one was last clicked.
+function renderWith(boxes: BoxNode[], view: AtomView): HTMLElement {
   state.boxes = boxes;
   const panel = document.createElement("div");
-  renderAtomMap(panel, orientation);
+  renderAtomMap(panel, view);
   return panel;
 }
 
@@ -42,17 +42,27 @@ export default {
   title: "Components/Atom Map",
 };
 
-export const Horizontal = {
-  name: "Horizontal byte map",
-  render: () => renderWith(PROGRESSIVE, "horizontal"),
+export const Structure = {
+  name: "Structure — every box drawn",
+  render: () => renderWith(PROGRESSIVE, "structure"),
 };
 
-export const Fragmented = {
-  name: "Horizontal byte map, fragmented file",
-  render: () => renderWith(FRAGMENTED, "horizontal"),
+export const Bytes = {
+  name: "Bytes — width is the bytes occupied",
+  render: () => renderWith(PROGRESSIVE, "bytes"),
 };
 
-export const Vertical = {
-  name: "Vertical tree",
-  render: () => renderWith(PROGRESSIVE, "vertical"),
+export const FragmentedStructure = {
+  name: "Structure, fragmented file",
+  render: () => renderWith(FRAGMENTED, "structure"),
+};
+
+export const FragmentedBytes = {
+  name: "Bytes, fragmented file",
+  render: () => renderWith(FRAGMENTED, "bytes"),
+};
+
+export const Tree = {
+  name: "Tree — the indented list",
+  render: () => renderWith(PROGRESSIVE, "tree"),
 };

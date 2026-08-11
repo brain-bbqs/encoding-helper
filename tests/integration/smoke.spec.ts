@@ -60,11 +60,24 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator(".talmo-brand-logo.on-light")).toBeHidden();
   });
 
-  test("maps the file's boxes along its byte axis, and zooms into one on click", async ({ page }) => {
+  test("draws every box of the file in the default structure view", async ({ page }) => {
     await page.goto("/?tab=atoms");
     await page.locator("#loadSampleBtn").click();
     const panel = page.locator("#panel-atoms");
     await expect(panel.locator(".atom-map")).toBeVisible();
+
+    // Nothing is summarised away here: every block is a real box, and the count matches the tree.
+    await expect(panel.locator(".atom-block.grouped")).toHaveCount(0);
+    const drawn = await panel.locator(".atom-block").count();
+    await panel.getByRole("button", { name: "Tree" }).click();
+    await expect(panel.locator(".atom-row")).toHaveCount(drawn);
+  });
+
+  test("maps the file's boxes along its byte axis, and zooms into one on click", async ({ page }) => {
+    await page.goto("/?tab=atoms");
+    await page.locator("#loadSampleBtn").click();
+    const panel = page.locator("#panel-atoms");
+    await panel.getByRole("button", { name: "Bytes" }).click();
 
     // mdat is nearly the whole sample file, so it is the one box wide enough to carry its label.
     await expect(panel.locator(".atom-block.wide .lbl")).toHaveText(["mdat"]);
@@ -86,7 +99,7 @@ test.describe("Encoding Helper shell", () => {
     const panel = page.locator("#panel-atoms");
     await expect(panel.locator(".atom-map")).toBeVisible();
 
-    await panel.getByRole("button", { name: "Vertical" }).click();
+    await panel.getByRole("button", { name: "Tree" }).click();
     await expect(panel.locator(".atom-tree")).toBeVisible();
     await expect(panel.locator(".atom-map")).toHaveCount(0);
     await expect(panel.locator(".atom-row").first()).toContainText("ftyp");
