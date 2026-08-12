@@ -187,7 +187,12 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   }
 }
 
+// Halts the previous run's playback loop, so a fresh comparison does not leave one decoding frames
+// into the canvases it just replaced.
+let stopActivePlayback: (() => void) | null = null;
+
 function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
+  stopActivePlayback?.();
   resultSec.innerHTML = "";
   resultSec.style.display = "block";
   resultSec.append(h("h2", null, "Side-by-Side"));
@@ -239,6 +244,8 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   scrub.max = "1000";
   scrub.value = "0";
   const scrubLabel = h("span", "progress-label", "0.00s");
+  const playBtn = h("button", "btn sm sec", "Play");
+  playBtn.type = "button";
   const zoomBtns = h("div", "zoom-buttons");
   // Wheel zoom is the fast path, but it is unavailable on a trackpad-less mouse or a touch device,
   // so every zoom move is reachable from a button too.
@@ -255,15 +262,8 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   const actualBtn = h("button", "btn sm sec", "Actual Size (100%)");
   actualBtn.type = "button";
   zoomBtns.append(zoomOutBtn, zoomInBtn, fitBtn, actualBtn);
-  controls.append(scrub, scrubLabel, zoomBtns);
+  controls.append(playBtn, scrub, scrubLabel, zoomBtns);
   resultSec.append(controls);
-  resultSec.append(
-    h(
-      "div",
-      "progress-label",
-      "Zoom with the − and + buttons, or scroll to zoom toward the cursor; drag to pan. Both panes move together. Slide to scrub the test segment. A pixel grid appears once zoomed in far enough.",
-    ),
-  );
 
   const syncZoomButtons = (scale: number): void => {
     zoomOutBtn.disabled = scale <= ZOOM_MIN;
@@ -296,9 +296,70 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     drawFrame(origCanvas, originalFrame);
     drawFrame(encCanvas, encodedFrame);
   };
+  const showTime = (relT: number): void => {
+    scrub.value = String((relT / encodeTest.duration) * 1000);
+    scrubLabel.textContent = relT.toFixed(2) + "s";
+  };
+
+  // Playback decodes both panes per frame, so it is paced off the wall clock and asks for whichever
+  // frame the elapsed time lands on: when decoding cannot keep up it drops frames rather than
+  // drifting into slow motion, keeping the two sides on the same timeline.
+  const frameStep = 1 / (vt.packetRate && vt.packetRate > 0 ? vt.packetRate : 30);
+  let playing = false;
+  let baseT = 0;
+  let baseWall = 0;
+  // Bumped on every press of Play, so a loop still awaiting a frame from the run before it neither
+  // keeps drawing nor stops the run that replaced it.
+  let playRun = 0;
+  const rebase = (relT: number): void => {
+    baseT = relT;
+    baseWall = performance.now();
+  };
+  const stopPlayback = (): void => {
+    playing = false;
+    playBtn.textContent = "Play";
+  };
+  stopActivePlayback = stopPlayback;
+  const runPlayback = async (run: number): Promise<void> => {
+    try {
+      while (playing && run === playRun) {
+        const relT = baseT + (performance.now() - baseWall) / 1000;
+        if (relT >= encodeTest.duration) {
+          showTime(encodeTest.duration);
+          await drawAt(encodeTest.duration);
+          return;
+        }
+        showTime(relT);
+        await drawAt(relT);
+        const nextWall = baseWall + (Math.floor((relT - baseT) / frameStep) + 1) * frameStep * 1000;
+        const wait = nextWall - performance.now();
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+      }
+    } catch (err) {
+      // A frame that will not decode ends playback rather than leaving the button stuck on "Pause".
+      console.error("[encoding-helper] playback stopped:", err);
+    } finally {
+      if (run === playRun) stopPlayback();
+    }
+  };
+  playBtn.addEventListener("click", () => {
+    if (playing) {
+      stopPlayback();
+      return;
+    }
+    const at = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
+    // Pressing Play with the playhead parked at the end starts the segment over.
+    rebase(at >= encodeTest.duration - frameStep ? 0 : at);
+    playing = true;
+    playBtn.textContent = "Pause";
+    void runPlayback(++playRun);
+  });
+
   scrub.addEventListener("input", () => {
     const relT = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
     scrubLabel.textContent = relT.toFixed(2) + "s";
+    // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.
+    if (playing) rebase(relT);
     void drawAt(relT);
   });
   void drawAt(0);
