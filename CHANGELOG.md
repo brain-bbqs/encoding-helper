@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.7
+
+#### 🚀 Enhancement
+
+- Replaced the Atom Map's indented tree with a horizontal map: left to right across the file, each row down one level of nesting. The tree grew one row per box, which for a fragmented recording (a `moof`+`mdat` pair per fragment) meant thousands of rows; the map is a handful of rows tall whether the video runs ten seconds or ten hours ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Sized each box by how many boxes its subtree holds rather than by its bytes, siblings splitting their parent's width between them. That is the split that makes the narrowest box as wide as it can be, so every box in the file is drawn and labelled at once instead of a `moov` under 1% of the file being reduced to an unreadable sliver ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Made the map zoomable: clicking any box narrows the view to it and a breadcrumb walks back out. A file with more boxes than the panel has room for never drops any, only merges neighbours into a block saying how many it stands for, and a merged run is cut as soon as it is wide enough to draw — so a 20,000-fragment file striates into blocks whose density is the fragmentation, rather than becoming one anonymous bar ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Colored the map by which top-level box each box belongs to (`moov`, `mdat`, `moof`, or everything else), with a legend and a readout naming the box under the cursor and giving its offset and size; `moof`, `mfra`, `free` and `skip` are named there too, where the tree had labelled only `ftyp`, `moov` and `mdat`. The palette was checked for colorblind separation and contrast against both themes' card surface ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+- Every block is a button carrying its own offset and size, so the numbers the tree spelled out are reachable by keyboard and screen reader as well as by hovering. The Report tab still writes the whole tree out as indented text ([#14](https://github.com/brain-bbqs/encoding-helper/pull/14))
+
 ## 0.2.6
 
 #### 🚀 Enhancement
