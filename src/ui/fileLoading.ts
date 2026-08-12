@@ -7,7 +7,13 @@ import { ChunkedSource } from "../lib/chunkedSource";
 import { fmtBytes } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { loadMediabunnyMetadata } from "../lib/mediabunnyMeta";
-import { detectFaststart, extractBoxTree, extractSampleAnalysis, parseWithMp4Box } from "../lib/mp4boxParser";
+import {
+  detectFaststart,
+  extractBoxTree,
+  extractDeclaredBitrate,
+  extractSampleAnalysis,
+  parseWithMp4Box,
+} from "../lib/mp4boxParser";
 import { resetState, state } from "../lib/state";
 import type { AppElements } from "./elements";
 
@@ -79,6 +85,7 @@ async function loadSource(
     state.timescale = info.videoTracks[0].timescale;
     const analysis = extractSampleAnalysis(mp4boxFile, videoTrackId, state.timescale);
     Object.assign(state, analysis);
+    state.declaredVideoBitrate = extractDeclaredBitrate(mp4boxFile, videoTrackId);
 
     setLoadingUi(els, "Reading metadata (mediabunny)…");
     const mb = await ensureMediabunny();

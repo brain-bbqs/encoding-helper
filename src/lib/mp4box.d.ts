@@ -31,10 +31,38 @@ declare module "mp4box" {
     boxes?: MP4BoxBox[];
   }
 
+  /** The `btrt` BitRateBox, which declares a track's own rates in bits per second. */
+  export interface MP4BoxBitRateBox {
+    bufferSizeDB?: number;
+    maxBitrate?: number;
+    avgBitrate?: number;
+  }
+
+  /**
+   * One `stsd` entry: the codec-specific sample entry (`avc1`, `hvc1`, `mp4a`, …). mp4box hangs a
+   * container's children off it by name as well as collecting them in `boxes`, so the optional
+   * child boxes this app reads are named fields here.
+   */
+  export interface MP4BoxSampleEntry {
+    type?: string;
+    btrt?: MP4BoxBitRateBox;
+  }
+
+  /**
+   * A `trak` and the chain down to its sample entries, named the way mp4box stores them. Every
+   * level is optional because a truncated or malformed file can leave any of them unparsed.
+   */
+  export interface MP4BoxTrak {
+    tkhd?: { track_id?: number };
+    mdia?: { minf?: { stbl?: { stsd?: { entries?: MP4BoxSampleEntry[] } } } };
+  }
+
   export interface ISOFile {
     onReady: ((info: MP4BoxInfo) => void) | null;
     onError: ((error: string) => void) | null;
     boxes: MP4BoxBox[];
+    /** Set once the `moov` has been parsed, which onReady having fired implies. */
+    moov?: { traks?: MP4BoxTrak[] };
     appendBuffer(data: ArrayBuffer & { fileStart: number }): number | undefined;
     flush(): void;
     getTrackSamplesInfo(trackId: number): MP4BoxSample[];

@@ -64,6 +64,15 @@ export interface SampleInfo {
   duration: number;
 }
 
+/**
+ * The rates a track's `btrt` box declares, in bits per second. This is the container stating what
+ * the encoder was aiming for, as opposed to what the sample sizes turned out to be.
+ */
+export interface DeclaredBitrate {
+  avgBitrate: number;
+  maxBitrate: number;
+}
+
 /** GOP/keyframe/B-frame analysis derived from a track's sample table. */
 export interface SampleAnalysis {
   samples: SampleInfo[];
@@ -164,6 +173,7 @@ export interface AppState {
   boxes: BoxNode[];
   faststart: boolean | null;
   samples: SampleInfo[];
+  declaredVideoBitrate: DeclaredBitrate | null;
   timescale: number;
   keyframeDecodeIndices: number[];
   gopLengths: number[];
