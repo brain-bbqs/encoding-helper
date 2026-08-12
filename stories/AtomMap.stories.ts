@@ -1,6 +1,6 @@
 import { state } from "../src/lib/state";
 import type { BoxNode } from "../src/lib/types";
-import { renderAtomMap, type AtomView } from "../src/ui/atomsTab";
+import { renderAtomMap } from "../src/ui/atomsTab";
 
 function box(type: string, start: number, size: number, children: BoxNode[] = []): BoxNode {
   return { type, start, size, hdrSize: 8, children };
@@ -29,12 +29,10 @@ const FRAGMENTED: BoxNode[] = (() => {
   return boxes;
 })();
 
-// The view is passed explicitly rather than left to the remembered preference, so a snapshot never
-// depends on which one was last clicked.
-function renderWith(boxes: BoxNode[], view: AtomView): HTMLElement {
+function renderWith(boxes: BoxNode[]): HTMLElement {
   state.boxes = boxes;
   const panel = document.createElement("div");
-  renderAtomMap(panel, view);
+  renderAtomMap(panel);
   return panel;
 }
 
@@ -42,17 +40,12 @@ export default {
   title: "Components/Atom Map",
 };
 
-export const Structure = {
-  name: "Structure — every box drawn",
-  render: () => renderWith(PROGRESSIVE, "structure"),
+export const Progressive = {
+  name: "Progressive file — every box drawn",
+  render: () => renderWith(PROGRESSIVE),
 };
 
 export const Fragmented = {
-  name: "Structure, fragmented file",
-  render: () => renderWith(FRAGMENTED, "structure"),
-};
-
-export const Tree = {
-  name: "Tree — the indented list",
-  render: () => renderWith(PROGRESSIVE, "tree"),
+  name: "Fragmented file — collapsed into counted blocks",
+  render: () => renderWith(FRAGMENTED),
 };

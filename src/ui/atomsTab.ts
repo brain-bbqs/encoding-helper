@@ -1,27 +1,18 @@
-// Tab: Atom Map — the MP4 box/atom tree with byte offsets and sizes, in two views.
+// Tab: Atom Map — the MP4 box tree laid on its side.
 //
-// "Structure" is the default: the tree laid on its side, running left to right with each row down
-// one level of nesting, so it stays the same handful of lanes tall whether the video runs ten
-// seconds or ten hours. Every box gets room, so nothing in the file goes unshown. "Tree" is the
-// original indented list, which reads every box's numbers exactly and is the view that stays usable
-// with a screen reader. The choice is remembered.
+// Left to right across the file, each row down one level of nesting, so the map stays the same
+// handful of lanes tall whether the video runs ten seconds or ten hours. Siblings split their
+// parent's width by how many boxes each subtree holds, so every box gets room and nothing in the
+// file goes unshown; see atomLayout.ts for why that particular split. Every block is a button
+// carrying its own offset and size, so the numbers are reachable by keyboard and screen reader as
+// well as by hovering, and the Report tab still writes the whole tree out as indented text.
 
 import { h, teachBox } from "../lib/dom";
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
-import type { BoxNode } from "../lib/types";
 
-export type AtomView = "structure" | "tree";
-
-const VIEW_KEY = "encoding-helper.atomMapView";
-
-const VIEW_LABELS: [AtomView, string][] = [
-  ["structure", "Structure"],
-  ["tree", "Tree"],
-];
-
-/** What the atoms worth calling out actually hold, shown as a chip in the tree and in the readout. */
+/** What the boxes worth calling out actually hold, named in the readout. */
 const BOX_ROLES: Record<string, string | undefined> = {
   ftyp: "brand",
   moov: "index",
@@ -32,7 +23,7 @@ const BOX_ROLES: Record<string, string | undefined> = {
   skip: "padding",
 };
 
-/** The three atom families the map colors; everything else shares the neutral slot. */
+/** The three box families the map colors; everything else shares the neutral slot. */
 const FAMILIES: [string, string][] = [
   ["moov", "index & metadata"],
   ["mdat", "sample data"],
@@ -54,33 +45,11 @@ const LABEL_COST = {
 // One observer at a time: each redraw builds a fresh map element and re-points the observer at it.
 let labelObserver: ResizeObserver | null = null;
 
-function isAtomView(value: string | null): value is AtomView {
-  return VIEW_LABELS.some(([view]) => view === value);
-}
-
-function readView(): AtomView {
-  try {
-    const stored = localStorage.getItem(VIEW_KEY);
-    return isAtomView(stored) ? stored : "structure";
-  } catch {
-    return "structure";
-  }
-}
-
-function writeView(view: AtomView): void {
-  try {
-    localStorage.setItem(VIEW_KEY, view);
-  } catch (e) {
-    console.warn("Could not save Atom Map view preference:", e);
-  }
-}
-
 function familyClass(family: string | null): string {
   return family !== null && FAMILIES.some(([key]) => key === family) ? "f-" + family : "f-other";
 }
 
-/** `initialView` overrides the remembered preference; the app itself never passes it. */
-export function renderAtomMap(panel: HTMLElement, initialView?: AtomView): void {
+export function renderAtomMap(panel: HTMLElement): void {
   panel.innerHTML = "";
 
   const sec = h("div", "section");
@@ -91,58 +60,31 @@ export function renderAtomMap(panel: HTMLElement, initialView?: AtomView): void 
         `brand/compatibility, <code>moov</code> holds all metadata &amp; the sample index (offsets, sizes, ` +
         `timestamps, keyframe flags), and <code>mdat</code> holds the raw encoded frame bytes it points to. ` +
         `Fragmented MP4s repeat <code>moof</code>+<code>mdat</code> pairs instead of one big <code>mdat</code>.` +
-        `<p>The <b>Structure</b> view is that tree on its side: left to right across the file, each row down ` +
-        `one level of nesting. Siblings split their parent's width by how many boxes each subtree holds, so ` +
-        `every box gets room and the whole file is on screen at once however long the video is. Width says ` +
-        `nothing about size — hover a box for its offset and byte count, or click to zoom into it. ` +
-        `<b>Tree</b> is the same boxes indented, one row per box, with every number spelled out.</p>`,
+        `<p>The map below is that tree on its side: left to right across the file, each row down one level of ` +
+        `nesting. Siblings split their parent's width by how many boxes each subtree holds, so every box gets ` +
+        `room and the whole file is on screen at once however long the video is. Width says nothing about ` +
+        `size — hover a box for its offset and byte count, or click to zoom into it. The <b>Report</b> tab ` +
+        `writes the same tree out as indented text, every number spelled out.</p>`,
     ),
   );
 
-  let view = initialView ?? readView();
-  // Placements depend only on the file, so they outlive a redraw; zooming re-lays the same
-  // placements against a narrower range.
   const placements = placeAtoms(state.boxes);
   const zoom: { label: string; range: AxisRange }[] = [];
-
-  const controls = h("div", "seg");
-  controls.setAttribute("role", "group");
-  controls.setAttribute("aria-label", "Atom Map view");
-  const buttons = new Map<AtomView, HTMLButtonElement>();
   const body = h("div");
 
   const draw = (): void => {
-    buttons.forEach((btn, key) => {
-      btn.classList.toggle("on", key === view);
-      btn.setAttribute("aria-pressed", String(key === view));
-    });
     body.innerHTML = "";
     if (state.boxes.length === 0) {
       body.append(h("div", "progress-label", "No boxes were parsed for this file."));
       return;
     }
-    if (view === "tree") renderTree(body);
-    else renderMap(body, placements, zoom, draw);
+    renderMap(body, placements, zoom, draw);
   };
 
-  VIEW_LABELS.forEach(([key, label]) => {
-    const btn = h("button", "seg-btn", label);
-    btn.type = "button";
-    btn.addEventListener("click", () => {
-      view = key;
-      writeView(key);
-      draw();
-    });
-    buttons.set(key, btn);
-    controls.append(btn);
-  });
-
-  sec.append(controls, body);
+  sec.append(body);
   panel.append(sec);
   draw();
 }
-
-// ------------------------------------------------------------------------------- horizontal map
 
 function renderMap(
   host: HTMLElement,
@@ -289,26 +231,4 @@ function bindLabelSizing(map: HTMLElement): void {
   if (typeof ResizeObserver === "undefined") return;
   labelObserver = new ResizeObserver(sizeLabels);
   labelObserver.observe(map);
-}
-
-// ------------------------------------------------------------------------------- vertical tree
-
-function renderNode(tree: HTMLElement, box: BoxNode, depth: number): void {
-  const row = h("div", "atom-row");
-  row.style.paddingLeft = depth * 18 + "px";
-  row.append(h("span", "type", box.type));
-  row.append(h("span", "off", "offset " + box.start.toLocaleString()));
-  row.append(h("span", "sz", fmtSize(box.size)));
-  const role = BOX_ROLES[box.type];
-  if (role) row.append(h("span", "tag", role));
-  tree.append(row);
-  box.children.forEach((c) => renderNode(tree, c, depth + 1));
-}
-
-function renderTree(host: HTMLElement): void {
-  const tree = h("div", "atom-tree");
-  state.boxes.forEach((b) => renderNode(tree, b, 0));
-  const treeScroll = h("div", "scroll-x");
-  treeScroll.append(tree);
-  host.append(treeScroll);
 }

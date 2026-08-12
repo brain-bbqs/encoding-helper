@@ -60,17 +60,21 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator(".talmo-brand-logo.on-light")).toBeHidden();
   });
 
-  test("draws every box of the file in the default structure view", async ({ page }) => {
+  test("draws every box the Report tab lists, with none summarised away", async ({ page }) => {
     await page.goto("/?tab=atoms");
     await page.locator("#loadSampleBtn").click();
     const panel = page.locator("#panel-atoms");
     await expect(panel.locator(".atom-map")).toBeVisible();
-
-    // Nothing is summarised away here: every block is a real box, and the count matches the tree.
     await expect(panel.locator(".atom-block.grouped")).toHaveCount(0);
     const drawn = await panel.locator(".atom-block").count();
-    await panel.getByRole("button", { name: "Tree" }).click();
-    await expect(panel.locator(".atom-row")).toHaveCount(drawn);
+
+    // The Report tab writes the same tree out as indented text from the same parse, so its line
+    // count is an independent check that the map is not quietly leaving boxes out.
+    await page.locator('.tab[data-tab="report"]').click();
+    const listing = page.locator("#panel-report .section", { hasText: "MP4 Atom Map" }).locator("pre.cmd");
+    const lines = ((await listing.textContent()) ?? "").trim().split("\n");
+    expect(drawn).toBe(lines.length);
+    expect(lines[0]).toContain("ftyp");
   });
 
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {
@@ -89,22 +93,6 @@ test.describe("Encoding Helper shell", () => {
     await panel.locator(".crumb").first().click();
     await expect(panel.locator(".crumb")).toHaveText(["Whole file"]);
     await expect(panel.locator(".atom-block.f-mdat")).toHaveCount(1);
-  });
-
-  test("switches the Atom Map to the indented tree and remembers the choice", async ({ page }) => {
-    await page.goto("/?tab=atoms");
-    await page.locator("#loadSampleBtn").click();
-    const panel = page.locator("#panel-atoms");
-    await expect(panel.locator(".atom-map")).toBeVisible();
-
-    await panel.getByRole("button", { name: "Tree" }).click();
-    await expect(panel.locator(".atom-tree")).toBeVisible();
-    await expect(panel.locator(".atom-map")).toHaveCount(0);
-    await expect(panel.locator(".atom-row").first()).toContainText("ftyp");
-
-    await page.reload();
-    await page.locator("#loadSampleBtn").click();
-    await expect(panel.locator(".atom-tree")).toBeVisible();
   });
 
   test("drops the fixed watermarks once the viewport is too narrow to frame the page", async ({ page }) => {
