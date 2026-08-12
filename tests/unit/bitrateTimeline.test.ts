@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeBitrateTimeline,
-  isEffectivelyConstant,
-  MAX_BINS,
-  MIN_BINS,
-} from "../../src/lib/bitrateTimeline";
+import { computeBitrateTimeline, isEffectivelyConstant, MAX_BINS, MIN_BINS } from "../../src/lib/bitrateTimeline";
 import type { SampleInfo } from "../../src/lib/types";
 
 /** One frame, at `ctsSec` in presentation order, `size` bytes long. */

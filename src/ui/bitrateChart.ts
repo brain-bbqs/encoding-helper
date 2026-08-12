@@ -108,7 +108,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
       text(
         "tick",
         { x: ML - 8, y: MT + PLOT_H - (PLOT_H * i) / STEPS + 3, "font-size": 10, "text-anchor": "end" },
-        (((maxY * i) / STEPS) / unit.divisor).toFixed(decimals),
+        ((maxY * i) / STEPS / unit.divisor).toFixed(decimals),
       ),
     );
   }
@@ -139,7 +139,10 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
 
   // One horizontal run per window, joined by the vertical jumps between them.
   const steps = bins
-    .map((b, i) => `${i === 0 ? "M" : "L"}${xScale(b.startSec)},${yScale(b.bitrate)} L${xScale(b.endSec)},${yScale(b.bitrate)}`)
+    .map(
+      (b, i) =>
+        `${i === 0 ? "M" : "L"}${xScale(b.startSec)},${yScale(b.bitrate)} L${xScale(b.endSec)},${yScale(b.bitrate)}`,
+    )
     .join(" ");
   const baseline = yScale(0);
   svg.append(svgEl("path", { class: "area", d: `${steps} L${ML + PLOT_W},${baseline} L${ML},${baseline} Z` }));

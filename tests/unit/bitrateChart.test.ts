@@ -36,7 +36,10 @@ describe("niceAxisMax", () => {
 });
 
 describe("renderBitrateChart", () => {
-  const timeline = computeBitrateTimeline(samples(600, 30, (i) => (i < 300 ? 1_000 : 5_000)), 30)!;
+  const timeline = computeBitrateTimeline(
+    samples(600, 30, (i) => (i < 300 ? 1_000 : 5_000)),
+    30,
+  )!;
 
   it("draws one hover band per window", () => {
     expect(renderBitrateChart(timeline).querySelectorAll(".bin").length).toBe(timeline.bins.length);
