@@ -74,6 +74,12 @@ test.describe("Encoding Helper shell", () => {
     const peak = await card.locator(".item", { hasText: "Peak Window" }).locator(".val").textContent();
     const average = await card.locator(".item", { hasText: "Average" }).first().locator(".val").textContent();
     expect(peak).not.toBe(average);
+
+    // The average lives here now, so the Video Track card above no longer repeats it.
+    const videoCard = page
+      .locator("#panel-inspect .section")
+      .filter({ has: page.locator('h2:text-is("Video Track")') });
+    await expect(videoCard.locator(".item").filter({ has: page.locator('label:text-is("Bitrate")') })).toHaveCount(0);
   });
 
   test("draws every box the Report tab lists, with none summarised away", async ({ page }) => {

@@ -15,24 +15,27 @@ const OVERALL_BITRATE_INFO =
   "<b>Bitrate</b> is how many bits of file it takes to store one second of playback, so it is the main lever " +
   "on both file size and quality. This one is <b>overall</b> because it is measured across the entire file: " +
   "file size &times; 8 &divide; duration, counting the video track, the audio track, and the container's own " +
-  "overhead (headers, the sample index, metadata) together. The per-track bitrates in the Video Track and " +
-  "Audio Track sections below cover only their own packets, so they add up to slightly less than this number. " +
+  "overhead (headers, the sample index, metadata) together. The per-track figures below cover only their own " +
+  "packets, so they add up to slightly less than this number: the video track's heads the <b>Video Bitrate " +
+  "Over Time</b> card, and the audio track's is in the Audio Track section. " +
   "<p>It is also an average. Unless the encoder was told to hold a constant bitrate, the instantaneous rate " +
   "rises on keyframes and busy scenes and falls on still ones, which is what the <b>Video Bitrate Over " +
-  "Time</b> card further down plots.</p>";
+  "Time</b> card plots.</p>";
 
-const VIDEO_BITRATE_INFO =
+const VIDEO_AVERAGE_INFO =
   "Average bitrate of the video track alone: the total size of its packets &times; 8 &divide; duration. " +
   "Compare it with <b>Overall Bitrate</b> in the Overview, which also counts the audio track and the " +
   "container overhead. Lowering it (a higher CRF, in the Reencode tab) is what shrinks the file, at the " +
-  "cost of visible compression artifacts. The <b>Video Bitrate Over Time</b> card below takes this same " +
-  "measurement one short window at a time, so it shows where in the video those bits actually went.";
+  "cost of visible compression artifacts.";
+
+const TOO_FEW_FRAMES_NOTE =
+  "There are too few frames here to divide the track into windows of playback, so there is no shape to " +
+  "plot. The average is the whole of what the sample table can say about this file's rate.";
 
 const BITRATE_TIMELINE_TEACH =
-  "This is the <b>Video Track</b> bitrate above, measured one window at a time instead of once across the " +
-  "whole track: the bits of every frame presented in that window, divided by the window's length. No " +
-  "decoding is involved, since the size and timestamp of every frame is already listed in the container's " +
-  "sample table. " +
+  "This is the video track's bitrate measured one window at a time instead of once across the whole track: " +
+  "the bits of every frame presented in that window, divided by the window's length. No decoding is " +
+  "involved, since the size and timestamp of every frame is already listed in the container's sample table. " +
   "<p>A <b>variable bitrate</b> encoder (which is what a CRF encode is, and what x264 does by default) " +
   "targets a constant <i>quality</i> and lets the rate go wherever that costs. It spends bits on keyframes, " +
   "scene cuts and fast motion and saves them on still shots, so the line moves even though the average is a " +
@@ -220,10 +223,11 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
     g.append(gridItem("Display Size", `${vt.displayWidth}×${vt.displayHeight}`));
   }
+  // No Bitrate item: the track's average heads the Video Bitrate Over Time card below, alongside
+  // the peak and the spread the single number cannot show.
   g.append(
     gridItem("Frame Rate", vt.packetRate != null ? fmtRate(vt.packetRate) + " fps" : "–"),
     gridItem("Frames", state.frameCount != null ? state.frameCount.toLocaleString() : "–"),
-    gridItem("Bitrate", fmtBits(vt.bitrate), { info: VIDEO_BITRATE_INFO }),
   );
   if (vt.rotation) g.append(gridItem("Rotation", vt.rotation + "°"));
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
@@ -245,27 +249,31 @@ function renderVideoTrackSection(): HTMLDivElement | null {
 }
 
 /**
- * The video track's bitrate over time — except where the container declares the rate constant and
- * the sample sizes agree, in which case the plot would only ever be a flat line and the declaration
- * is the more useful thing to say. The declaration alone is not enough to suppress the plot: muxers
- * routinely write the track average into `btrt`'s maximum field as well, so taking that at face
- * value would hide the plot for most ordinary variable-bitrate files. Null when there is no video
- * track, or too few frames for windows to have a shape.
+ * The video track's bitrate over time, and the card carrying the track's average now that the Video
+ * Track card above no longer repeats it. The plot is dropped where the container declares the rate
+ * constant and the sample sizes agree, since it would only ever be a flat line and the declaration
+ * is the more useful thing to say. The declaration alone is not enough to drop it: muxers routinely
+ * write the track average into `btrt`'s maximum field as well, so taking that at face value would
+ * hide the plot for most ordinary variable-bitrate files. Null only when there is no video track.
  */
 export function renderBitrateTimelineSection(): HTMLDivElement | null {
-  if (!state.tracks?.some((t) => t.kind === "video")) return null;
+  const vt = state.tracks?.find((t) => t.kind === "video");
+  if (!vt) return null;
   const declared = state.declaredVideoBitrate;
   const declaresConstant = declaresConstantBitrate(declared);
-  const measured = computeBitrateTimeline(state.samples, state.duration ?? 0);
-  const heldConstant = declaresConstant && (!measured || isEffectivelyConstant(measured));
-  const timeline = heldConstant ? null : measured;
-  if (!heldConstant && !timeline) return null;
+  const timeline = computeBitrateTimeline(state.samples, state.duration ?? 0);
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "Video Bitrate Over Time"));
+  if (declaresConstant && declared && (!timeline || isEffectivelyConstant(timeline))) {
+    sec.append(teachBox(constantBitrateNote(declared.avgBitrate)));
+    return sec;
+  }
   if (!timeline) {
-    // `heldConstant` implies a declaration behind it, so `declared` is non-null here.
-    sec.append(teachBox(constantBitrateNote(declared?.avgBitrate ?? 0)));
+    const g = h("div", "grid");
+    g.append(gridItem("Average", fmtBits(vt.bitrate), { info: VIDEO_AVERAGE_INFO }));
+    sec.append(g);
+    sec.append(teachBox(TOO_FEW_FRAMES_NOTE));
     return sec;
   }
 
@@ -273,21 +281,13 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
   if (declaresConstant && declared) sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline)));
   const g = h("div", "grid");
   g.append(
-    gridItem("Average", fmtBits(timeline.averageBitrate)),
+    gridItem("Average", fmtBits(timeline.averageBitrate), { info: VIDEO_AVERAGE_INFO }),
     gridItem("Peak Window", fmtBits(timeline.peakBitrate)),
     gridItem("Quietest Window", fmtBits(timeline.minBitrate)),
     gridItem("Peak ÷ Average", timeline.peakToAverage.toFixed(2) + "×", { info: PEAK_RATIO_INFO }),
   );
   sec.append(g);
   sec.append(renderBitrateChart(timeline));
-  sec.append(
-    h(
-      "div",
-      "progress-label",
-      `One step per ${timeline.binSeconds.toFixed(2)} s window of playback (${timeline.bins.length} in all); ` +
-        `hover a column for its rate and frame count. The dashed line is the track average.`,
-    ),
-  );
   return sec;
 }
 

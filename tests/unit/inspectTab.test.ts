@@ -54,9 +54,13 @@ describe("renderBitrateTimelineSection", () => {
     expect(renderBitrateTimelineSection()).toBeNull();
   });
 
-  it("renders nothing when there are too few frames to bin", () => {
+  it("keeps the track's average, without a plot, when there are too few frames to bin", () => {
+    // The Video Track card no longer carries the bitrate, so this card still has to report it.
     loadFile({ durationSec: 1, samples: samples(3, 1, () => 1000) });
-    expect(renderBitrateTimelineSection()).toBeNull();
+    const section = renderBitrateTimelineSection();
+    expect(chartOf(section)).toBeNull();
+    expect(section!.textContent).toContain("500 kbps");
+    expect(section!.textContent).toContain("too few frames");
   });
 
   it("plots a variable-bitrate track", () => {
