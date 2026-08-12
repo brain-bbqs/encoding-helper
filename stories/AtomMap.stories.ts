@@ -6,7 +6,7 @@ function box(type: string, start: number, size: number, children: BoxNode[] = []
   return { type, start, size, hdrSize: 8, children };
 }
 
-/** A progressive file: ftyp, a moov under 1% of the file, then the sample payload. */
+/** A progressive file: ftyp, a moov holding the index, padding, then the sample payload. */
 const PROGRESSIVE: BoxNode[] = [
   box("ftyp", 0, 32),
   box("moov", 32, 17531, [
@@ -47,19 +47,9 @@ export const Structure = {
   render: () => renderWith(PROGRESSIVE, "structure"),
 };
 
-export const Bytes = {
-  name: "Bytes — width is the bytes occupied",
-  render: () => renderWith(PROGRESSIVE, "bytes"),
-};
-
-export const FragmentedStructure = {
+export const Fragmented = {
   name: "Structure, fragmented file",
   render: () => renderWith(FRAGMENTED, "structure"),
-};
-
-export const FragmentedBytes = {
-  name: "Bytes, fragmented file",
-  render: () => renderWith(FRAGMENTED, "bytes"),
 };
 
 export const Tree = {

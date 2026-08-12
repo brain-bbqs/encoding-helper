@@ -39,10 +39,10 @@
   --teach-text: #333a4d;
   --teach-strong: #111827;
   --chart-grid: #e4e8f2;
-  /* Atom Map byte-map families. A categorical trio (moov / mdat / moof) plus a neutral for
-     everything else, each with the ink that reads on it; both modes were validated as a set for
-     colorblind separation and contrast against the card surface, so re-step them together rather
-     than nudging one. moov keeps the light accent so the map ties back to the rest of the page. */
+  /* Atom Map families. A categorical trio (moov / mdat / moof) plus a neutral for everything else,
+     each with the ink that reads on it; both modes were validated as a set for colorblind
+     separation and contrast against the card surface, so re-step them together rather than nudging
+     one. moov keeps the light accent so the map ties back to the rest of the page. */
   --atom-moov: #4f46e5;
   --atom-moov-ink: #ffffff;
   --atom-mdat: #eb6834;
@@ -704,7 +704,7 @@ details.teach-more summary {
   color: var(--on-accent);
 }
 
-/* Atom Map, horizontal: the file's byte axis left to right, one lane per nesting depth. */
+/* Atom Map, horizontal: the box tree left to right, one lane per nesting depth. */
 .atom-crumbs {
   display: flex;
   flex-wrap: wrap;
@@ -738,27 +738,6 @@ details.teach-more summary {
   color: var(--muted);
   font-size: 11px;
   font-family: Monaco, Consolas, monospace;
-}
-.atom-ruler {
-  position: relative;
-  height: 14px;
-  margin-bottom: 4px;
-  font-family: Monaco, Consolas, monospace;
-  font-size: 10px;
-  color: var(--muted);
-}
-.atom-ruler .tick {
-  position: absolute;
-  top: 0;
-  white-space: nowrap;
-  transform: translateX(-50%);
-}
-/* The end ticks would hang off the map otherwise. */
-.atom-ruler .tick.first {
-  transform: none;
-}
-.atom-ruler .tick.last {
-  transform: translateX(-100%);
 }
 .atom-map {
   display: flex;
@@ -1281,9 +1260,6 @@ table.data th {
   .tab {
     padding: 7px 10px;
     font-size: 12px;
-  }
-  .atom-ruler .tick.odd {
-    display: none;
   }
 }
 

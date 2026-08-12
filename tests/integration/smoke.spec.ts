@@ -73,24 +73,22 @@ test.describe("Encoding Helper shell", () => {
     await expect(panel.locator(".atom-row")).toHaveCount(drawn);
   });
 
-  test("maps the file's boxes along its byte axis, and zooms into one on click", async ({ page }) => {
+  test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {
     await page.goto("/?tab=atoms");
     await page.locator("#loadSampleBtn").click();
     const panel = page.locator("#panel-atoms");
-    await panel.getByRole("button", { name: "Bytes" }).click();
-
-    // mdat is nearly the whole sample file, so it is the one box wide enough to carry its label.
-    await expect(panel.locator(".atom-block.wide .lbl")).toHaveText(["mdat"]);
+    await expect(panel.locator(".atom-map")).toBeVisible();
     await expect(panel.locator(".crumb")).toHaveText(["Whole file"]);
 
-    // The moov subtree is too small a slice of the file to draw box by box; zooming opens it.
-    await panel.locator(".atom-block.grouped").first().click();
-    await expect(panel.locator(".crumb")).toHaveCount(2);
-    await expect(panel.locator(".atom-block.wide .lbl").first()).toHaveText("moov");
-    await expect(panel.locator(".atom-block.wide .lbl")).toContainText(["moov", "trak", "mdia"]);
+    await panel.locator(".atom-block.f-moov").first().click();
+    await expect(panel.locator(".crumb")).toHaveText(["Whole file", "moov"]);
+    // Zoomed to moov, its own subtree is all that is left and it fills the width.
+    await expect(panel.locator(".atom-block.f-mdat")).toHaveCount(0);
+    await expect(panel.locator(".atom-block").first()).toHaveAttribute("style", /width: 100%/);
 
     await panel.locator(".crumb").first().click();
-    await expect(panel.locator(".crumb")).toHaveCount(1);
+    await expect(panel.locator(".crumb")).toHaveText(["Whole file"]);
+    await expect(panel.locator(".atom-block.f-mdat")).toHaveCount(1);
   });
 
   test("switches the Atom Map to the indented tree and remembers the choice", async ({ page }) => {

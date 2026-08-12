@@ -1,31 +1,25 @@
-// Geometry for the Atom Map's horizontal orientations.
+// Geometry for the Atom Map's horizontal view.
 //
 // The indented tree grows one row per atom, so a long recording — especially a fragmented one,
-// where a moof+mdat pair repeats per fragment — runs to thousands of rows. Both horizontal views
-// lay the same tree out along an axis instead: one lane per nesting depth, each atom drawn across
-// its slice of that axis. Height is then bounded by how deeply the file nests (a handful of lanes)
-// no matter how long the video is, and width is always the width of the panel.
+// where a moof+mdat pair repeats per fragment — runs to thousands of rows. This lays the same tree
+// out along an axis instead: one lane per nesting depth, each atom drawn across its slice. Height
+// is then bounded by how deeply the file nests (a handful of lanes) no matter how long the video
+// is, and width is always the width of the panel.
 //
-// What the axis measures is the whole difference between the two:
+// The axis is one slot per atom, not file bytes. Siblings split their parent's slice in proportion
+// to how many atoms each subtree holds, which is the split that makes the narrowest atom as wide as
+// it can be: every atom gets at least one slot's share of the panel. So the whole file is drawn and
+// labelled at once, and what the view says nothing about is size. It is the indented tree, turned
+// on its side.
 //
-//   "bytes"     — the file itself. An atom is as wide as the bytes it occupies, so a well-encoded
-//                 file is nearly all mdat and moov-before-mdat (faststart) is visible at a glance.
-//                 The cost is that a moov under 1% of the file has no room to show its 24 children.
-//   "structure" — one slot per atom. Siblings split their parent's slice in proportion to how many
-//                 atoms each subtree holds, so every atom in the file gets drawn and labelled, at
-//                 the price of saying nothing about size. This is the indented tree, turned on its
-//                 side.
-//
-// Either way, atoms are contained by their parent and siblings never overlap, so an atom is never
-// wider than its parent. That makes visibility monotonic: if an atom is drawn, every one of its
-// ancestors was too, and zooming into an ancestor is always the way to reach something too small
-// to see on its own.
+// Atoms are contained by their parent and siblings never overlap, so an atom is never wider than
+// its parent. That makes visibility monotonic: if an atom is drawn, every one of its ancestors was
+// too, and zooming into an ancestor is always the way to reach something too small to see on its
+// own.
 
 import type { BoxNode } from "./types";
 
-export type AtomScale = "bytes" | "structure";
-
-/** A half-open range on whichever axis the layout is using — file bytes, or atom slots. */
+/** A half-open range on the atom-slot axis. */
 export interface AxisRange {
   start: number;
   end: number;
@@ -44,10 +38,10 @@ export interface AtomRect {
   kind: "box" | "group";
   /** Nesting depth, which is also the lane the rect is drawn in. */
   depth: number;
-  /** Zoom target, on the layout's own axis. */
+  /** Zoom target, on the atom-slot axis. */
   from: number;
   to: number;
-  /** The bytes this rect covers, which is what the readout reports whatever the axis is. */
+  /** The bytes this rect covers, which is what the readout reports. */
   byteStart: number;
   byteEnd: number;
   /** Left edge and width as fractions (0..1) of the visible range, clipped to it. */
@@ -76,24 +70,17 @@ export interface AtomLayout {
  * Narrower than this fraction of the visible range, an atom is collapsed into a group block. Set so
  * that a block at the threshold is still a few real pixels wide at any sensible panel width, since
  * anything thinner would be widened by the stylesheet's minimum and start overlapping its neighbour.
+ * It is also what bounds "every atom is drawn": past roughly 1/MIN_RECT_WIDTH atoms in view there is
+ * no room left to give each its own block, and zooming is how you get it back.
  */
 export const MIN_RECT_WIDTH = 0.005;
 
 /**
- * Up to this many top-level atoms are all drawn, however narrow they are. A progressive file has
- * only a handful, and `ftyp` and `moov` are slivers beside `mdat` — collapsing them would hide the
- * layout the map exists to show (moov before mdat is what "faststart" means). A fragmented file has
- * thousands of them, well past this, so its runs collapse like any other lane's.
+ * Up to this many top-level atoms are all drawn, however narrow they are, so the shape of the file
+ * is never summarised away at the outermost level. A progressive file has only a handful; a
+ * fragmented one has thousands, well past this, so its runs collapse like any other lane's.
  */
 const MAX_UNCOLLAPSED_TOP_LEVEL = 24;
-
-/**
- * An atom narrower than this is not opened up: on the byte axis a 2 MB file's whole `moov` subtree
- * is under 1% of the file, and descending into it draws lane after lane of near-identical slivers
- * that say nothing. Its contents become one summary block on the next lane instead, and zooming in
- * — or the structure axis, which gives every atom room by construction — is what opens them.
- */
-const MIN_EXPAND_WIDTH = 0.02;
 
 /** Backstop for pathological files; a real one settles far below this once groups collapse runs. */
 const MAX_RECTS = 4000;
@@ -103,18 +90,7 @@ export function countAtoms(box: BoxNode): number {
   return box.children.reduce((n, c) => n + countAtoms(c), 1);
 }
 
-function placeByBytes(boxes: BoxNode[]): Placement[] {
-  return boxes.map((box) => ({
-    box,
-    from: box.start,
-    to: box.start + box.size,
-    children: placeByBytes(box.children),
-  }));
-}
-
-// Siblings divide their parent's slice in proportion to how many atoms each of them brings, so a
-// subtree with more in it gets more room to show it and no atom is ever squeezed below its share.
-function placeByStructure(boxes: BoxNode[], from: number, to: number): Placement[] {
+function place(boxes: BoxNode[], from: number, to: number): Placement[] {
   const weights = boxes.map(countAtoms);
   const total = weights.reduce((a, b) => a + b, 0);
   if (total === 0) return [];
@@ -123,23 +99,22 @@ function placeByStructure(boxes: BoxNode[], from: number, to: number): Placement
   return boxes.map((box, i) => {
     const next = cursor + (span * weights[i]) / total;
     const placement: Placement = { box, from: cursor, to: next, children: [] };
-    placement.children = placeByStructure(box.children, cursor, next);
+    placement.children = place(box.children, cursor, next);
     cursor = next;
     return placement;
   });
 }
 
-/** Assigns every atom its slice of the chosen axis. */
-export function placeAtoms(boxes: BoxNode[], scale: AtomScale): Placement[] {
-  if (scale === "bytes") return placeByBytes(boxes);
-  return placeByStructure(
+/** Assigns every atom its slice of the axis, the tree as a whole spanning one slot per atom. */
+export function placeAtoms(boxes: BoxNode[]): Placement[] {
+  return place(
     boxes,
     0,
     boxes.reduce((n, b) => n + countAtoms(b), 0),
   );
 }
 
-/** The range the placed tree spans, which on the byte axis is the whole file. */
+/** The range the placed tree spans. */
 export function placementRange(placements: Placement[]): AxisRange {
   if (placements.length === 0) return { start: 0, end: 0 };
   let start = Infinity;
@@ -157,7 +132,7 @@ interface Clipped {
   to: number;
 }
 
-/** Whichever top-level family covers most of a collapsed run, by width on the axis in play. */
+/** Whichever top-level family covers most of a collapsed run. */
 function dominantFamily(run: Clipped[]): string | null {
   const widths = new Map<string, number>();
   for (const c of run) {
@@ -189,9 +164,9 @@ function clipToView(siblings: Placement[], view: AxisRange): Clipped[] {
 }
 
 /**
- * Places every atom visible in `view` on the axis it was given. Anything too narrow to draw or to
- * open up becomes a group block saying how many atoms it stands for, and zooming to that block's
- * range is what pulls them apart — so nothing is ever silently dropped.
+ * Places every atom visible in `view`. Anything too narrow to draw becomes a group block saying how
+ * many atoms it stands for, and zooming to that block's range is what pulls them apart — so nothing
+ * is ever silently dropped.
  */
 export function layoutAtoms(placements: Placement[], view: AxisRange, minWidth: number = MIN_RECT_WIDTH): AtomLayout {
   const span = view.end - view.start;
@@ -272,10 +247,7 @@ export function layoutAtoms(placements: Placement[], view: AxisRange, minWidth: 
         family,
         count: 1,
       });
-      if (current.placement.children.length > 0) {
-        if (width >= MIN_EXPAND_WIDTH) walk(current.placement.children, depth + 1, family);
-        else pushGroup(depth + 1, clipToView(current.placement.children, view), family);
-      }
+      walk(current.placement.children, depth + 1, family);
       i++;
     }
   };
