@@ -645,12 +645,47 @@ details.teach-more summary {
   font-size: 12px;
 }
 
-/* Tabs */
+/* Tabs, and the Full Analysis action that sits opposite them */
+.tab-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 18px 0 12px;
+}
 .tabs {
   display: flex;
   gap: 6px;
-  margin: 18px 0 12px;
   flex-wrap: wrap;
+}
+/* Not a tab: it stands apart at the right edge of the content column, and carries an icon and the
+   accent outline to read as the one thing on this row that produces something. */
+.tab-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab-action:hover {
+  background: var(--accent-tint);
+  color: var(--accent-hover);
+}
+.tab-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.tab-action.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 .tab {
   background: var(--tab-bg);
@@ -1265,11 +1300,19 @@ table.data th {
   .drop-zone {
     padding: 26px 12px;
   }
+  .tab-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
   .tabs {
     gap: 4px;
   }
   .tab {
     padding: 7px 10px;
+    font-size: 12px;
+  }
+  .tab-action {
+    padding: 7px 12px;
     font-size: 12px;
   }
 }
@@ -1305,101 +1348,17 @@ table.data th {
   }
 }
 
-/* Report tab preview + print-only view */
-.report-meta {
-  color: var(--muted);
-  font-size: 12px;
-  margin: -6px 0 14px;
-}
-#printArea {
-  display: none;
-}
-@media print {
-  /* The on-screen bottom padding only exists to clear the fixed footer bar, which print hides. */
-  body {
-    padding: 20px;
-  }
-  body > *:not(#printArea) {
-    display: none !important;
-  }
-  #printArea {
-    display: block !important;
-    background: #fff;
-    color: #111;
-    font-family:
-      system-ui,
-      -apple-system,
-      sans-serif;
-    max-width: none;
-    padding: 0;
-    margin: 0;
-  }
-  #printArea h1 {
-    color: #111;
-  }
-  #printArea .section {
-    background: #f5f5f7;
-    border: 1px solid #ddd;
-    break-inside: avoid;
-  }
-  #printArea .section h2 {
-    color: #555;
-  }
-  #printArea .grid .item .val {
-    color: #4f46e5;
-  }
-  #printArea .grid .item .val.sm {
-    color: #222;
-  }
-  #printArea .grid .item label {
-    color: #777;
-  }
-  #printArea .teach {
-    background: #eef2ff;
-    border-left-color: #4f46e5;
-    color: #333;
-  }
-  #printArea pre.cmd {
-    background: #f0f0f0;
-    color: #111;
-    border: 1px solid #ddd;
-  }
-  #printArea table.data th,
-  #printArea table.data td {
-    border-color: #ddd;
-    color: #222;
-  }
-  #printArea table.data th {
-    color: #666;
-  }
-  #printArea .report-meta {
-    color: #666;
-  }
-  #printArea .badge.good {
-    background: #e6f9ee;
-    color: #1a7d42;
-  }
-  #printArea .badge.bad {
-    background: #fff4e0;
-    color: #92620a;
-  }
-  #printArea .badge.info {
-    background: #e8effe;
-    color: #4f46e5;
-  }
-  /* The scatter plot follows the theme on screen; on paper it is always on white. */
-  #printArea .seek-scatter .grid-line {
-    stroke: #ddd;
-  }
-  #printArea .seek-scatter .axis {
-    stroke: #999;
-  }
-  #printArea .seek-scatter .tick,
-  #printArea .seek-scatter .axis-title {
-    fill: #666;
-  }
-  #printArea .seek-scatter .pt {
-    fill: #4f46e5;
-    stroke: #fff;
-  }
+/* Full Analysis: the document itself, rendered in an iframe from the same self-contained HTML the
+   Download button writes (see lib/analysisDoc.ts), so the panel cannot show something the exported
+   file does not. It is sized to its content by ui/analysisTab.ts, so the page scrolls once instead
+   of the document scrolling inside a window of its own. */
+.doc-preview {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  /* The document is paper-white whatever the page theme is; matching it here keeps the frame's own
+     edge from showing as a light seam before the document paints. */
+  background: #fff;
+  box-shadow: 0 6px 20px var(--shadow);
 }

@@ -4,7 +4,7 @@
 import { buildFfmpegArgs, computeGop, formatCliCommand } from "../lib/cliCommand";
 import { gridItem, h } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
-import { cli, currentVideoInfo } from "../lib/state";
+import { cli, currentVideoInfo, state } from "../lib/state";
 import type { EngineBox } from "./formControls";
 
 /** Recomputes the CLI preview from the shared `cli` state; a no-op if no video is loaded. */
@@ -39,7 +39,12 @@ export function syncQualityControls(): void {
   refreshCliCommand();
 }
 
-export function showReencodeResult(box: EngineBox, origSize: number, outSize: number): void {
+/**
+ * Shows what an in-browser encode came to, and records it: the Full Analysis document reports the
+ * last completed encode, and this is the one place both engines pass through on success.
+ */
+export function showReencodeResult(box: EngineBox, engine: "fast" | "exact", origSize: number, outSize: number): void {
+  state.reencodeResult = { engine, originalSize: origSize, encodedSize: outSize };
   const pct = (1 - outSize / origSize) * 100;
   box.result.innerHTML = "";
   const g = h("div", "grid");

@@ -82,7 +82,7 @@ test.describe("Encoding Helper shell", () => {
     await expect(videoCard.locator(".item").filter({ has: page.locator('label:text-is("Bitrate")') })).toHaveCount(0);
   });
 
-  test("draws every box the Report tab lists, with none summarised away", async ({ page }) => {
+  test("draws every box the Full Analysis document lists, with none summarised away", async ({ page }) => {
     await page.goto("/?tab=atoms");
     await page.locator("#loadSampleBtn").click();
     const panel = page.locator("#panel-atoms");
@@ -90,13 +90,76 @@ test.describe("Encoding Helper shell", () => {
     await expect(panel.locator(".atom-block.grouped")).toHaveCount(0);
     const drawn = await panel.locator(".atom-block").count();
 
-    // The Report tab writes the same tree out as indented text from the same parse, so its line
-    // count is an independent check that the map is not quietly leaving boxes out.
-    await page.locator('.tab[data-tab="report"]').click();
-    const listing = page.locator("#panel-report .section", { hasText: "MP4 Atom Map" }).locator("pre.cmd");
+    // The document writes the same tree out as indented text from the same parse, so its line count
+    // is an independent check that the map is not quietly leaving boxes out.
+    await page.locator(".tab-action").click();
+    const listing = page.frameLocator("#analysisDoc").locator("#mp4-atom-map pre.cmd");
     const lines = ((await listing.textContent()) ?? "").trim().split("\n");
     expect(drawn).toBe(lines.length);
     expect(lines[0]).toContain("ftyp");
+  });
+
+  test("bundles the whole analysis into one document behind the Full Analysis button", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#loadSampleBtn").click();
+
+    // The button is not one of the tabs, and sits against the right edge of the content column.
+    const action = page.locator(".tab-action");
+    await expect(action).toHaveText(/Full Analysis/);
+    await expect(page.locator(".tabs .tab")).toHaveCount(6);
+    const tabsBox = (await page.locator(".tabs").boundingBox())!;
+    const actionBox = (await action.boundingBox())!;
+    const barBox = (await page.locator(".tab-bar").boundingBox())!;
+    expect(actionBox.x).toBeGreaterThan(tabsBox.x + tabsBox.width - 1);
+    expect(actionBox.x + actionBox.width).toBeCloseTo(barBox.x + barBox.width, 0);
+
+    await action.click();
+    await expect(action).toHaveClass(/on/);
+    await expect(page).toHaveURL(/tab=analysis/);
+
+    const doc = page.frameLocator("#analysisDoc");
+    await expect(doc.locator(".doc-head h1")).toHaveText("mice.mp4");
+    // One document, gathering what the separate tabs each know a piece of.
+    for (const title of [
+      "Video Container Overview",
+      "Video Track",
+      "Video Bitrate Over Time",
+      "MP4 Atom Map",
+      "GOP / Keyframe Structure",
+      "Reencode CLI Command",
+    ]) {
+      await expect(doc.locator(".section h2", { hasText: title })).toBeVisible();
+    }
+    await expect(doc.locator("#video-bitrate-over-time svg.bitrate-chart")).toBeVisible();
+    await expect(doc.locator(".doc-toc li")).not.toHaveCount(0);
+    // The seeking test has not been run, and the document says so rather than staying silent.
+    await expect(doc.locator("#not-measured")).toContainText("empirical seeking test");
+
+    // The preview is sized to the document, so the page scrolls rather than the frame.
+    const frameHeight = (await page.locator("#analysisDoc").boundingBox())!.height;
+    expect(frameHeight).toBeGreaterThan(1000);
+  });
+
+  test("adds the seeking test to the document once it has been run", async ({ page }) => {
+    await page.goto("/?tab=seek");
+    await page.locator("#loadSampleBtn").click();
+    await page.locator("#seekN").fill("5");
+    await page.locator("#runSeekBtn").click();
+
+    // The test decodes frames, which a Chromium built without proprietary codecs cannot do for
+    // H.264 at all. That is a fact about the browser, not about the document, so skip there rather
+    // than fail: either the run produced rows or the app said why it could not.
+    const rows = page.locator("#seekResultsWrap table.data tbody tr");
+    const failure = page.locator("#errorMsg", { hasText: "Seeking test failed" });
+    await expect(rows.first().or(failure)).toBeVisible();
+    test.skip(await failure.isVisible(), "this browser build cannot decode H.264");
+    await expect(rows).toHaveCount(5);
+
+    await page.locator(".tab-action").click();
+    const doc = page.frameLocator("#analysisDoc");
+    await expect(doc.locator("#empirical-seeking-test table.data tbody tr")).toHaveCount(5);
+    await expect(doc.locator("#empirical-seeking-test svg.seek-scatter")).toBeVisible();
+    await expect(doc.locator("#not-measured")).not.toContainText("empirical seeking test");
   });
 
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {

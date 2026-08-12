@@ -98,7 +98,7 @@ async function runFastEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     } else {
       outSize = 0;
     }
-    showReencodeResult(box, state.source.size, outSize);
+    showReencodeResult(box, "fast", state.source.size, outSize);
   } catch (err) {
     console.error("[encoding-helper] fast encode failed:", err);
     box.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
@@ -144,7 +144,7 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     } else {
       downloadBlob(blob, baseName + ".exact.mp4");
     }
-    showReencodeResult(box, state.source.size, blob.size);
+    showReencodeResult(box, "exact", state.source.size, blob.size);
   } catch (err) {
     console.error("[encoding-helper] exact encode failed:", err);
     box.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));

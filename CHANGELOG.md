@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0
+
+#### 🚀 Enhancement
+
+- Renamed the **Report** tab to **Full Analysis** and moved it out of the tab row: it is now a single button aligned to the right of the content column, carrying a document-with-download icon. It was never a seventh place to look, it was the one control on that row that produces something, and sharing the row (and the word "report", which the footer already uses for "🐛 Report a bug") made it read as both a view and an issue-reporting feature ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- What the button produces is now an actual document rather than a page of cards: a title block naming the file with its container, codec, resolution, frame rate, duration and size, a linked table of contents, and every section in reading order. The explainers that live behind an ⓘ on the page are written out inline, since nobody can hover a saved file, and it closes with a **Not Measured** section naming the runs that were not started rather than staying silent about them ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- The document now carries the analyses the report used to leave behind: this file's container explainer, the **Video Bitrate Over Time** stats with the plot itself (including the constant-bitrate and too-few-frames cases), the GOP histogram, the seeking test's scatter plot, the chroma-subsampling and faststart notes, and the result of an in-browser reencode. Charts travel as inline SVG, so they survive into the saved file ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- Added **Download HTML**: the whole document as one self-contained file with its stylesheet inlined and no external asset, script or font, so it opens the same from a downloads folder, an email attachment or an air-gapped machine ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- The panel now shows that exact file, rendered in an iframe from the same string the download writes and the print dialog prints, so there is no preview that can disagree with what you save. **Save as PDF** prints the document itself instead of the page, which replaces the old trick of hiding every other element behind `@media print` — pressing Ctrl+P anywhere in the app now prints the page you are looking at rather than a blank sheet ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- Dropped the Video Track section's **Bitrate** field from the document, now that the bitrate section below it carries the average alongside the plot, matching the split the Inspect tab already made ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- The Markdown export keeps up: explainers arrive as paragraphs and bullets rather than one run-on line, and a chart it cannot carry is named rather than dropped. Its `?tab=` value is now `analysis` ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+
+#### 🏠 Internal
+
+- Moved the explainer copy shared by the tabs and the document into `src/lib/explainers.ts`, so the page and the exported document cannot explain the same number two different ways, and extracted the GOP histogram and the seeking scatter plot from the GOP & Seeking tab so the document plots the same run rather than only tabulating it ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- Replaced the report's three section shapes with sections built from a list of blocks (`kv`, `prose`, `badge`, `code`, `table`, `figure`), so adding content to the document is a matter of listing blocks rather than teaching a renderer a new layout. Rendering lives in `src/lib/analysisDoc.ts`, state-gathering in `src/ui/analysisTab.ts` ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+- An in-browser reencode now records its result in shared state, which the previously unused `reencodeResult` field was always meant to hold ([#17](https://github.com/brain-bbqs/encoding-helper/pull/17))
+
 ## 0.2.9
 
 #### 🚀 Enhancement

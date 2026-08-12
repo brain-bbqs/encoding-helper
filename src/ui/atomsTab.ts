@@ -5,10 +5,12 @@
 // parent's width by how many boxes each subtree holds, so every box gets room and nothing in the
 // file goes unshown; see atomLayout.ts for why that particular split. Every block is a button
 // carrying its own offset and size, so the numbers are reachable by keyboard and screen reader as
-// well as by hovering, and the Report tab still writes the whole tree out as indented text.
+// well as by hovering, and the Full Analysis document still writes the whole tree out as indented
+// text.
 
-import { h, teachBox } from "../lib/dom";
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
+import { h, teachBox } from "../lib/dom";
+import { ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 
@@ -54,19 +56,7 @@ export function renderAtomMap(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "MP4 Box / Atom Structure"));
-  sec.append(
-    teachBox(
-      `An MP4 file is a tree of <b>boxes</b> (also called &ldquo;atoms&rdquo;): <code>ftyp</code> declares the ` +
-        `brand/compatibility, <code>moov</code> holds all metadata &amp; the sample index (offsets, sizes, ` +
-        `timestamps, keyframe flags), and <code>mdat</code> holds the raw encoded frame bytes it points to. ` +
-        `Fragmented MP4s repeat <code>moof</code>+<code>mdat</code> pairs instead of one big <code>mdat</code>.` +
-        `<p>The map below is that tree on its side: left to right across the file, each row down one level of ` +
-        `nesting. Siblings split their parent's width by how many boxes each subtree holds, so every box gets ` +
-        `room and the whole file is on screen at once however long the video is. Width says nothing about ` +
-        `size — hover a box for its offset and byte count, or click to zoom into it. The <b>Report</b> tab ` +
-        `writes the same tree out as indented text, every number spelled out.</p>`,
-    ),
-  );
+  sec.append(teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));
 
   const placements = placeAtoms(state.boxes);
   const zoom: { label: string; range: AxisRange }[] = [];
