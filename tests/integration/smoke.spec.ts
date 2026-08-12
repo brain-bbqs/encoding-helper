@@ -60,6 +60,28 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator(".talmo-brand-logo.on-light")).toBeHidden();
   });
 
+  test("plots the sample video's bitrate over time, one step per window", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#loadSampleBtn").click();
+    const card = page
+      .locator("#panel-inspect .section")
+      .filter({ has: page.locator('h2:text-is("Video Bitrate Over Time")') });
+    await expect(card.locator("svg.bitrate-chart")).toBeVisible();
+    // 30 s of video, so ~one window per second, each with its own hover band.
+    await expect(card.locator("svg.bitrate-chart .bin")).toHaveCount(30);
+
+    // The sample is a CRF encode, so its peak window sits above its average rather than on it.
+    const peak = await card.locator(".item", { hasText: "Peak Window" }).locator(".val").textContent();
+    const average = await card.locator(".item", { hasText: "Average" }).first().locator(".val").textContent();
+    expect(peak).not.toBe(average);
+
+    // The average lives here now, so the Video Track card above no longer repeats it.
+    const videoCard = page
+      .locator("#panel-inspect .section")
+      .filter({ has: page.locator('h2:text-is("Video Track")') });
+    await expect(videoCard.locator(".item").filter({ has: page.locator('label:text-is("Bitrate")') })).toHaveCount(0);
+  });
+
   test("draws every box the Report tab lists, with none summarised away", async ({ page }) => {
     await page.goto("/?tab=atoms");
     await page.locator("#loadSampleBtn").click();

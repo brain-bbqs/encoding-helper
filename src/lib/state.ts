@@ -19,6 +19,7 @@ export const state: AppState = {
   boxes: [],
   faststart: null,
   samples: [],
+  declaredVideoBitrate: null,
   timescale: 1,
   keyframeDecodeIndices: [],
   gopLengths: [],
@@ -70,6 +71,7 @@ export function resetState(): void {
   state.boxes = [];
   state.faststart = null;
   state.samples = [];
+  state.declaredVideoBitrate = null;
   state.timescale = 1;
   state.keyframeDecodeIndices = [];
   state.gopLengths = [];

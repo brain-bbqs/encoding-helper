@@ -5,7 +5,7 @@
 
 import MP4Box, { type ISOFile, type MP4BoxBox, type MP4BoxInfo } from "mp4box";
 import type { ChunkedSource } from "./chunkedSource";
-import type { BoxNode, SampleAnalysis, SampleInfo } from "./types";
+import type { BoxNode, DeclaredBitrate, SampleAnalysis, SampleInfo } from "./types";
 
 export interface Mp4BoxParseResult {
   mp4boxFile: ISOFile;
@@ -70,6 +70,35 @@ export function detectFaststart(tree: BoxNode[]): boolean | null {
   const mdat = findTopLevelBox(tree, "mdat");
   if (!moov || !mdat) return null;
   return moov.start < mdat.start;
+}
+
+/**
+ * The rates a track's sample entry declares in its `btrt` box, or null when it has none — which is
+ * the common case, since `btrt` is optional and most encoders leave it out. Only the sample entries
+ * of the requested track are read, so an audio track's declaration is never mistaken for a video
+ * track's; the first entry that carries one wins, a file with several being one that switched codec
+ * configuration partway through.
+ */
+export function extractDeclaredBitrate(mp4boxFile: ISOFile, trackId: number): DeclaredBitrate | null {
+  const trak = mp4boxFile.moov?.traks?.find((t) => t.tkhd?.track_id === trackId);
+  const entries = trak?.mdia?.minf?.stbl?.stsd?.entries ?? [];
+  for (const entry of entries) {
+    const btrt = entry.btrt;
+    if (btrt && typeof btrt.avgBitrate === "number" && typeof btrt.maxBitrate === "number") {
+      return { avgBitrate: btrt.avgBitrate, maxBitrate: btrt.maxBitrate };
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether the container declares the track constant-bitrate: `btrt` giving one and the same number
+ * as both the average and the peak is how a file says the rate never moves off it. Anything else,
+ * including no `btrt` at all, leaves the question open, and the sample sizes are then the only
+ * evidence of what the rate actually did.
+ */
+export function declaresConstantBitrate(declared: DeclaredBitrate | null | undefined): boolean {
+  return declared != null && declared.avgBitrate > 0 && declared.avgBitrate === declared.maxBitrate;
 }
 
 // Sample table (decode order) + GOP / keyframe / B-frame analysis.

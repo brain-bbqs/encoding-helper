@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.9
+
+#### 🚀 Enhancement
+
+- Added a **Video Bitrate Over Time** card to the Inspect tab, plotting the video track's rate one window of playback at a time (roughly one per second, bounded so a 10-second clip and a 10-hour recording both draw a readable number of steps) against the track average. The Inspect tab could only say what the bitrate averaged to, which is the one thing a variable-bitrate encode is guaranteed not to be doing at any given moment; the plot shows where the bits actually went. It is measured straight from the container's sample table, so no decoding is involved, and hovering a window gives its rate and frame count ([#16](https://github.com/brain-bbqs/encoding-helper/pull/16))
+- The plot is replaced by an explanation for a file whose rate really was held constant, since it would only ever draw a flat line. A `btrt` box declaring the same number as both the track's average and its maximum is not enough on its own: muxers routinely write the computed average into both fields whatever the encoder was doing (the bundled `mice.mp4` is a CRF encode that does exactly this), so the frame sizes have to agree before the plot is suppressed. Where the declaration and the frames disagree, the card plots the measurement and says why the declaration cannot be taken at face value ([#16](https://github.com/brain-bbqs/encoding-helper/pull/16))
+- Added peak, quietest and peak ÷ average readouts beside the plot, the last being how much bandwidth headroom playback needs beyond the average, and cross-referenced the new card from the Overview's **Overall Bitrate** explainer ([#16](https://github.com/brain-bbqs/encoding-helper/pull/16))
+- Dropped the **Bitrate** field from the Inspect tab's Video Track card, since the new card's **Average** is the same number measured the same way; its ⓘ explainer moved across with it. A file with too few frames to divide into windows still gets the average there, with a note in place of the plot. The Report tab continues to list the video track's bitrate, having no plot to carry it ([#16](https://github.com/brain-bbqs/encoding-helper/pull/16))
+
+#### 🏠 Internal
+
+- Synced `package-lock.json`'s own version field, which had been left behind at 0.2.7 ([#16](https://github.com/brain-bbqs/encoding-helper/pull/16))
+
 ## 0.2.8
 
 #### 🚀 Enhancement

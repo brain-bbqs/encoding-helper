@@ -879,6 +879,72 @@ details.teach-more summary {
   fill: var(--accent-bright);
 }
 
+/* Bitrate-over-time step area chart (built in src/ui/bitrateChart.ts; colors live here so it
+   follows the theme). One series, so it takes the accent the rest of the page uses; the average
+   reference line is deliberately quieter than the data it is a reference for. */
+.bitrate-chart {
+  width: 100%;
+  height: auto;
+  max-width: 600px;
+  display: block;
+  margin: 4px 0 6px;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+.bitrate-chart .grid-line {
+  stroke: var(--chart-grid);
+}
+.bitrate-chart .axis {
+  stroke: var(--border);
+}
+.bitrate-chart .tick {
+  fill: var(--muted);
+}
+.bitrate-chart .axis-title {
+  fill: var(--muted-2);
+}
+.bitrate-chart .area {
+  fill: var(--accent-tint);
+}
+.bitrate-chart .line {
+  stroke: var(--accent);
+}
+.bitrate-chart .avg-line {
+  stroke: var(--muted);
+}
+/* Stroked in the card color and painted stroke-first, so the label stays readable wherever the
+   average line happens to fall across the data. */
+.bitrate-chart .avg-label {
+  fill: var(--muted);
+  stroke: var(--card);
+  stroke-width: 3;
+  paint-order: stroke;
+}
+/* The hover layer: a transparent band per window, revealing a crosshair and a dot on the step. */
+.bitrate-chart .band {
+  fill: transparent;
+}
+.bitrate-chart .bin:hover .band {
+  fill: var(--accent-tint);
+}
+.bitrate-chart .cross,
+.bitrate-chart .dot {
+  opacity: 0;
+}
+.bitrate-chart .cross {
+  stroke: var(--accent);
+}
+.bitrate-chart .dot {
+  fill: var(--accent-bright);
+  stroke: var(--card);
+}
+.bitrate-chart .bin:hover .cross,
+.bitrate-chart .bin:hover .dot {
+  opacity: 1;
+}
+
 /* Progress */
 .progress-wrap {
   background: var(--btn-off-bg);
