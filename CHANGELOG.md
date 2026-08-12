@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8
+
+#### 🚀 Enhancement
+
+- Added − and + zoom buttons to the Compare Quality panes, so zooming no longer requires a scroll wheel or a trackpad. They step the zoom by 1.5× around the middle of the pane, both panes staying in sync as with the wheel, and each disables itself at the end of the zoom range the wheel already clamped to ([#15](https://github.com/brain-bbqs/encoding-helper/pull/15))
+
 ## 0.2.7
 
 #### 🚀 Enhancement

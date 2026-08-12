@@ -240,24 +240,41 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   scrub.value = "0";
   const scrubLabel = h("span", "progress-label", "0.00s");
   const zoomBtns = h("div", "zoom-buttons");
+  // Wheel zoom is the fast path, but it is unavailable on a trackpad-less mouse or a touch device,
+  // so every zoom move is reachable from a button too.
+  const zoomOutBtn = h("button", "btn sm sec zoom-step", "−");
+  zoomOutBtn.type = "button";
+  zoomOutBtn.title = "Zoom out";
+  zoomOutBtn.setAttribute("aria-label", "Zoom out");
+  const zoomInBtn = h("button", "btn sm sec zoom-step", "+");
+  zoomInBtn.type = "button";
+  zoomInBtn.title = "Zoom in";
+  zoomInBtn.setAttribute("aria-label", "Zoom in");
   const fitBtn = h("button", "btn sm sec", "Fit");
   fitBtn.type = "button";
   const actualBtn = h("button", "btn sm sec", "Actual Size (100%)");
   actualBtn.type = "button";
-  zoomBtns.append(fitBtn, actualBtn);
+  zoomBtns.append(zoomOutBtn, zoomInBtn, fitBtn, actualBtn);
   controls.append(scrub, scrubLabel, zoomBtns);
   resultSec.append(controls);
   resultSec.append(
     h(
       "div",
       "progress-label",
-      "Scroll to zoom toward the cursor, drag to pan; both panes move together. Slide to scrub the test segment. A pixel grid appears once zoomed in far enough.",
+      "Zoom with the − and + buttons, or scroll to zoom toward the cursor; drag to pan. Both panes move together. Slide to scrub the test segment. A pixel grid appears once zoomed in far enough.",
     ),
   );
 
-  const zoomPan = attachSyncedZoomPan(stage, [origCanvas, encCanvas], [origGrid, encGrid]);
+  const syncZoomButtons = (scale: number): void => {
+    zoomOutBtn.disabled = scale <= ZOOM_MIN;
+    zoomInBtn.disabled = scale >= ZOOM_MAX;
+  };
+  const zoomPan = attachSyncedZoomPan(stage, [origCanvas, encCanvas], [origGrid, encGrid], syncZoomButtons);
+  zoomOutBtn.addEventListener("click", () => zoomPan.zoomBy(1 / ZOOM_BUTTON_STEP));
+  zoomInBtn.addEventListener("click", () => zoomPan.zoomBy(ZOOM_BUTTON_STEP));
   fitBtn.addEventListener("click", () => zoomPan.fit());
   actualBtn.addEventListener("click", () => zoomPan.actualSize());
+  syncZoomButtons(zoomPan.state.scale);
 
   const drawFrame = (
     canvas: HTMLCanvasElement,
@@ -328,7 +345,17 @@ window.addEventListener("touchend", () => {
 // Pixel grid appears once a source pixel renders at least this many CSS px wide.
 const PIXEL_GRID_THRESHOLD = 8;
 
-function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElement[], grids: HTMLDivElement[]) {
+const ZOOM_MIN = 0.2;
+const ZOOM_MAX = 50;
+/** One button press covers several wheel notches, so clicking through the range stays quick. */
+const ZOOM_BUTTON_STEP = 1.5;
+
+function attachSyncedZoomPan(
+  stageEl: HTMLDivElement,
+  canvases: HTMLCanvasElement[],
+  grids: HTMLDivElement[],
+  onChange?: (scale: number) => void,
+) {
   const zoom: ZoomPanState = { scale: 1, tx: 0, ty: 0 };
   encodeTest.zoom = zoom;
 
@@ -357,12 +384,14 @@ function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElemen
       c.style.transform = t;
     });
     updateGrids();
+    onChange?.(zoom.scale);
   };
 
   const setScale = (newScale: number, anchorX: number, anchorY: number): void => {
-    zoom.tx = anchorX - (anchorX - zoom.tx) * (newScale / zoom.scale);
-    zoom.ty = anchorY - (anchorY - zoom.ty) * (newScale / zoom.scale);
-    zoom.scale = newScale;
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newScale));
+    zoom.tx = anchorX - (anchorX - zoom.tx) * (clamped / zoom.scale);
+    zoom.ty = anchorY - (anchorY - zoom.ty) * (clamped / zoom.scale);
+    zoom.scale = clamped;
     apply();
   };
 
@@ -371,14 +400,8 @@ function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElemen
     (e) => {
       e.preventDefault();
       const rect = canvases[0].getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      const newScale = Math.min(50, Math.max(0.2, zoom.scale * factor));
-      zoom.tx = cx - (cx - zoom.tx) * (newScale / zoom.scale);
-      zoom.ty = cy - (cy - zoom.ty) * (newScale / zoom.scale);
-      zoom.scale = newScale;
-      apply();
+      setScale(zoom.scale * factor, e.clientX - rect.left, e.clientY - rect.top);
     },
     { passive: false },
   );
@@ -396,6 +419,12 @@ function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElemen
 
   return {
     state: zoom,
+    /** Button-driven zoom: no cursor to aim at, so it holds the middle of the pane in place. */
+    zoomBy: (factor: number): void => {
+      const paneRect = canvases[0].parentElement?.getBoundingClientRect();
+      if (!paneRect) return;
+      setScale(zoom.scale * factor, paneRect.width / 2, paneRect.height / 2);
+    },
     fit: (): void => {
       zoom.scale = 1;
       zoom.tx = 0;

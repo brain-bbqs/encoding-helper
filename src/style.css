@@ -368,7 +368,7 @@ h1 {
   font-size: 14px;
   font-weight: 500;
 }
-.btn:hover {
+.btn:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 .btn:disabled {
@@ -380,7 +380,7 @@ h1 {
   background: var(--btn-sec-bg);
   color: var(--btn-sec-text);
 }
-.btn.sec:hover {
+.btn.sec:hover:not(:disabled) {
   background: var(--btn-sec-bg-hover);
 }
 .btn.sm {
@@ -1038,6 +1038,13 @@ table.data th {
 .zoom-buttons {
   display: flex;
   gap: 6px;
+}
+/* The − / + pair reads as one control, so both get the same square footprint. */
+.zoom-buttons .zoom-step {
+  min-width: 32px;
+  padding: 6px 0;
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* Fixed bottom-left links, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader. The
