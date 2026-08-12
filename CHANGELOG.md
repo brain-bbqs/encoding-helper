@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.8
+
+#### 🚀 Enhancement
+
+- Added − and + zoom buttons to the Compare Quality panes, so zooming no longer requires a scroll wheel or a trackpad. They step the zoom by 1.5× around the middle of the pane, both panes staying in sync as with the wheel, and each disables itself at the end of the zoom range the wheel already clamped to ([#15](https://github.com/brain-bbqs/encoding-helper/pull/15))
+- Added a Play button, so the test segment can be watched straight through instead of only scrubbed frame by frame. Both panes are decoded per frame, so playback is paced off the wall clock and drops frames when decoding cannot keep up rather than drifting into slow motion; the button doubles as Pause, dragging the slider mid-playback moves the playhead, and playing from the end starts the segment over ([#15](https://github.com/brain-bbqs/encoding-helper/pull/15))
+- Dropped the paragraph of hover/scroll/scrub instructions under the panes ([#15](https://github.com/brain-bbqs/encoding-helper/pull/15))
+
 ## 0.2.7
 
 #### 🚀 Enhancement

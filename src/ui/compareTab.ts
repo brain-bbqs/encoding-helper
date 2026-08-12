@@ -187,7 +187,12 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   }
 }
 
+// Halts the previous run's playback loop, so a fresh comparison does not leave one decoding frames
+// into the canvases it just replaced.
+let stopActivePlayback: (() => void) | null = null;
+
 function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
+  stopActivePlayback?.();
   resultSec.innerHTML = "";
   resultSec.style.display = "block";
   resultSec.append(h("h2", null, "Side-by-Side"));
@@ -239,25 +244,37 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   scrub.max = "1000";
   scrub.value = "0";
   const scrubLabel = h("span", "progress-label", "0.00s");
+  const playBtn = h("button", "btn sm sec", "Play");
+  playBtn.type = "button";
   const zoomBtns = h("div", "zoom-buttons");
+  // Wheel zoom is the fast path, but it is unavailable on a trackpad-less mouse or a touch device,
+  // so every zoom move is reachable from a button too.
+  const zoomOutBtn = h("button", "btn sm sec zoom-step", "−");
+  zoomOutBtn.type = "button";
+  zoomOutBtn.title = "Zoom out";
+  zoomOutBtn.setAttribute("aria-label", "Zoom out");
+  const zoomInBtn = h("button", "btn sm sec zoom-step", "+");
+  zoomInBtn.type = "button";
+  zoomInBtn.title = "Zoom in";
+  zoomInBtn.setAttribute("aria-label", "Zoom in");
   const fitBtn = h("button", "btn sm sec", "Fit");
   fitBtn.type = "button";
   const actualBtn = h("button", "btn sm sec", "Actual Size (100%)");
   actualBtn.type = "button";
-  zoomBtns.append(fitBtn, actualBtn);
-  controls.append(scrub, scrubLabel, zoomBtns);
+  zoomBtns.append(zoomOutBtn, zoomInBtn, fitBtn, actualBtn);
+  controls.append(playBtn, scrub, scrubLabel, zoomBtns);
   resultSec.append(controls);
-  resultSec.append(
-    h(
-      "div",
-      "progress-label",
-      "Scroll to zoom toward the cursor, drag to pan; both panes move together. Slide to scrub the test segment. A pixel grid appears once zoomed in far enough.",
-    ),
-  );
 
-  const zoomPan = attachSyncedZoomPan(stage, [origCanvas, encCanvas], [origGrid, encGrid]);
+  const syncZoomButtons = (scale: number): void => {
+    zoomOutBtn.disabled = scale <= ZOOM_MIN;
+    zoomInBtn.disabled = scale >= ZOOM_MAX;
+  };
+  const zoomPan = attachSyncedZoomPan(stage, [origCanvas, encCanvas], [origGrid, encGrid], syncZoomButtons);
+  zoomOutBtn.addEventListener("click", () => zoomPan.zoomBy(1 / ZOOM_BUTTON_STEP));
+  zoomInBtn.addEventListener("click", () => zoomPan.zoomBy(ZOOM_BUTTON_STEP));
   fitBtn.addEventListener("click", () => zoomPan.fit());
   actualBtn.addEventListener("click", () => zoomPan.actualSize());
+  syncZoomButtons(zoomPan.state.scale);
 
   const drawFrame = (
     canvas: HTMLCanvasElement,
@@ -279,9 +296,70 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     drawFrame(origCanvas, originalFrame);
     drawFrame(encCanvas, encodedFrame);
   };
+  const showTime = (relT: number): void => {
+    scrub.value = String((relT / encodeTest.duration) * 1000);
+    scrubLabel.textContent = relT.toFixed(2) + "s";
+  };
+
+  // Playback decodes both panes per frame, so it is paced off the wall clock and asks for whichever
+  // frame the elapsed time lands on: when decoding cannot keep up it drops frames rather than
+  // drifting into slow motion, keeping the two sides on the same timeline.
+  const frameStep = 1 / (vt.packetRate && vt.packetRate > 0 ? vt.packetRate : 30);
+  let playing = false;
+  let baseT = 0;
+  let baseWall = 0;
+  // Bumped on every press of Play, so a loop still awaiting a frame from the run before it neither
+  // keeps drawing nor stops the run that replaced it.
+  let playRun = 0;
+  const rebase = (relT: number): void => {
+    baseT = relT;
+    baseWall = performance.now();
+  };
+  const stopPlayback = (): void => {
+    playing = false;
+    playBtn.textContent = "Play";
+  };
+  stopActivePlayback = stopPlayback;
+  const runPlayback = async (run: number): Promise<void> => {
+    try {
+      while (playing && run === playRun) {
+        const relT = baseT + (performance.now() - baseWall) / 1000;
+        if (relT >= encodeTest.duration) {
+          showTime(encodeTest.duration);
+          await drawAt(encodeTest.duration);
+          return;
+        }
+        showTime(relT);
+        await drawAt(relT);
+        const nextWall = baseWall + (Math.floor((relT - baseT) / frameStep) + 1) * frameStep * 1000;
+        const wait = nextWall - performance.now();
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+      }
+    } catch (err) {
+      // A frame that will not decode ends playback rather than leaving the button stuck on "Pause".
+      console.error("[encoding-helper] playback stopped:", err);
+    } finally {
+      if (run === playRun) stopPlayback();
+    }
+  };
+  playBtn.addEventListener("click", () => {
+    if (playing) {
+      stopPlayback();
+      return;
+    }
+    const at = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
+    // Pressing Play with the playhead parked at the end starts the segment over.
+    rebase(at >= encodeTest.duration - frameStep ? 0 : at);
+    playing = true;
+    playBtn.textContent = "Pause";
+    void runPlayback(++playRun);
+  });
+
   scrub.addEventListener("input", () => {
     const relT = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
     scrubLabel.textContent = relT.toFixed(2) + "s";
+    // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.
+    if (playing) rebase(relT);
     void drawAt(relT);
   });
   void drawAt(0);
@@ -328,7 +406,17 @@ window.addEventListener("touchend", () => {
 // Pixel grid appears once a source pixel renders at least this many CSS px wide.
 const PIXEL_GRID_THRESHOLD = 8;
 
-function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElement[], grids: HTMLDivElement[]) {
+const ZOOM_MIN = 0.2;
+const ZOOM_MAX = 50;
+/** One button press covers several wheel notches, so clicking through the range stays quick. */
+const ZOOM_BUTTON_STEP = 1.5;
+
+function attachSyncedZoomPan(
+  stageEl: HTMLDivElement,
+  canvases: HTMLCanvasElement[],
+  grids: HTMLDivElement[],
+  onChange?: (scale: number) => void,
+) {
   const zoom: ZoomPanState = { scale: 1, tx: 0, ty: 0 };
   encodeTest.zoom = zoom;
 
@@ -357,12 +445,14 @@ function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElemen
       c.style.transform = t;
     });
     updateGrids();
+    onChange?.(zoom.scale);
   };
 
   const setScale = (newScale: number, anchorX: number, anchorY: number): void => {
-    zoom.tx = anchorX - (anchorX - zoom.tx) * (newScale / zoom.scale);
-    zoom.ty = anchorY - (anchorY - zoom.ty) * (newScale / zoom.scale);
-    zoom.scale = newScale;
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newScale));
+    zoom.tx = anchorX - (anchorX - zoom.tx) * (clamped / zoom.scale);
+    zoom.ty = anchorY - (anchorY - zoom.ty) * (clamped / zoom.scale);
+    zoom.scale = clamped;
     apply();
   };
 
@@ -371,14 +461,8 @@ function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElemen
     (e) => {
       e.preventDefault();
       const rect = canvases[0].getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      const newScale = Math.min(50, Math.max(0.2, zoom.scale * factor));
-      zoom.tx = cx - (cx - zoom.tx) * (newScale / zoom.scale);
-      zoom.ty = cy - (cy - zoom.ty) * (newScale / zoom.scale);
-      zoom.scale = newScale;
-      apply();
+      setScale(zoom.scale * factor, e.clientX - rect.left, e.clientY - rect.top);
     },
     { passive: false },
   );
@@ -396,6 +480,12 @@ function attachSyncedZoomPan(stageEl: HTMLDivElement, canvases: HTMLCanvasElemen
 
   return {
     state: zoom,
+    /** Button-driven zoom: no cursor to aim at, so it holds the middle of the pane in place. */
+    zoomBy: (factor: number): void => {
+      const paneRect = canvases[0].parentElement?.getBoundingClientRect();
+      if (!paneRect) return;
+      setScale(zoom.scale * factor, paneRect.width / 2, paneRect.height / 2);
+    },
     fit: (): void => {
       zoom.scale = 1;
       zoom.tx = 0;
