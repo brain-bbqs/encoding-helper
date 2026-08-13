@@ -10,6 +10,11 @@
 - Added an **Estimate Detail** block under the comparison: the source's cost for the sampled stretch, the segment's change, the original and projected file sizes, the range, and how much of the file the estimate actually saw. How the estimate is made, and where it can be wrong, stays on the ⓘ of the figures it bears on rather than in prose under them ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
 - The **Full Analysis** document reports the same projection under its Compare Quality section, so a saved report carries the size estimate and its caveats rather than only the snippet's byte count ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
 
+#### 🐛 Bug Fix
+
+- A crash inside ffmpeg.wasm no longer takes the rest of the session with it. Emscripten's `abort()` kills the whole runtime rather than failing one call, so the cached core went on throwing the same error for every later encode — including settings that would have worked — until the page was reloaded. A run that crashes now drops the instance and the next one starts from a fresh core, with the core's binaries kept so replacing it costs no download ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- A crash is also reported as something a reader can act on: `Aborted()` on its own says nothing, so the message now names what is likely (the single-threaded browser core, worked hardest by the slowest x264 presets), what usually gets through instead, and that the command itself is still sound outside the browser ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+
 ## 0.3.0
 
 #### 🚀 Enhancement
