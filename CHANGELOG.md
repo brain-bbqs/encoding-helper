@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1
+
+#### 🚀 Enhancement
+
+- The **Compare Quality** tab now estimates the data savings, not just the encoded snippet's size. A headline figure above the panes says how much smaller (or larger) the settings make the file, with two bars putting the projected file against the original on one scale ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- The projection is a ratio rather than a multiplied-out snippet: the encoded segment is compared against what the _same_ seconds cost in the source, and that ratio is applied to the source's real size. Where the container has a sample table, the source's cost for those seconds is summed straight out of it (plus the stretch's share of the audio and container overhead), so a snippet taken from a scene cut is divided by an equally expensive original instead of pricing the whole file at its busiest moment. Files without a usable sample table fall back to spreading the size evenly over the running time, and say so ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- The estimate carries a range, drawn on the projected bar, derived from how far the file's own equal-length windows sit from one another and narrowed by how much of the file was sampled. Encoding the entire file leaves nothing to be wrong about, so the range drops away ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- Added an **Estimate Detail** block under the comparison: the source's cost for the sampled stretch, the segment's change, the original and projected file sizes, the range, and how much of the file the estimate actually saw. The explainer says how representative the chosen stretch was, and what an extrapolation from a few seconds cannot know ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- The **Full Analysis** document reports the same projection under its Compare Quality section, so a saved report carries the size estimate and its caveats rather than only the snippet's byte count ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+
 ## 0.3.0
 
 #### 🚀 Enhancement

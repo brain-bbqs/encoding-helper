@@ -8,9 +8,11 @@ import { ensureMediabunny } from "../lib/mediabunny";
 import { extOf } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import { fmtBytes } from "../lib/format";
+import { currentSizeEstimate } from "../lib/sizeEstimate";
 import type { TrackInfo, ZoomPanState } from "../lib/types";
 import { syncQualityControls } from "./cliControls";
 import { fieldNumber, fieldSelect, logLine } from "./formControls";
+import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
 
 interface RunUi {
   button: HTMLButtonElement;
@@ -212,6 +214,11 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   );
   resultSec.append(g);
 
+  // The size question is half of what the tab is for, so its headline goes above the panes rather
+  // than below the controls, where the detail and the caveats follow it.
+  const estimate = currentSizeEstimate();
+  if (estimate) resultSec.append(h("h3", null, "Estimated Data Savings"), renderSavingsStrip(estimate));
+
   const stage = h("div", "compare-stage");
   const origPane = h("div", "compare-pane");
   origPane.append(h("span", "pane-label", "Original"));
@@ -264,6 +271,8 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   zoomBtns.append(zoomOutBtn, zoomInBtn, fitBtn, actualBtn);
   controls.append(playBtn, scrub, scrubLabel, zoomBtns);
   resultSec.append(controls);
+
+  if (estimate) resultSec.append(...renderSavingsDetail(estimate));
 
   const syncZoomButtons = (scale: number): void => {
     zoomOutBtn.disabled = scale <= ZOOM_MIN;
