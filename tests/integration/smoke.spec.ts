@@ -82,7 +82,7 @@ test.describe("Encoding Helper shell", () => {
     await expect(videoCard.locator(".item").filter({ has: page.locator('label:text-is("Bitrate")') })).toHaveCount(0);
   });
 
-  test("draws every box the Full Analysis document lists, with none summarised away", async ({ page }) => {
+  test("draws every box in the file, in the tab and in the document, none summarised away", async ({ page }) => {
     await page.goto("/?tab=atoms");
     await page.locator("#loadSampleBtn").click();
     const panel = page.locator("#panel-atoms");
@@ -90,20 +90,22 @@ test.describe("Encoding Helper shell", () => {
     await expect(panel.locator(".atom-block.grouped")).toHaveCount(0);
     const drawn = await panel.locator(".atom-block").count();
 
-    // The document writes the same tree out as indented text from the same parse, so its line count
-    // is an independent check that the map is not quietly leaving boxes out.
+    // The breadcrumb counts the boxes the layout covers, including any swallowed by a group block,
+    // so matching it against the blocks actually drawn is what catches boxes going missing.
+    const covered = /(\d[\d,]*) box/.exec((await panel.locator(".crumb-range").textContent()) ?? "");
+    expect(drawn).toBe(Number((covered?.[1] ?? "0").replace(/,/g, "")));
+
+    // The document draws that same map, block for block — it is the whole of what it says about the
+    // tree, so a box missing there is a box the reader never sees.
     await page.locator(".tab-action").click();
     const doc = page.frameLocator("#analysisDoc");
-    const listing = doc.locator("#mp4-atom-map pre.cmd");
-    const lines = ((await listing.textContent()) ?? "").trim().split("\n");
-    expect(drawn).toBe(lines.length);
-    expect(lines[0]).toContain("ftyp");
-
-    // The document draws the same map, block for block, rather than only tabulating the tree.
     await expect(doc.locator("#mp4-atom-map .atom-block")).toHaveCount(drawn);
     await expect(doc.locator("#mp4-atom-map .atom-legend")).toBeVisible();
-    // Its labels were sized when it was built, since the document runs no script to measure itself.
+    await expect(doc.locator("#mp4-atom-map .atom-block", { hasText: "mdat" })).toHaveCount(1);
+    // Labels were sized when it was built, since the document runs no script to measure itself.
     await expect(doc.locator("#mp4-atom-map .atom-block.wide").first()).toBeVisible();
+    // Offsets and sizes travel on the blocks themselves now that no text listing repeats them.
+    await expect(doc.locator("#mp4-atom-map .atom-block").first()).toHaveAttribute("title", /offset 0/);
   });
 
   test("bundles the whole analysis into one document behind the Full Analysis button", async ({ page }) => {

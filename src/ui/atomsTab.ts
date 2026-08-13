@@ -5,9 +5,8 @@
 // parent's width by how many boxes each subtree holds, so every box gets room and nothing in the
 // file goes unshown; see atomLayout.ts for why that particular split. Every block is a button
 // carrying its own offset and size, so the numbers are reachable by keyboard and screen reader as
-// well as by hovering. The Full Analysis document draws the same map (renderStaticAtomMap below,
-// minus everything that needs a hand) and writes the tree out as indented text underneath it, since
-// a document has no hover to reveal the offsets and sizes with.
+// well as by hovering. The Full Analysis document draws the same map through renderStaticAtomMap
+// below, minus everything that needs a hand.
 
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
 import { h, teachBox } from "../lib/dom";

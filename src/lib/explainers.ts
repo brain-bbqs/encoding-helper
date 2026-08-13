@@ -157,7 +157,7 @@ export const ATOM_MAP_TEACH =
   `nesting. Siblings split their parent's width by how many boxes each subtree holds, so every box gets ` +
   `room and the whole file is on screen at once however long the video is. Width says nothing about ` +
   `size — hover a box for its offset and byte count, or click to zoom into it. The <b>Full Analysis</b> ` +
-  `document writes the same tree out as indented text, every number spelled out.`;
+  `document draws this same map, minus the zooming.`;
 
 export const GOP_TEACH =
   `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
