@@ -11,6 +11,7 @@ import type { BitrateTimeline } from "./bitrateTimeline";
 import type { ContainerInfo } from "./containerKb";
 import { escapeHtml } from "./dom";
 import { fmtBits } from "./format";
+import type { SizeEstimate } from "./sizeEstimate";
 import type { CodecInfo } from "./types";
 
 /** The Overview's whole-file bitrate, which is not the same as any one track's bitrate. */
@@ -178,3 +179,74 @@ export const GOP_TEACH =
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";
+
+/** Why the Compare Quality tab reports a size at all, and on what terms it projects one. */
+export const SIZE_SAVINGS_INTRO =
+  "Quality is only ever traded against bytes, so the other half of this comparison is what the settings cost. " +
+  "Only a few seconds were encoded, but that is enough to estimate the whole file: the snippet is compared " +
+  "against what the <i>same</i> seconds cost in the source, and that ratio is applied to the source's real size.";
+
+/** How the sampled stretch's cost in the source was arrived at, which depends on the file. */
+export function sizeEstimateTeach(estimate: SizeEstimate): string {
+  const basis =
+    estimate.basis === "sample-table"
+      ? `The original side of that ratio is measured, not assumed: the container's sample table lists every ` +
+        `frame's size, so the bytes this exact stretch costs in the source were summed out of it, plus the ` +
+        `stretch's share of the audio track and the container's own overhead.`
+      : `The original side of that ratio had to be approximated: no sample table was available for this file, ` +
+        `so the source's cost for the stretch is its total size spread evenly across its running time. That is ` +
+        `exact only for a constant-bitrate file, and this estimate is the rougher for it.`;
+  const difficulty = windowDifficultySentence(estimate);
+  const band = estimate.projectedRange
+    ? `<p>The range is not a confidence interval in any formal sense: it is how far the file's own ` +
+      `equal-length windows sit from one another, narrowed by how much of the file was sampled. A file whose ` +
+      `windows all cost about the same is one where any window predicts the rest; a file that swings between ` +
+      `still shots and fast motion is one where a single snippet cannot.</p>`
+    : "";
+  return (
+    `${basis} ${difficulty}` +
+    band +
+    `<p><b>Why it is still only an estimate.</b> A CRF encode spends bits per content, so a stretch this ` +
+    `snippet never saw may compress on quite different terms. Ratios also hold better than totals: expect the ` +
+    `percentage to survive better than the megabytes. The settings that apply file-wide (the keyframe ` +
+    `interval, whether audio is copied or dropped) are already reflected here, since the snippet was encoded ` +
+    `with them, but per-file one-offs such as the <code>moov</code> index and faststart are assumed to scale ` +
+    `with length. For an exact number, encode the whole file in the <b>Reencode &amp; CLI</b> tab.</p>`
+  );
+}
+
+/** How representative the sampled stretch is, when the sample table lets that be measured. */
+function windowDifficultySentence(estimate: SizeEstimate): string {
+  const d = estimate.windowDifficulty;
+  if (d == null || !isFinite(d) || d <= 0) return "";
+  if (d >= 1.15) {
+    return (
+      `The stretch picked here is a <b>busy</b> one, costing ${escapeHtml(d.toFixed(1))}&times; the source's ` +
+      `average rate. Dividing by the source's cost for those same seconds is what keeps the projection from ` +
+      `pricing the entire file at this stretch's rate.`
+    );
+  }
+  if (d <= 0.85) {
+    return (
+      `The stretch picked here is a <b>calm</b> one, costing ${escapeHtml(d.toFixed(2))}&times; the source's ` +
+      `average rate. Dividing by the source's cost for those same seconds is what keeps the projection from ` +
+      `pricing the entire file at this stretch's rate.`
+    );
+  }
+  return `The stretch picked here costs about what the source averages, so it is a fair sample to project from.`;
+}
+
+export const ORIGINAL_SEGMENT_INFO =
+  "What the <i>source</i> spends on the same seconds the encode covered, counted on the same terms: video " +
+  "frames, plus the stretch's share of the audio track and the container's overhead. This is the number the " +
+  "encoded segment is compared against, since comparing it with the whole file's size would only be " +
+  "comparing three seconds with an hour.";
+
+export const PROJECTED_SIZE_INFO =
+  "The source's size times the ratio the snippet came to (encoded segment &divide; the same stretch of the " +
+  "source), i.e. what the whole file would come to at these settings if the rest of it compresses like the " +
+  "part that was sampled. It is an extrapolation from a few seconds, not a measurement.";
+
+export const SAMPLED_WINDOW_INFO =
+  "How much of the file this estimate actually saw. The smaller this is, the more the projection is leaning " +
+  "on the sampled seconds being typical of the rest; lengthening the segment above narrows the range.";

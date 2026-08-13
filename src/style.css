@@ -1148,6 +1148,91 @@ table.data th {
   line-height: 1;
 }
 
+/* Compare Quality: the estimated data savings strip that sits between the run summary and the
+   panes. Two bars on one shared scale, so the projected file is read against the original at a
+   glance rather than by subtracting two numbers. */
+.savings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: var(--sunken);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+.savings-figure {
+  min-width: 190px;
+}
+.savings-headline {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--accent);
+}
+/* Settings that grow the file are a real outcome of the tab, not an error, but they should not be
+   reported in the same color as a saving. */
+.savings-headline.grew {
+  color: var(--warn);
+}
+.savings-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.savings-bars {
+  flex: 1;
+  min-width: 240px;
+  display: grid;
+  gap: 6px;
+}
+.savings-row {
+  display: grid;
+  grid-template-columns: 88px 1fr 80px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.savings-row .savings-label {
+  color: var(--muted);
+}
+.savings-row .savings-value {
+  text-align: right;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.savings-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--btn-off-bg);
+  overflow: hidden;
+}
+.savings-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--muted-2);
+}
+.savings-fill.projected {
+  background: var(--accent);
+}
+/* The band the projection could plausibly land in, drawn over its own bar: what shows is the part
+   reaching past the projected fill, which is the point — the estimate has a width. */
+.savings-band {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  border-left: 1px solid var(--accent-bright);
+  border-right: 1px solid var(--accent-bright);
+}
+
 /* Fixed bottom-left links, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader. The
    rem lengths through this block are lifted verbatim from those two apps rather than converted to
    the px this stylesheet otherwise uses, so the three footers stay pixel-identical and a future
@@ -1314,6 +1399,11 @@ table.data th {
   .tab-action {
     padding: 7px 12px;
     font-size: 12px;
+  }
+  /* The bar rows keep all three columns on a phone; the labels give up the width. */
+  .savings-row {
+    grid-template-columns: 68px 1fr 70px;
+    gap: 6px;
   }
 }
 

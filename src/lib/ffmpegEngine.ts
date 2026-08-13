@@ -32,6 +32,42 @@ let ffmpegInstance: FFmpeg | null = null;
 let logHandler: FfmpegLogHandler | null = null;
 let progressHandler: FfmpegProgressHandler | null = null;
 
+/**
+ * The core's two blob: URLs, kept across instances. A crashed core has to be replaced by a fresh
+ * one (see resetFfmpeg), and re-fetching ~30 MB to do it would make every crash cost a download.
+ */
+let coreUrls: Promise<{ coreURL: string; wasmURL: string }> | null = null;
+
+function loadCoreUrls(): Promise<{ coreURL: string; wasmURL: string }> {
+  if (coreUrls) return coreUrls;
+  logHandler?.("Downloading ffmpeg-core (~30 MB, first use only)…");
+  coreUrls = Promise.all([
+    toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
+    toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
+  ])
+    .then(([coreURL, wasmURL]) => ({ coreURL, wasmURL }))
+    // A failed download must not be remembered as the answer for every later attempt.
+    .catch((err) => {
+      coreUrls = null;
+      throw err;
+    });
+  return coreUrls;
+}
+
+/**
+ * Throws away the loaded core, so the next run builds a new one.
+ *
+ * Emscripten's `abort()` does not fail one call, it kills the runtime: the module sets its abort
+ * flag and every later call into that instance throws the same way, whatever it is asked to do. A
+ * cached instance that has aborted therefore fails every subsequent encode until the page is
+ * reloaded — including encodes with settings that would have worked — so a run that crashes has to
+ * drop the instance rather than keep it for next time.
+ */
+export function resetFfmpeg(): void {
+  ffmpegInstance?.terminate();
+  ffmpegInstance = null;
+}
+
 /** Rebinds the log/progress callbacks used by the shared FFmpeg instance for its next run. */
 export function setFfmpegHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void {
   logHandler = onLog;
@@ -43,12 +79,7 @@ export async function ensureFfmpegLoaded(): Promise<FFmpeg> {
   const ffmpeg = new FFmpeg();
   ffmpeg.on("log", ({ message }) => logHandler?.(message));
   ffmpeg.on("progress", ({ progress }) => progressHandler?.(progress));
-  logHandler?.("Downloading ffmpeg-core (~30 MB, first use only)…");
-  const [coreURL, wasmURL] = await Promise.all([
-    toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-    toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
-  ]);
-  await ffmpeg.load({ coreURL, wasmURL });
+  await ffmpeg.load(await loadCoreUrls());
   ffmpegInstance = ffmpeg;
   return ffmpeg;
 }
@@ -68,15 +99,38 @@ export async function runFfmpegEncode(
   outputName: string,
 ): Promise<FfmpegRunResult> {
   const ffmpeg = await ensureFfmpegLoaded();
-  await ffmpeg.writeFile(inputName, inputData);
+  let data: Uint8Array<ArrayBuffer>;
   try {
+    await ffmpeg.writeFile(inputName, inputData);
     await ffmpeg.exec(args);
-    const data = await ffmpeg.readFile(outputName);
     // ffmpeg.wasm's FileData type is generically `Uint8Array<ArrayBufferLike> | string`; copying into
     // a fresh Uint8Array guarantees a plain ArrayBuffer-backed view, which is what Blob/BlobPart expect.
-    return { data: new Uint8Array(data as Uint8Array) };
-  } finally {
-    await ffmpeg.deleteFile(inputName).catch(() => {});
-    await ffmpeg.deleteFile(outputName).catch(() => {});
+    data = new Uint8Array((await ffmpeg.readFile(outputName)) as Uint8Array);
+  } catch (err) {
+    // Anything that rejects here reached us through the worker's catch-all, which means the call
+    // into wasm threw rather than ffmpeg merely exiting non-zero. The instance is not to be trusted
+    // afterwards, so it goes rather than being left to fail every later run.
+    resetFfmpeg();
+    throw new Error(describeFfmpegFailure(err));
   }
+  // Only on the way out of a healthy run: a dead instance has no filesystem left to tidy.
+  await ffmpeg.deleteFile(inputName).catch(() => {});
+  await ffmpeg.deleteFile(outputName).catch(() => {});
+  return { data };
+}
+
+/**
+ * Turns a crash inside the core into something a reader can act on. Emscripten's `abort()` says
+ * only "Aborted()" — the encode it was running is gone, and the reason for it is inside a 30 MB
+ * binary we did not build, so the useful part of the message is what to try instead.
+ */
+function describeFfmpegFailure(err: unknown): string {
+  const raw = (err instanceof Error ? err.message : String(err)).trim();
+  if (!/abort/i.test(raw)) return raw;
+  return (
+    `ffmpeg.wasm crashed part-way through (${raw}). The in-browser core is a single-threaded build, ` +
+    `and the slowest x264 presets ask far more of it than the faster ones; a quicker preset or a ` +
+    `shorter segment usually gets through. The command itself is sound — run it outside the browser ` +
+    `for the exact result. The encoder has been reset, so the next run starts from a fresh core.`
+  );
 }

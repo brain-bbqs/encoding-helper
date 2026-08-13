@@ -30,6 +30,8 @@ import {
   OVERALL_BITRATE_INFO,
   PEAK_RATIO_INFO,
   SEEK_TEST_INTRO,
+  SIZE_SAVINGS_INTRO,
+  sizeEstimateTeach,
   TOO_FEW_FRAMES_NOTE,
   VIDEO_AVERAGE_INFO,
 } from "../lib/explainers";
@@ -37,6 +39,7 @@ import { fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
+import { currentSizeEstimate, describeSavings, fmtSignedChange } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
@@ -344,32 +347,41 @@ function cliCommandSection(): AnalysisSection | null {
 
 function compareSection(): AnalysisSection | null {
   if (!encodeTest.originalSink || !encodeTest.encodedSink) return null;
-  return {
-    title: "Compare Quality (A/B) Result",
-    blocks: [
-      {
-        kind: "kv",
-        items: [
-          [
-            "Segment",
-            `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`,
-          ],
-          [
-            "Quality",
-            cli.quality === "custom" ? `Custom (CRF ${cli.crf})` : `${cli.quality} (CRF ${CRF_MAP[cli.quality]})`,
-          ],
-          ["Preset", cli.preset],
-          ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
-        ],
-      },
-      {
-        kind: "prose",
-        html:
-          "Only the segment above was encoded, so its size is not the whole file's — it is what that stretch of " +
-          "video costs at these settings, which is what makes two settings comparable without encoding twice.",
-      },
-    ],
-  };
+  const items: [string, string | number][] = [
+    ["Segment", `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`],
+    ["Quality", cli.quality === "custom" ? `Custom (CRF ${cli.crf})` : `${cli.quality} (CRF ${CRF_MAP[cli.quality]})`],
+    ["Preset", cli.preset],
+    ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
+  ];
+  const blocks: AnalysisBlock[] = [
+    {
+      kind: "prose",
+      html:
+        "Only the segment above was encoded, so its size is not the whole file's — it is what that stretch of " +
+        "video costs at these settings, which is what makes two settings comparable without encoding twice.",
+    },
+  ];
+
+  const est = currentSizeEstimate();
+  if (est) {
+    items.push(
+      ["Original Segment Size", fmtBytes(est.originalSegmentBytes)],
+      ["Segment Change", fmtSignedChange(est)],
+      ["Original File Size", fmtBytes(est.originalTotalBytes)],
+      ["Projected Full File", fmtBytes(est.projectedTotalBytes)],
+    );
+    if (est.projectedRange) {
+      items.push(["Projected Range", `${fmtBytes(est.projectedRange.low)} – ${fmtBytes(est.projectedRange.high)}`]);
+    }
+    items.push([
+      "Projected Saving",
+      `${describeSavings(est)} (≈ ${fmtBytes(Math.abs(est.projectedSavedBytes))} ` +
+        `${est.savedFraction < 0 ? "added" : "saved"})`,
+    ]);
+    blocks.push({ kind: "prose", html: SIZE_SAVINGS_INTRO }, { kind: "prose", html: sizeEstimateTeach(est) });
+  }
+
+  return { title: "Compare Quality (A/B) Result", blocks: [{ kind: "kv", items }, ...blocks] };
 }
 
 function reencodeSection(): AnalysisSection | null {
