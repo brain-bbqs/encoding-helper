@@ -23,7 +23,7 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
   - **mediabunny / WebCodecs (fast)** - hardware-accelerated, no CRF (bitrate/quality-preset only), surfaced honestly as an approximation
 - **Compare Quality (A/B)** - encodes just a short window (1-10s) of the video at the chosen CRF/preset, then decodes the original and the result side-by-side with synchronized pixel-level zoom & pan, one-click **Fit**/**Actual Size (100%)** buttons, a pixel grid that appears once zoomed in far enough to make individual pixels visible, and a scrub slider, so you can judge a quality setting before committing to a full reencode
 - **Always emits a CLI command** - a live, editable `ffmpeg` command mirroring [sleap-io](https://github.com/talmolab/sleap-io)'s `reencode`, for anyone who wants to run it locally, headless, or in batch
-- **Report / Export** - compiles metadata, the codec explainer, the atom map, GOP/keyframe stats, the seeking test and Compare Quality results (if run), and the CLI command into one report: copy as Markdown, download a `.md` file, or print to PDF via the browser's native print dialog
+- **Full Analysis** - one button beside the tabs bundles everything the tabs worked out into a single document: container and track metadata with the explainer that goes with each number, the bitrate plot, the atom map, GOP/keyframe structure with its histogram, the seeking test with its scatter plot, Compare Quality and in-browser reencode results (once run), and the CLI command. Read it in the page, save it as a self-contained `.html` file (no external assets, so it opens anywhere), print it to PDF, or copy it as Markdown
 - **Shareable links** - the active tab lives in the URL (`?tab=seek`), and a video loaded from a remote URL is recorded alongside it (`?src=…`) and re-opened automatically, so a link points a colleague at the same file on the same tab
 - **Light/dark theme** with an OS-preference default and a header toggle, styled after [clip-extractor](https://github.com/brain-bbqs/clip-extractor) and [bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader)
 
@@ -35,7 +35,7 @@ Companion to [Video Info Tool](https://vibes.tlab.sh/video-info-tool/) and [Fram
 4. Tune CRF, preset, keyframe interval, B-frames, faststart, and audio handling in the **Reencode & CLI** tab
 5. Copy the generated `ffmpeg` command, or head to the **Reencode In-Browser** tab and click **Encode (exact)** / **Encode (fast)** to transcode the whole video in the page and save the result
 6. Try different CRF/preset values on a short clip in the **Compare Quality** tab and compare against the original side-by-side before running the full encode
-7. Head to the **Report** tab to copy/download a Markdown summary of everything above, or print it to PDF
+7. Click **Full Analysis** (to the right of the tabs) for the whole thing as one document: save it as HTML, print it to PDF, or copy it as Markdown
 
 ## Dependencies
 

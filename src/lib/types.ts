@@ -150,10 +150,11 @@ export interface ZoomPanState {
   ty: number;
 }
 
-/** Result of a completed in-browser reencode. */
+/** Result of a completed in-browser reencode, kept so the Full Analysis document can report it. */
 export interface ReencodeResult {
-  blob: Blob;
-  size: number;
+  engine: "fast" | "exact";
+  originalSize: number;
+  encodedSize: number;
 }
 
 /** The whole app's mutable, single-source-of-truth state (one loaded file's worth). */
@@ -184,21 +185,30 @@ export interface AppState {
   reencodeResult: ReencodeResult | null;
 }
 
-/** One section of the compiled Report tab, renderer-agnostic (HTML preview, print view, Markdown). */
-export type ReportSection =
+/**
+ * One piece of content inside a Full Analysis section. A section is a list of these rather than a
+ * single shape, so a section can say a thing the way the tab said it: numbers, then the explainer,
+ * then the plot. Every renderer (the document, the Markdown export) handles all six kinds, so
+ * adding content to the document is a matter of listing blocks, never of teaching a renderer a new
+ * layout.
+ */
+export type AnalysisBlock =
   | {
-      title: string;
       kind: "kv";
       items: [string, string | number][];
-      note?: string | null;
-      /** Keeps label casing as-is; set for sections whose labels are container-native tag names. */
+      /** Keeps label casing as-is; set for blocks whose labels are container-native tag names. */
       rawLabels?: boolean;
     }
-  | { title: string; kind: "code"; lang: string; content: string }
-  | {
-      title: string;
-      kind: "table";
-      summary?: [string, string][];
-      headers: string[];
-      rows: string[][];
-    };
+  /** Trusted, author-authored explainer markup — never text read out of the file, unescaped. */
+  | { kind: "prose"; html: string }
+  | { kind: "badge"; text: string; tone: "good" | "bad" | "info" }
+  | { kind: "code"; lang: string; content: string }
+  | { kind: "table"; headers: string[]; rows: string[][] }
+  /** A chart, built by whichever tab owns it. Renderers clone it, so a section can be drawn twice. */
+  | { kind: "figure"; caption: string; element: Element };
+
+/** One section of the Full Analysis document: a heading and the blocks under it. */
+export interface AnalysisSection {
+  title: string;
+  blocks: AnalysisBlock[];
+}

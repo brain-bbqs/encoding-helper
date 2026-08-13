@@ -5,12 +5,15 @@
 // parent's width by how many boxes each subtree holds, so every box gets room and nothing in the
 // file goes unshown; see atomLayout.ts for why that particular split. Every block is a button
 // carrying its own offset and size, so the numbers are reachable by keyboard and screen reader as
-// well as by hovering, and the Report tab still writes the whole tree out as indented text.
+// well as by hovering. The Full Analysis document draws the same map through renderStaticAtomMap
+// below, minus everything that needs a hand.
 
-import { h, teachBox } from "../lib/dom";
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
+import { h, teachBox } from "../lib/dom";
+import { ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
+import type { BoxNode } from "../lib/types";
 
 /** What the boxes worth calling out actually hold, named in the readout. */
 const BOX_ROLES: Record<string, string | undefined> = {
@@ -42,6 +45,18 @@ const LABEL_COST = {
   snug: { perChar: 5.8, padding: 4 },
 };
 
+/**
+ * Which of the two label sizes fits in a block this wide, or neither. In the panel this is
+ * re-decided from the measured width on every resize; in the document it is decided once, from the
+ * width the document will be read at, since nothing runs there to decide it later.
+ */
+function labelFit(frac: number, chars: number, widthPx: number): "wide" | "snug" | "" {
+  const px = frac * widthPx;
+  if (px >= chars * LABEL_COST.wide.perChar + LABEL_COST.wide.padding) return "wide";
+  if (px >= chars * LABEL_COST.snug.perChar + LABEL_COST.snug.padding) return "snug";
+  return "";
+}
+
 // One observer at a time: each redraw builds a fresh map element and re-points the observer at it.
 let labelObserver: ResizeObserver | null = null;
 
@@ -54,19 +69,7 @@ export function renderAtomMap(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "MP4 Box / Atom Structure"));
-  sec.append(
-    teachBox(
-      `An MP4 file is a tree of <b>boxes</b> (also called &ldquo;atoms&rdquo;): <code>ftyp</code> declares the ` +
-        `brand/compatibility, <code>moov</code> holds all metadata &amp; the sample index (offsets, sizes, ` +
-        `timestamps, keyframe flags), and <code>mdat</code> holds the raw encoded frame bytes it points to. ` +
-        `Fragmented MP4s repeat <code>moof</code>+<code>mdat</code> pairs instead of one big <code>mdat</code>.` +
-        `<p>The map below is that tree on its side: left to right across the file, each row down one level of ` +
-        `nesting. Siblings split their parent's width by how many boxes each subtree holds, so every box gets ` +
-        `room and the whole file is on screen at once however long the video is. Width says nothing about ` +
-        `size — hover a box for its offset and byte count, or click to zoom into it. The <b>Report</b> tab ` +
-        `writes the same tree out as indented text, every number spelled out.</p>`,
-    ),
-  );
+  sec.append(teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));
 
   const placements = placeAtoms(state.boxes);
   const zoom: { label: string; range: AxisRange }[] = [];
@@ -99,13 +102,7 @@ function renderMap(
 
   host.append(renderCrumbs(shown, zoom, redraw));
 
-  const map = h("div", "atom-map");
-  const lanes: HTMLDivElement[] = [];
-  for (let depth = 0; depth < layout.laneCount; depth++) {
-    const lane = h("div", "atom-lane");
-    lanes.push(lane);
-    map.append(lane);
-  }
+  const { map, lanes } = mapLanes(layout.laneCount);
   const readout = h("div", "atom-readout", READOUT_HINT);
   layout.rects.forEach((rect) => lanes[rect.depth].append(blockEl(rect, zoom, redraw, readout)));
   host.append(map, readout);
@@ -115,6 +112,56 @@ function renderMap(
   }
   host.append(renderLegend());
   bindLabelSizing(map);
+}
+
+/** The lanes of a laid-out map, one per nesting level, ready to have blocks dropped into them. */
+function mapLanes(laneCount: number): { map: HTMLDivElement; lanes: HTMLDivElement[] } {
+  const map = h("div", "atom-map");
+  const lanes: HTMLDivElement[] = [];
+  for (let depth = 0; depth < laneCount; depth++) {
+    const lane = h("div", "atom-lane");
+    lanes.push(lane);
+    map.append(lane);
+  }
+  return { map, lanes };
+}
+
+function positionBlock(el: HTMLElement, rect: AtomRect, label: string): void {
+  el.style.left = rect.x * 100 + "%";
+  el.style.width = rect.w * 100 + "%";
+  el.dataset.frac = String(rect.w);
+  el.dataset.chars = String(label.length);
+  el.setAttribute("aria-label", rectDetail(rect));
+  el.append(h("span", "lbl", label));
+}
+
+/**
+ * The map as a picture rather than a control, for the Full Analysis document: the same lanes,
+ * blocks, colors and legend, with the zoom, the breadcrumb and the hover readout left out — none of
+ * them mean anything in a saved file. Each block keeps its detail as a `title`, which still works
+ * on hover in the exported HTML and costs nothing on paper. `widthPx` is the width the map will be
+ * read at, needed because the document runs no script to measure itself. Null for a file with no
+ * boxes parsed (a non-MP4 container), where there is no tree to draw.
+ */
+export function renderStaticAtomMap(boxes: BoxNode[], widthPx: number): HTMLDivElement | null {
+  if (boxes.length === 0) return null;
+  const placements = placeAtoms(boxes);
+  const layout = layoutAtoms(placements, placementRange(placements));
+  const wrap = h("div");
+  const { map, lanes } = mapLanes(layout.laneCount);
+  layout.rects.forEach((rect) => {
+    const label = rectLabel(rect);
+    const fit = labelFit(rect.w, label.length, widthPx);
+    const el = h(
+      "div",
+      `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}${fit ? " " + fit : ""}`,
+    );
+    el.title = rectDetail(rect);
+    positionBlock(el, rect, label);
+    lanes[rect.depth].append(el);
+  });
+  wrap.append(map, renderLegend());
+  return wrap;
 }
 
 function renderCrumbs(shown: number, zoom: { label: string; range: AxisRange }[], redraw: () => void): HTMLDivElement {
@@ -173,12 +220,7 @@ function blockEl(
   const detail = rectDetail(rect);
   const el = h("button", `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}`);
   el.type = "button";
-  el.style.left = rect.x * 100 + "%";
-  el.style.width = rect.w * 100 + "%";
-  el.dataset.frac = String(rect.w);
-  el.dataset.chars = String(label.length);
-  el.setAttribute("aria-label", detail);
-  el.append(h("span", "lbl", label));
+  positionBlock(el, rect, label);
 
   const show = (): void => {
     readout.textContent = detail;
@@ -219,11 +261,9 @@ function bindLabelSizing(map: HTMLElement): void {
   const sizeLabels = (): void => {
     const width = map.clientWidth;
     map.querySelectorAll<HTMLElement>(".atom-block").forEach((el) => {
-      const px = Number(el.dataset.frac) * width;
-      const chars = Number(el.dataset.chars);
-      const wide = px >= chars * LABEL_COST.wide.perChar + LABEL_COST.wide.padding;
-      el.classList.toggle("wide", wide);
-      el.classList.toggle("snug", !wide && px >= chars * LABEL_COST.snug.perChar + LABEL_COST.snug.padding);
+      const fit = labelFit(Number(el.dataset.frac), Number(el.dataset.chars), width);
+      el.classList.toggle("wide", fit === "wide");
+      el.classList.toggle("snug", fit === "snug");
     });
   };
   sizeLabels();

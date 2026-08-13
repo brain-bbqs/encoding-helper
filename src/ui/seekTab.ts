@@ -2,11 +2,18 @@
 // keyframe-distance-vs-decode-time scatter plot.
 
 import { gridItem, h, svgEl, teachBox } from "../lib/dom";
+import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
+
+/** Caption for the GOP histogram, shared with the Full Analysis document. */
+export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a bar for its frame count)";
+
+/** Caption for the seeking scatter plot, shared with the Full Analysis document. */
+export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
 
 export function renderSeekTab(panel: HTMLElement): void {
   panel.innerHTML = "";
@@ -20,24 +27,7 @@ export function renderSeekTab(panel: HTMLElement): void {
   const sec = h("div", "section");
   sec.append(h("h2", null, "GOP / Keyframe Structure"));
   // Explainer first, like the Atom Map tab: read what a GOP is before reading this file's numbers.
-  sec.append(
-    teachBox(
-      `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
-        `reference to other frames). Shorter GOPs → more, larger keyframes → faster seeking &amp; scrubbing but ` +
-        `worse compression.` +
-        `<ul>` +
-        `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
-        `<li><b>P-frames</b> reference earlier frames, storing only what changed since then.</li>` +
-        `<li><b>B-frames</b> reference both earlier <i>and later</i> frames, which compresses better but makes ` +
-        `decode order ≠ presentation order, complicating random access.</li>` +
-        `</ul>` +
-        `<p><a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io's ` +
-        `<code>reencode</code></a> baseline forces a <b>fixed GOP</b> (<code>-g</code> + ` +
-        `<code>-keyint_min</code> + <code>-sc_threshold 0</code>) and <b>disables B-frames</b> ` +
-        `(<code>-bf 0</code>) specifically to make random-access seeking fast and predictable for ` +
-        `pose-estimation pipelines that jump around a video rather than playing it linearly.</p>`,
-    ),
-  );
+  sec.append(teachBox(GOP_TEACH));
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
@@ -57,29 +47,15 @@ export function renderSeekTab(panel: HTMLElement): void {
   sec.append(bWrap);
 
   if (gop.length > 1) {
-    const hist = h("div", "hist");
-    const maxLen = Math.max(...gop);
-    gop.forEach((len) => {
-      const bar = h("div", "bar" + (len > avgGop * 1.5 ? " tall" : ""));
-      bar.style.height = Math.max(2, (len / maxLen) * 90) + "px";
-      bar.title = len + " frames";
-      hist.append(bar);
-    });
-    sec.append(hist);
-    sec.append(h("div", "progress-label", "GOP length per keyframe interval (hover a bar for its frame count)"));
+    sec.append(renderGopHistogram(gop));
+    sec.append(h("div", "progress-label", GOP_HISTOGRAM_CAPTION));
   }
 
   panel.append(sec);
 
   const seekSec = h("div", "section");
   seekSec.append(h("h2", null, "Empirical Seeking Test"));
-  seekSec.append(
-    h(
-      "div",
-      null,
-      "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, plus how long it takes to decode that frame.",
-    ),
-  );
+  seekSec.append(h("div", null, SEEK_TEST_INTRO));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
   const nField = h("div", "field");
@@ -154,6 +130,24 @@ async function runSeekingTest(
   }
 }
 
+/**
+ * One bar per keyframe interval, tall ones (over 1.5× the average) called out in the warning color
+ * since those are the spans a seek lands furthest from a keyframe in. Exported for the Full
+ * Analysis document; callers skip it below two intervals, where there is no distribution to show.
+ */
+export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
+  const avgGop = gopLengths.reduce((a, b) => a + b, 0) / gopLengths.length;
+  const maxLen = Math.max(...gopLengths);
+  const hist = h("div", "hist");
+  gopLengths.forEach((len) => {
+    const bar = h("div", "bar" + (len > avgGop * 1.5 ? " tall" : ""));
+    bar.style.height = Math.max(2, (len / maxLen) * 90) + "px";
+    bar.title = len + " frames";
+    hist.append(bar);
+  });
+  return hist;
+}
+
 function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   wrap.innerHTML = "";
   const avgDist = results.reduce((a, r) => a + (r.dist || 0), 0) / results.length;
@@ -169,7 +163,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
 
   const scatter = renderSeekScatter(results);
   if (scatter) {
-    wrap.append(h("div", "progress-label", "Keyframe distance vs. decode time; hover a point for its timestamp"));
+    wrap.append(h("div", "progress-label", SEEK_SCATTER_CAPTION));
     wrap.append(scatter);
   }
 
@@ -201,8 +195,8 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
 
 // Scatter plot: keyframe distance (x) vs. decode time (y), one point per sampled timestamp. A
 // single series, so no legend is needed — the section title and axis labels already say what's
-// plotted.
-function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
+// plotted. Exported so the Full Analysis document plots the same run rather than only tabulating it.
+export function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
   const pts = results.filter((r): r is SeekResult & { dist: number } => r.dist != null);
   if (pts.length < 2) return null;
   const W = 600;

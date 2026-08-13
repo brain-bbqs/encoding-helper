@@ -26,8 +26,8 @@ describe("appUrl", () => {
 
   it("writes the tab without disturbing the rest of the URL", () => {
     setUrl("?src=https%3A%2F%2Fexample.com%2Fa.mp4");
-    writeTabToUrl("report", false);
-    expect(readTabFromUrl()).toBe("report");
+    writeTabToUrl("analysis", false);
+    expect(readTabFromUrl()).toBe("analysis");
     expect(readSrcFromUrl()).toBe("https://example.com/a.mp4");
   });
 

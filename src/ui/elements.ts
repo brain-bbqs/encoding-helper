@@ -21,7 +21,6 @@ export function getElements() {
     loadAnotherBtn: required<HTMLButtonElement>("loadAnotherBtn"),
     fileInput: required<HTMLInputElement>("fileInput"),
     app: required<HTMLDivElement>("app"),
-    printArea: required<HTMLDivElement>("printArea"),
     themeToggle: required<HTMLButtonElement>("themeToggle"),
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     panels: {
@@ -31,7 +30,7 @@ export function getElements() {
       encode: required<HTMLDivElement>("panel-encode"),
       compare: required<HTMLDivElement>("panel-compare"),
       reencode: required<HTMLDivElement>("panel-reencode"),
-      report: required<HTMLDivElement>("panel-report"),
+      analysis: required<HTMLDivElement>("panel-analysis"),
     },
   };
 }
