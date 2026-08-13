@@ -3,6 +3,7 @@
 
 import { computeGop } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
+import { X264_PRESET_INFO } from "../lib/explainers";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
 import { refreshCliCommand, syncQualityControls } from "./cliControls";
@@ -66,6 +67,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
         (p) => [p, p + (p === "superfast" ? " (default, sleap-io)" : "")] as [string, string],
       ),
       cli.preset,
+      X264_PRESET_INFO,
     ),
   );
   row1.append(fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1));

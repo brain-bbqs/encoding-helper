@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+#### 🚀 Enhancement
+
+- The **x264 Preset** field now has an ⓘ explaining what it trades: the same quality at a given CRF, reached in fewer bytes the longer the encoder is given ([#19](https://github.com/brain-bbqs/encoding-helper/pull/19))
+
 ## 0.3.1
 
 #### 🚀 Enhancement

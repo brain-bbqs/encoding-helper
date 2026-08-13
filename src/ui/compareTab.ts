@@ -3,6 +3,7 @@
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, CRF_MAP } from "../lib/cliCommand";
 import { gridItem, h, teachBox } from "../lib/dom";
+import { X264_PRESET_INFO } from "../lib/explainers";
 import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { extOf } from "../lib/save";
@@ -80,6 +81,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
         (p) => [p, p] as [string, string],
       ),
       cli.preset,
+      X264_PRESET_INFO,
     ),
   );
   sec.append(row2);
