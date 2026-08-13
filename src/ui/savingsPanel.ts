@@ -7,14 +7,8 @@
 // to instead of only being spelled out beside it: an estimate from a few seconds of a long file has
 // a width, and a bar with a hard end would claim it does not.
 
-import { gridItem, h, teachBox } from "../lib/dom";
-import {
-  ORIGINAL_SEGMENT_INFO,
-  PROJECTED_SIZE_INFO,
-  SAMPLED_WINDOW_INFO,
-  SIZE_SAVINGS_INTRO,
-  sizeEstimateTeach,
-} from "../lib/explainers";
+import { gridItem, h } from "../lib/dom";
+import { ORIGINAL_SEGMENT_INFO, PROJECTED_SIZE_INFO, SAMPLED_WINDOW_INFO } from "../lib/explainers";
 import { fmtBytes, fmtDur } from "../lib/format";
 import { describeSavings, fmtPct, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
 
@@ -81,7 +75,11 @@ export function renderSavingsStrip(est: SizeEstimate): HTMLDivElement {
   return wrap;
 }
 
-/** The numbers behind the headline, then how it was arrived at and where it can be wrong. */
+/**
+ * The numbers behind the headline. How the estimate is arrived at, and where it can be wrong, is
+ * left to the ⓘ on the figures it bears on rather than spelled out in prose under them; the Full
+ * Analysis document, which nobody can hover, still writes it out.
+ */
 export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
   const g = h("div", "grid");
   g.append(
@@ -105,15 +103,5 @@ export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
     ),
   );
 
-  // The method and its limits sit behind a disclosure rather than in the teach box itself: a reader
-  // deciding on a CRF needs the headline, and a reader doubting it needs several paragraphs.
-  const teach = teachBox(SIZE_SAVINGS_INTRO);
-  const more = h("details", "teach-more");
-  more.append(h("summary", null, "How this estimate is made, and what it cannot know"));
-  const body = h("div");
-  body.innerHTML = sizeEstimateTeach(est);
-  more.append(body);
-  teach.append(more);
-
-  return [h("h3", null, "Estimate Detail"), g, teach];
+  return [h("h3", null, "Estimate Detail"), g];
 }

@@ -137,11 +137,11 @@ describe("renderSavingsDetail", () => {
     expect(detail(est).textContent).toContain("Projected Range");
   });
 
-  it("keeps the method and its limits behind a disclosure", () => {
+  it("leaves the method to the ⓘ rather than writing it out under the numbers", () => {
     const block = detail(estimate(50_000));
-    const details = block.querySelector("details.teach-more")!;
-    expect(details.querySelector("summary")!.textContent).toBe("How this estimate is made, and what it cannot know");
-    // The file had no sample table, which the copy has to own rather than quietly assume one.
-    expect(details.textContent).toContain("no sample table was available");
+    expect(block.querySelector(".teach")).toBeNull();
+    expect(block.querySelector("details")).toBeNull();
+    // The explainers are still reachable, on the figures they bear on.
+    expect(block.querySelectorAll(".info-pop").length).toBe(3);
   });
 });
