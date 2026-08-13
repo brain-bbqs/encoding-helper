@@ -141,8 +141,8 @@ test.describe("Encoding Helper shell", () => {
     }
     await expect(doc.locator("#video-bitrate-over-time svg.bitrate-chart")).toBeVisible();
     await expect(doc.locator(".doc-toc li")).not.toHaveCount(0);
-    // The seeking test has not been run, and the document says so rather than staying silent.
-    await expect(doc.locator("#not-measured")).toContainText("empirical seeking test");
+    // Nothing was run by hand, so the sections those runs produce are simply absent.
+    await expect(doc.locator("#empirical-seeking-test")).toHaveCount(0);
 
     // The preview is sized to the document, so the page scrolls rather than the frame.
     const frameHeight = (await page.locator("#analysisDoc").boundingBox())!.height;
@@ -168,7 +168,7 @@ test.describe("Encoding Helper shell", () => {
     const doc = page.frameLocator("#analysisDoc");
     await expect(doc.locator("#empirical-seeking-test table.data tbody tr")).toHaveCount(5);
     await expect(doc.locator("#empirical-seeking-test svg.seek-scatter")).toBeVisible();
-    await expect(doc.locator("#not-measured")).not.toContainText("empirical seeking test");
+    await expect(doc.locator(".doc-toc")).toContainText("Empirical Seeking Test");
   });
 
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {

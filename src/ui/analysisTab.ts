@@ -392,30 +392,6 @@ function reencodeSection(): AnalysisSection | null {
   };
 }
 
-/**
- * Names the runs that produce a section only once started, where they have not been. A document
- * that is silent about them reads as though the file had nothing to say on the subject.
- */
-function notRunSection(): AnalysisSection | null {
-  const missing: string[] = [];
-  if (!state.seekResults?.length) missing.push("the <b>empirical seeking test</b> (GOP &amp; Seeking tab)");
-  if (!encodeTest.originalSink) missing.push("a <b>Compare Quality</b> A/B encode");
-  if (!state.reencodeResult) missing.push("an <b>in-browser reencode</b>");
-  if (!missing.length) return null;
-  return {
-    title: "Not Measured",
-    blocks: [
-      {
-        kind: "prose",
-        html:
-          `These are not in this document because they were not run: ${missing.join(", ")}. ` +
-          `Each has to be started by hand, since each spends real time decoding or encoding. Run them and ` +
-          `regenerate the document to include their results.`,
-      },
-    ],
-  };
-}
-
 function buildAnalysisSections(): AnalysisSection[] {
   if (!state.source) return [];
   const vt = state.tracks?.find((t) => t.kind === "video");
@@ -433,7 +409,6 @@ function buildAnalysisSections(): AnalysisSection[] {
     cliCommandSection(),
     compareSection(),
     reencodeSection(),
-    notRunSection(),
   ];
   return sections.filter((s): s is AnalysisSection => s !== null);
 }
