@@ -219,12 +219,6 @@ ${facts ? `<div class="doc-facts">${facts}</div>` : ""}
 <ol>${contents}</ol>
 </nav>
 ${holder.innerHTML}
-<footer class="doc-foot">
-<p>Measured in the browser from the file's own container and sample table; no part of the video was
-uploaded. Reproduce it by loading the same file at <a href="${escapeHtmlText(meta.appUrl)}">${escapeHtmlText(
-    meta.appUrl,
-  )}</a>.</p>
-</footer>
 </article>
 </body>
 </html>
@@ -484,14 +478,6 @@ table.data th {
 .bitrate-chart .band { fill: transparent; }
 .bitrate-chart .cross, .bitrate-chart .dot { opacity: 0; }
 .seek-scatter .pt { fill: var(--accent); stroke: var(--card); }
-.doc-foot {
-  margin-top: 32px;
-  padding-top: 16px;
-  border-top: 1px solid var(--rule);
-  font-size: 12px;
-  color: var(--muted);
-}
-.doc-foot p { margin: 0; }
 @media (max-width: 640px) {
   body { padding: 16px 10px 40px; }
   .doc { padding: 24px 18px 32px; }

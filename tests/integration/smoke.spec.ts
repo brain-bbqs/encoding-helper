@@ -113,7 +113,11 @@ test.describe("Encoding Helper shell", () => {
     await page.locator("#loadSampleBtn").click();
 
     // The button is not one of the tabs, and sits against the right edge of the content column.
+    // The bar is inside #app, which is display:none until a file loads, and an unrendered element
+    // has no box to measure — so wait for it to be on screen before asking where it is.
     const action = page.locator(".tab-action");
+    await expect(page.locator("#app")).toBeVisible();
+    await expect(action).toBeVisible();
     await expect(action).toHaveText(/Full Analysis/);
     await expect(page.locator(".tabs .tab")).toHaveCount(6);
     const tabsBox = (await page.locator(".tabs").boundingBox())!;
