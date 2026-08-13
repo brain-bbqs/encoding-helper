@@ -405,8 +405,66 @@ table.data th {
 }
 .fig { margin: 14px 0; padding: 0; break-inside: avoid; }
 .fig figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
+/* Atom map. The palette is the app's light-theme one (style.css), checked as a set for colorblind
+   separation and for contrast against the surface it sits on; re-step it there and here together.
+   Which labels are drawn was decided when the map was built, since nothing runs here to measure it. */
+.atom-map { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.atom-lane { position: relative; height: 22px; }
+.f-moov { --fam: #4f46e5; --fam-ink: #ffffff; }
+.f-mdat { --fam: #eb6834; --fam-ink: #2b1000; }
+.f-moof { --fam: #1baf7a; --fam-ink: #04241a; }
+.f-other { --fam: #5b6478; --fam-ink: #ffffff; }
+.atom-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 3px;
+  background: var(--fam);
+  color: var(--fam-ink);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 22px;
+  box-shadow: inset -2px 0 0 var(--card);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.atom-block.grouped, .swatch.grouped {
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.3) 0 3px, transparent 3px 6px);
+}
+.atom-block .lbl { display: none; padding: 0 5px; white-space: nowrap; }
+.atom-block.wide .lbl, .atom-block.snug .lbl { display: block; }
+.atom-block.snug .lbl { padding: 0 2px; font-size: 9.5px; }
+.atom-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.swatch {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--fam);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.legend-label { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); }
+.legend-note { flex-basis: 100%; color: var(--faint); }
 .hist { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
-.hist .bar { flex: 1; min-height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; }
+.hist .bar {
+  flex: 1;
+  min-height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
 .hist .bar.tall { background: #92620a; }
 .bitrate-chart, .seek-scatter {
   display: block;

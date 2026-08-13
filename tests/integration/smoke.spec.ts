@@ -93,10 +93,17 @@ test.describe("Encoding Helper shell", () => {
     // The document writes the same tree out as indented text from the same parse, so its line count
     // is an independent check that the map is not quietly leaving boxes out.
     await page.locator(".tab-action").click();
-    const listing = page.frameLocator("#analysisDoc").locator("#mp4-atom-map pre.cmd");
+    const doc = page.frameLocator("#analysisDoc");
+    const listing = doc.locator("#mp4-atom-map pre.cmd");
     const lines = ((await listing.textContent()) ?? "").trim().split("\n");
     expect(drawn).toBe(lines.length);
     expect(lines[0]).toContain("ftyp");
+
+    // The document draws the same map, block for block, rather than only tabulating the tree.
+    await expect(doc.locator("#mp4-atom-map .atom-block")).toHaveCount(drawn);
+    await expect(doc.locator("#mp4-atom-map .atom-legend")).toBeVisible();
+    // Its labels were sized when it was built, since the document runs no script to measure itself.
+    await expect(doc.locator("#mp4-atom-map .atom-block.wide").first()).toBeVisible();
   });
 
   test("bundles the whole analysis into one document behind the Full Analysis button", async ({ page }) => {

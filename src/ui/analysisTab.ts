@@ -39,6 +39,7 @@ import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
+import { renderStaticAtomMap } from "./atomsTab";
 import { renderBitrateChart } from "./bitrateChart";
 import { flattenMetadataTags } from "./inspectTab";
 import { GOP_HISTOGRAM_CAPTION, renderGopHistogram, renderSeekScatter, SEEK_SCATTER_CAPTION } from "./seekTab";
@@ -46,9 +47,23 @@ import { GOP_HISTOGRAM_CAPTION, renderGopHistogram, renderSeekScatter, SEEK_SCAT
 /** Printed in the document so a copy saved to disk still says where it came from. */
 const APP_URL = "https://encoding-helper.brain-bbqs.org";
 
+/**
+ * The document's content width (its 860px column less the 44px of padding on either side; see
+ * ANALYSIS_DOC_CSS). The atom map needs it up front: on the page a ResizeObserver decides which
+ * block labels fit, but the document runs no script, so that has to be settled while it is built.
+ */
+const DOCUMENT_WIDTH_PX = 772;
+
+/**
+ * Where the box listing stops. A progressive file has tens of boxes and a fragmented recording has
+ * tens of thousands, which is a hundred pages of offsets nobody reads; the map draws every one of
+ * them either way, so the listing is what gives.
+ */
+const MAX_LISTED_BOXES = 400;
+
 const PANEL_INTRO =
   "Everything on the other tabs, gathered into one document: the container and track metadata with the " +
-  "explainer that goes with each number, the bitrate plot, the atom map written out box by box, the GOP " +
+  "explainer that goes with each number, the bitrate plot, the atom map and the tree behind it, the GOP " +
   "structure, and the <code>ffmpeg</code> command these settings produce. Runs that have to be started by " +
   "hand — the seeking test, Compare Quality, an in-browser reencode — are added to it once you have run " +
   "them, so run those first if you want them in the document. " +
@@ -243,13 +258,36 @@ function atomMapSection(): AnalysisSection | null {
     box.children.forEach((c) => walk(c, depth + 1));
   };
   state.boxes.forEach((b) => walk(b, 0));
-  return {
-    title: "MP4 Atom Map",
-    blocks: [
-      { kind: "prose", html: ATOM_STRUCTURE_TEACH },
-      { kind: "code", lang: "", content: lines.join("\n") },
-    ],
-  };
+
+  const blocks: AnalysisBlock[] = [{ kind: "prose", html: ATOM_STRUCTURE_TEACH }];
+  const map = renderStaticAtomMap(state.boxes, DOCUMENT_WIDTH_PX);
+  if (map) {
+    blocks.push({
+      kind: "figure",
+      caption:
+        "The box tree on its side: left to right across the file, each row one level further in. " +
+        "Width is how many boxes a subtree holds, not how many bytes it takes.",
+      element: map,
+    });
+  }
+  blocks.push(
+    {
+      kind: "prose",
+      html:
+        `The same tree written out, every box with the offset and byte count the map leaves to a ` +
+        `hover. ${lines.length > MAX_LISTED_BOXES ? `Only the first ${MAX_LISTED_BOXES.toLocaleString()} are listed, since a heavily fragmented file has more boxes than a document can usefully print; the map above draws all of them.` : ""}`,
+    },
+    {
+      kind: "code",
+      lang: "",
+      content:
+        lines.length > MAX_LISTED_BOXES
+          ? lines.slice(0, MAX_LISTED_BOXES).join("\n") +
+            `\n… ${(lines.length - MAX_LISTED_BOXES).toLocaleString()} more boxes not listed`
+          : lines.join("\n"),
+    },
+  );
+  return { title: "MP4 Atom Map", blocks };
 }
 
 function gopSection(): AnalysisSection | null {
