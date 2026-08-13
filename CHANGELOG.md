@@ -4,16 +4,15 @@
 
 #### 🚀 Enhancement
 
-- The **Compare Quality** tab now estimates the data savings, not just the encoded snippet's size. A headline figure above the panes says how much smaller (or larger) the settings make the file, with two bars putting the projected file against the original on one scale ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
-- The projection is a ratio rather than a multiplied-out snippet: the encoded segment is compared against what the _same_ seconds cost in the source, and that ratio is applied to the source's real size. Where the container has a sample table, the source's cost for those seconds is summed straight out of it (plus the stretch's share of the audio and container overhead), so a snippet taken from a scene cut is divided by an equally expensive original instead of pricing the whole file at its busiest moment. Files without a usable sample table fall back to spreading the size evenly over the running time, and say so ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
-- The estimate carries a range, drawn on the projected bar, derived from how far the file's own equal-length windows sit from one another and narrowed by how much of the file was sampled. Encoding the entire file leaves nothing to be wrong about, so the range drops away ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
-- Added an **Estimate Detail** block under the comparison: the source's cost for the sampled stretch, the segment's change, the original and projected file sizes, the range, and how much of the file the estimate actually saw. How the estimate is made, and where it can be wrong, stays on the ⓘ of the figures it bears on rather than in prose under them ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
-- The **Full Analysis** document reports the same projection under its Compare Quality section, so a saved report carries the size estimate and its caveats rather than only the snippet's byte count ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- **Compare Quality** now estimates data savings: a headline figure and two bars projecting the whole file from the encoded snippet ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- The projection applies the snippet's compression ratio to the source's real size, reading the sampled stretch's cost from the sample table where there is one ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- The projection carries a range, drawn on its bar, that narrows as more of the file is sampled ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- Added an **Estimate Detail** block with the numbers behind the headline, and the same projection to the **Full Analysis** document ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
 
 #### 🐛 Bug Fix
 
-- A crash inside ffmpeg.wasm no longer takes the rest of the session with it. Emscripten's `abort()` kills the whole runtime rather than failing one call, so the cached core went on throwing the same error for every later encode — including settings that would have worked — until the page was reloaded. A run that crashes now drops the instance and the next one starts from a fresh core, with the core's binaries kept so replacing it costs no download ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
-- A crash is also reported as something a reader can act on: `Aborted()` on its own says nothing, so the message now names what is likely (the single-threaded browser core, worked hardest by the slowest x264 presets), what usually gets through instead, and that the command itself is still sound outside the browser ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- A crashed ffmpeg.wasm core is replaced rather than reused, so one failed encode no longer fails every later one until reload ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
+- A crash now reports what to try instead of only `Aborted()` ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
 
 ## 0.3.0
 
