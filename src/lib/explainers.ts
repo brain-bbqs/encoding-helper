@@ -176,6 +176,17 @@ export const GOP_TEACH =
   `(<code>-bf 0</code>) specifically to make random-access seeking fast and predictable for ` +
   `pose-estimation pipelines that jump around a video rather than playing it linearly.</p>`;
 
+/** What the preset actually trades, shown from the ⓘ beside the field in both tabs that offer it. */
+export const X264_PRESET_INFO =
+  "<b>Preset</b> sets how hard x264 works to compress, not how good the picture looks: that is CRF's job. At " +
+  "the same CRF every preset aims at the same quality, and what changes is how long the encode takes and how " +
+  "many bytes it needs to get there. Slower searches harder and reaches that quality in a smaller file." +
+  "<p>The returns fall off sharply, the slow end taking many times longer for a few more percent off the " +
+  "size, which is why <code>superfast</code> is the default here as in sleap-io's <code>reencode</code>. In " +
+  "the browser the gap is wider still, the in-browser ffmpeg being a single-threaded WebAssembly build: the " +
+  "slowest presets can take minutes over a few seconds of video, or exhaust the encoder outright. Run the " +
+  "command natively to use them.</p>";
+
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";

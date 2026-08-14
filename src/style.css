@@ -422,6 +422,16 @@ label.field-label {
 .field {
   margin-bottom: 14px;
 }
+/* A field label with an ⓘ beside it, matching the grid cards' item-head. */
+.field .field-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.field .field-head label.field-label {
+  margin-bottom: 0;
+}
 .field .hint {
   color: var(--faint);
   font-size: 12px;
@@ -993,6 +1003,10 @@ details.teach-more summary {
   background: var(--accent);
   width: 0%;
   transition: width 0.15s;
+}
+/* A finished run leaves its bar full and green, which is the whole of the "it worked" message. */
+.progress-wrap .fill.done {
+  background: var(--ok);
 }
 .progress-label {
   font-size: 12px;

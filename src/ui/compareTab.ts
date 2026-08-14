@@ -3,7 +3,8 @@
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, CRF_MAP } from "../lib/cliCommand";
 import { gridItem, h, teachBox } from "../lib/dom";
-import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
+import { X264_PRESET_INFO } from "../lib/explainers";
+import { ensureFfmpegLoaded, parseFfmpegTimeSeconds, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { extOf } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
@@ -80,6 +81,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
         (p) => [p, p] as [string, string],
       ),
       cli.preset,
+      X264_PRESET_INFO,
     ),
   );
   sec.append(row2);
@@ -129,17 +131,23 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   ui.button.disabled = true;
   ui.progress.style.display = "block";
   const fill = ui.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) fill.style.width = "0%";
+  if (fill) {
+    fill.style.width = "0%";
+    fill.classList.remove("done");
+  }
   ui.note.textContent = "Loading ffmpeg.wasm…";
   ui.log.innerHTML = "";
-  setFfmpegHandlers(
-    (msg) => logLine(ui.log, msg, "info"),
-    (ratio) => {
-      const pct = Math.min(1, Math.max(0, ratio)) * 100;
-      if (fill) fill.style.width = pct.toFixed(0) + "%";
-      ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
-    },
-  );
+  setFfmpegHandlers((msg) => {
+    logLine(ui.log, msg, "info");
+    // Progress is taken from the status lines rather than from the core's own progress events,
+    // which are a fraction of the whole input: a 3-second segment of a 30-second file would
+    // creep to 10% and stop there, looking like it gave up rather than finished.
+    const at = parseFfmpegTimeSeconds(msg);
+    if (at == null || !(encodeTest.duration > 0)) return;
+    const pct = Math.min(100, Math.max(0, (at / encodeTest.duration) * 100));
+    if (fill) fill.style.width = pct.toFixed(0) + "%";
+    ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
+  }, null);
   try {
     if (!state.source) throw new Error("No video loaded");
     await ensureFfmpegLoaded();
@@ -177,15 +185,22 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
     encodeTest.encodedSize = encodedBlob.size;
 
     renderCompareResult(ui.resultSec, vt);
-    ui.note.textContent = "Done.";
+    // A full bar, in the colour the app uses for a good outcome, rather than the word "Done." under
+    // an empty one: the run either filled the bar or it did not.
+    if (fill) {
+      fill.style.width = "100%";
+      fill.classList.add("done");
+    }
+    ui.note.textContent = "";
   } catch (err) {
     console.error("[encoding-helper] encode test failed:", err);
     ui.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
     logLine(ui.log, String(err instanceof Error ? err.message : err), "error");
+    // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
+    ui.progress.style.display = "none";
   } finally {
     encodeTest.running = false;
     ui.button.disabled = false;
-    ui.progress.style.display = "none";
   }
 }
 

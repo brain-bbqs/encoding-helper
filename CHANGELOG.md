@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.2
+
+#### 🚀 Enhancement
+
+- The **x264 Preset** field now has an ⓘ explaining what it trades: the same quality at a given CRF, reached in fewer bytes the longer the encoder is given ([#19](https://github.com/brain-bbqs/encoding-helper/pull/19))
+- A finished comparison leaves a full green bar instead of the word "Done." under an empty one ([#19](https://github.com/brain-bbqs/encoding-helper/pull/19))
+
+#### 🐛 Bug Fix
+
+- Compare Quality's progress bar measures the segment being encoded rather than the whole video, so it fills instead of stopping a tenth of the way along ([#19](https://github.com/brain-bbqs/encoding-helper/pull/19))
+- The core's `Aborted()` exit line is kept out of the console, where it ended successful encodes looking like crashes ([#19](https://github.com/brain-bbqs/encoding-helper/pull/19))
+
 ## 0.3.1
 
 #### 🚀 Enhancement

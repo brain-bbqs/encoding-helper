@@ -1,16 +1,30 @@
 // Small reusable form-field / engine-progress-box builders shared by the Reencode and Compare Quality
 // tabs.
 
-import { h, teachBox } from "../lib/dom";
+import { h, infoIcon, teachBox } from "../lib/dom";
+
+/**
+ * A field's label, with an ⓘ explainer beside it when there is one. Same shape as the grid cards'
+ * `item-head`, so a control and a figure explain themselves the same way.
+ */
+function fieldHead(label: string, info?: string | null): HTMLElement {
+  const labelEl = h("label", "field-label", label);
+  if (!info) return labelEl;
+  const head = h("div", "field-head");
+  head.append(labelEl, infoIcon(info, `About ${label}`));
+  return head;
+}
 
 export function fieldSelect(
   id: string,
   label: string,
   options: (string | [string, string])[],
   value: string,
+  /** Trusted, author-authored explainer markup, shown from an ⓘ next to the label. */
+  info?: string | null,
 ): HTMLDivElement {
   const f = h("div", "field");
-  f.append(h("label", "field-label", label));
+  f.append(fieldHead(label, info));
   const sel = h("select");
   sel.id = id;
   options.forEach((opt) => {
