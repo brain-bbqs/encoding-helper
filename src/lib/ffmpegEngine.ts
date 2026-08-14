@@ -28,6 +28,31 @@ const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist
 export type FfmpegLogHandler = (message: string) => void;
 export type FfmpegProgressHandler = (ratio: number) => void;
 
+/**
+ * What the core prints on its way out. ffmpeg finishes by calling `exit()`, which Emscripten
+ * reports by calling `abort()`, so this line ends a perfectly successful run as often as a failed
+ * one and says nothing about which it was. It is kept out of the console rather than left sitting
+ * under a completed encode looking like a crash; a run that really did fail rejects, and the
+ * message it throws says so in words.
+ */
+const CORE_EXIT_NOISE = /^Aborted\(\)$/;
+
+/**
+ * Seconds at the `time=HH:MM:SS.mm` of an ffmpeg status line, or null for a line without one.
+ *
+ * Needed because the core's own progress events are a fraction of the *input's* duration: ask it
+ * for 3 seconds out of a 30-second file and it reports 10% at the moment it finishes. Its status
+ * lines carry the output timestamp itself, which divided by the length actually asked for is the
+ * fraction of the work done.
+ */
+export function parseFfmpegTimeSeconds(line: string): number | null {
+  const m = /time=\s*(-?)(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/.exec(line);
+  if (!m) return null;
+  // The first status line of a run reports a huge negative time, before anything has been written.
+  if (m[1] === "-") return 0;
+  return Number(m[2]) * 3600 + Number(m[3]) * 60 + Number(m[4]);
+}
+
 let ffmpegInstance: FFmpeg | null = null;
 let logHandler: FfmpegLogHandler | null = null;
 let progressHandler: FfmpegProgressHandler | null = null;
@@ -77,7 +102,9 @@ export function setFfmpegHandlers(onLog: FfmpegLogHandler | null, onProgress: Ff
 export async function ensureFfmpegLoaded(): Promise<FFmpeg> {
   if (ffmpegInstance) return ffmpegInstance;
   const ffmpeg = new FFmpeg();
-  ffmpeg.on("log", ({ message }) => logHandler?.(message));
+  ffmpeg.on("log", ({ message }) => {
+    if (!CORE_EXIT_NOISE.test(message.trim())) logHandler?.(message);
+  });
   ffmpeg.on("progress", ({ progress }) => progressHandler?.(progress));
   await ffmpeg.load(await loadCoreUrls());
   ffmpegInstance = ffmpeg;

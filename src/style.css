@@ -1004,6 +1004,10 @@ details.teach-more summary {
   width: 0%;
   transition: width 0.15s;
 }
+/* A finished run leaves its bar full and green, which is the whole of the "it worked" message. */
+.progress-wrap .fill.done {
+  background: var(--ok);
+}
 .progress-label {
   font-size: 12px;
   color: var(--muted);
