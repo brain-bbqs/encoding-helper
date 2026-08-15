@@ -9,6 +9,7 @@
 - Matrix mode sweeps resolution and scaler as extra axes grouping the grid's rows and columns, ticked to one value each so a default sweep is unchanged ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - A **Scaler** field beside the resolution picks the kernel the downscale resamples with, `lanczos` (sharper) or `bicubic` (softer) ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - The A/B window switches a downscaled encode between **Blocks**, showing exactly the pixels that survived, and **Smooth**, showing what a player would ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The matrix preset list no longer tags the slower presets "slow in-browser" ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 ## 0.4.0
 

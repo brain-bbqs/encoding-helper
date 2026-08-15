@@ -1272,11 +1272,6 @@ table.data th {
   font-size: 13px;
   white-space: nowrap;
 }
-.axis-note {
-  margin-left: 4px;
-  font-size: 11px;
-  color: var(--faint);
-}
 .matrix-summary {
   margin-bottom: 10px;
 }

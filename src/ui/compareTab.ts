@@ -30,7 +30,6 @@ import {
   buildMatrixCombos,
   cliSettings,
   describeSettings,
-  DEFAULT_MATRIX_PRESETS,
   evictBeyondBudget,
   makeMatrixCells,
   MATRIX_PRESETS,
@@ -189,11 +188,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   axisRow.append(
     axisCheckboxes(
       "x264 presets",
-      MATRIX_PRESETS.map((p) => ({
-        value: p,
-        label: p,
-        note: DEFAULT_MATRIX_PRESETS.includes(p) ? null : "slow in-browser",
-      })),
+      MATRIX_PRESETS.map((p) => ({ value: p, label: p })),
       encodeTest.matrix.presets,
       (values) => {
         encodeTest.matrix.presets = values as X264Preset[];
@@ -313,7 +308,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
 /** One axis of the matrix as a tick list, reporting the whole selection on every change. */
 function axisCheckboxes(
   label: string,
-  options: { value: string; label: string; note?: string | null }[],
+  options: { value: string; label: string }[],
   selected: string[],
   onChange: (values: string[]) => void,
   info?: string | null,
@@ -335,7 +330,6 @@ function axisCheckboxes(
     box.addEventListener("change", () => onChange(boxes.filter((b) => b.checked).map((b) => b.value)));
     boxes.push(box);
     wrap.append(box, document.createTextNode(" " + opt.label));
-    if (opt.note) wrap.append(h("span", "axis-note", opt.note));
     list.append(wrap);
   }
   field.append(list);
