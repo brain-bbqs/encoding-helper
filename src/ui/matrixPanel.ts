@@ -134,7 +134,9 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   btn.type = "button";
 
   const face = cellFace(cell, est);
-  btn.append(h("span", "matrix-change" + (face.grew ? " grew" : "") + (face.pending ? " matrix-pending" : ""), face.main));
+  btn.append(
+    h("span", "matrix-change" + (face.grew ? " grew" : "") + (face.pending ? " matrix-pending" : ""), face.main),
+  );
   btn.append(h("span", "matrix-sub", face.sub));
   btn.title = face.title;
   if (isBest) btn.append(h("span", "matrix-flag", "★ best"));
@@ -166,6 +168,8 @@ export function renderMatrixSummary(
     infoIcon(MATRIX_BEST_INFO, "About the best reduction"),
   );
   wrap.append(head);
-  wrap.append(h("div", "matrix-summary-sub", `Best reduction: ${describeSettings(best.combo)}. Now in the A/B window.`));
+  wrap.append(
+    h("div", "matrix-summary-sub", `Best reduction: ${describeSettings(best.combo)}. Now in the A/B window.`),
+  );
   return wrap;
 }

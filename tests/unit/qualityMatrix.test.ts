@@ -46,12 +46,7 @@ describe("buildMatrixCombos", () => {
 
   it("orders rows and columns as the dropdowns do, not as they were ticked", () => {
     const combos = buildMatrixCombos(["low", "lossless"], ["fast", "ultrafast"]);
-    expect(combos.map((c) => c.key)).toEqual([
-      "lossless:ultrafast",
-      "lossless:fast",
-      "low:ultrafast",
-      "low:fast",
-    ]);
+    expect(combos.map((c) => c.key)).toEqual(["lossless:ultrafast", "lossless:fast", "low:ultrafast", "low:fast"]);
   });
 
   it("carries each quality's own CRF", () => {
