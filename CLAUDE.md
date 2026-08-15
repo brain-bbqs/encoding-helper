@@ -8,4 +8,5 @@
 - Keep `CHANGELOG.md` entries to a single sentence each, roughly 25 words or fewer: what changed, from the reader's side. Not why, not how, not the reasoning behind it, which belong in the code comments and the PR. Fold related work into one entry rather than giving each part its own
 - PR titles should be human-readable and in the past tense; they should NOT use conventional commit style
 - Keep PR descriptions short and to the point
+- Always keep the PR title and description accurate to what the branch currently does. When follow-up commits add, drop or change behaviour, update them in place rather than leaving them describing an earlier state, and correct anything in them that misdescribes the diff
 - Limit use of em-dashes in all text
