@@ -224,33 +224,19 @@ export const UPSCALE_VIEW_INFO =
 
 /** Why a run would encode the same settings in several places at once. */
 export const SEGMENTS_INFO =
-  "<b>Segments</b> is how many stretches of the length above a run encodes. One is the tab's original " +
-  "behaviour: it starts where the start field says, and the size projection is only ever as representative " +
-  "as wherever that landed." +
-  "<p>Above one, the stretches are placed by the sampler rather than by the start field, one drawn at random " +
-  "inside each equal band of the file, so they cover it end to end instead of clumping. The projection is " +
-  "then taken over all of them together and its range narrows accordingly, which is the whole point: three " +
-  "seconds of a calm scene predicts a talking-heads file well and a wildlife file badly, and the only fix is " +
-  "to look in more than one place.</p>" +
+  "<b>Segments</b> is how many stretches of the length above a run encodes. Where they land is the sampler's " +
+  "to decide, never yours: a stretch picked by hand is picked for a reason, and a size measured over a " +
+  "flattering moment is the one number this tab must not produce. One stretch lands anywhere in the file; " +
+  "several are drawn one per equal band of it, so they cover it end to end instead of clumping." +
+  "<p>The projection is taken over all of them together and its range narrows accordingly, which is the whole " +
+  "point: three seconds of a calm scene predicts a talking-heads file well and a wildlife file badly, and the " +
+  "only fix is to look in more than one place.</p>" +
   "<p>Each one is a real encode, so the run costs that many times as long, and in matrix mode it multiplies " +
   "the sweep. The A/B window below still shows the first stretch: the eye wants one continuous piece of " +
   "video to judge, while the byte count wants a fair sample of the file.</p>" +
   "<p>The stretches are cut out of the source once and kept, so every setting after the first encodes them " +
   "without touching the video again — and a re-run at another CRF measures the same seconds, which is what " +
   "makes two runs comparable at all.</p>";
-
-/** What matrix mode does, shown under the mode switch once it is picked. */
-export const MATRIX_MODE_TEACH =
-  "<b>Matrix mode</b> encodes the same seconds once for every combination of the two dropdowns and lays the " +
-  "results out as a grid, so the trade is read off one table instead of remembered across a run each. The " +
-  "largest reduction is marked ★ and loaded into the A/B window below; click any other square to look at that " +
-  "one instead." +
-  "<p>Each square is a real encode, so a sweep costs the sum of its parts: the slower presets are left " +
-  "unticked because a single-threaded in-browser encoder can spend minutes on each. <b>Stop</b> ends the sweep " +
-  "after the square it is on, keeping everything already measured.</p>" +
-  "<p>Resolution and scaler are axes too, ticked to one value each to begin with. Adding a value multiplies " +
-  "the sweep rather than lengthening it: a resolution groups its own block of rows, so each block still reads " +
-  "down a column as CRF at a fixed effort. Downscaled squares encode quicker than full-resolution ones.</p>";
 
 /** Why "best" is a size ranking and nothing more. */
 export const MATRIX_BEST_INFO =

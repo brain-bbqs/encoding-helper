@@ -8,15 +8,8 @@
 
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, describeScale, isDownscale, scaledDimensions } from "../lib/cliCommand";
-import { gridItem, h, infoIcon, teachBox } from "../lib/dom";
-import {
-  MATRIX_MODE_TEACH,
-  RESOLUTION_INFO,
-  SCALER_INFO,
-  SEGMENTS_INFO,
-  UPSCALE_VIEW_INFO,
-  X264_PRESET_INFO,
-} from "../lib/explainers";
+import { gridItem, h, infoIcon } from "../lib/dom";
+import { RESOLUTION_INFO, SCALER_INFO, SEGMENTS_INFO, UPSCALE_VIEW_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -88,16 +81,9 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
 
   const maxDuration = Math.max(1, Math.min(10, state.duration || 10));
   encodeTest.duration = Math.min(Math.max(1, encodeTest.duration || 3), maxDuration);
-  encodeTest.startTime = Math.min(
-    Math.max(0, encodeTest.startTime),
-    Math.max(0, (state.duration || 0) - encodeTest.duration),
-  );
 
   const sec = h("div", "section");
-  sec.append(h("h2", null, "Compare Quality: A/B Comparison"));
-  sec.append(
-    teachBox(`Try changing various reencoding parameters and visualize their effect on rendering a part of the video.`),
-  );
+  sec.append(h("h2", null, "Compare Encoding Quality"));
 
   // The mode governs everything below it, so it sits above the fields and centred rather than in
   // among them, the way clip-extractor places the same control.
@@ -119,17 +105,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   );
   sec.append(modeRow);
 
-  const row1 = h("div", "row");
-  row1.append(
-    fieldNumber(
-      "etStart",
-      "Start Time (s)",
-      encodeTest.startTime.toFixed(1),
-      0,
-      Math.max(0, (state.duration || 1) - 1),
-      0.5,
-    ),
-  );
+  const row1 = h("div", "row compare-grid");
   row1.append(fieldNumber("etDuration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5));
   row1.append(fieldNumber("etSegments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1, SEGMENTS_INFO));
   sec.append(row1);
@@ -140,7 +116,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   // One row for everything a single run encodes with, so the card reads as even columns rather than
   // a full-width dropdown above a pair. The resolution is here because it is a single run's
   // question: matrix mode asks it as an axis instead, from the tick lists below.
-  const row2 = h("div", "row");
+  const row2 = h("div", "row compare-grid");
   row2.append(
     fieldSelect("etScale", "Resolution", scaleOptions(currentVideoInfo()), String(cli.scale), RESOLUTION_INFO),
   );
@@ -177,7 +153,6 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   sec.append(singleControls);
 
   const matrixControls = h("div", "compare-matrix-controls");
-  matrixControls.append(teachBox(MATRIX_MODE_TEACH));
   // Which values the sweep spans is a decision most runs never revisit, so the two tick lists fold
   // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled
   // toggle: it opens on click, on Enter, and for a page search hitting text inside it.
@@ -278,16 +253,6 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
 
   const ui: RunUi = { runButton: runBtn, stopButton: stopBtn, progress, note, log, matrixSec, resultSec };
 
-  // Above one segment the placement is the sampler's, so the start field stops meaning anything and
-  // says so rather than sitting there accepting numbers a run will ignore.
-  const applySegmentCount = (): void => {
-    const startField = document.getElementById("etStart") as HTMLInputElement | null;
-    if (!startField) return;
-    const several = encodeTest.segments > 1;
-    startField.disabled = several;
-    startField.title = several ? "Picked at random for each segment while more than one is sampled" : "";
-  };
-
   const applyMode = (): void => {
     const matrix = encodeTest.mode === "matrix";
     singleControls.style.display = matrix ? "none" : "";
@@ -296,18 +261,13 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   };
   applyMode();
 
-  document.getElementById("etStart")?.addEventListener("input", (e) => {
-    encodeTest.startTime = parseFloat((e.target as HTMLInputElement).value) || 0;
-  });
   document.getElementById("etDuration")?.addEventListener("input", (e) => {
     encodeTest.duration = parseFloat((e.target as HTMLInputElement).value) || 1;
   });
   document.getElementById("etSegments")?.addEventListener("input", (e) => {
     const asked = parseInt((e.target as HTMLInputElement).value, 10);
     encodeTest.segments = Math.min(MAX_SEGMENTS, Math.max(1, Number.isFinite(asked) ? asked : 1));
-    applySegmentCount();
   });
-  applySegmentCount();
   document.getElementById("etQuality")?.addEventListener("change", (e) => {
     cli.quality = (e.target as HTMLSelectElement).value as typeof cli.quality;
     syncQualityControls();
@@ -391,7 +351,6 @@ function runWindows(): SampleWindow[] {
     state.duration ?? 0,
     encodeTest.duration,
     encodeTest.segments,
-    encodeTest.startTime,
     snapToKeyframe,
   );
 }
@@ -712,7 +671,7 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
     await workers[0].load();
     inputs = await prepareRun(windows, workers, ui);
     // The A/B window draws the original from startTime, so it follows the stretch actually shown.
-    syncStartField(windows[0]?.startSeconds ?? encodeTest.startTime);
+    encodeTest.startTime = windows[0]?.startSeconds ?? encodeTest.startTime;
     ui.note.textContent = "Encoding test segment…";
     const { first, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;
@@ -973,13 +932,6 @@ function matrixWindows(): SampleWindow[] {
   return [{ startSeconds: matrix.segmentStart, seconds: matrix.segmentLength }];
 }
 
-/** Moves the start field (and the state behind it) onto a stretch a run picked for itself. */
-function syncStartField(startSeconds: number): void {
-  encodeTest.startTime = startSeconds;
-  const startField = document.getElementById("etStart") as HTMLInputElement | null;
-  if (startField) startField.value = startSeconds.toFixed(1);
-}
-
 /** Puts the segment fields back to the stretch the sweep covered, so the A/B window's original side
  * shows the same seconds as the encode beside it. */
 function syncSegmentToMatrix(): void {
@@ -987,8 +939,6 @@ function syncSegmentToMatrix(): void {
   if (!(matrix.segmentLength > 0)) return;
   encodeTest.startTime = matrix.segmentStart;
   encodeTest.duration = matrix.segmentLength;
-  const startField = document.getElementById("etStart") as HTMLInputElement | null;
-  if (startField) startField.value = matrix.segmentStart.toFixed(1);
   const durationField = document.getElementById("etDuration") as HTMLInputElement | null;
   if (durationField) durationField.value = String(matrix.segmentLength);
 }
@@ -1083,8 +1033,9 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
 // into the canvases it just replaced.
 let stopActivePlayback: (() => void) | null = null;
 
-/** What a run covered: the one stretch it encoded, or how many it sampled and where the first was. */
-function describeSampledStretches(): string {
+/** What a run covered: the one stretch it encoded, or how many it sampled and where the first was.
+ * Shared with the Full Analysis document, so the page and the document say it the same way. */
+export function describeSampledStretches(): string {
   const windows = encodeTest.windows;
   const first = windows[0] ?? { startSeconds: encodeTest.startTime, seconds: encodeTest.duration };
   const span = `${first.startSeconds.toFixed(1)}s–${(first.startSeconds + first.seconds).toFixed(1)}s`;

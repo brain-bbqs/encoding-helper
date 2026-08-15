@@ -15,6 +15,7 @@
 - Each output in a matrix sweep gets its own block of rows with a full-size title, so a second kernel stacks below rather than widening the table ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - **Single** and **Matrix** mode are a segmented control matching [clip-extractor](https://github.com/brain-bbqs/clip-extractor), both readable without opening a dropdown ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - A **Segments** count encodes that many stretches spread at random across the whole video, projecting the size from all of them and narrowing the range ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- **Compare Quality** asks only how long a stretch should be and how many: the sampler places them, so there is no start time to pick ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 - Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))

@@ -165,22 +165,16 @@ describe("renderEncodeTestTab", () => {
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6");
   });
 
-  // Above one stretch the sampler places them, so the start field stops applying.
-  it("disables the start field once more than one segment is asked for", () => {
+  // Where a stretch lands is the sampler's call, so there is no start field to offer at all.
+  it("asks for a duration and a count, and nothing about placement", () => {
     const panel = renderTab();
+    expect(panel.querySelector("#etStart")).toBeNull();
+    expect(panel.querySelector<HTMLInputElement>("#etDuration")!.value).toBe("3");
     const segments = panel.querySelector<HTMLInputElement>("#etSegments")!;
-    const start = panel.querySelector<HTMLInputElement>("#etStart")!;
     expect(segments.value).toBe("1");
-    expect(start.disabled).toBe(false);
-
     segments.value = "4";
     segments.dispatchEvent(new Event("input"));
     expect(encodeTest.segments).toBe(4);
-    expect(start.disabled).toBe(true);
-
-    segments.value = "1";
-    segments.dispatchEvent(new Event("input"));
-    expect(start.disabled).toBe(false);
   });
 
   it("holds the segment count inside what a run can sensibly encode", () => {

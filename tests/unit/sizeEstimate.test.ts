@@ -249,18 +249,24 @@ describe("fmtChangeFactor", () => {
 });
 
 describe("pickSampleWindows", () => {
-  it("uses the requested start, unmoved, for a single stretch", () => {
-    expect(pickSampleWindows(100, 3, 1, 42)).toEqual([{ startSeconds: 42, seconds: 3 }]);
-  });
-
-  it("keeps a single stretch inside the file", () => {
-    expect(pickSampleWindows(100, 3, 1, 99)).toEqual([{ startSeconds: 97, seconds: 3 }]);
+  // One stretch is the same stratified draw with one band, so it can land anywhere in the file.
+  it("places a single stretch anywhere in the file", () => {
+    const starts = new Set<number>();
+    for (let i = 0; i < 40; i++) {
+      const [only] = pickSampleWindows(100, 3, 1);
+      expect(only.seconds).toBe(3);
+      expect(only.startSeconds).toBeGreaterThanOrEqual(0);
+      expect(only.startSeconds).toBeLessThanOrEqual(97);
+      starts.add(only.startSeconds);
+    }
+    // Not pinned to one spot, which is the whole difference from a start field.
+    expect(starts.size).toBeGreaterThan(1);
   });
 
   // Stratified, so the stretches cover the file end to end instead of clumping wherever the draws
   // happened to land.
   it("draws one stretch inside each equal band of the file", () => {
-    const windows = pickSampleWindows(100, 4, 4, 0);
+    const windows = pickSampleWindows(100, 4, 4);
     expect(windows).toHaveLength(4);
     windows.forEach((w, i) => {
       expect(w.startSeconds).toBeGreaterThanOrEqual(i * 25);
@@ -359,37 +365,30 @@ describe("windowsForRun", () => {
   // Two settings are only comparable if they were measured over the same seconds, so a re-run at
   // another CRF keeps the last run's stretches (which are also still cut and waiting).
   it("keeps the stretches when the run asks for the same shape", () => {
-    expect(windowsForRun(kept, 100, 3, 2, 0)).toBe(kept);
+    expect(windowsForRun(kept, 100, 3, 2)).toBe(kept);
   });
 
   it("draws fresh ones when the length changes", () => {
-    expect(windowsForRun(kept, 100, 5, 2, 0)).not.toBe(kept);
+    expect(windowsForRun(kept, 100, 5, 2)).not.toBe(kept);
   });
 
   it("draws fresh ones when the count changes", () => {
-    const drawn = windowsForRun(kept, 100, 3, 3, 0);
+    const drawn = windowsForRun(kept, 100, 3, 3);
     expect(drawn).not.toBe(kept);
     expect(drawn).toHaveLength(3);
   });
 
-  // With one stretch the start field speaks for it, so moving the field moves the stretch.
-  it("follows the start field for a single stretch", () => {
+  // A single stretch is kept for the same reason several are: two settings are only comparable
+  // measured over the same seconds, and nothing about the fields says where it should be.
+  it("keeps a single stretch across runs too", () => {
     const one = [{ startSeconds: 10, seconds: 3 }];
-    expect(windowsForRun(one, 100, 3, 1, 10)).toBe(one);
-    expect(windowsForRun(one, 100, 3, 1, 40)).toEqual([{ startSeconds: 40, seconds: 3 }]);
+    expect(windowsForRun(one, 100, 3, 1)).toBe(one);
   });
 
   it("snaps drawn starts onto what the source can be cut at", () => {
     const snap = (t: number): number => Math.floor(t / 10) * 10;
-    for (const w of windowsForRun([], 100, 3, 4, 0, snap)) {
+    for (const w of windowsForRun([], 100, 3, 4, snap)) {
       expect(w.startSeconds % 10).toBe(0);
     }
-  });
-
-  // A kept set is judged against where it would land, not against the raw field.
-  it("compares a kept single stretch against the snapped start", () => {
-    const one = [{ startSeconds: 40, seconds: 3 }];
-    const snap = (t: number): number => Math.floor(t / 10) * 10;
-    expect(windowsForRun(one, 100, 3, 1, 47, snap)).toBe(one);
   });
 });

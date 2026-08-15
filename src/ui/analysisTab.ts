@@ -44,6 +44,7 @@ import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange 
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
+import { describeSampledStretches } from "./compareTab";
 import { renderBitrateChart } from "./bitrateChart";
 import { flattenMetadataTags } from "./inspectTab";
 import { GOP_HISTOGRAM_CAPTION, renderGopHistogram, renderSeekScatter, SEEK_SCATTER_CAPTION } from "./seekTab";
@@ -352,7 +353,7 @@ function compareSection(): AnalysisSection | null {
   // which is not what the dropdowns say.
   const settings = encodeTest.activeCombo ?? cliSettings(cli);
   const items: [string, string | number][] = [
-    ["Segment", `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`],
+    ["Segment", describeSampledStretches()],
     [
       "Quality",
       settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`,

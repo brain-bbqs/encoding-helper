@@ -1014,6 +1014,27 @@ details.teach-more summary {
 }
 
 /* Log console */
+/* Compare Quality's field rows share one column rhythm, so a row of two lines up with a row of
+   three rather than each splitting the card between however many fields it happens to hold. Fixed
+   at three rather than auto-filled: the columns have to land in the same places from row to row,
+   and they have to be wide enough for "Source (100%) (1024×768)" to fit in one. A row that gains a
+   field (the scaler, a custom CRF) wraps onto another line of the same three. */
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 16px;
+}
+@media (max-width: 700px) {
+  .compare-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 440px) {
+  .compare-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Centred row for a segmented control that governs the card under it, as in clip-extractor. */
 .toggle-row {
   display: flex;

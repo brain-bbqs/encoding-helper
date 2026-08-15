@@ -226,24 +226,19 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
  * are draws fresh ones, the old set no longer being what was asked for. Reuse also means the cut
  * stretches from last time are still sitting in the encoder, so the run has nothing to fetch.
  *
- * `snap` moves a start onto something the source can be cut at (a keyframe), and is applied before
- * the comparison so a kept set is judged against where it would actually land.
+ * `snap` moves a start onto something the source can be cut at (a keyframe), so a stretch can be
+ * taken out of the video by copy rather than by decoding up to it.
  */
 export function windowsForRun(
   kept: SampleWindow[],
   totalSeconds: number,
   seconds: number,
   count: number,
-  startSeconds: number,
   snap: (t: number) => number = (t) => t,
 ): SampleWindow[] {
   const wanted = Math.max(1, count);
-  const sameShape = kept.length === wanted && kept.every((w) => Math.abs(w.seconds - seconds) < 0.001);
-  // A single stretch also has to still be where the start field points, which is a field the user
-  // moves between runs; the placement of several is the sampler's and no field speaks for it.
-  const sameStart = wanted > 1 || (kept.length === 1 && Math.abs(kept[0].startSeconds - snap(startSeconds)) < 0.001);
-  if (sameShape && sameStart) return kept;
-  return pickSampleWindows(totalSeconds, seconds, wanted, startSeconds).map((w) => ({
+  if (kept.length === wanted && kept.every((w) => Math.abs(w.seconds - seconds) < 0.001)) return kept;
+  return pickSampleWindows(totalSeconds, seconds, wanted).map((w) => ({
     startSeconds: snap(w.startSeconds),
     seconds: w.seconds,
   }));
@@ -252,24 +247,19 @@ export function windowsForRun(
 /**
  * Where to take `count` stretches of `seconds` from a file of `totalSeconds`.
  *
- * One stretch is the one the fields ask for, unchanged. More than one is picked at random, but
- * *stratified*: the file is cut into as many equal bands as there are stretches and one start is
- * drawn inside each. Purely random starts clump — three uniform draws land in the same half of the
- * file often enough to matter — and clumped samples are the failure the extra encodes were meant to
- * buy their way out of. Stratifying guarantees the spread while keeping the placement unguessable,
- * so a run cannot be quietly tuned by picking a flattering moment.
+ * Placement is the sampler's, never the reader's: a stretch picked by hand is picked for a reason,
+ * and a size measured over a flattering moment is the one number this tab must not produce.
+ *
+ * The draw is random but *stratified*: the file is cut into as many equal bands as there are
+ * stretches and one start is drawn inside each. Purely random starts clump — three uniform draws
+ * land in the same half of a file often enough to matter — and clumped samples are the failure the
+ * extra encodes were meant to buy their way out of. One stretch is the same rule with a single
+ * band, so it lands anywhere in the file.
  */
-export function pickSampleWindows(
-  totalSeconds: number,
-  seconds: number,
-  count: number,
-  startSeconds = 0,
-): SampleWindow[] {
+export function pickSampleWindows(totalSeconds: number, seconds: number, count: number): SampleWindow[] {
   if (!(totalSeconds > 0) || !(seconds > 0)) return [];
   const length = Math.min(seconds, totalSeconds);
-  if (count <= 1)
-    return [{ startSeconds: Math.min(Math.max(0, startSeconds), totalSeconds - length), seconds: length }];
-  const wanted = Math.min(count, Math.max(1, Math.floor(totalSeconds / length)));
+  const wanted = Math.min(Math.max(1, count), Math.max(1, Math.floor(totalSeconds / length)));
   const band = totalSeconds / wanted;
   const windows: SampleWindow[] = [];
   for (let i = 0; i < wanted; i++) {
