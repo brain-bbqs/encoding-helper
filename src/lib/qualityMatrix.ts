@@ -4,17 +4,21 @@
 // A single A/B run answers "what does *this* setting cost?", which is only half of the question
 // anyone actually has: the other half is what the settings either side of it cost, and answering it
 // one run at a time means remembering four numbers across four minutes of waiting. The matrix runs
-// the cartesian product of the quality and preset dropdowns over the same few seconds of video, so
-// the trade is read off one table rather than reconstructed from memory.
+// the cartesian product of the swept settings over the same few seconds of video, so the trade is
+// read off one table rather than reconstructed from memory.
+//
+// Four axes: quality and preset, which every sweep covers, and resolution and its kernel, which
+// start at one value each and multiply the sweep when a second is ticked.
 //
 // "Best" here means the largest byte reduction, and nothing else: no picture-quality metric is
-// computed, so a higher CRF wins every time it is offered. That is precisely why the whole grid is
-// kept on screen with the winner marked rather than the winner alone — the eye in the A/B window is
-// the quality half of the judgement, and the grid is what tells you how much the next row down
-// would have saved.
+// computed, so a higher CRF wins every time it is offered, and once the resolution axis is ticked
+// past one value the smallest resolution wins outright, since it deletes bits faster than any
+// setting on the other axes can. That is precisely why the whole grid is kept on screen with the
+// winner marked rather than the winner alone — the eye in the A/B window is the quality half of the
+// judgement, and the grid is what tells you how much the next row down would have saved.
 
-import { CRF_MAP, DEFAULT_SCALER, isDownscale } from "./cliCommand";
-import type { CliState, EncodeSettings, MatrixCell, MatrixCombo, MatrixQuality, X264Preset } from "./types";
+import { CRF_MAP, DEFAULT_SCALER, isDownscale, SCALE_OPTIONS, SCALER_OPTIONS } from "./cliCommand";
+import type { CliState, EncodeSettings, MatrixCell, MatrixCombo, MatrixQuality, Scaler, X264Preset } from "./types";
 
 /** The quality dropdown's named entries, best picture first. "custom" is a single arbitrary CRF, so
  * it is not part of a sweep of the typical settings. */
@@ -43,6 +47,23 @@ export const MATRIX_PRESETS: X264Preset[] = [
  */
 export const DEFAULT_MATRIX_PRESETS: X264Preset[] = MATRIX_PRESETS.slice(0, 6);
 
+/** The resolution axis, source first. Same fractions the dropdown offers. */
+export const MATRIX_SCALES: number[] = [...SCALE_OPTIONS];
+
+/** The kernel axis, in the dropdown's order. */
+export const MATRIX_SCALERS: Scaler[] = [...SCALER_OPTIONS];
+
+/**
+ * Ticked to begin with: the source resolution alone, resampled with the default kernel.
+ *
+ * The two new axes multiply the sweep rather than adding to it, and unlike quality and preset they
+ * are not questions every run has. Left at one value each, a sweep is exactly the grid it was
+ * before they existed; ticking a second resolution doubles it, knowingly.
+ */
+export const DEFAULT_MATRIX_SCALES: number[] = [1];
+
+export const DEFAULT_MATRIX_SCALERS: Scaler[] = [DEFAULT_SCALER];
+
 /**
  * How many bytes of encoded segments to keep in memory across a sweep.
  *
@@ -53,9 +74,15 @@ export const DEFAULT_MATRIX_PRESETS: X264Preset[] = MATRIX_PRESETS.slice(0, 6);
  */
 export const MATRIX_RETAINED_BYTES = 192 * 1024 * 1024;
 
-/** Stable identity for a combination, used as the table's cell key and for the best/selected marks. */
-export function comboKey(quality: MatrixQuality, preset: X264Preset): string {
-  return `${quality}:${preset}`;
+/** Stable identity for a combination, used as the table's cell key and for the best/selected marks.
+ * All four axes are in it, so two squares that differ only by resolution are still two squares. */
+export function comboKey(
+  quality: MatrixQuality,
+  preset: X264Preset,
+  scale = 1,
+  scaler: Scaler = DEFAULT_SCALER,
+): string {
+  return `${quality}:${preset}:${scale}:${scaler}`;
 }
 
 export function comboCrf(quality: MatrixQuality): number {
@@ -63,10 +90,12 @@ export function comboCrf(quality: MatrixQuality): number {
 }
 
 /** e.g. "medium (CRF 25), veryfast" — the same wording the single-run summary uses. The resolution
- * joins it only when it is not the source's, since every square of a sweep shares the one value. */
+ * and its kernel join it only when something was actually resampled, since at the source's
+ * resolution the kernel names a choice that had no effect. */
 export function describeSettings(settings: EncodeSettings): string {
   const base = `${settings.quality} (CRF ${settings.crf}), ${settings.preset}`;
-  return isDownscale(settings.scale) ? `${base}, ${Math.round(settings.scale * 100)}%` : base;
+  if (!isDownscale(settings.scale)) return base;
+  return `${base}, ${Math.round(settings.scale * 100)}% ${settings.scaler}`;
 }
 
 /** What the dropdowns currently come to, for labelling a single (non-matrix) run's encode. */
@@ -81,27 +110,44 @@ export function cliSettings(cliState: CliState): EncodeSettings {
 }
 
 /**
- * The cartesian product of the two axes, quality-major and in dropdown order whatever order the
- * boxes were ticked in, so the table's rows and columns do not depend on how the selection was made.
+ * The cartesian product of all four axes, in dropdown order whatever order the boxes were ticked
+ * in, so the table's rows and columns do not depend on how the selection was made.
  *
- * `output` (the resolution and the kernel it is reached with) is carried onto every combination
- * rather than being a third axis: it is the same value for the whole sweep, deliberately. A grid
- * that mixed resolutions could not be read down a column (the cells would no longer be the same
- * picture stored differently), and since `bestReductionCell` ranks on bytes alone the lowest
- * resolution would take the ★ every time, which is not a finding. Sweeping at one resolution and
- * then again at another compares two whole grids instead.
+ * Resolution nests outside quality and the kernel outside preset, so that a sweep at one resolution
+ * reads exactly like the two-axis grid did: down a column is still CRF at a fixed effort, across a
+ * row is still the preset at a fixed quality, and the resolution groups stack those grids rather
+ * than interleaving them.
+ *
+ * Nothing is resampled at full resolution, so a scale of 1 produces one combination rather than one
+ * per kernel: the second would be a byte-for-byte re-run of the first under a different label.
  */
 export function buildMatrixCombos(
   qualities: MatrixQuality[],
   presets: X264Preset[],
-  output: Pick<EncodeSettings, "scale" | "scaler"> = { scale: 1, scaler: DEFAULT_SCALER },
+  scales: number[] = DEFAULT_MATRIX_SCALES,
+  scalers: Scaler[] = DEFAULT_MATRIX_SCALERS,
 ): MatrixCombo[] {
   const rows = MATRIX_QUALITIES.filter((q) => qualities.includes(q));
   const cols = MATRIX_PRESETS.filter((p) => presets.includes(p));
+  const scaleAxis = MATRIX_SCALES.filter((s) => scales.includes(s));
+  const scalerAxis = MATRIX_SCALERS.filter((s) => scalers.includes(s));
   const combos: MatrixCombo[] = [];
-  for (const quality of rows) {
-    for (const preset of cols) {
-      combos.push({ key: comboKey(quality, preset), quality, crf: comboCrf(quality), preset, ...output });
+  for (const scale of scaleAxis) {
+    // At the source resolution every kernel is the same encode, so only the first stands for them.
+    const kernels = isDownscale(scale) ? scalerAxis : scalerAxis.slice(0, 1);
+    for (const quality of rows) {
+      for (const scaler of kernels) {
+        for (const preset of cols) {
+          combos.push({
+            key: comboKey(quality, preset, scale, scaler),
+            quality,
+            crf: comboCrf(quality),
+            preset,
+            scale,
+            scaler,
+          });
+        }
+      }
     }
   }
   return combos;
@@ -122,16 +168,30 @@ export function makeMatrixCells(combos: MatrixCombo[]): MatrixCell[] {
 
 /** The axes a set of cells actually covers, so a results table is drawn from the run rather than
  * from whatever the checkboxes have been changed to since. */
-export function matrixAxes(cells: MatrixCell[]): { qualities: MatrixQuality[]; presets: X264Preset[] } {
+export function matrixAxes(cells: MatrixCell[]): {
+  qualities: MatrixQuality[];
+  presets: X264Preset[];
+  scales: number[];
+  scalers: Scaler[];
+} {
   const qualities = MATRIX_QUALITIES.filter((q) => cells.some((c) => c.combo.quality === q));
   const presets = MATRIX_PRESETS.filter((p) => cells.some((c) => c.combo.preset === p));
-  return { qualities, presets };
+  const scales = MATRIX_SCALES.filter((s) => cells.some((c) => c.combo.scale === s));
+  const scalers = MATRIX_SCALERS.filter((s) => cells.some((c) => c.combo.scaler === s));
+  return { qualities, presets, scales, scalers };
 }
 
 /** The `cli` state a combination stands for: everything else about the encode is left as the user
- * set it, since the sweep is over these two fields alone. */
+ * set it, since the sweep is over these four fields alone. */
 export function matrixCliState(base: CliState, combo: MatrixCombo): CliState {
-  return { ...base, quality: combo.quality, crf: combo.crf, preset: combo.preset };
+  return {
+    ...base,
+    quality: combo.quality,
+    crf: combo.crf,
+    preset: combo.preset,
+    scale: combo.scale,
+    scaler: combo.scaler,
+  };
 }
 
 /**
@@ -152,6 +212,9 @@ export function bestReductionCell(cells: MatrixCell[]): MatrixCell | null {
 
 function beatsForReduction(cell: MatrixCell, best: MatrixCell): boolean {
   if (cell.bytes !== best.bytes) return (cell.bytes ?? 0) < (best.bytes ?? 0);
+  // Resolution first among the tie-breaks: of two settings that reach the same size, the one that
+  // kept more pixels kept more of the measurement, which no later step can put back.
+  if (cell.combo.scale !== best.combo.scale) return cell.combo.scale > best.combo.scale;
   const quality = MATRIX_QUALITIES.indexOf(cell.combo.quality) - MATRIX_QUALITIES.indexOf(best.combo.quality);
   if (quality !== 0) return quality < 0;
   return MATRIX_PRESETS.indexOf(cell.combo.preset) < MATRIX_PRESETS.indexOf(best.combo.preset);

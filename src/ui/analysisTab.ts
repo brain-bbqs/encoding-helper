@@ -38,7 +38,7 @@ import {
 import { fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
-import { bestReductionCell, cliSettings, comboCrf, matrixAxes } from "../lib/qualityMatrix";
+import { bestReductionCell, cliSettings, comboCrf, comboKey, matrixAxes } from "../lib/qualityMatrix";
 import { downloadBlob } from "../lib/save";
 import { currentSizeEstimate, describeSavings, fmtSignedChange } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
@@ -407,29 +407,43 @@ function matrixSection(): AnalysisSection | null {
   const cells = encodeTest.matrix.cells.filter((c) => c.status === "done" && c.bytes != null);
   if (!cells.length) return null;
   const best = bestReductionCell(encodeTest.matrix.cells);
-  const { qualities, presets } = matrixAxes(cells);
+  const { qualities, presets, scales, scalers } = matrixAxes(cells);
   const byKey = new Map(cells.map((c) => [c.combo.key, c]));
-  const rows = qualities.map((quality) => [
-    `${quality} (CRF ${comboCrf(quality)})`,
-    ...presets.map((preset) => {
-      const cell = byKey.get(`${quality}:${preset}`);
-      if (!cell || cell.bytes == null) return "–";
-      const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
-      return `${fmtBytes(cell.bytes)}${cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : ""}${mark}`;
-    }),
-  ]);
+  // A document has no row groups to nest resolution into, so when the sweep covered more than one
+  // it becomes a leading column instead: the same information, in the shape a table can carry.
+  const swept = scales.length > 1 || scalers.length > 1;
+  const rows: string[][] = [];
+  for (const scale of scales) {
+    for (const scaler of isDownscale(scale) ? scalers : scalers.slice(0, 1)) {
+      for (const quality of qualities) {
+        const head = [`${quality} (CRF ${comboCrf(quality)})`];
+        if (swept) head.unshift(`${Math.round(scale * 100)}%${isDownscale(scale) ? ` ${scaler}` : ""}`);
+        rows.push([
+          ...head,
+          ...presets.map((preset) => {
+            const cell = byKey.get(comboKey(quality, preset, scale, scaler));
+            if (!cell || cell.bytes == null) return "–";
+            const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
+            const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
+            return `${fmtBytes(cell.bytes)}${took}${mark}`;
+          }),
+        ]);
+      }
+    }
+  }
   return {
     title: "Compare Quality Matrix",
     blocks: [
       {
         kind: "prose",
         html:
-          `Every combination of the quality and preset dropdowns, each encoded over the same ` +
+          `Every combination of the swept settings, each encoded over the same ` +
           `${fmtDur(encodeTest.matrix.segmentLength)} of video. Each cell is the encoded segment's size and the ` +
           `time the encode took; ★ marks the largest reduction, which is the comparison above. Size is the only ` +
-          `ranking here — no picture-quality metric is computed, so the highest CRF wins nearly every sweep.`,
+          `ranking here — no picture-quality metric is computed, so the highest CRF wins nearly every sweep, and ` +
+          `the smallest resolution outright whenever more than one was run.`,
       },
-      { kind: "table", headers: ["Quality", ...presets], rows },
+      { kind: "table", headers: [...(swept ? ["Output"] : []), "Quality", ...presets], rows },
     ],
   };
 }

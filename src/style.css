@@ -1181,8 +1181,28 @@ table.data th {
   width: auto;
 }
 
-/* Compare Quality: matrix mode. The two tick lists that pick the axes, and the results grid the
+/* Compare Quality: matrix mode. The tick lists that pick the axes, and the results grid the
    sweep fills in — one square per combination, the largest reduction marked in place. */
+/* Row and column group heads, present only when the sweep covered more than one resolution or
+   kernel. Left-aligned and shaded so a block of rows reads as belonging to the head above it. */
+.matrix-table .matrix-group-head {
+  text-align: left;
+  background: var(--panel-2, var(--card));
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.matrix-table .matrix-group-row th {
+  position: sticky;
+  left: 0;
+}
+/* The square the sweep skipped because it would have repeated its neighbour. */
+.matrix-same {
+  display: block;
+  padding: 10px 0;
+  color: var(--muted);
+  text-align: center;
+}
 .compare-run-buttons {
   display: flex;
   gap: 8px;

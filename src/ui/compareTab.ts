@@ -1,13 +1,13 @@
 // Tab: Compare Quality — short-segment A/B comparison with synchronized pixel-level zoom & pan.
 //
 // Two modes share the one encoder and the one A/B window. A *single* run encodes the segment at the
-// settings in the dropdowns, which is the tab's original job. *Matrix* mode runs the cartesian
-// product of those same two dropdowns and lays the results out as a grid, then loads the largest
-// reduction into the A/B window — the settings ranking is a table's job, but whether the winner
-// still looks acceptable is only ever a question for the eye, and that is the window below it.
+// settings in the dropdowns, which is the tab's original job. *Matrix* mode sweeps those settings as
+// axes instead and lays the results out as a grid, then loads the largest reduction into the A/B
+// window — the settings ranking is a table's job, but whether the winner still looks acceptable is
+// only ever a question for the eye, and that is the window below it.
 
 import { fetchFile } from "@ffmpeg/util";
-import { buildFfmpegArgs, isDownscale, scaledDimensions } from "../lib/cliCommand";
+import { buildFfmpegArgs, describeScale, isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { gridItem, h, infoIcon, teachBox } from "../lib/dom";
 import {
   MATRIX_MODE_TEACH,
@@ -36,6 +36,8 @@ import {
   MATRIX_PRESETS,
   MATRIX_QUALITIES,
   MATRIX_RETAINED_BYTES,
+  MATRIX_SCALERS,
+  MATRIX_SCALES,
   matrixCliState,
   matrixProgress,
 } from "../lib/qualityMatrix";
@@ -43,7 +45,7 @@ import { extOf } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import { fmtBytes } from "../lib/format";
 import { currentSizeEstimate, estimateSizeSavings, type SizeEstimate } from "../lib/sizeEstimate";
-import type { CliState, EncodeSettings, MatrixCell, MatrixQuality, TrackInfo, X264Preset } from "../lib/types";
+import type { CliState, EncodeSettings, MatrixCell, MatrixQuality, Scaler, TrackInfo, X264Preset } from "../lib/types";
 import { parseScale, parseScaler, scaleOptions, scalerOptions, syncQualityControls } from "./cliControls";
 import { fieldNumber, fieldSelect, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
@@ -109,8 +111,11 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   );
   sec.append(row1);
 
-  // Resolution sits outside both mode blocks because it applies to either whole: a sweep runs at
-  // one resolution, and comparing two of them means comparing two grids (see buildMatrixCombos).
+  // Both control blocks stay in the DOM whichever mode is showing, so the shared quality/preset
+  // fields keep answering to syncQualityControls() from the Reencode tab while they are hidden.
+  const singleControls = h("div", "compare-single-controls");
+  // The dropdowns set one encode's resolution, which is a single run's question: matrix mode asks
+  // it as an axis instead, from the tick lists below.
   const resRow = h("div", "row");
   resRow.append(
     fieldSelect("etScale", "Resolution", scaleOptions(currentVideoInfo()), String(cli.scale), RESOLUTION_INFO),
@@ -118,11 +123,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   const etScalerField = fieldSelect("etScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
   etScalerField.style.display = isDownscale(cli.scale) ? "" : "none";
   resRow.append(etScalerField);
-  sec.append(resRow);
-
-  // Both control blocks stay in the DOM whichever mode is showing, so the shared quality/preset
-  // fields keep answering to syncQualityControls() from the Reencode tab while they are hidden.
-  const singleControls = h("div", "compare-single-controls");
+  singleControls.append(resRow);
   const row2 = h("div", "row");
   row2.append(
     fieldSelect(
@@ -163,8 +164,13 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   axisSummary.append(h("span", "matrix-settings-gear", "⚙"), h("span", null, "Settings to sweep"));
   const axisCount = h("span", "matrix-settings-count");
   const refreshAxisCount = (): void => {
-    const { qualities, presets } = encodeTest.matrix;
-    axisCount.textContent = `${qualities.length} × ${presets.length}`;
+    const { qualities, presets, scales, scalers } = encodeTest.matrix;
+    // The two outer axes are left out at one value each, where they multiply the sweep by one and
+    // saying so would only make the bar longer.
+    const counts = [qualities.length, presets.length];
+    if (scales.length > 1) counts.push(scales.length);
+    if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
+    axisCount.textContent = counts.join(" × ");
   };
   axisSummary.append(axisCount);
   axisSettings.append(axisSummary);
@@ -196,8 +202,33 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
       X264_PRESET_INFO,
     ),
   );
+  const outerRow = h("div", "row");
+  outerRow.append(
+    axisCheckboxes(
+      "Resolutions",
+      MATRIX_SCALES.map((s) => ({ value: String(s), label: describeScale(s, currentVideoInfo()) })),
+      encodeTest.matrix.scales.map(String),
+      (values) => {
+        encodeTest.matrix.scales = values.map(Number);
+        refreshAxisCount();
+      },
+      RESOLUTION_INFO,
+    ),
+  );
+  outerRow.append(
+    axisCheckboxes(
+      "Scalers",
+      MATRIX_SCALERS.map((s) => ({ value: s, label: s })),
+      encodeTest.matrix.scalers,
+      (values) => {
+        encodeTest.matrix.scalers = values as Scaler[];
+        refreshAxisCount();
+      },
+      SCALER_INFO,
+    ),
+  );
   refreshAxisCount();
-  axisSettings.append(axisRow);
+  axisSettings.append(axisRow, outerRow);
   matrixControls.append(axisSettings);
   sec.append(matrixControls);
 
@@ -474,7 +505,7 @@ function stopRequested(): boolean {
 async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   if (encodeTest.running) return;
   const matrix = encodeTest.matrix;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, { scale: cli.scale, scaler: cli.scaler });
+  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers);
   if (!combos.length) {
     ui.note.textContent = "Tick at least one quality level and one preset first.";
     return;
@@ -665,6 +696,7 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
   sec.append(renderMatrixSummary(best, matrixCellEstimate));
   sec.append(
     renderMatrixTable({
+      scaleLabel: (scale) => describeScale(scale, currentVideoInfo()),
       cells: matrix.cells,
       bestKey: best?.combo.key ?? null,
       selectedKey: matrix.selectedKey,

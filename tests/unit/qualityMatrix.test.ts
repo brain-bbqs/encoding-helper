@@ -32,8 +32,8 @@ const CLI: CliState = {
 };
 
 /** A finished square of `bytes`, optionally still holding its output. */
-function done(quality: MatrixQuality, preset: X264Preset, bytes: number, held = true): MatrixCell {
-  const [cell] = makeMatrixCells(buildMatrixCombos([quality], [preset]));
+function done(quality: MatrixQuality, preset: X264Preset, bytes: number, held = true, scale = 1): MatrixCell {
+  const [cell] = makeMatrixCells(buildMatrixCombos([quality], [preset], [scale]));
   cell.status = "done";
   cell.bytes = bytes;
   cell.blob = held ? new Blob([new Uint8Array(1)]) : null;
@@ -43,12 +43,22 @@ function done(quality: MatrixQuality, preset: X264Preset, bytes: number, held = 
 describe("buildMatrixCombos", () => {
   it("takes the cartesian product of the two axes", () => {
     const combos = buildMatrixCombos(["high", "low"], ["ultrafast", "fast"]);
-    expect(combos.map((c) => c.key)).toEqual(["high:ultrafast", "high:fast", "low:ultrafast", "low:fast"]);
+    expect(combos.map((c) => `${c.quality}:${c.preset}`)).toEqual([
+      "high:ultrafast",
+      "high:fast",
+      "low:ultrafast",
+      "low:fast",
+    ]);
   });
 
   it("orders rows and columns as the dropdowns do, not as they were ticked", () => {
     const combos = buildMatrixCombos(["low", "lossless"], ["fast", "ultrafast"]);
-    expect(combos.map((c) => c.key)).toEqual(["lossless:ultrafast", "lossless:fast", "low:ultrafast", "low:fast"]);
+    expect(combos.map((c) => `${c.quality}:${c.preset}`)).toEqual([
+      "lossless:ultrafast",
+      "lossless:fast",
+      "low:ultrafast",
+      "low:fast",
+    ]);
   });
 
   it("carries each quality's own CRF", () => {
@@ -61,25 +71,39 @@ describe("buildMatrixCombos", () => {
     expect(buildMatrixCombos(MATRIX_QUALITIES, [])).toEqual([]);
   });
 
-  // Resolution is the sweep's, not an axis of it: every square is encoded at the one value.
-  it("stamps the sweep's resolution and kernel on every combination", () => {
-    const combos = buildMatrixCombos(MATRIX_QUALITIES, ["fast", "medium"], { scale: 0.5, scaler: "bicubic" });
-    expect(combos.every((c) => c.scale === 0.5 && c.scaler === "bicubic")).toBe(true);
+  it("is at the source's resolution with the default kernel unless told otherwise", () => {
+    const [combo] = buildMatrixCombos(["high"], ["fast"]);
+    expect(combo.scale).toBe(1);
+    expect(combo.scaler).toBe("lanczos");
   });
 
-  it("is at the source's resolution unless told otherwise", () => {
-    expect(buildMatrixCombos(["high"], ["fast"])[0].scale).toBe(1);
+  it("multiplies the grid by the resolution axis, resolution-major", () => {
+    const combos = buildMatrixCombos(["high"], ["fast", "medium"], [1, 0.5]);
+    expect(combos).toHaveLength(4);
+    expect(combos.map((c) => c.scale)).toEqual([1, 1, 0.5, 0.5]);
+  });
+
+  // Nothing is resampled at the source resolution, so a second kernel there would re-run an encode
+  // already in the grid under a different name.
+  it("runs one kernel at full resolution and every ticked kernel below it", () => {
+    const combos = buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]);
+    expect(combos.map((c) => `${c.scale}:${c.scaler}`)).toEqual(["1:lanczos", "0.5:lanczos", "0.5:bicubic"]);
+  });
+
+  it("gives squares that differ only by resolution or kernel distinct keys", () => {
+    const combos = buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]);
+    expect(new Set(combos.map((c) => c.key)).size).toBe(combos.length);
   });
 });
 
 describe("matrixCliState", () => {
-  it("overrides only the two swept fields", () => {
+  it("overrides only the swept fields", () => {
     const [combo] = buildMatrixCombos(["low"], ["veryslow"]);
     const state = matrixCliState(CLI, combo);
     expect(state.quality).toBe("low");
     expect(state.crf).toBe(32);
     expect(state.preset).toBe("veryslow");
-    expect(state.scale).toBe(CLI.scale);
+    expect(state.scale).toBe(1);
     expect(state.keyframeInterval).toBe(CLI.keyframeInterval);
     expect(state.audioMode).toBe(CLI.audioMode);
   });
@@ -114,9 +138,9 @@ describe("describeSettings", () => {
     );
   });
 
-  it("adds the resolution only when it is not the source's", () => {
-    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 0.5, scaler: "lanczos" })).toBe(
-      "high (CRF 18), veryfast, 50%",
+  it("adds the resolution and its kernel only when something was resampled", () => {
+    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 0.5, scaler: "bicubic" })).toBe(
+      "high (CRF 18), veryfast, 50% bicubic",
     );
   });
 });
@@ -124,7 +148,19 @@ describe("describeSettings", () => {
 describe("matrixAxes", () => {
   it("reports the axes the cells cover, in dropdown order", () => {
     const cells = makeMatrixCells(buildMatrixCombos(["low", "high"], ["fast", "ultrafast"]));
-    expect(matrixAxes(cells)).toEqual({ qualities: ["high", "low"], presets: ["ultrafast", "fast"] });
+    expect(matrixAxes(cells)).toEqual({
+      qualities: ["high", "low"],
+      presets: ["ultrafast", "fast"],
+      scales: [1],
+      scalers: ["lanczos"],
+    });
+  });
+
+  it("reports the resolutions and kernels a sweep covered", () => {
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [0.25, 1], ["bicubic", "lanczos"]));
+    const axes = matrixAxes(cells);
+    expect(axes.scales).toEqual([1, 0.25]);
+    expect(axes.scalers).toEqual(["lanczos", "bicubic"]);
   });
 });
 

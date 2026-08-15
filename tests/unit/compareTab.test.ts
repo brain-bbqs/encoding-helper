@@ -41,6 +41,8 @@ beforeEach(() => {
   // ones this file edits are put back by hand rather than leaking into the tests after it.
   cli.scale = 1;
   cli.scaler = "lanczos";
+  encodeTest.matrix.scales = [1];
+  encodeTest.matrix.scalers = ["lanczos"];
 });
 
 describe("renderEncodeTestTab", () => {
@@ -104,11 +106,50 @@ describe("renderEncodeTestTab", () => {
     expect(cli.scaler).toBe("bicubic");
   });
 
-  it("keeps the resolution out of both mode blocks, since a sweep runs at one of them", () => {
+  // The dropdown sets one run's resolution; a sweep asks for it as an axis instead.
+  it("keeps the resolution dropdowns to single mode and offers them as axes in matrix mode", () => {
     const panel = renderTab();
-    const scale = panel.querySelector<HTMLSelectElement>("#etScale")!;
-    expect(scale.closest(".compare-single-controls")).toBeNull();
-    expect(scale.closest(".compare-matrix-controls")).toBeNull();
+    expect(panel.querySelector("#etScale")!.closest(".compare-single-controls")).not.toBeNull();
+    expect(axisBoxes(panel, "Resolutions")).toHaveLength(4);
+    expect(axisBoxes(panel, "Scalers")).toHaveLength(2);
+    expect(axisBoxes(panel, "Resolutions")[0].closest(".compare-matrix-controls")).not.toBeNull();
+  });
+
+  it("sweeps the source resolution with one kernel until told otherwise", () => {
+    const panel = renderTab();
+    const ticked = (label: string): string[] =>
+      axisBoxes(panel, label)
+        .filter((b) => b.checked)
+        .map((b) => b.value);
+    expect(ticked("Resolutions")).toEqual(["1"]);
+    expect(ticked("Scalers")).toEqual(["lanczos"]);
+    // One value each multiplies the sweep by one, so the bar keeps naming the two axes it always did.
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6");
+  });
+
+  it("records ticked resolutions as the next sweep's coverage, and counts them in the bar", () => {
+    const panel = renderTab();
+    const half = axisBoxes(panel, "Resolutions").find((b) => b.value === "0.5")!;
+    half.checked = true;
+    half.dispatchEvent(new Event("change"));
+    expect(encodeTest.matrix.scales).toEqual([1, 0.5]);
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6 × 2");
+
+    const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
+    bicubic.checked = true;
+    bicubic.dispatchEvent(new Event("change"));
+    expect(encodeTest.matrix.scalers).toEqual(["lanczos", "bicubic"]);
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6 × 2 × 2");
+  });
+
+  // A second kernel resamples nothing while every ticked resolution is the source's, so it does not
+  // multiply the sweep and the bar does not claim it does.
+  it("leaves the kernel axis out of the count when no downscale is ticked", () => {
+    const panel = renderTab();
+    const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
+    bicubic.checked = true;
+    bicubic.dispatchEvent(new Event("change"));
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6");
   });
 
   it("ticks every quality and the faster presets to begin with", () => {

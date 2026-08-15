@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMatrixCombos, makeMatrixCells } from "../../src/lib/qualityMatrix";
+import { buildMatrixCombos, comboKey, makeMatrixCells } from "../../src/lib/qualityMatrix";
 import { estimateSizeSavings, type SizeEstimate } from "../../src/lib/sizeEstimate";
 import type { MatrixCell } from "../../src/lib/types";
 import { fmtElapsed, renderMatrixSummary, renderMatrixTable } from "../../src/ui/matrixPanel";
@@ -51,6 +51,29 @@ describe("renderMatrixTable", () => {
     expect(cellButtons(table)).toHaveLength(4);
   });
 
+  it("groups the rows by resolution and the columns by kernel once a sweep spans them", () => {
+    const swept = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]));
+    const table = renderMatrixTable({ cells: swept, scaleLabel: (s) => `${s * 100}% label` });
+    const groups = Array.from(table.querySelectorAll(".matrix-group-head")).map((th) => th.textContent);
+    expect(groups).toEqual(["lanczos", "bicubic", "100% label", "50% label"]);
+    // Two kernels across, one preset each.
+    const headers = Array.from(table.querySelectorAll("thead tr:last-child th")).map((th) => th.textContent);
+    expect(headers).toEqual(["Quality", "fast", "fast"]);
+  });
+
+  // Nothing is resampled at 100%, so the second kernel's square there was never run.
+  it("marks the square the sweep skipped as the encode beside it", () => {
+    const swept = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]));
+    const table = renderMatrixTable({ cells: swept });
+    expect(table.querySelectorAll(".matrix-same")).toHaveLength(1);
+    expect(cellButtons(table)).toHaveLength(3);
+  });
+
+  it("keeps the grid two-axis when the sweep covered one resolution and one kernel", () => {
+    const table = renderMatrixTable({ cells: cells() });
+    expect(table.querySelectorAll(".matrix-group-head")).toHaveLength(0);
+  });
+
   it("shows a finished square's change, projection and encode time", () => {
     const table = renderMatrixTable({ cells: cells(), estimate: estimateFor });
     const first = cellButtons(table)[0];
@@ -75,7 +98,11 @@ describe("renderMatrixTable", () => {
   });
 
   it("marks the best square and outlines the one in the A/B window", () => {
-    const table = renderMatrixTable({ cells: cells(), bestKey: "high:fast", selectedKey: "high:ultrafast" });
+    const table = renderMatrixTable({
+      cells: cells(),
+      bestKey: comboKey("high", "fast"),
+      selectedKey: comboKey("high", "ultrafast"),
+    });
     const [ultrafast, fast] = cellButtons(table);
     expect(fast.classList.contains("best")).toBe(true);
     expect(fast.querySelector(".matrix-flag")!.textContent).toBe("★ best");
@@ -121,7 +148,7 @@ describe("renderMatrixTable", () => {
     expect(button.title).toContain("Click to try it again");
     expect(button.disabled).toBe(false);
     button.click();
-    expect(retried).toEqual(["low:ultrafast"]);
+    expect(retried).toEqual([comboKey("low", "ultrafast")]);
   });
 
   it("leaves a failed square unclickable when retrying is not on offer", () => {
@@ -135,7 +162,7 @@ describe("renderMatrixTable", () => {
     const picked: string[] = [];
     const table = renderMatrixTable({ cells: cells(), onSelect: (cell) => picked.push(cell.combo.key) });
     cellButtons(table)[1].click();
-    expect(picked).toEqual(["high:fast"]);
+    expect(picked).toEqual([comboKey("high", "fast")]);
     expect(cellButtons(renderMatrixTable({ cells: cells() }))[1].disabled).toBe(true);
   });
 });

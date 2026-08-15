@@ -1,7 +1,12 @@
 // Shared, mutable, single-source-of-truth state objects. Every tab renderer reads and writes these
 // directly (no framework/store layer) — mirrors the original monolithic script's globals, just typed.
 
-import { DEFAULT_MATRIX_PRESETS, MATRIX_QUALITIES } from "./qualityMatrix";
+import {
+  DEFAULT_MATRIX_PRESETS,
+  DEFAULT_MATRIX_SCALERS,
+  DEFAULT_MATRIX_SCALES,
+  MATRIX_QUALITIES,
+} from "./qualityMatrix";
 import type { AppState, CliState, EncodeTestState } from "./types";
 
 export const state: AppState = {
@@ -61,6 +66,8 @@ export const encodeTest: EncodeTestState = {
   matrix: {
     qualities: [...MATRIX_QUALITIES],
     presets: [...DEFAULT_MATRIX_PRESETS],
+    scales: [...DEFAULT_MATRIX_SCALES],
+    scalers: [...DEFAULT_MATRIX_SCALERS],
     cells: [],
     segmentStart: 0,
     segmentLength: 3,
@@ -110,6 +117,8 @@ export function resetState(): void {
   // A new file's matrix starts empty: the old sweep's sizes were measured on video that is gone.
   encodeTest.matrix.qualities = [...MATRIX_QUALITIES];
   encodeTest.matrix.presets = [...DEFAULT_MATRIX_PRESETS];
+  encodeTest.matrix.scales = [...DEFAULT_MATRIX_SCALES];
+  encodeTest.matrix.scalers = [...DEFAULT_MATRIX_SCALERS];
   encodeTest.matrix.cells = [];
   encodeTest.matrix.segmentStart = 0;
   encodeTest.matrix.segmentLength = 3;

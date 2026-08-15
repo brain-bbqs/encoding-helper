@@ -4,9 +4,9 @@
 
 #### 🚀 Enhancement
 
-- **Reencode & CLI** and **Compare Quality** have a **Resolution** dropdown that downscales the output with Lanczos, labelled with the size each fraction produces ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- A downscaled comparison is drawn back at the source's geometry with nearest-neighbour, so both panes keep one zoom, pixel grid and coordinate system ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- A matrix sweep runs wholly at the chosen resolution, which the A/B summary and **Full Analysis** report whenever it is not the source's ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- **Reencode & CLI** and **Compare Quality** have a **Resolution** dropdown that downscales the output, labelled with the size each fraction produces ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A downscaled comparison is drawn back at the source's geometry, so both panes keep one zoom, pixel grid and coordinate system ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- Matrix mode sweeps resolution and scaler as extra axes grouping the grid's rows and columns, ticked to one value each so a default sweep is unchanged ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - A **Scaler** field beside the resolution picks the kernel the downscale resamples with, `lanczos` (sharper) or `bicubic` (softer) ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - The A/B window switches a downscaled encode between **Blocks**, showing exactly the pixels that survived, and **Smooth**, showing what a player would ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 

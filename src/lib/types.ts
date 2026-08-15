@@ -184,6 +184,11 @@ export interface MatrixState {
   qualities: MatrixQuality[];
   /** Ticked presets, i.e. the columns the next sweep will run. */
   presets: X264Preset[];
+  /** Ticked resolutions, which group the rows. One value keeps the grid two-axis. */
+  scales: number[];
+  /** Ticked kernels, which group the columns. Only ever more than one when a downscale is ticked
+   * too, since nothing is resampled at the source's resolution. */
+  scalers: Scaler[];
   /** The last sweep's squares, in canonical order; empty before one has been started. */
   cells: MatrixCell[];
   /** The segment the cells were encoded from, which the start/duration fields may have moved off. */

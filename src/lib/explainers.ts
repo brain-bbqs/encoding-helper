@@ -230,12 +230,18 @@ export const MATRIX_MODE_TEACH =
   "one instead." +
   "<p>Each square is a real encode, so a sweep costs the sum of its parts: the slower presets are left " +
   "unticked because a single-threaded in-browser encoder can spend minutes on each. <b>Stop</b> ends the sweep " +
-  "after the square it is on, keeping everything already measured.</p>";
+  "after the square it is on, keeping everything already measured.</p>" +
+  "<p>Resolution and scaler are axes too, ticked to one value each to begin with. Adding a value multiplies " +
+  "the sweep rather than lengthening it: a resolution groups its own block of rows, so each block still reads " +
+  "down a column as CRF at a fixed effort. Downscaled squares encode quicker than full-resolution ones.</p>";
 
 /** Why "best" is a size ranking and nothing more. */
 export const MATRIX_BEST_INFO =
   "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
-  "highest CRF offered wins nearly every sweep.";
+  "highest CRF offered wins nearly every sweep." +
+  "<p>Tick a second resolution and it stops being close: resolution deletes bits faster than anything on the " +
+  "other axes, so the smallest one takes the ★ outright. Read the grid, not the star, when the sweep spans " +
+  "resolutions, and remember the star has no idea what your tracking needs.</p>";
 
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +

@@ -1,15 +1,19 @@
-// The matrix-mode results grid under Compare Quality: one square per combination of the quality and
-// preset dropdowns, filled in as the sweep reaches it.
+// The matrix-mode results grid under Compare Quality: one square per swept combination, filled in as
+// the sweep reaches it.
 //
-// A grid rather than a ranked list, because the two axes are not interchangeable: reading down a
-// column shows what CRF costs at a fixed effort, reading across a row shows what the preset buys at
-// a fixed quality, and a list sorted by size hides both. The winner is marked in place instead of
-// being lifted out for the same reason — what makes it useful is the squares around it.
+// A grid rather than a ranked list, because the axes are not interchangeable: reading down a column
+// shows what CRF costs at a fixed effort, reading across a row shows what the preset buys at a fixed
+// quality, and a list sorted by size hides both. The winner is marked in place instead of being
+// lifted out for the same reason — what makes it useful is the squares around it.
+//
+// Resolution and the kernel it resamples with group the rows and the columns rather than adding
+// dimensions to each square, so a block of rows at one resolution still reads exactly like the grid
+// did before they existed.
 
 import { h, infoIcon } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
 import { MATRIX_BEST_INFO } from "../lib/explainers";
-import { describeSettings, matrixAxes } from "../lib/qualityMatrix";
+import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
 import type { MatrixCell } from "../lib/types";
 
@@ -25,6 +29,9 @@ export interface MatrixTableOptions {
   onSelect?: (cell: MatrixCell) => void;
   /** Called when a failed cell is clicked, to encode that combination again. */
   onRetry?: (cell: MatrixCell) => void;
+  /** Names a resolution over the block of rows run at it, e.g. "50% (512×384)". Falls back to the
+   * bare percentage, since only the caller knows the source's dimensions. */
+  scaleLabel?: (scale: number) => string;
 }
 
 /** An encode's wall-clock cost, at the precision a table column can carry. */
@@ -89,10 +96,20 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   };
 }
 
-/** The grid itself: quality down the side, preset across the top. */
+/**
+ * The grid itself: quality down the side, preset across the top, with resolution grouping the rows
+ * and the kernel grouping the columns.
+ *
+ * The two outer axes only appear once a sweep covers more than one of their values, so the common
+ * grid is the same two-axis table it has always been rather than one carrying two headers that say
+ * "100%" and "lanczos" over everything. When they do appear they nest outside, so each resolution
+ * is a block of rows that still reads down a column as CRF at a fixed effort.
+ */
 export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
-  const { qualities, presets } = matrixAxes(opts.cells);
+  const { qualities, presets, scales, scalers } = matrixAxes(opts.cells);
   const byKey = new Map(opts.cells.map((c) => [c.combo.key, c]));
+  const columns = scalers.flatMap((scaler) => presets.map((preset) => ({ scaler, preset })));
+  const bodyWidth = Math.max(1, columns.length);
 
   const wrap = h("div", "scroll-x");
   const table = h("table", "data matrix-table");
@@ -102,30 +119,60 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   const axisRow = h("tr");
   axisRow.append(h("th", "matrix-corner"));
   const presetLabel = h("th", "matrix-axis-label", "Preset");
-  presetLabel.colSpan = Math.max(1, presets.length);
+  presetLabel.colSpan = bodyWidth;
   axisRow.append(presetLabel);
+  thead.append(axisRow);
+  if (scalers.length > 1) {
+    const scalerRow = h("tr");
+    scalerRow.append(h("th", "matrix-corner"));
+    for (const scaler of scalers) {
+      const th = h("th", "matrix-group-head", scaler);
+      th.colSpan = Math.max(1, presets.length);
+      scalerRow.append(th);
+    }
+    thead.append(scalerRow);
+  }
   const headRow = h("tr");
   headRow.append(h("th", "matrix-corner", "Quality"));
-  presets.forEach((p) => headRow.append(h("th", null, p)));
-  thead.append(axisRow, headRow);
+  columns.forEach((c) => headRow.append(h("th", null, c.preset)));
+  thead.append(headRow);
   table.append(thead);
 
   const tbody = h("tbody");
-  for (const quality of qualities) {
-    const row = h("tr");
-    const first = byKey.get(`${quality}:${presets[0]}`);
-    row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
-    for (const preset of presets) {
-      const cell = byKey.get(`${quality}:${preset}`);
-      const td = h("td", "matrix-td");
-      if (cell) td.append(renderCell(cell, opts));
-      row.append(td);
+  for (const scale of scales) {
+    if (scales.length > 1) {
+      const groupRow = h("tr", "matrix-group-row");
+      const th = h("th", "matrix-group-head", opts.scaleLabel?.(scale) ?? `${Math.round(scale * 100)}%`);
+      th.colSpan = bodyWidth + 1;
+      groupRow.append(th);
+      tbody.append(groupRow);
     }
-    tbody.append(row);
+    for (const quality of qualities) {
+      const row = h("tr");
+      const first = byKey.get(comboKey(quality, presets[0], scale, scalers[0]));
+      row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
+      for (const column of columns) {
+        const cell = byKey.get(comboKey(quality, column.preset, scale, column.scaler));
+        const td = h("td", "matrix-td");
+        // A square with no combination behind it is the one case the sweep skips on purpose: at the
+        // source resolution the kernels are the same encode, so only the first was run.
+        if (cell) td.append(renderCell(cell, opts));
+        else td.append(sameEncodeMark(scalers[0]));
+        row.append(td);
+      }
+      tbody.append(row);
+    }
   }
   table.append(tbody);
   wrap.append(table);
   return wrap;
+}
+
+/** Stands in for a square the sweep did not run because it would have repeated another one. */
+function sameEncodeMark(ranScaler: string): HTMLElement {
+  const span = h("span", "matrix-same", "–");
+  span.title = `Nothing is resampled at the source resolution, so this is the ${ranScaler} encode beside it.`;
+  return span;
 }
 
 /** One square, as a button whether or not it can be pressed yet, so the grid keeps its shape. */
