@@ -130,16 +130,75 @@ export interface VideoInfo {
   height: number;
 }
 
+/** The two axes of Compare Quality's matrix mode: a quality level and an x264 preset. */
+export type MatrixQuality = Exclude<QualityPreset, "custom">;
+
+/** The settings one encode was made with, whichever mode produced it. */
+export interface EncodeSettings {
+  quality: QualityPreset;
+  /** The CRF actually used, i.e. the quality preset's own value unless the preset is "custom". */
+  crf: number;
+  preset: X264Preset;
+}
+
+/** One square of the matrix — a pair of dropdown settings to encode the segment with. */
+export interface MatrixCombo extends EncodeSettings {
+  /** `quality:preset`, stable across runs. */
+  key: string;
+  quality: MatrixQuality;
+}
+
+/** A combination's square in the matrix, filled in as the sweep reaches it. */
+export interface MatrixCell {
+  combo: MatrixCombo;
+  /** "skipped" is a combination the sweep never reached, because the run was stopped. */
+  status: "pending" | "running" | "done" | "failed" | "skipped";
+  /** Bytes ffmpeg produced for the segment, kept after the output itself has been dropped. */
+  bytes: number | null;
+  /** The output's measured playback length, which the projection is taken over. */
+  segmentSeconds: number | null;
+  elapsedMs: number | null;
+  /** The encoded segment, held so the cell can be shown in the A/B window without re-encoding. */
+  blob: Blob | null;
+  error: string | null;
+}
+
+/** Whether Compare Quality is running one setting or sweeping the grid. */
+export type CompareMode = "single" | "matrix";
+
+/** Mutable matrix-mode state: what the next sweep will cover, and what the last one found. */
+export interface MatrixState {
+  /** Ticked quality levels, i.e. the rows the next sweep will run. */
+  qualities: MatrixQuality[];
+  /** Ticked presets, i.e. the columns the next sweep will run. */
+  presets: X264Preset[];
+  /** The last sweep's squares, in canonical order; empty before one has been started. */
+  cells: MatrixCell[];
+  /** The segment the cells were encoded from, which the start/duration fields may have moved off. */
+  segmentStart: number;
+  segmentLength: number;
+  running: boolean;
+  /** Set by the Stop button; the sweep checks it between combinations. */
+  cancelRequested: boolean;
+  /** The combination showing in the A/B window. */
+  selectedKey: string | null;
+}
+
 /** Mutable Compare Quality (A/B comparison) state. */
 export interface EncodeTestState {
   startTime: number;
   duration: number;
   running: boolean;
+  mode: CompareMode;
   originalSink: import("mediabunny").CanvasSink | null;
   encodedSink: import("mediabunny").CanvasSink | null;
   encodedInput: Input | null;
   segDuration: number;
   encodedSize: number | null;
+  /** The settings the encode currently in the A/B window was made with — which in matrix mode is
+   * the winning cell's, not whatever the dropdowns say. */
+  activeCombo: EncodeSettings | null;
+  matrix: MatrixState;
   zoom: ZoomPanState | null;
 }
 
