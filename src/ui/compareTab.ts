@@ -21,11 +21,14 @@ import {
   deleteFfmpegFile,
   ensureFfmpegInput,
   ensureFfmpegLoaded,
+  hasFfmpegFile,
   parseFfmpegTimeSeconds,
   runFfmpegArgs,
+  runFfmpegToFile,
   setFfmpegHandlers,
 } from "../lib/ffmpegEngine";
 import { ensureMediabunny } from "../lib/mediabunny";
+import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import {
   bestReductionCell,
   buildMatrixCombos,
@@ -44,7 +47,7 @@ import {
 import { extOf } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import { fmtBytes } from "../lib/format";
-import { currentSizeEstimate, estimateSizeSavings, pickSampleWindows, type SizeEstimate } from "../lib/sizeEstimate";
+import { currentSizeEstimate, estimateSizeSavings, windowsForRun, type SizeEstimate } from "../lib/sizeEstimate";
 import type {
   CliState,
   EncodeSettings,
@@ -384,45 +387,173 @@ function inputNameFor(source: SourceBytes): string {
   return "et_in" + extOf(source.name);
 }
 
+/** The stretches the next run covers: the last run's where they still fit what the fields ask for
+ * (see windowsForRun), each snapped to a keyframe so it can be cut out by copy. */
+function runWindows(): SampleWindow[] {
+  return windowsForRun(
+    encodeTest.sampled,
+    state.duration ?? 0,
+    encodeTest.duration,
+    encodeTest.segments,
+    encodeTest.startTime,
+    snapToKeyframe,
+  );
+}
+
+/** The keyframe at or before `seconds`, or the time itself when the container gave us no table to
+ * look in (in which case snippets cannot be cut by copy and the old whole-file trim is used). */
+function snapToKeyframe(seconds: number): number {
+  const at = nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, seconds);
+  return at == null ? seconds : at;
+}
+
+/** Whether stretches can be cut out of the source ahead of encoding them. Needs the keyframe table:
+ * without it a copy-cut lands wherever ffmpeg's own seek decides, which the A/B window's original
+ * side would then be misaligned against. */
+function canCutSnippets(): boolean {
+  return state.keyframeTimestampsSec.length > 0;
+}
+
 /**
- * Encodes the chosen segment at `cliState` and hands back the result. Shared by both modes, so a
- * matrix square and a single run are the same encode with the same trim.
+ * What one cut stretch is called in the core's filesystem.
  *
- * The input is left in the core's filesystem afterwards rather than deleted: a sweep encodes the
- * same seconds two dozen times over, and writing the whole file across to the worker again for each
- * set of settings would be the slowest part of it. The caller drops it when its run is over.
+ * Named for the loaded file and the seconds it holds, so a later run over the same stretch finds it
+ * already there, and a different video can never be handed one of the last one's cuts. Read off the
+ * loaded source rather than off any bytes in hand, so the name is the same whether or not the file
+ * has been fetched yet — which is what lets a run decide it needs no fetch at all.
+ */
+function snippetName(window: SampleWindow): string {
+  const source = state.source;
+  const stamp = `${window.startSeconds.toFixed(3)}_${window.seconds.toFixed(3)}`;
+  return `et_snip_${hashName(`${source?.name ?? ""}:${source?.size ?? 0}`)}_${stamp}.mp4`;
+}
+
+/** A short, stable id for a file, so two different videos cannot share a cut stretch's name. */
+function hashName(text: string): string {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) hash = (Math.imul(hash, 31) + text.charCodeAt(i)) | 0;
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * Cuts every stretch out of the source once, so the encodes that follow read a few hundred KB each
+ * instead of the whole video.
+ *
+ * This is the difference between a sweep that decodes the file from the beginning for every square
+ * and one that does not. The cut itself is `-c copy`, so no decoding happens at all, and `-ss`
+ * ahead of `-i` seeks rather than reading forward. Cuts already in the filesystem are left alone,
+ * which is what lets a second run at another CRF start encoding immediately — and why a remote
+ * source is not fetched again for it.
+ */
+async function ensureSnippets(windows: SampleWindow[], ui: RunUi): Promise<string[]> {
+  const source = await sourceForWindows(windows);
+  if (!source) return windows.map(snippetName);
+  const names: string[] = [];
+  const inputName = inputNameFor(source);
+  for (const window of windows) {
+    const name = snippetName(window);
+    names.push(name);
+    if (hasFfmpegFile(name)) continue;
+    ui.note.textContent = "Cutting the sampled video out of the source…";
+    await ensureFfmpegInput(inputName, source.data);
+    const args = [
+      "-y",
+      // Ahead of -i, so the seek is a seek: after it, ffmpeg would decode from the start of the
+      // file and throw away everything before the stretch asked for.
+      "-ss",
+      String(window.startSeconds),
+      "-i",
+      inputName,
+      "-t",
+      String(window.seconds),
+      "-c",
+      "copy",
+      // The cut starts on a keyframe, so the copied packets carry timestamps from part-way into the
+      // source; this rebases them to zero, leaving a file that plays from its own beginning.
+      "-avoid_negative_ts",
+      "make_zero",
+      name,
+    ];
+    setFfmpegHandlers((msg) => logLine(ui.log, msg, "info"), null);
+    logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
+    await runFfmpegToFile(args, name);
+  }
+  await deleteFfmpegFile(inputName);
+  return names;
+}
+
+/** The cut stretches this run needs, or null when every one of them is already in the filesystem —
+ * which is the case that spares a remote file from being downloaded again. */
+async function sourceForWindows(windows: SampleWindow[]): Promise<SourceBytes | null> {
+  if (!state.source) throw new Error("No video loaded");
+  if (windows.every((w) => hasFfmpegFile(snippetName(w)))) return null;
+  return await readSource();
+}
+
+/**
+ * Encodes one already-cut stretch at `cliState` and hands back the result.
+ *
+ * Shared by both modes, so a matrix square and a single run are the same encode over the same
+ * seconds. `input` is a stretch cut out beforehand where the container allowed it, and the whole
+ * video otherwise, in which case the trim is done here as it always was.
  */
 async function encodeSegment(
   cliState: CliState,
-  source: SourceBytes,
-  segment: { start: number; length: number },
+  input: { name: string; trim: SampleWindow | null },
   ui: RunUi,
   onFraction: (fraction: number) => void,
 ): Promise<Blob> {
   const info = currentVideoInfo();
   if (!info) throw new Error("No video track loaded");
-  const inputName = inputNameFor(source);
   const outputName = "et_out.mp4";
-  const args = buildFfmpegArgs(cliState, info, inputName, outputName);
-  // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
-  // preceding keyframe — the two sides need to show the same content, not just start "close enough."
-  const iIdx = args.indexOf("-i");
-  args.splice(iIdx + 2, 0, "-ss", String(segment.start), "-t", String(segment.length));
+  const args = buildFfmpegArgs(cliState, info, input.name, outputName);
+  const length = input.trim?.seconds ?? encodeTest.duration;
+  if (input.trim) {
+    // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
+    // preceding keyframe — the two sides need to show the same content, not just start "close
+    // enough". Only reached when the stretch could not be cut out beforehand.
+    const iIdx = args.indexOf("-i");
+    args.splice(iIdx + 2, 0, "-ss", String(input.trim.startSeconds), "-t", String(input.trim.seconds));
+  }
   setFfmpegHandlers((msg) => {
     logLine(ui.log, msg, "info");
     // Progress is taken from the status lines rather than from the core's own progress events,
     // which are a fraction of the whole input: a 3-second segment of a 30-second file would
     // creep to 10% and stop there, looking like it gave up rather than finished.
     const at = parseFfmpegTimeSeconds(msg);
-    if (at == null || !(segment.length > 0)) return;
-    onFraction(Math.min(1, Math.max(0, at / segment.length)));
+    if (at == null || !(length > 0)) return;
+    onFraction(Math.min(1, Math.max(0, at / length)));
   }, null);
-  // Written only if this core does not already hold it, so a sweep pays for it once — and pays
-  // again only after a crash, the replaced core starting with an empty filesystem.
-  await ensureFfmpegInput(inputName, source.data);
   logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
   const { data } = await runFfmpegArgs(args, outputName);
   return new Blob([data], { type: "video/mp4" });
+}
+
+/**
+ * Readies everything a run encodes from: the stretches, and a file per stretch to read.
+ *
+ * Where the container gives up a keyframe table, each stretch is cut out once with a stream copy
+ * and every encode reads that instead of the whole video. Where it does not, the whole video goes
+ * in and each encode trims it itself, which is what the tab did before any of this.
+ */
+async function prepareRun(windows: SampleWindow[], ui: RunUi): Promise<RunInputs> {
+  if (canCutSnippets()) {
+    const names = await ensureSnippets(windows, ui);
+    return { windows, names, preCut: true };
+  }
+  const source = await readSource();
+  await ensureFfmpegInput(inputNameFor(source), source.data);
+  return { windows, names: windows.map(() => inputNameFor(source)), preCut: false };
+}
+
+/** What one run encodes: the stretches it covers and the file in the core holding each. */
+interface RunInputs {
+  windows: SampleWindow[];
+  /** One filename per window: a stretch cut out beforehand, or the whole video for every one of
+   * them when the container did not allow cutting. */
+  names: string[];
+  /** Whether those names are cut stretches (so no trim is needed) or the source itself. */
+  preCut: boolean;
 }
 
 /**
@@ -434,18 +565,21 @@ async function encodeSegment(
  */
 async function encodeWindows(
   cliState: CliState,
-  source: SourceBytes,
-  windows: SampleWindow[],
+  inputs: RunInputs,
   ui: RunUi,
   onProgress: (fraction: number) => void,
 ): Promise<{ first: Blob; bytes: number; measured: SampleWindow[] }> {
+  const windows = inputs.windows;
   let first: Blob | null = null;
   let bytes = 0;
   const measured: SampleWindow[] = [];
   for (let i = 0; i < windows.length; i++) {
     const w = windows[i];
-    const blob = await encodeSegment(cliState, source, { start: w.startSeconds, length: w.seconds }, ui, (fraction) =>
-      onProgress((i + fraction) / windows.length),
+    const blob = await encodeSegment(
+      cliState,
+      { name: inputs.names[i], trim: inputs.preCut ? null : w },
+      ui,
+      (fraction) => onProgress((i + fraction) / windows.length),
     );
     bytes += blob.size;
     let seconds = w.seconds;
@@ -521,21 +655,16 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   if (encodeTest.running) return;
   const fill = startRunUi(ui, false);
   ui.note.textContent = "Loading ffmpeg.wasm…";
-  let source: SourceBytes | null = null;
+  let inputs: RunInputs | null = null;
   try {
     await ensureFfmpegLoaded();
-    ui.note.textContent = "Writing input to virtual filesystem…";
-    source = await readSource();
-    const windows = pickSampleWindows(
-      state.duration ?? 0,
-      encodeTest.duration,
-      encodeTest.segments,
-      encodeTest.startTime,
-    );
+    const windows = runWindows();
+    encodeTest.sampled = windows;
+    inputs = await prepareRun(windows, ui);
     // The A/B window draws the original from startTime, so it follows the stretch actually shown.
     syncStartField(windows[0]?.startSeconds ?? encodeTest.startTime);
     ui.note.textContent = "Encoding test segment…";
-    const { first, bytes, measured } = await encodeWindows(cli, source, windows, ui, (fraction) => {
+    const { first, bytes, measured } = await encodeWindows(cli, inputs, ui, (fraction) => {
       const pct = fraction * 100;
       if (fill) fill.style.width = pct.toFixed(0) + "%";
       ui.note.textContent =
@@ -559,11 +688,21 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
-    // The run is over, so the copy of the video inside the core goes: it is the size of the file
-    // itself, and the next run writes whatever is loaded then.
-    if (source) await deleteFfmpegFile(inputNameFor(source));
+    await dropWholeFileInput(inputs);
     endRunUi(ui);
   }
+}
+
+/**
+ * Drops the whole-video copy a run needed, keeping any cut stretches.
+ *
+ * The video is the size of the file and there is no telling when another run wants it; the cut
+ * stretches are a few hundred KB and are exactly what the next run over the same seconds needs, so
+ * they stay. A run that cut its stretches has already dropped the source it cut them from.
+ */
+async function dropWholeFileInput(inputs: RunInputs | null): Promise<void> {
+  if (!inputs || inputs.preCut) return;
+  await deleteFfmpegFile(inputs.names[0]);
 }
 
 /**
@@ -595,12 +734,8 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   // still covers the seconds the rest of the grid was measured over. Sampled once for the whole
   // sweep for the same reason squared: two squares measured over different stretches of video are
   // not comparable, which is the only thing the grid is for.
-  matrix.windows = pickSampleWindows(
-    state.duration ?? 0,
-    encodeTest.duration,
-    encodeTest.segments,
-    encodeTest.startTime,
-  );
+  matrix.windows = runWindows();
+  encodeTest.sampled = matrix.windows;
   matrix.segmentStart = matrix.windows[0]?.startSeconds ?? encodeTest.startTime;
   matrix.segmentLength = encodeTest.duration;
   matrix.selectedKey = null;
@@ -646,7 +781,6 @@ async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promis
  */
 async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
   const matrix = encodeTest.matrix;
-  const windows = matrixWindows();
   matrix.cancelRequested = false;
   matrix.running = true;
   activeQueue = queue;
@@ -654,12 +788,11 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   const repaint = (): void => renderMatrixSection(ui.matrixSec, vt, ui);
   repaint();
 
-  let source: SourceBytes | null = null;
+  let inputs: RunInputs | null = null;
   try {
     ui.note.textContent = "Loading ffmpeg.wasm…";
     await ensureFfmpegLoaded();
-    ui.note.textContent = "Writing input to virtual filesystem…";
-    source = await readSource();
+    inputs = await prepareRun(matrixWindows(), ui);
 
     for (let i = 0; i < queue.length; i++) {
       const cell = queue[i];
@@ -679,7 +812,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
       showProgress(0);
       const startedAt = performance.now();
       try {
-        const encoded = await encodeWindows(matrixCliState(cli, cell.combo), source, windows, ui, showProgress);
+        const encoded = await encodeWindows(matrixCliState(cli, cell.combo), inputs, ui, showProgress);
         cell.elapsedMs = performance.now() - startedAt;
         cell.bytes = encoded.bytes;
         cell.blob = encoded.first;
@@ -719,8 +852,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
-    // The run is over, so the copy of the video inside the core goes with it.
-    if (source) await deleteFfmpegFile(inputNameFor(source));
+    await dropWholeFileInput(inputs);
     activeQueue = null;
     matrix.running = false;
     endRunUi(ui);
@@ -739,15 +871,16 @@ function reportRunFailure(err: unknown, ui: RunUi): void {
 /** Puts one square of the grid in the A/B window, re-encoding it if its output has been released. */
 async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Promise<void> {
   const matrix = encodeTest.matrix;
-  const windows = matrixWindows();
   let blob = cell.blob;
   if (!blob) {
+    // Its output was dropped to stay inside the memory budget, so the square is encoded again —
+    // over the same stretches the sweep measured, which are usually still cut and waiting.
     ui.note.textContent = `Re-encoding ${describeSettings(cell.combo)} for the A/B window…`;
-    const source = await readSource();
+    const inputs = await prepareRun(matrixWindows(), ui);
     try {
-      blob = (await encodeWindows(matrixCliState(cli, cell.combo), source, windows, ui, () => {})).first;
+      blob = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, ui, () => {})).first;
     } finally {
-      await deleteFfmpegFile(inputNameFor(source));
+      await dropWholeFileInput(inputs);
     }
     cell.blob = blob;
     cell.bytes = blob.size;

@@ -139,6 +139,30 @@ export async function ensureFfmpegInput(name: string, data: Uint8Array): Promise
   virtualFiles.add(name);
 }
 
+/** Whether the current core already holds `name`. False after a crash replaced it, since the
+ * replacement starts with an empty filesystem whatever the one before it held. */
+export function hasFfmpegFile(name: string): boolean {
+  return virtualFiles.has(name);
+}
+
+/**
+ * Runs `args` and leaves the output where it landed, in the core's filesystem.
+ *
+ * The counterpart to `runFfmpegArgs` for a step whose result is another run's *input*: cutting a
+ * snippet out of a video produces a file the encodes that follow will read many times over, and
+ * carrying it out to JS and back would be the one expensive part of an otherwise instant copy.
+ */
+export async function runFfmpegToFile(args: string[], outputName: string): Promise<void> {
+  const ffmpeg = await ensureFfmpegLoaded();
+  try {
+    await ffmpeg.exec(args);
+  } catch (err) {
+    resetFfmpeg();
+    throw new Error(describeFfmpegFailure(err));
+  }
+  virtualFiles.add(outputName);
+}
+
 /** Drops a file from the core's virtual filesystem; a no-op once the core it lived in is gone. */
 export async function deleteFfmpegFile(name: string): Promise<void> {
   virtualFiles.delete(name);

@@ -219,6 +219,37 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
 }
 
 /**
+ * The stretches a run should cover, reusing the last run's wherever they still answer the question.
+ *
+ * Two settings are only comparable if they were measured over the same seconds, so re-running at a
+ * different CRF keeps the stretches the run before it used; changing their length or how many there
+ * are draws fresh ones, the old set no longer being what was asked for. Reuse also means the cut
+ * stretches from last time are still sitting in the encoder, so the run has nothing to fetch.
+ *
+ * `snap` moves a start onto something the source can be cut at (a keyframe), and is applied before
+ * the comparison so a kept set is judged against where it would actually land.
+ */
+export function windowsForRun(
+  kept: SampleWindow[],
+  totalSeconds: number,
+  seconds: number,
+  count: number,
+  startSeconds: number,
+  snap: (t: number) => number = (t) => t,
+): SampleWindow[] {
+  const wanted = Math.max(1, count);
+  const sameShape = kept.length === wanted && kept.every((w) => Math.abs(w.seconds - seconds) < 0.001);
+  // A single stretch also has to still be where the start field points, which is a field the user
+  // moves between runs; the placement of several is the sampler's and no field speaks for it.
+  const sameStart = wanted > 1 || (kept.length === 1 && Math.abs(kept[0].startSeconds - snap(startSeconds)) < 0.001);
+  if (sameShape && sameStart) return kept;
+  return pickSampleWindows(totalSeconds, seconds, wanted, startSeconds).map((w) => ({
+    startSeconds: snap(w.startSeconds),
+    seconds: w.seconds,
+  }));
+}
+
+/**
  * Where to take `count` stretches of `seconds` from a file of `totalSeconds`.
  *
  * One stretch is the one the fields ask for, unchanged. More than one is picked at random, but

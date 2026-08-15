@@ -234,7 +234,10 @@ export const SEGMENTS_INFO =
   "to look in more than one place.</p>" +
   "<p>Each one is a real encode, so the run costs that many times as long, and in matrix mode it multiplies " +
   "the sweep. The A/B window below still shows the first stretch: the eye wants one continuous piece of " +
-  "video to judge, while the byte count wants a fair sample of the file.</p>";
+  "video to judge, while the byte count wants a fair sample of the file.</p>" +
+  "<p>The stretches are cut out of the source once and kept, so every setting after the first encodes them " +
+  "without touching the video again — and a re-run at another CRF measures the same seconds, which is what " +
+  "makes two runs comparable at all.</p>";
 
 /** What matrix mode does, shown under the mode switch once it is picked. */
 export const MATRIX_MODE_TEACH =

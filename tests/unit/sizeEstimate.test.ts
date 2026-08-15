@@ -6,6 +6,7 @@ import {
   fmtPct,
   fmtSignedChange,
   pickSampleWindows,
+  windowsForRun,
   type SizeEstimateInput,
 } from "../../src/lib/sizeEstimate";
 import type { SampleInfo } from "../../src/lib/types";
@@ -346,5 +347,49 @@ describe("estimateSizeSavings over several windows", () => {
     const est = estimateSizeSavings({ ...base, encodedSegmentBytes: 50_000 })!;
     expect(est.windowCount).toBe(1);
     expect(est.segmentSeconds).toBe(10);
+  });
+});
+
+describe("windowsForRun", () => {
+  const kept = [
+    { startSeconds: 10, seconds: 3 },
+    { startSeconds: 60, seconds: 3 },
+  ];
+
+  // Two settings are only comparable if they were measured over the same seconds, so a re-run at
+  // another CRF keeps the last run's stretches (which are also still cut and waiting).
+  it("keeps the stretches when the run asks for the same shape", () => {
+    expect(windowsForRun(kept, 100, 3, 2, 0)).toBe(kept);
+  });
+
+  it("draws fresh ones when the length changes", () => {
+    expect(windowsForRun(kept, 100, 5, 2, 0)).not.toBe(kept);
+  });
+
+  it("draws fresh ones when the count changes", () => {
+    const drawn = windowsForRun(kept, 100, 3, 3, 0);
+    expect(drawn).not.toBe(kept);
+    expect(drawn).toHaveLength(3);
+  });
+
+  // With one stretch the start field speaks for it, so moving the field moves the stretch.
+  it("follows the start field for a single stretch", () => {
+    const one = [{ startSeconds: 10, seconds: 3 }];
+    expect(windowsForRun(one, 100, 3, 1, 10)).toBe(one);
+    expect(windowsForRun(one, 100, 3, 1, 40)).toEqual([{ startSeconds: 40, seconds: 3 }]);
+  });
+
+  it("snaps drawn starts onto what the source can be cut at", () => {
+    const snap = (t: number): number => Math.floor(t / 10) * 10;
+    for (const w of windowsForRun([], 100, 3, 4, 0, snap)) {
+      expect(w.startSeconds % 10).toBe(0);
+    }
+  });
+
+  // A kept set is judged against where it would land, not against the raw field.
+  it("compares a kept single stretch against the snapped start", () => {
+    const one = [{ startSeconds: 40, seconds: 3 }];
+    const snap = (t: number): number => Math.floor(t / 10) * 10;
+    expect(windowsForRun(one, 100, 3, 1, 47, snap)).toBe(one);
   });
 });

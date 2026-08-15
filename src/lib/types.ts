@@ -218,6 +218,10 @@ export interface EncodeTestState {
   segments: number;
   /** The stretches the loaded comparison actually covered, with their measured lengths. */
   windows: SampleWindow[];
+  /** The stretches a run asks the encoder for: the sampler's picks, snapped to keyframes. Kept
+   * across runs so two settings are compared over the same seconds (and the cut snippets are still
+   * in the core's filesystem to encode from). */
+  sampled: SampleWindow[];
   running: boolean;
   mode: CompareMode;
   originalSink: import("mediabunny").CanvasSink | null;

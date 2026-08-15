@@ -56,6 +56,7 @@ export const encodeTest: EncodeTestState = {
   duration: 3,
   segments: 1,
   windows: [],
+  sampled: [],
   running: false,
   mode: "single",
   originalSink: null,
@@ -110,6 +111,7 @@ export function resetState(): void {
   encodeTest.duration = 3;
   encodeTest.segments = 1;
   encodeTest.windows = [];
+  encodeTest.sampled = [];
   encodeTest.running = false;
   encodeTest.mode = "single";
   encodeTest.originalSink = null;
