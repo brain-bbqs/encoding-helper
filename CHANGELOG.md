@@ -10,6 +10,10 @@
 - The axes are tick lists, with a combination count before starting and **Stop** to end a sweep while keeping what it measured ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
 - **Full Analysis** now carries the matrix as a table, and reports the settings the loaded comparison was actually encoded with ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
 
+#### 🏠 Internal
+
+- A sweep writes the video into the encoder once and reuses it, rather than sending it across per combination, where the transferred buffer left every encode after the first failing ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+
 ## 0.3.3
 
 #### 🐛 Bug Fix

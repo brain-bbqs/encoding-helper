@@ -10,7 +10,14 @@ import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
 import { gridItem, h, infoIcon, teachBox } from "../lib/dom";
 import { MATRIX_MODE_TEACH, X264_PRESET_INFO } from "../lib/explainers";
-import { ensureFfmpegLoaded, parseFfmpegTimeSeconds, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
+import {
+  deleteFfmpegFile,
+  ensureFfmpegInput,
+  ensureFfmpegLoaded,
+  parseFfmpegTimeSeconds,
+  runFfmpegArgs,
+  setFfmpegHandlers,
+} from "../lib/ffmpegEngine";
 import { ensureMediabunny } from "../lib/mediabunny";
 import {
   bestReductionCell,
@@ -284,9 +291,19 @@ async function readSource(): Promise<SourceBytes> {
   return { name: state.source.name, data: await fetchFile(state.file ?? state.source.url ?? undefined) };
 }
 
+/** What the source is called inside the core's filesystem, keeping its extension so ffmpeg can
+ * still tell what it is being handed. */
+function inputNameFor(source: SourceBytes): string {
+  return "et_in" + extOf(source.name);
+}
+
 /**
  * Encodes the chosen segment at `cliState` and hands back the result. Shared by both modes, so a
  * matrix square and a single run are the same encode with the same trim.
+ *
+ * The input is left in the core's filesystem afterwards rather than deleted: a sweep encodes the
+ * same seconds two dozen times over, and writing the whole file across to the worker again for each
+ * set of settings would be the slowest part of it. The caller drops it when its run is over.
  */
 async function encodeSegment(
   cliState: CliState,
@@ -296,7 +313,7 @@ async function encodeSegment(
 ): Promise<Blob> {
   const info = currentVideoInfo();
   if (!info) throw new Error("No video track loaded");
-  const inputName = "et_in" + extOf(source.name);
+  const inputName = inputNameFor(source);
   const outputName = "et_out.mp4";
   const args = buildFfmpegArgs(cliState, info, inputName, outputName);
   // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
@@ -312,8 +329,11 @@ async function encodeSegment(
     if (at == null || !(encodeTest.duration > 0)) return;
     onFraction(Math.min(1, Math.max(0, at / encodeTest.duration)));
   }, null);
+  // Written only if this core does not already hold it, so a sweep pays for it once — and pays
+  // again only after a crash, the replaced core starting with an empty filesystem.
+  await ensureFfmpegInput(inputName, source.data);
   logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
-  const { data } = await runFfmpegEncode(args, inputName, source.data, outputName);
+  const { data } = await runFfmpegArgs(args, outputName);
   return new Blob([data], { type: "video/mp4" });
 }
 
@@ -372,10 +392,11 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   if (encodeTest.running) return;
   const fill = startRunUi(ui, false);
   ui.note.textContent = "Loading ffmpeg.wasm…";
+  let source: SourceBytes | null = null;
   try {
     await ensureFfmpegLoaded();
     ui.note.textContent = "Writing input to virtual filesystem…";
-    const source = await readSource();
+    source = await readSource();
     ui.note.textContent = "Encoding test segment…";
     const blob = await encodeSegment(cli, source, ui, (fraction) => {
       const pct = fraction * 100;
@@ -398,6 +419,9 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
+    // The run is over, so the copy of the video inside the core goes: it is the size of the file
+    // itself, and the next run writes whatever is loaded then.
+    if (source) await deleteFfmpegFile(inputNameFor(source));
     endRunUi(ui);
   }
 }
@@ -436,11 +460,12 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   const repaint = (): void => renderMatrixSection(ui.matrixSec, vt, ui);
   repaint();
 
+  let source: SourceBytes | null = null;
   try {
     ui.note.textContent = "Loading ffmpeg.wasm…";
     await ensureFfmpegLoaded();
     ui.note.textContent = "Writing input to virtual filesystem…";
-    const source = await readSource();
+    source = await readSource();
 
     for (let i = 0; i < matrix.cells.length; i++) {
       const cell = matrix.cells[i];
@@ -502,6 +527,8 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
+    // The sweep is over, so the copy of the video inside the core goes with it.
+    if (source) await deleteFfmpegFile(inputNameFor(source));
     matrix.running = false;
     endRunUi(ui);
     repaint();
@@ -522,7 +549,11 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Pro
   if (!blob) {
     ui.note.textContent = `Re-encoding ${describeSettings(cell.combo)} for the A/B window…`;
     const source = await readSource();
-    blob = await encodeSegment(matrixCliState(cli, cell.combo), source, ui, () => {});
+    try {
+      blob = await encodeSegment(matrixCliState(cli, cell.combo), source, ui, () => {});
+    } finally {
+      await deleteFfmpegFile(inputNameFor(source));
+    }
     cell.blob = blob;
     cell.bytes = blob.size;
   }
