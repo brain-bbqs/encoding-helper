@@ -6,16 +6,16 @@
 // quality, and a list sorted by size hides both. The winner is marked in place instead of being
 // lifted out for the same reason — what makes it useful is the squares around it.
 //
-// Resolution and the kernel it resamples with group the rows and the columns rather than adding
-// dimensions to each square, so a block of rows at one resolution still reads exactly like the grid
-// did before they existed.
+// Resolution and the kernel it resamples with stack as blocks of rows rather than widening the
+// table, so every block is the same width and reads exactly like the grid did before they existed.
 
 import { h, infoIcon } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
 import { MATRIX_BEST_INFO } from "../lib/explainers";
+import { isDownscale } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
-import type { MatrixCell } from "../lib/types";
+import type { MatrixCell, Scaler } from "../lib/types";
 
 export interface MatrixTableOptions {
   cells: MatrixCell[];
@@ -97,19 +97,28 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
 }
 
 /**
- * The grid itself: quality down the side, preset across the top, with resolution grouping the rows
- * and the kernel grouping the columns.
+ * The grid itself: quality down the side, preset across the top, and one block of rows per output
+ * the sweep produced.
  *
- * The two outer axes only appear once a sweep covers more than one of their values, so the common
- * grid is the same two-axis table it has always been rather than one carrying two headers that say
- * "100%" and "lanczos" over everything. When they do appear they nest outside, so each resolution
- * is a block of rows that still reads down a column as CRF at a fixed effort.
+ * Both outer axes stack rather than widen. Resolution and kernel are properties of the *output*,
+ * not of the encoder settings the columns describe, so they belong to a block of rows rather than
+ * to a second tier of columns: a kernel spread across the header would double the table's width for
+ * a value that says nothing about any individual column, and push the far columns off the screen on
+ * exactly the runs that need reading most. Stacked, every block is the same width and reads down a
+ * column as CRF at a fixed effort, whatever the sweep covered.
+ *
+ * The block titles only appear once there is more than one, so the common grid is the same
+ * two-axis table it has always been rather than one captioned "100%" throughout.
  */
 export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   const { qualities, presets, scales, scalers } = matrixAxes(opts.cells);
   const byKey = new Map(opts.cells.map((c) => [c.combo.key, c]));
-  const columns = scalers.flatMap((scaler) => presets.map((preset) => ({ scaler, preset })));
-  const bodyWidth = Math.max(1, columns.length);
+  const width = Math.max(1, presets.length);
+  // One block per output actually encoded. Nothing is resampled at the source resolution, so it
+  // contributes one block whatever kernels were ticked, and no square anywhere goes unfilled.
+  const blocks = scales.flatMap((scale) =>
+    (isDownscale(scale) ? scalers : scalers.slice(0, 1)).map((scaler) => ({ scale, scaler })),
+  );
 
   const wrap = h("div", "scroll-x");
   const table = h("table", "data matrix-table");
@@ -119,48 +128,28 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   const axisRow = h("tr");
   axisRow.append(h("th", "matrix-corner"));
   const presetLabel = h("th", "matrix-axis-label", "Preset");
-  presetLabel.colSpan = bodyWidth;
+  presetLabel.colSpan = width;
   axisRow.append(presetLabel);
-  thead.append(axisRow);
-  if (scalers.length > 1) {
-    const scalerRow = h("tr");
-    scalerRow.append(h("th", "matrix-corner"));
-    for (const scaler of scalers) {
-      const th = h("th", "matrix-group-head", scaler);
-      th.colSpan = Math.max(1, presets.length);
-      scalerRow.append(th);
-    }
-    thead.append(scalerRow);
-  }
   const headRow = h("tr");
   headRow.append(h("th", "matrix-corner", "Quality"));
-  columns.forEach((c) => headRow.append(h("th", null, c.preset)));
-  thead.append(headRow);
+  presets.forEach((p) => headRow.append(h("th", null, p)));
+  thead.append(axisRow, headRow);
   table.append(thead);
 
   const tbody = h("tbody");
-  scales.forEach((scale, i) => {
-    // Consecutive resolutions are shaded apart as well as titled, so which block a square belongs
-    // to is answerable from the square rather than by scrolling up to the nearest heading.
+  blocks.forEach((block, i) => {
+    // Consecutive blocks are shaded apart as well as titled, so which one a square belongs to is
+    // answerable from the square rather than by scrolling up to the nearest heading.
     const band = i % 2 === 1 ? " matrix-band" : "";
-    if (scales.length > 1) {
-      const groupRow = h("tr", "matrix-group-row" + band);
-      const th = h("th", "matrix-group-head", opts.scaleLabel?.(scale) ?? `${Math.round(scale * 100)}%`);
-      th.colSpan = bodyWidth + 1;
-      groupRow.append(th);
-      tbody.append(groupRow);
-    }
+    if (blocks.length > 1) tbody.append(blockTitleRow(block, scalers.length > 1, width, band, opts));
     for (const quality of qualities) {
-      const row = h("tr", scales.length > 1 ? "matrix-scale-row" + band : null);
-      const first = byKey.get(comboKey(quality, presets[0], scale, scalers[0]));
+      const row = h("tr", blocks.length > 1 ? "matrix-scale-row" + band : null);
+      const first = byKey.get(comboKey(quality, presets[0], block.scale, block.scaler));
       row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
-      for (const column of columns) {
-        const cell = byKey.get(comboKey(quality, column.preset, scale, column.scaler));
+      for (const preset of presets) {
+        const cell = byKey.get(comboKey(quality, preset, block.scale, block.scaler));
         const td = h("td", "matrix-td");
-        // A square with no combination behind it is the one case the sweep skips on purpose: at the
-        // source resolution the kernels are the same encode, so only the first was run.
         if (cell) td.append(renderCell(cell, opts));
-        else td.append(sameEncodeMark(scalers[0]));
         row.append(td);
       }
       tbody.append(row);
@@ -171,11 +160,24 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   return wrap;
 }
 
-/** Stands in for a square the sweep did not run because it would have repeated another one. */
-function sameEncodeMark(ranScaler: string): HTMLElement {
-  const span = h("span", "matrix-same", "–");
-  span.title = `Nothing is resampled at the source resolution, so this is the ${ranScaler} encode beside it.`;
-  return span;
+/** The heading over one block of rows: the resolution it was encoded at, and the kernel that got it
+ * there when the sweep tried more than one. */
+function blockTitleRow(
+  block: { scale: number; scaler: Scaler },
+  showScaler: boolean,
+  width: number,
+  band: string,
+  opts: MatrixTableOptions,
+): HTMLTableRowElement {
+  const row = h("tr", "matrix-group-row" + band);
+  const th = h("th", "matrix-group-head");
+  th.colSpan = width + 1;
+  th.append(h("span", "matrix-group-title", opts.scaleLabel?.(block.scale) ?? `${Math.round(block.scale * 100)}%`));
+  // The kernel is a footnote to the resolution rather than a peer of it: it only changes how the
+  // pixels were resampled, and at the source resolution it changed nothing at all.
+  if (showScaler && isDownscale(block.scale)) th.append(h("span", "matrix-group-note", block.scaler));
+  row.append(th);
+  return row;
 }
 
 /** One square, as a button whether or not it can be pressed yet, so the grid keeps its shape. */

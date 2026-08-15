@@ -61,6 +61,41 @@ export function fieldNumber(
   return f;
 }
 
+/**
+ * A short, fixed set of choices as radios rather than a dropdown.
+ *
+ * Worth the width when the options are few and the choice changes what the panel below shows: both
+ * are on screen at once, so the alternative is readable without opening anything, and switching is
+ * one click rather than two.
+ */
+export function fieldRadios(
+  name: string,
+  label: string,
+  options: [string, string][],
+  value: string,
+  onChange: (value: string) => void,
+  info?: string | null,
+): HTMLDivElement {
+  const f = h("div", "field");
+  f.append(fieldHead(label, info));
+  const row = h("div", "radio-row");
+  for (const [optValue, text] of options) {
+    const wrap = h("label", "radio-option");
+    const input = h("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = optValue;
+    input.checked = optValue === value;
+    input.addEventListener("change", () => {
+      if (input.checked) onChange(optValue);
+    });
+    wrap.append(input, document.createTextNode(" " + text));
+    row.append(wrap);
+  }
+  f.append(row);
+  return f;
+}
+
 export interface EngineBox {
   el: HTMLDivElement;
   button: HTMLButtonElement;

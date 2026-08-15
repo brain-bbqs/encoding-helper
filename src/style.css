@@ -1014,6 +1014,27 @@ details.teach-more summary {
 }
 
 /* Log console */
+/* A small set of choices side by side, where a dropdown would hide the alternative behind a click. */
+.radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: center;
+  min-height: 38px;
+}
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.radio-option input {
+  margin: 0 2px 0 0;
+  cursor: pointer;
+}
+
 /* The output console lives in a fold that starts closed, so a finished run's result is what is on
    screen rather than the transcript that produced it. */
 .log-details {
@@ -1207,43 +1228,42 @@ table.data th {
    sweep fills in — one square per combination, the largest reduction marked in place. */
 /* Row and column group heads, present only when the sweep covered more than one resolution or
    kernel. Left-aligned and shaded so a block of rows reads as belonging to the head above it. */
-/* A resolution's title over its block of rows: full size and in the body text's ink rather than the
+/* One output's title over its block of rows: full size and in the body text's ink rather than the
    muted small caps the axis labels use, since it names what the rows under it are. */
 table.data.matrix-table th.matrix-group-head {
-  padding: 10px 8px 6px;
+  padding: 16px 8px 4px;
   text-align: left;
   text-transform: none;
   letter-spacing: 0;
+  font-weight: 400;
+}
+.matrix-group-title {
   font-size: 14px;
   font-weight: 700;
   color: var(--text-strong);
 }
-/* The kernel's title over its columns is the same idea one level down, so it stays smaller. */
-table.data.matrix-table thead th.matrix-group-head {
-  padding: 2px 4px;
-  text-align: center;
+/* The kernel reads as a footnote to the resolution rather than a peer of it. */
+.matrix-group-note {
+  margin-left: 8px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
 }
-/* Alternating blocks: the shading runs the width of the row so a square in the second resolution
-   reads as belonging with the title above it, without a border cutting the grid up. */
+/* Alternating blocks: the shading runs the width of the row so a square reads as belonging with the
+   title above it, without a border cutting the grid up. */
 .matrix-table tr.matrix-band th,
 .matrix-table tr.matrix-band td {
   background: var(--hover);
 }
-.matrix-table tr.matrix-group-row th {
+/* The blocks after the first are set off by a rule as well, since shading alone leaves every other
+   boundary invisible. */
+.matrix-table tr.matrix-group-row + tr th,
+.matrix-table tr.matrix-group-row + tr td {
   border-top: 1px solid var(--border-soft);
 }
-.matrix-table tr.matrix-group-row:first-child th {
+.matrix-table tbody tr:first-child th,
+.matrix-table tbody tr:first-child td {
   border-top: none;
-}
-/* The square the sweep skipped because it would have repeated its neighbour. */
-.matrix-same {
-  display: block;
-  padding: 10px 0;
-  color: var(--muted);
-  text-align: center;
 }
 .compare-run-buttons {
   display: flex;

@@ -27,6 +27,17 @@ function renderTab(): HTMLElement {
   return panel;
 }
 
+/** Both modes are on screen at once, as radios rather than a dropdown. */
+function modeRadio(panel: HTMLElement, value: string): HTMLInputElement {
+  return panel.querySelector<HTMLInputElement>(`input[name="etMode"][value="${value}"]`)!;
+}
+
+function pickMode(panel: HTMLElement, value: string): void {
+  const radio = modeRadio(panel, value);
+  radio.checked = true;
+  radio.dispatchEvent(new Event("change"));
+}
+
 function axisBoxes(panel: HTMLElement, label: string): HTMLInputElement[] {
   const field = Array.from(panel.querySelectorAll<HTMLElement>(".field")).find(
     (f) => f.querySelector(".field-label")?.textContent === label,
@@ -56,7 +67,7 @@ describe("renderEncodeTestTab", () => {
 
   it("opens on the single-setting controls, with the matrix ones out of the way", () => {
     const panel = renderTab();
-    expect(panel.querySelector<HTMLSelectElement>("#etMode")!.value).toBe("single");
+    expect(modeRadio(panel, "single").checked).toBe(true);
     expect(panel.querySelector<HTMLElement>(".compare-single-controls")!.style.display).toBe("");
     expect(panel.querySelector<HTMLElement>(".compare-matrix-controls")!.style.display).toBe("none");
     expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Comparison");
@@ -64,15 +75,16 @@ describe("renderEncodeTestTab", () => {
 
   it("swaps the controls and the button when matrix mode is picked", () => {
     const panel = renderTab();
-    const mode = panel.querySelector<HTMLSelectElement>("#etMode")!;
-    mode.value = "matrix";
-    mode.dispatchEvent(new Event("change"));
+    pickMode(panel, "matrix");
     expect(encodeTest.mode).toBe("matrix");
     expect(panel.querySelector<HTMLElement>(".compare-single-controls")!.style.display).toBe("none");
     expect(panel.querySelector<HTMLElement>(".compare-matrix-controls")!.style.display).toBe("");
     expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Matrix");
     // The quality/preset dropdowns stay in the DOM so the Reencode tab can still sync them.
     expect(panel.querySelector("#etQuality")).not.toBeNull();
+    // Both modes stay readable side by side, so the alternative needs no click to see.
+    expect(panel.querySelectorAll('input[name="etMode"]')).toHaveLength(2);
+    expect(modeRadio(panel, "single").checked).toBe(false);
   });
 
   it("labels each resolution with the size it comes out at, and applies it to the CLI state", () => {

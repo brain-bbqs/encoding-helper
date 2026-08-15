@@ -51,17 +51,27 @@ describe("renderMatrixTable", () => {
     expect(cellButtons(table)).toHaveLength(4);
   });
 
-  it("groups the rows by resolution and the columns by kernel once a sweep spans them", () => {
+  // Stacked, not widened: the kernel names a block of rows, so the table is the same width whatever
+  // the sweep covered and the far columns stay on the screen.
+  it("stacks each output as its own block of rows, one preset column wide", () => {
     const swept = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]));
-    const table = renderMatrixTable({ cells: swept, scaleLabel: (s) => `${s * 100}% label` });
-    const groups = Array.from(table.querySelectorAll(".matrix-group-head")).map((th) => th.textContent);
-    expect(groups).toEqual(["lanczos", "bicubic", "100% label", "50% label"]);
-    // Two kernels across, one preset each.
+    const table = renderMatrixTable({ cells: swept, scaleLabel: (s) => `${s * 100}%` });
+    // Three blocks: the source resolution, then each kernel at half.
+    expect(Array.from(table.querySelectorAll(".matrix-group-title")).map((e) => e.textContent)).toEqual([
+      "100%",
+      "50%",
+      "50%",
+    ]);
+    // The kernel is only named where it did something.
+    expect(Array.from(table.querySelectorAll(".matrix-group-note")).map((e) => e.textContent)).toEqual([
+      "lanczos",
+      "bicubic",
+    ]);
     const headers = Array.from(table.querySelectorAll("thead tr:last-child th")).map((th) => th.textContent);
-    expect(headers).toEqual(["Quality", "fast", "fast"]);
+    expect(headers).toEqual(["Quality", "fast"]);
   });
 
-  it("shades consecutive resolution blocks apart", () => {
+  it("shades consecutive blocks apart", () => {
     const swept = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1, 0.5]));
     const table = renderMatrixTable({ cells: swept });
     const rows = Array.from(table.querySelectorAll("tbody tr"));
@@ -69,12 +79,11 @@ describe("renderMatrixTable", () => {
     expect(rows.map((r) => r.classList.contains("matrix-band"))).toEqual([false, false, false, true, true, true]);
   });
 
-  // Nothing is resampled at 100%, so the second kernel's square there was never run.
-  it("marks the square the sweep skipped as the encode beside it", () => {
+  it("leaves no square unfilled, each block running the one kernel it names", () => {
     const swept = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]));
     const table = renderMatrixTable({ cells: swept });
-    expect(table.querySelectorAll(".matrix-same")).toHaveLength(1);
     expect(cellButtons(table)).toHaveLength(3);
+    expect(table.querySelectorAll("td:empty")).toHaveLength(0);
   });
 
   it("keeps the grid two-axis when the sweep covered one resolution and one kernel", () => {
