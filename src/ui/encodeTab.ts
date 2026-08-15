@@ -1,12 +1,19 @@
 // Tab: Reencode & CLI — the FFmpeg Command Builder. The in-browser engines that consume these
 // settings live in their own tab (reencodeTab.ts).
 
-import { computeGop } from "../lib/cliCommand";
+import { computeGop, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
-import { RESOLUTION_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
-import { parseScale, refreshCliCommand, scaleOptions, syncQualityControls } from "./cliControls";
+import {
+  parseScale,
+  parseScaler,
+  refreshCliCommand,
+  scaleOptions,
+  scalerOptions,
+  syncQualityControls,
+} from "./cliControls";
 import { fieldNumber, fieldSelect } from "./formControls";
 
 export function renderEncodeTab(panel: HTMLElement): void {
@@ -60,6 +67,9 @@ export function renderEncodeTab(panel: HTMLElement): void {
 
   const row1 = h("div", "row");
   row1.append(fieldSelect("cliScale", "Resolution", scaleOptions(info), String(cli.scale), RESOLUTION_INFO));
+  const cliScalerField = fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
+  cliScalerField.style.display = isDownscale(cli.scale) ? "" : "none";
+  row1.append(cliScalerField);
   row1.append(
     fieldSelect(
       "cliPreset",
@@ -159,6 +169,10 @@ export function renderEncodeTab(panel: HTMLElement): void {
   });
   document.getElementById("cliScale")?.addEventListener("change", (e) => {
     cli.scale = parseScale((e.target as HTMLSelectElement).value);
+    syncQualityControls();
+  });
+  document.getElementById("cliScaler")?.addEventListener("change", (e) => {
+    cli.scaler = parseScaler((e.target as HTMLSelectElement).value);
     syncQualityControls();
   });
   bindNumber("cliKeyframeInterval", "keyframeInterval", true);

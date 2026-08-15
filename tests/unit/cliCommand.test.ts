@@ -24,6 +24,7 @@ function baseCli(overrides: Partial<CliState> = {}): CliState {
     audioMode: "copy",
     fps: null,
     scale: 1,
+    scaler: "lanczos",
     ...overrides,
   };
 }
@@ -72,6 +73,18 @@ describe("buildFfmpegArgs", () => {
   it("scales with lanczos when a fraction of the source resolution is asked for", () => {
     const args = buildFfmpegArgs(baseCli({ scale: 0.5 }), info);
     expect(args[args.indexOf("-vf") + 1]).toBe("scale=trunc(iw*0.5/2)*2:-2:flags=lanczos");
+  });
+
+  it("resamples with the kernel the scaler field picked", () => {
+    const args = buildFfmpegArgs(baseCli({ scale: 0.25, scaler: "bicubic" }), info);
+    expect(args[args.indexOf("-vf") + 1]).toBe("scale=trunc(iw*0.25/2)*2:-2:flags=bicubic");
+  });
+
+  // The kernel only resamples something when there is a downscale to resample, so at full
+  // resolution it must not reach the command at all.
+  it("keeps the scaler out of the command at full resolution", () => {
+    const args = buildFfmpegArgs(baseCli({ scale: 1, pad: true, scaler: "bicubic" }), info);
+    expect(args.join(" ")).not.toContain("bicubic");
   });
 
   it("leaves the resolution alone at scale 1", () => {
@@ -130,6 +143,10 @@ describe("isDownscale", () => {
 describe("scaleFilter", () => {
   it("scales with lanczos and leaves the height to -2", () => {
     expect(scaleFilter(0.5)).toBe("scale=trunc(iw*0.5/2)*2:-2:flags=lanczos");
+  });
+
+  it("passes the picked kernel through as flags=", () => {
+    expect(scaleFilter(0.5, "bicubic")).toBe("scale=trunc(iw*0.5/2)*2:-2:flags=bicubic");
   });
 });
 

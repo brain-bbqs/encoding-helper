@@ -1162,6 +1162,25 @@ table.data th {
   line-height: 1;
 }
 
+/* How a downscaled encode is drawn back at the source's size. Only present when one is loaded, so
+   it sits at the end of the control row rather than holding a gap open the rest of the time. */
+.compare-view {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.compare-view-label {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.compare-view-select {
+  margin-bottom: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+  width: auto;
+}
+
 /* Compare Quality: matrix mode. The two tick lists that pick the axes, and the results grid the
    sweep fills in — one square per combination, the largest reduction marked in place. */
 .compare-run-buttons {

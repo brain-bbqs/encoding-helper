@@ -1,7 +1,7 @@
 // CLI command builder — single source of truth, shared by the displayed command AND the args fed to
 // ffmpeg.wasm.
 
-import type { CliState, VideoInfo } from "./types";
+import type { CliState, Scaler, VideoInfo } from "./types";
 
 export const CRF_MAP: Record<Exclude<CliState["quality"], "custom">, number> = {
   lossless: 0,
@@ -26,9 +26,12 @@ export const CRF_MAP: Record<Exclude<CliState["quality"], "custom">, number> = {
  */
 export const SCALE_OPTIONS = [1, 0.75, 0.5, 0.25] as const;
 
-/** The rescaler used whenever the output is downscaled. Lanczos over swscale's default bicubic:
- * downscaling is where a sharper kernel actually shows, and the cost is trivial beside the encode. */
-export const SCALE_FLAGS = "lanczos";
+/** The kernels offered for a downscale, sharpest first. `lanczos` leads because downscaling is
+ * where a sharper kernel shows and its cost is trivial beside the encode; `bicubic` is swscale's
+ * own default and the softer, more forgiving of the two. */
+export const SCALER_OPTIONS: Scaler[] = ["lanczos", "bicubic"];
+
+export const DEFAULT_SCALER: Scaler = "lanczos";
 
 /** Whether a scale factor asks for anything at all. Guards against a 0 or a NaN out of a field as
  * much as against the 1 that means "leave it alone". */
@@ -43,8 +46,8 @@ export function isDownscale(scale: number): boolean {
  * rounds to an even number itself. yuv420p needs both dimensions even, so this is what makes the
  * separate pad unnecessary once any scaling is in play.
  */
-export function scaleFilter(scale: number): string {
-  return `scale=trunc(iw*${scale}/2)*2:-2:flags=${SCALE_FLAGS}`;
+export function scaleFilter(scale: number, scaler: Scaler = DEFAULT_SCALER): string {
+  return `scale=trunc(iw*${scale}/2)*2:-2:flags=${scaler}`;
 }
 
 /** What `scaleFilter` will come out at for a known source size, for labelling the control and for
@@ -96,7 +99,7 @@ export function buildFfmpegArgs(cliState: CliState, info: VideoInfo, inName?: st
   // it. The pad is only reached at full resolution, since scale's `-2` already lands on even
   // dimensions and padding an already-even frame is a no-op that only makes the command longer.
   const filters: string[] = [];
-  if (isDownscale(cliState.scale)) filters.push(scaleFilter(cliState.scale));
+  if (isDownscale(cliState.scale)) filters.push(scaleFilter(cliState.scale, cliState.scaler));
   else if (cliState.pad) filters.push("pad=ceil(iw/2)*2:ceil(ih/2)*2");
   if (filters.length) args.push("-vf", filters.join(","));
   if (cliState.faststart) args.push("-movflags", "+faststart");

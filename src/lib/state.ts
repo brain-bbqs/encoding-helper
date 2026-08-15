@@ -43,6 +43,7 @@ export const cli: CliState = {
   audioMode: "copy",
   fps: null,
   scale: 1,
+  scaler: "lanczos",
 };
 
 export const encodeTest: EncodeTestState = {
@@ -56,6 +57,7 @@ export const encodeTest: EncodeTestState = {
   segDuration: 0,
   encodedSize: null,
   activeCombo: null,
+  upscaleSmoothing: false,
   matrix: {
     qualities: [...MATRIX_QUALITIES],
     presets: [...DEFAULT_MATRIX_PRESETS],
@@ -104,6 +106,7 @@ export function resetState(): void {
   encodeTest.segDuration = 0;
   encodeTest.encodedSize = null;
   encodeTest.activeCombo = null;
+  encodeTest.upscaleSmoothing = false;
   // A new file's matrix starts empty: the old sweep's sizes were measured on video that is gone.
   encodeTest.matrix.qualities = [...MATRIX_QUALITIES];
   encodeTest.matrix.presets = [...DEFAULT_MATRIX_PRESETS];

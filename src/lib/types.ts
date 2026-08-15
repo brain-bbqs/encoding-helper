@@ -108,6 +108,10 @@ export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 export type X264Preset =
   "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow" | "slower" | "veryslow";
 
+/** swscale kernels offered for a downscale. Both are sane choices, which is why both are offered:
+ * see SCALER_INFO for what each one trades. */
+export type Scaler = "lanczos" | "bicubic";
+
 /** Shared CLI-command state, edited from both the Reencode tab and the Compare Quality tab. */
 export interface CliState {
   quality: QualityPreset;
@@ -123,6 +127,8 @@ export interface CliState {
   fps: number | null;
   /** Output resolution as a fraction of the source's, 1 being the source untouched. */
   scale: number;
+  /** Which kernel `scale` resamples with. Only reaches the command when `scale` is below 1. */
+  scaler: Scaler;
 }
 
 /** Basic video info needed to fill in CLI defaults (fps for GOP math, dimensions for padding). */
@@ -143,6 +149,8 @@ export interface EncodeSettings {
   preset: X264Preset;
   /** The resolution fraction the encode was made at; 1 unless it was downscaled. */
   scale: number;
+  /** The kernel it was downscaled with, meaningless (but carried) at full resolution. */
+  scaler: Scaler;
 }
 
 /** One square of the matrix — a pair of dropdown settings to encode the segment with. */
@@ -202,6 +210,9 @@ export interface EncodeTestState {
   /** The settings the encode currently in the A/B window was made with — which in matrix mode is
    * the winning cell's, not whatever the dropdowns say. */
   activeCombo: EncodeSettings | null;
+  /** How a downscaled encode is drawn back at the source's geometry: interpolated when true, one
+   * block per encoded pixel when false. A view preference, not part of any encode. */
+  upscaleSmoothing: boolean;
   matrix: MatrixState;
   zoom: ZoomPanState | null;
 }

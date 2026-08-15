@@ -28,6 +28,7 @@ const CLI: CliState = {
   audioMode: "copy",
   fps: null,
   scale: 1,
+  scaler: "lanczos",
 };
 
 /** A finished square of `bytes`, optionally still holding its output. */
@@ -61,9 +62,9 @@ describe("buildMatrixCombos", () => {
   });
 
   // Resolution is the sweep's, not an axis of it: every square is encoded at the one value.
-  it("stamps the sweep's resolution on every combination", () => {
-    const combos = buildMatrixCombos(MATRIX_QUALITIES, ["fast", "medium"], 0.5);
-    expect(combos.every((c) => c.scale === 0.5)).toBe(true);
+  it("stamps the sweep's resolution and kernel on every combination", () => {
+    const combos = buildMatrixCombos(MATRIX_QUALITIES, ["fast", "medium"], { scale: 0.5, scaler: "bicubic" });
+    expect(combos.every((c) => c.scale === 0.5 && c.scaler === "bicubic")).toBe(true);
   });
 
   it("is at the source's resolution unless told otherwise", () => {
@@ -86,27 +87,35 @@ describe("matrixCliState", () => {
 
 describe("cliSettings", () => {
   it("resolves a named quality to its CRF", () => {
-    expect(cliSettings(CLI)).toEqual({ quality: "medium", crf: 25, preset: "superfast", scale: 1 });
+    expect(cliSettings(CLI)).toEqual({
+      quality: "medium",
+      crf: 25,
+      preset: "superfast",
+      scale: 1,
+      scaler: "lanczos",
+    });
   });
 
   it("keeps the typed-in CRF when the quality is custom", () => {
     expect(cliSettings({ ...CLI, quality: "custom", crf: 41 }).crf).toBe(41);
   });
 
-  it("carries the resolution the encode would be made at", () => {
-    expect(cliSettings({ ...CLI, scale: 0.25 }).scale).toBe(0.25);
+  it("carries the resolution and kernel the encode would be made at", () => {
+    const settings = cliSettings({ ...CLI, scale: 0.25, scaler: "bicubic" });
+    expect(settings.scale).toBe(0.25);
+    expect(settings.scaler).toBe("bicubic");
   });
 });
 
 describe("describeSettings", () => {
   it("names the quality, its CRF and the preset", () => {
-    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 1 })).toBe(
+    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 1, scaler: "lanczos" })).toBe(
       "high (CRF 18), veryfast",
     );
   });
 
   it("adds the resolution only when it is not the source's", () => {
-    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 0.5 })).toBe(
+    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 0.5, scaler: "lanczos" })).toBe(
       "high (CRF 18), veryfast, 50%",
     );
   });

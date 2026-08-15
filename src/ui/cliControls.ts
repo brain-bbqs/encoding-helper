@@ -1,10 +1,20 @@
 // CLI preview refresh + quality/preset control syncing, shared by the FFmpeg Command Builder (Reencode
 // tab) and the Compare Quality tab — both edit the same `cli` state object.
 
-import { buildFfmpegArgs, computeGop, describeScale, formatCliCommand, SCALE_OPTIONS } from "../lib/cliCommand";
+import {
+  buildFfmpegArgs,
+  computeGop,
+  DEFAULT_SCALER,
+  describeScale,
+  formatCliCommand,
+  isDownscale,
+  SCALE_OPTIONS,
+  SCALER_OPTIONS,
+} from "../lib/cliCommand";
 import { gridItem, h } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
 import { cli, currentVideoInfo, state } from "../lib/state";
+import type { Scaler } from "../lib/types";
 import type { EngineBox } from "./formControls";
 
 /** Recomputes the CLI preview from the shared `cli` state; a no-op if no video is loaded. */
@@ -34,6 +44,15 @@ export function parseScale(value: string): number {
   return SCALE_OPTIONS.includes(parsed as (typeof SCALE_OPTIONS)[number]) ? parsed : 1;
 }
 
+/** The kernel dropdown's entries, each named as the `flags=` value it becomes. */
+export function scalerOptions(): [string, string][] {
+  return SCALER_OPTIONS.map((s) => [s, s === DEFAULT_SCALER ? `${s} (default, sharper)` : `${s} (softer)`]);
+}
+
+export function parseScaler(value: string): Scaler {
+  return SCALER_OPTIONS.includes(value as Scaler) ? (value as Scaler) : DEFAULT_SCALER;
+}
+
 // Quality/CRF/preset/resolution controls exist in both the FFmpeg Command Builder ("cli" prefix) and
 // the Encode Test tab ("et" prefix), bound to the same `cli` object — this keeps both sets of
 // controls (and the CLI preview) showing the same values after either edits.
@@ -50,6 +69,13 @@ export function syncQualityControls(): void {
     if (presetSel) presetSel.value = cli.preset;
     const scaleSel = document.getElementById(prefix + "Scale") as HTMLSelectElement | null;
     if (scaleSel) scaleSel.value = String(cli.scale);
+    // The kernel only reaches the command when something is being resampled, so the field goes
+    // away at full resolution rather than sitting there setting nothing.
+    const scalerSel = document.getElementById(prefix + "Scaler") as HTMLSelectElement | null;
+    if (scalerSel) {
+      scalerSel.value = cli.scaler;
+      if (scalerSel.parentElement) scalerSel.parentElement.style.display = isDownscale(cli.scale) ? "" : "none";
+    }
   }
   refreshCliCommand();
 }

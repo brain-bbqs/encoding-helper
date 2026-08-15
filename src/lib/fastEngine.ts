@@ -37,8 +37,8 @@ async function qualityForPreset(quality: CliState["quality"]): Promise<Quality> 
 export async function buildMediabunnyOptions(cliState: CliState, info: VideoInfo): Promise<MediabunnyEncodeOptions> {
   const video: MediabunnyEncodeOptions["video"] = { codec: "avc", quality: await qualityForPreset(cliState.quality) };
   // The fast engine resizes through WebCodecs rather than swscale, so a downscale here is the same
-  // output size as the exact engine's but not the same rescaler: `flags=lanczos` has no equivalent
-  // to pass on, which is one more way this engine is an approximation of the command.
+  // output size as the exact engine's but not the same rescaler: the Scaler choice has no
+  // equivalent to pass on, which is one more way this engine is an approximation of the command.
   if (isDownscale(cliState.scale)) {
     const scaled = scaledDimensions(info.width, info.height, cliState.scale);
     video.width = scaled.width;

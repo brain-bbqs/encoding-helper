@@ -367,7 +367,8 @@ function compareSection(): AnalysisSection | null {
     const out = scaledDimensions(vt.codedWidth, vt.codedHeight, settings.scale);
     items.splice(3, 0, [
       "Resolution",
-      `${vt.codedWidth}×${vt.codedHeight} → ${out.width}×${out.height} (${Math.round(settings.scale * 100)}%)`,
+      `${vt.codedWidth}×${vt.codedHeight} → ${out.width}×${out.height} ` +
+        `(${Math.round(settings.scale * 100)}%, ${settings.scaler})`,
     ]);
   }
   const blocks: AnalysisBlock[] = [

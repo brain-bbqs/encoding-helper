@@ -38,8 +38,9 @@ beforeEach(() => {
   document.body.innerHTML = "";
   resetState();
   // The CLI settings deliberately survive resetState (they are the user's, not the file's), so the
-  // one this file edits is put back by hand rather than leaking into the tests after it.
+  // ones this file edits are put back by hand rather than leaking into the tests after it.
   cli.scale = 1;
+  cli.scaler = "lanczos";
 });
 
 describe("renderEncodeTestTab", () => {
@@ -84,6 +85,23 @@ describe("renderEncodeTestTab", () => {
     scale.value = "0.5";
     scale.dispatchEvent(new Event("change"));
     expect(cli.scale).toBe(0.5);
+  });
+
+  // The kernel resamples nothing at 100%, so the field only appears once there is a downscale.
+  it("shows the scaler field only when the resolution is below the source's", () => {
+    const panel = renderTab();
+    const scaler = panel.querySelector<HTMLSelectElement>("#etScaler")!;
+    expect(scaler.value).toBe("lanczos");
+    expect(scaler.parentElement!.style.display).toBe("none");
+
+    const scale = panel.querySelector<HTMLSelectElement>("#etScale")!;
+    scale.value = "0.5";
+    scale.dispatchEvent(new Event("change"));
+    expect(scaler.parentElement!.style.display).toBe("");
+
+    scaler.value = "bicubic";
+    scaler.dispatchEvent(new Event("change"));
+    expect(cli.scaler).toBe("bicubic");
   });
 
   it("keeps the resolution out of both mode blocks, since a sweep runs at one of them", () => {

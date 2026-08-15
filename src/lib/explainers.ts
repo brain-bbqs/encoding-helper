@@ -202,6 +202,26 @@ export const RESOLUTION_INFO =
   "precision, and no downstream step recovers it. Judge it against what the tracking needs, not only by how " +
   "the A/B window looks.</p>";
 
+/** What the two offered kernels trade, from the ⓘ beside the field that picks between them. */
+export const SCALER_INFO =
+  "<b>Scaler</b> is the kernel <code>scale</code> resamples with, and it only matters when the resolution is " +
+  "below 100%. <code>lanczos</code> is the sharper of the two: it weighs a wider neighbourhood of source " +
+  "pixels and keeps fine detail (whiskers, tail tips, grid lines) that a softer kernel averages away. " +
+  "<code>bicubic</code> is swscale's own default, softer, and less prone to the faint ringing lanczos can " +
+  "leave along hard edges." +
+  "<p>Sharper is not automatically better downstream. Lanczos preserves more detail for the encoder to " +
+  "spend bits on, so the same CRF costs slightly more; bicubic's smoothing throws some of that away before " +
+  "x264 ever sees it. Compare them in the A/B window at 100% zoom rather than assuming.</p>";
+
+/** Why the A/B window offers two ways of drawing a downscaled encode back up. */
+export const UPSCALE_VIEW_INFO =
+  "A downscaled encode is drawn back at the source's size so both panes share one coordinate system, and " +
+  "there are two honest ways to do that. <b>Blocks</b> repeats each encoded pixel, so what you see is " +
+  "exactly what survived the downscale and nothing else. <b>Smooth</b> interpolates between them, which is " +
+  "closer to what a player or a viewer's screen would actually put up." +
+  "<p>Blocks is the better view for judging what a tracking pipeline has left to work with; smooth is the " +
+  "better view for judging how it looks. Neither changes the encode or its size.</p>";
+
 /** What matrix mode does, shown under the mode switch once it is picked. */
 export const MATRIX_MODE_TEACH =
   "<b>Matrix mode</b> encodes the same seconds once for every combination of the two dropdowns and lays the " +
