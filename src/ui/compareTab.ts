@@ -59,7 +59,7 @@ import type {
   X264Preset,
 } from "../lib/types";
 import { parseScale, parseScaler, scaleOptions, scalerOptions, syncQualityControls } from "./cliControls";
-import { clearLog, fieldNumber, fieldSegmented, fieldSelect, logConsole, logLine } from "./formControls";
+import { clearLog, fieldNumber, fieldSelect, logConsole, logLine, segmentedControl } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
 import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
@@ -107,21 +107,11 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
     teachBox(`Try changing various reencoding parameters and visualize their effect on rendering a part of the video.`),
   );
 
-  const row1 = h("div", "row");
-  row1.append(
-    fieldNumber(
-      "etStart",
-      "Start Time (s)",
-      encodeTest.startTime.toFixed(1),
-      0,
-      Math.max(0, (state.duration || 1) - 1),
-      0.5,
-    ),
-  );
-  row1.append(fieldNumber("etDuration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5));
-  row1.append(fieldNumber("etSegments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1, SEGMENTS_INFO));
-  row1.append(
-    fieldSegmented(
+  // The mode governs everything below it, so it sits above the fields and centred rather than in
+  // among them, the way clip-extractor places the same control.
+  const modeRow = h("div", "toggle-row");
+  modeRow.append(
+    segmentedControl(
       "etMode",
       "Mode",
       [
@@ -135,22 +125,36 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
       },
     ),
   );
+  sec.append(modeRow);
+
+  const row1 = h("div", "row");
+  row1.append(
+    fieldNumber(
+      "etStart",
+      "Start Time (s)",
+      encodeTest.startTime.toFixed(1),
+      0,
+      Math.max(0, (state.duration || 1) - 1),
+      0.5,
+    ),
+  );
+  row1.append(fieldNumber("etDuration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5));
+  row1.append(fieldNumber("etSegments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1, SEGMENTS_INFO));
   sec.append(row1);
 
   // Both control blocks stay in the DOM whichever mode is showing, so the shared quality/preset
   // fields keep answering to syncQualityControls() from the Reencode tab while they are hidden.
   const singleControls = h("div", "compare-single-controls");
-  // The dropdowns set one encode's resolution, which is a single run's question: matrix mode asks
-  // it as an axis instead, from the tick lists below.
-  const resRow = h("div", "row");
-  resRow.append(
+  // One row for everything a single run encodes with, so the card reads as even columns rather than
+  // a full-width dropdown above a pair. The resolution is here because it is a single run's
+  // question: matrix mode asks it as an axis instead, from the tick lists below.
+  const row2 = h("div", "row");
+  row2.append(
     fieldSelect("etScale", "Resolution", scaleOptions(currentVideoInfo()), String(cli.scale), RESOLUTION_INFO),
   );
   const etScalerField = fieldSelect("etScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
   etScalerField.style.display = isDownscale(cli.scale) ? "" : "none";
-  resRow.append(etScalerField);
-  singleControls.append(resRow);
-  const row2 = h("div", "row");
+  row2.append(etScalerField);
   row2.append(
     fieldSelect(
       "etQuality",

@@ -1014,6 +1014,13 @@ details.teach-more summary {
 }
 
 /* Log console */
+/* Centred row for a segmented control that governs the card under it, as in clip-extractor. */
+.toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
 /* Segmented control for a short set of choices, where a dropdown would hide the alternative behind
    a click. Mirrors the `.seg` control in brain-bbqs/clip-extractor, keeping the two apps' pickers
    identical the way the theme toggle and dropzone already are. */

@@ -69,20 +69,19 @@ export function fieldNumber(
  * one click rather than two.
  *
  * The markup and styling mirror the `.seg` control in brain-bbqs/clip-extractor, the way the theme
- * toggle and the dropzone already do, so the two apps' controls are the same control.
+ * toggle and the dropzone already do, so the two apps' controls are the same control. Returned bare
+ * rather than wrapped in a labelled field, since that app centres it above the card it governs and
+ * lets the options themselves say what it is.
  */
-export function fieldSegmented(
-  name: string,
+export function segmentedControl(
+  id: string,
   label: string,
   options: [string, string][],
   value: string,
   onChange: (value: string) => void,
-  info?: string | null,
 ): HTMLDivElement {
-  const f = h("div", "field");
-  f.append(fieldHead(label, info));
   const seg = h("div", "seg");
-  seg.id = name;
+  seg.id = id;
   seg.setAttribute("role", "group");
   seg.setAttribute("aria-label", label);
   const buttons: HTMLButtonElement[] = [];
@@ -102,8 +101,7 @@ export function fieldSegmented(
     buttons.push(btn);
     seg.append(btn);
   }
-  f.append(seg);
-  return f;
+  return seg;
 }
 
 export interface EngineBox {
