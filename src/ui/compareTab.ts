@@ -17,16 +17,8 @@ import {
   UPSCALE_VIEW_INFO,
   X264_PRESET_INFO,
 } from "../lib/explainers";
-import {
-  deleteFfmpegFile,
-  ensureFfmpegInput,
-  ensureFfmpegLoaded,
-  hasFfmpegFile,
-  parseFfmpegTimeSeconds,
-  runFfmpegArgs,
-  runFfmpegToFile,
-  setFfmpegHandlers,
-} from "../lib/ffmpegEngine";
+import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
+import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import {
@@ -449,17 +441,37 @@ function hashName(text: string): string {
  * which is what lets a second run at another CRF start encoding immediately — and why a remote
  * source is not fetched again for it.
  */
-async function ensureSnippets(windows: SampleWindow[], ui: RunUi): Promise<string[]> {
-  const source = await sourceForWindows(windows);
-  if (!source) return windows.map(snippetName);
-  const names: string[] = [];
+async function ensureSnippets(windows: SampleWindow[], workers: FfmpegWorker[], ui: RunUi): Promise<string[]> {
+  const cutter = workers[0];
+  const source = await sourceForWindows(windows, cutter);
+  const names = windows.map(snippetName);
+  if (source) await cutSnippets(windows, names, source, cutter, ui);
+  // Every core encodes from its own filesystem, so each needs the cuts. They are a few hundred KB
+  // apiece, which is the whole reason a pool is affordable: a copy of the video per core would not
+  // be. A core that already holds one from an earlier run is left alone.
+  for (const worker of workers.slice(1)) {
+    for (const name of names) {
+      if (worker.has(name)) continue;
+      await worker.ensureInput(name, await cutter.readFile(name));
+    }
+  }
+  return names;
+}
+
+async function cutSnippets(
+  windows: SampleWindow[],
+  names: string[],
+  source: SourceBytes,
+  cutter: FfmpegWorker,
+  ui: RunUi,
+): Promise<void> {
   const inputName = inputNameFor(source);
-  for (const window of windows) {
-    const name = snippetName(window);
-    names.push(name);
-    if (hasFfmpegFile(name)) continue;
+  for (let i = 0; i < windows.length; i++) {
+    const window = windows[i];
+    const name = names[i];
+    if (cutter.has(name)) continue;
     ui.note.textContent = "Cutting the sampled video out of the source…";
-    await ensureFfmpegInput(inputName, source.data);
+    await cutter.ensureInput(inputName, source.data);
     const args = [
       "-y",
       // Ahead of -i, so the seek is a seek: after it, ffmpeg would decode from the start of the
@@ -478,19 +490,18 @@ async function ensureSnippets(windows: SampleWindow[], ui: RunUi): Promise<strin
       "make_zero",
       name,
     ];
-    setFfmpegHandlers((msg) => logLine(ui.log, msg, "info"), null);
+    cutter.setHandlers((msg) => logLine(ui.log, msg, "info"), null);
     logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
-    await runFfmpegToFile(args, name);
+    await cutter.runToFile(args, name);
   }
-  await deleteFfmpegFile(inputName);
-  return names;
+  await cutter.deleteFile(inputName);
 }
 
 /** The cut stretches this run needs, or null when every one of them is already in the filesystem —
  * which is the case that spares a remote file from being downloaded again. */
-async function sourceForWindows(windows: SampleWindow[]): Promise<SourceBytes | null> {
+async function sourceForWindows(windows: SampleWindow[], cutter: FfmpegWorker): Promise<SourceBytes | null> {
   if (!state.source) throw new Error("No video loaded");
-  if (windows.every((w) => hasFfmpegFile(snippetName(w)))) return null;
+  if (windows.every((w) => cutter.has(snippetName(w)))) return null;
   return await readSource();
 }
 
@@ -504,12 +515,15 @@ async function sourceForWindows(windows: SampleWindow[]): Promise<SourceBytes | 
 async function encodeSegment(
   cliState: CliState,
   input: { name: string; trim: SampleWindow | null },
+  worker: FfmpegWorker,
   ui: RunUi,
   onFraction: (fraction: number) => void,
 ): Promise<Blob> {
   const info = currentVideoInfo();
   if (!info) throw new Error("No video track loaded");
-  const outputName = "et_out.mp4";
+  // Named per core: two of them writing "et_out.mp4" would be one filesystem each, but the name is
+  // also what the log shows, and a shared one would read as the same encode running twice.
+  const outputName = `et_out_${worker.id}.mp4`;
   const args = buildFfmpegArgs(cliState, info, input.name, outputName);
   const length = input.trim?.seconds ?? encodeTest.duration;
   if (input.trim) {
@@ -519,8 +533,8 @@ async function encodeSegment(
     const iIdx = args.indexOf("-i");
     args.splice(iIdx + 2, 0, "-ss", String(input.trim.startSeconds), "-t", String(input.trim.seconds));
   }
-  setFfmpegHandlers((msg) => {
-    logLine(ui.log, msg, "info");
+  worker.setHandlers((msg) => {
+    logLine(ui.log, prefixed(worker, msg), "info");
     // Progress is taken from the status lines rather than from the core's own progress events,
     // which are a fraction of the whole input: a 3-second segment of a 30-second file would
     // creep to 10% and stop there, looking like it gave up rather than finished.
@@ -528,8 +542,8 @@ async function encodeSegment(
     if (at == null || !(length > 0)) return;
     onFraction(Math.min(1, Math.max(0, at / length)));
   }, null);
-  logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
-  const { data } = await runFfmpegArgs(args, outputName);
+  logLine(ui.log, prefixed(worker, "$ ffmpeg " + args.join(" ")), "success");
+  const { data } = await worker.run(args, outputName);
   return new Blob([data], { type: "video/mp4" });
 }
 
@@ -540,14 +554,21 @@ async function encodeSegment(
  * and every encode reads that instead of the whole video. Where it does not, the whole video goes
  * in and each encode trims it itself, which is what the tab did before any of this.
  */
-async function prepareRun(windows: SampleWindow[], ui: RunUi): Promise<RunInputs> {
+async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[], ui: RunUi): Promise<RunInputs> {
   if (canCutSnippets()) {
-    const names = await ensureSnippets(windows, ui);
+    const names = await ensureSnippets(windows, workers, ui);
     return { windows, names, preCut: true };
   }
+  // Nothing to cut, so every core needs the whole video. That is the case a pool cannot help with
+  // and should not be paid for, so it runs on one core alone.
   const source = await readSource();
-  await ensureFfmpegInput(inputNameFor(source), source.data);
-  return { windows, names: windows.map(() => inputNameFor(source)), preCut: false };
+  await workers[0].ensureInput(inputNameFor(source), source.data);
+  return { windows, names: windows.map(() => inputNameFor(source)), preCut: false, wholeFileOn: workers[0] };
+}
+
+/** Prefixes a log line with which core it came from, once there is more than one to tell apart. */
+function prefixed(worker: FfmpegWorker, message: string): string {
+  return worker.id === 0 ? message : `[core ${worker.id}] ${message}`;
 }
 
 /** What one run encodes: the stretches it covers and the file in the core holding each. */
@@ -558,46 +579,70 @@ interface RunInputs {
   names: string[];
   /** Whether those names are cut stretches (so no trim is needed) or the source itself. */
   preCut: boolean;
+  /** The core holding the whole video, when there was no cutting and only one core can be used. */
+  wholeFileOn?: FfmpegWorker;
 }
 
 /**
- * Encodes every sampled stretch at `cliState`, in order, and reports what they came to together.
+ * Encodes every sampled stretch at `cliState` and reports what they came to together.
  *
  * The A/B window can only show one of them, so the first is kept whole; the rest are measured and
  * dropped. That is the trade sampling several places makes: the size question gets a fair share of
  * the file, while the eye still gets one continuous stretch to judge rather than a cut-up reel.
+ *
+ * Given more than one core, the stretches encode side by side on them. A sweep hands one core in,
+ * since its cores are already busy with the other squares.
  */
 async function encodeWindows(
   cliState: CliState,
   inputs: RunInputs,
+  workers: FfmpegWorker[],
   ui: RunUi,
   onProgress: (fraction: number) => void,
 ): Promise<{ first: Blob; bytes: number; measured: SampleWindow[] }> {
   const windows = inputs.windows;
-  let first: Blob | null = null;
-  let bytes = 0;
-  const measured: SampleWindow[] = [];
-  for (let i = 0; i < windows.length; i++) {
-    const w = windows[i];
-    const blob = await encodeSegment(
-      cliState,
-      { name: inputs.names[i], trim: inputs.preCut ? null : w },
-      ui,
-      (fraction) => onProgress((i + fraction) / windows.length),
-    );
-    bytes += blob.size;
-    let seconds = w.seconds;
-    try {
-      const measuredSeconds = await segmentDuration(blob);
-      if (measuredSeconds > 0) seconds = measuredSeconds;
-    } catch {
-      // The projection falls back to the requested length; the encode itself is still good.
-    }
-    measured.push({ startSeconds: w.startSeconds, seconds });
-    if (!first) first = blob;
-  }
+  // Indexed rather than pushed, since the cores finish in whatever order they finish: the A/B
+  // window wants the *first* stretch, not the first one to come back.
+  const blobs = new Array<Blob | null>(windows.length).fill(null);
+  const measured = new Array<SampleWindow | null>(windows.length).fill(null);
+  const fractions = new Array<number>(windows.length).fill(0);
+  const report = (): void => onProgress(fractions.reduce((sum, f) => sum + f, 0) / windows.length);
+
+  await drainWithPool(
+    windows.map((w, i) => ({ window: w, index: i })),
+    workers,
+    async ({ window, index }, worker) => {
+      const blob = await encodeSegment(
+        cliState,
+        { name: inputs.names[index], trim: inputs.preCut ? null : window },
+        worker,
+        ui,
+        (fraction) => {
+          fractions[index] = fraction;
+          report();
+        },
+      );
+      fractions[index] = 1;
+      report();
+      blobs[index] = blob;
+      let seconds = window.seconds;
+      try {
+        const measuredSeconds = await segmentDuration(blob);
+        if (measuredSeconds > 0) seconds = measuredSeconds;
+      } catch {
+        // The projection falls back to the requested length; the encode itself is still good.
+      }
+      measured[index] = { startSeconds: window.startSeconds, seconds };
+    },
+  );
+
+  const first = blobs[0];
   if (!first) throw new Error("No stretch of video to encode");
-  return { first, bytes, measured };
+  return {
+    first,
+    bytes: blobs.reduce((sum, b) => sum + (b?.size ?? 0), 0),
+    measured: measured.filter((w): w is SampleWindow => w != null),
+  };
 }
 
 /** The encoded segment's own playback length, which the size projection is taken over. */
@@ -661,14 +706,15 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   ui.note.textContent = "Loading ffmpeg.wasm…";
   let inputs: RunInputs | null = null;
   try {
-    await ensureFfmpegLoaded();
     const windows = runWindows();
     encodeTest.sampled = windows;
-    inputs = await prepareRun(windows, ui);
+    const workers = ffmpegPool(poolSizeFor(windows.length));
+    await workers[0].load();
+    inputs = await prepareRun(windows, workers, ui);
     // The A/B window draws the original from startTime, so it follows the stretch actually shown.
     syncStartField(windows[0]?.startSeconds ?? encodeTest.startTime);
     ui.note.textContent = "Encoding test segment…";
-    const { first, bytes, measured } = await encodeWindows(cli, inputs, ui, (fraction) => {
+    const { first, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;
       if (fill) fill.style.width = pct.toFixed(0) + "%";
       ui.note.textContent =
@@ -706,7 +752,7 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
  */
 async function dropWholeFileInput(inputs: RunInputs | null): Promise<void> {
   if (!inputs || inputs.preCut) return;
-  await deleteFfmpegFile(inputs.names[0]);
+  await inputs.wholeFileOn?.deleteFile(inputs.names[0]);
 }
 
 /**
@@ -795,40 +841,59 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   let inputs: RunInputs | null = null;
   try {
     ui.note.textContent = "Loading ffmpeg.wasm…";
-    await ensureFfmpegLoaded();
-    inputs = await prepareRun(matrixWindows(), ui);
+    const workers = ffmpegPool(poolSizeFor(queue.length));
+    await workers[0].load();
+    inputs = await prepareRun(matrixWindows(), workers, ui);
+    if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
 
-    for (let i = 0; i < queue.length; i++) {
-      const cell = queue[i];
-      if (stopRequested()) {
-        cell.status = "skipped";
-        continue;
-      }
-      cell.status = "running";
-      repaint();
-      const label = `${i + 1}/${queue.length}: ${describeSettings(cell.combo)}`;
-      const showProgress = (fraction: number): void => {
-        // One bar for the whole run: a combination's own progress is a fraction of its share.
-        const overall = ((i + fraction) / queue.length) * 100;
-        if (fill) fill.style.width = overall.toFixed(1) + "%";
-        ui.note.textContent = `Encoding ${label} — ${(fraction * 100).toFixed(0)}%`;
-      };
-      showProgress(0);
-      const startedAt = performance.now();
-      try {
-        const encoded = await encodeWindows(matrixCliState(cli, cell.combo), inputs, ui, showProgress);
-        cell.elapsedMs = performance.now() - startedAt;
-        cell.bytes = encoded.bytes;
-        cell.blob = encoded.first;
-        cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
-        cell.status = "done";
-      } catch (err) {
-        cell.status = "failed";
-        cell.error = err instanceof Error ? err.message : String(err);
-        logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
-      }
-      evictBeyondBudget(matrix.cells, MATRIX_RETAINED_BYTES, matrix.selectedKey);
-      repaint();
+    // One bar and one line for the whole run, however many cores are filling it: with several of
+    // them there is no single "current" square to report, so the bar counts finished ones and the
+    // in-flight fractions between them, and the line names what is being worked on.
+    const inFlight = new Map<string, number>();
+    const showProgress = (): void => {
+      const finished = queue.filter((c) => c.status === "done" || c.status === "failed").length;
+      const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
+      if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
+      const running = queue.filter((c) => c.status === "running").map((c) => describeSettings(c.combo));
+      ui.note.textContent = running.length
+        ? `Encoding ${finished + running.length}/${queue.length}: ${running.join(" · ")}`
+        : `Encoded ${finished}/${queue.length}`;
+    };
+
+    await drainWithPool(
+      queue,
+      workers,
+      async (cell, worker) => {
+        cell.status = "running";
+        inFlight.set(cell.combo.key, 0);
+        repaint();
+        showProgress();
+        const startedAt = performance.now();
+        try {
+          const encoded = await encodeWindows(matrixCliState(cli, cell.combo), inputs!, [worker], ui, (fraction) => {
+            inFlight.set(cell.combo.key, fraction);
+            showProgress();
+          });
+          cell.elapsedMs = performance.now() - startedAt;
+          cell.bytes = encoded.bytes;
+          cell.blob = encoded.first;
+          cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
+          cell.status = "done";
+        } catch (err) {
+          cell.status = "failed";
+          cell.error = err instanceof Error ? err.message : String(err);
+          logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
+        }
+        inFlight.delete(cell.combo.key);
+        evictBeyondBudget(matrix.cells, MATRIX_RETAINED_BYTES, matrix.selectedKey);
+        repaint();
+        showProgress();
+      },
+      stopRequested,
+    );
+    // Whatever Stop left unreached is not pending, it is not going to run.
+    for (const cell of queue) {
+      if (cell.status === "pending") cell.status = "skipped";
     }
 
     const best = bestReductionCell(matrix.cells);
@@ -880,9 +945,10 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Pro
     // Its output was dropped to stay inside the memory budget, so the square is encoded again —
     // over the same stretches the sweep measured, which are usually still cut and waiting.
     ui.note.textContent = `Re-encoding ${describeSettings(cell.combo)} for the A/B window…`;
-    const inputs = await prepareRun(matrixWindows(), ui);
+    const workers = ffmpegPool(1);
+    const inputs = await prepareRun(matrixWindows(), workers, ui);
     try {
-      blob = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, ui, () => {})).first;
+      blob = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {})).first;
     } finally {
       await dropWholeFileInput(inputs);
     }
