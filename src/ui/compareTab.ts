@@ -10,10 +10,11 @@ import { extOf } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import { fmtBytes } from "../lib/format";
 import { currentSizeEstimate } from "../lib/sizeEstimate";
-import type { TrackInfo, ZoomPanState } from "../lib/types";
+import type { TrackInfo } from "../lib/types";
 import { syncQualityControls } from "./cliControls";
 import { fieldNumber, fieldSelect, logLine } from "./formControls";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
+import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
 
 interface RunUi {
   button: HTMLButtonElement;
@@ -387,141 +388,4 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     void drawAt(relT);
   });
   void drawAt(0);
-}
-
-// Shared drag state: a single pair of window-level listeners serves every comparison run rather than
-// accumulating one pair per re-render.
-interface ZoomDrag {
-  lastX: number;
-  lastY: number;
-  zoom: ZoomPanState;
-  apply: () => void;
-}
-let activeZoomDrag: ZoomDrag | null = null;
-window.addEventListener("mousemove", (e) => {
-  if (!activeZoomDrag) return;
-  const d = activeZoomDrag;
-  d.zoom.tx += e.clientX - d.lastX;
-  d.zoom.ty += e.clientY - d.lastY;
-  d.lastX = e.clientX;
-  d.lastY = e.clientY;
-  d.apply();
-});
-window.addEventListener("mouseup", () => {
-  activeZoomDrag = null;
-});
-window.addEventListener(
-  "touchmove",
-  (e) => {
-    if (!activeZoomDrag || e.touches.length !== 1) return;
-    const d = activeZoomDrag;
-    d.zoom.tx += e.touches[0].clientX - d.lastX;
-    d.zoom.ty += e.touches[0].clientY - d.lastY;
-    d.lastX = e.touches[0].clientX;
-    d.lastY = e.touches[0].clientY;
-    d.apply();
-  },
-  { passive: true },
-);
-window.addEventListener("touchend", () => {
-  activeZoomDrag = null;
-});
-
-// Pixel grid appears once a source pixel renders at least this many CSS px wide.
-const PIXEL_GRID_THRESHOLD = 8;
-
-const ZOOM_MIN = 0.2;
-const ZOOM_MAX = 50;
-/** One button press covers several wheel notches, so clicking through the range stays quick. */
-const ZOOM_BUTTON_STEP = 1.5;
-
-function attachSyncedZoomPan(
-  stageEl: HTMLDivElement,
-  canvases: HTMLCanvasElement[],
-  grids: HTMLDivElement[],
-  onChange?: (scale: number) => void,
-) {
-  const zoom: ZoomPanState = { scale: 1, tx: 0, ty: 0 };
-  encodeTest.zoom = zoom;
-
-  // The grid overlay is deliberately NOT css-transformed like the canvas — background-size/position
-  // are computed fresh in raw CSS px on every change instead, so its hairlines stay a crisp 1
-  // screen-px wide at any zoom level rather than fattening along with the content.
-  const updateGrids = (): void => {
-    canvases.forEach((canvas, i) => {
-      const grid = grids[i];
-      const paneRect = canvas.parentElement?.getBoundingClientRect();
-      if (!paneRect) return;
-      const pxW = (paneRect.width / canvas.width) * zoom.scale;
-      const pxH = (paneRect.height / canvas.height) * zoom.scale;
-      const visible = pxW >= PIXEL_GRID_THRESHOLD && pxH >= PIXEL_GRID_THRESHOLD;
-      grid.classList.toggle("visible", visible);
-      if (visible) {
-        grid.style.backgroundSize = `${pxW}px ${pxH}px`;
-        grid.style.backgroundPosition = `${zoom.tx}px ${zoom.ty}px`;
-      }
-    });
-  };
-
-  const apply = (): void => {
-    const t = `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.scale})`;
-    canvases.forEach((c) => {
-      c.style.transform = t;
-    });
-    updateGrids();
-    onChange?.(zoom.scale);
-  };
-
-  const setScale = (newScale: number, anchorX: number, anchorY: number): void => {
-    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newScale));
-    zoom.tx = anchorX - (anchorX - zoom.tx) * (clamped / zoom.scale);
-    zoom.ty = anchorY - (anchorY - zoom.ty) * (clamped / zoom.scale);
-    zoom.scale = clamped;
-    apply();
-  };
-
-  stageEl.addEventListener(
-    "wheel",
-    (e) => {
-      e.preventDefault();
-      const rect = canvases[0].getBoundingClientRect();
-      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      setScale(zoom.scale * factor, e.clientX - rect.left, e.clientY - rect.top);
-    },
-    { passive: false },
-  );
-  stageEl.addEventListener("mousedown", (e) => {
-    activeZoomDrag = { lastX: e.clientX, lastY: e.clientY, zoom, apply };
-  });
-  stageEl.addEventListener(
-    "touchstart",
-    (e) => {
-      if (e.touches.length === 1)
-        activeZoomDrag = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY, zoom, apply };
-    },
-    { passive: true },
-  );
-
-  return {
-    state: zoom,
-    /** Button-driven zoom: no cursor to aim at, so it holds the middle of the pane in place. */
-    zoomBy: (factor: number): void => {
-      const paneRect = canvases[0].parentElement?.getBoundingClientRect();
-      if (!paneRect) return;
-      setScale(zoom.scale * factor, paneRect.width / 2, paneRect.height / 2);
-    },
-    fit: (): void => {
-      zoom.scale = 1;
-      zoom.tx = 0;
-      zoom.ty = 0;
-      apply();
-    },
-    // 1 source pixel = 1 CSS px, centered on whatever's currently in the middle of the pane.
-    actualSize: (): void => {
-      const paneRect = canvases[0].parentElement?.getBoundingClientRect();
-      if (!paneRect) return;
-      const newScale = canvases[0].width / paneRect.width;
-      setScale(newScale, paneRect.width / 2, paneRect.height / 2);
-    },
-  };
 }
