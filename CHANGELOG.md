@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3
+
+#### 🐛 Bug Fix
+
+- Wheel zoom in **Compare Quality** now holds the point under the cursor still, instead of drifting once the panes have been zoomed or panned ([#20](https://github.com/brain-bbqs/encoding-helper/pull/20))
+
 ## 0.3.2
 
 #### 🚀 Enhancement
