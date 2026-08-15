@@ -91,7 +91,16 @@ function loadCoreUrls(): Promise<{ coreURL: string; wasmURL: string }> {
 export function resetFfmpeg(): void {
   ffmpegInstance?.terminate();
   ffmpegInstance = null;
+  // The filesystem went with the instance, so nothing is written anymore.
+  virtualFiles.clear();
 }
+
+/**
+ * The names the *current* core's virtual filesystem is known to hold, so an input written once can
+ * be reused by later runs instead of being sent over again. Cleared with the instance itself: a
+ * replaced core starts with an empty filesystem, whatever the one before it held.
+ */
+const virtualFiles = new Set<string>();
 
 /** Rebinds the log/progress callbacks used by the shared FFmpeg instance for its next run. */
 export function setFfmpegHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void {
@@ -116,19 +125,37 @@ export interface FfmpegRunResult {
 }
 
 /**
- * Writes `inputData` to ffmpeg.wasm's virtual filesystem, runs `args` (which must reference
- * `inputName`/`outputName`), reads the result back out, and cleans up both virtual files.
+ * Puts `data` in the core's virtual filesystem as `name`, unless the current core already holds it.
+ *
+ * A *copy* goes over, because `writeFile` posts the array to the worker with its buffer in the
+ * transfer list, which detaches the caller's own array: without the copy, a second write of the
+ * same input fails with "an ArrayBuffer is detached and could not be cloned" — and a second write
+ * is exactly what a crashed core (replaced, with an empty filesystem) or a fresh run asks for.
  */
-export async function runFfmpegEncode(
-  args: string[],
-  inputName: string,
-  inputData: Uint8Array,
-  outputName: string,
-): Promise<FfmpegRunResult> {
+export async function ensureFfmpegInput(name: string, data: Uint8Array): Promise<void> {
+  if (virtualFiles.has(name)) return;
+  const ffmpeg = await ensureFfmpegLoaded();
+  await ffmpeg.writeFile(name, new Uint8Array(data));
+  virtualFiles.add(name);
+}
+
+/** Drops a file from the core's virtual filesystem; a no-op once the core it lived in is gone. */
+export async function deleteFfmpegFile(name: string): Promise<void> {
+  virtualFiles.delete(name);
+  await ffmpegInstance?.deleteFile(name).catch(() => {});
+}
+
+/**
+ * Runs `args` against files already in the core's filesystem, and reads `outputName` back out.
+ *
+ * Split out from `runFfmpegEncode` for runs that encode one input many times (the Compare Quality
+ * matrix sweep): the input is the same every time, so it is written once and left in place rather
+ * than sent across to the worker again for each set of settings.
+ */
+export async function runFfmpegArgs(args: string[], outputName: string): Promise<FfmpegRunResult> {
   const ffmpeg = await ensureFfmpegLoaded();
   let data: Uint8Array<ArrayBuffer>;
   try {
-    await ffmpeg.writeFile(inputName, inputData);
     await ffmpeg.exec(args);
     // ffmpeg.wasm's FileData type is generically `Uint8Array<ArrayBufferLike> | string`; copying into
     // a fresh Uint8Array guarantees a plain ArrayBuffer-backed view, which is what Blob/BlobPart expect.
@@ -141,9 +168,26 @@ export async function runFfmpegEncode(
     throw new Error(describeFfmpegFailure(err));
   }
   // Only on the way out of a healthy run: a dead instance has no filesystem left to tidy.
-  await ffmpeg.deleteFile(inputName).catch(() => {});
-  await ffmpeg.deleteFile(outputName).catch(() => {});
+  await deleteFfmpegFile(outputName);
   return { data };
+}
+
+/**
+ * Writes `inputData` to ffmpeg.wasm's virtual filesystem, runs `args` (which must reference
+ * `inputName`/`outputName`), reads the result back out, and cleans up both virtual files.
+ */
+export async function runFfmpegEncode(
+  args: string[],
+  inputName: string,
+  inputData: Uint8Array,
+  outputName: string,
+): Promise<FfmpegRunResult> {
+  await ensureFfmpegInput(inputName, inputData);
+  try {
+    return await runFfmpegArgs(args, outputName);
+  } finally {
+    await deleteFfmpegFile(inputName);
+  }
 }
 
 /**

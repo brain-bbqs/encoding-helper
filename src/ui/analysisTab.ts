@@ -12,7 +12,7 @@
 
 import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
-import { buildFfmpegArgs, CRF_MAP, formatCliCommand } from "../lib/cliCommand";
+import { buildFfmpegArgs, formatCliCommand } from "../lib/cliCommand";
 import { CONTAINER_PREAMBLE, describeContainer } from "../lib/containerKb";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import {
@@ -38,6 +38,7 @@ import {
 import { fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
+import { bestReductionCell, cliSettings, comboCrf, matrixAxes } from "../lib/qualityMatrix";
 import { downloadBlob } from "../lib/save";
 import { currentSizeEstimate, describeSavings, fmtSignedChange } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
@@ -347,10 +348,16 @@ function cliCommandSection(): AnalysisSection | null {
 
 function compareSection(): AnalysisSection | null {
   if (!encodeTest.originalSink || !encodeTest.encodedSink) return null;
+  // The settings the loaded encode was made with: after a matrix sweep that is the winning square's,
+  // which is not what the dropdowns say.
+  const settings = encodeTest.activeCombo ?? cliSettings(cli);
   const items: [string, string | number][] = [
     ["Segment", `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`],
-    ["Quality", cli.quality === "custom" ? `Custom (CRF ${cli.crf})` : `${cli.quality} (CRF ${CRF_MAP[cli.quality]})`],
-    ["Preset", cli.preset],
+    [
+      "Quality",
+      settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`,
+    ],
+    ["Preset", settings.preset],
     ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
   ];
   const blocks: AnalysisBlock[] = [
@@ -382,6 +389,38 @@ function compareSection(): AnalysisSection | null {
   }
 
   return { title: "Compare Quality (A/B) Result", blocks: [{ kind: "kv", items }, ...blocks] };
+}
+
+/** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */
+function matrixSection(): AnalysisSection | null {
+  const cells = encodeTest.matrix.cells.filter((c) => c.status === "done" && c.bytes != null);
+  if (!cells.length) return null;
+  const best = bestReductionCell(encodeTest.matrix.cells);
+  const { qualities, presets } = matrixAxes(cells);
+  const byKey = new Map(cells.map((c) => [c.combo.key, c]));
+  const rows = qualities.map((quality) => [
+    `${quality} (CRF ${comboCrf(quality)})`,
+    ...presets.map((preset) => {
+      const cell = byKey.get(`${quality}:${preset}`);
+      if (!cell || cell.bytes == null) return "–";
+      const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
+      return `${fmtBytes(cell.bytes)}${cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : ""}${mark}`;
+    }),
+  ]);
+  return {
+    title: "Compare Quality Matrix",
+    blocks: [
+      {
+        kind: "prose",
+        html:
+          `Every combination of the quality and preset dropdowns, each encoded over the same ` +
+          `${fmtDur(encodeTest.matrix.segmentLength)} of video. Each cell is the encoded segment's size and the ` +
+          `time the encode took; ★ marks the largest reduction, which is the comparison above. Size is the only ` +
+          `ranking here — no picture-quality metric is computed, so the highest CRF wins nearly every sweep.`,
+      },
+      { kind: "table", headers: ["Quality", ...presets], rows },
+    ],
+  };
 }
 
 function reencodeSection(): AnalysisSection | null {
@@ -420,6 +459,7 @@ function buildAnalysisSections(): AnalysisSection[] {
     seekingSection(),
     cliCommandSection(),
     compareSection(),
+    matrixSection(),
     reencodeSection(),
   ];
   return sections.filter((s): s is AnalysisSection => s !== null);

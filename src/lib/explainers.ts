@@ -187,6 +187,21 @@ export const X264_PRESET_INFO =
   "slowest presets can take minutes over a few seconds of video, or exhaust the encoder outright. Run the " +
   "command natively to use them.</p>";
 
+/** What matrix mode does, shown under the mode switch once it is picked. */
+export const MATRIX_MODE_TEACH =
+  "<b>Matrix mode</b> encodes the same seconds once for every combination of the two dropdowns and lays the " +
+  "results out as a grid, so the trade is read off one table instead of remembered across a run each. The " +
+  "largest reduction is marked ★ and loaded into the A/B window below; click any other square to look at that " +
+  "one instead." +
+  "<p>Each square is a real encode, so a sweep costs the sum of its parts: the slower presets are left " +
+  "unticked because a single-threaded in-browser encoder can spend minutes on each. <b>Stop</b> ends the sweep " +
+  "after the square it is on, keeping everything already measured.</p>";
+
+/** Why "best" is a size ranking and nothing more. */
+export const MATRIX_BEST_INFO =
+  "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
+  "highest CRF offered wins nearly every sweep.";
+
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";

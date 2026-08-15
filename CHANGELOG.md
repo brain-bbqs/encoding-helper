@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+#### 🚀 Enhancement
+
+- **Compare Quality** has a **Matrix** mode that encodes the segment once per combination of the quality and preset dropdowns ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+- The sweep fills in a grid of projected size, whole-file projection and encode time per square, marks the largest reduction ★ and loads it into the A/B window ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+- Clicking any finished square shows it in the A/B window instead, and its settings can be pushed to the CLI command ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+- The axes are tick lists, folded away behind a settings bar, with **Stop** to end a sweep while keeping what it measured ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+- A square that failed can be run again by clicking it, or all of them at once from a **Retry** button ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+- **Full Analysis** now carries the matrix as a table, and reports the settings the loaded comparison was actually encoded with ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+
+#### 🏠 Internal
+
+- A sweep writes the video into the encoder once and reuses it, rather than sending it across per combination, where the transferred buffer left every encode after the first failing ([#21](https://github.com/brain-bbqs/encoding-helper/pull/21))
+
 ## 0.3.3
 
 #### 🐛 Bug Fix

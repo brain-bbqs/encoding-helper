@@ -1162,6 +1162,200 @@ table.data th {
   line-height: 1;
 }
 
+/* Compare Quality: matrix mode. The two tick lists that pick the axes, and the results grid the
+   sweep fills in — one square per combination, the largest reduction marked in place. */
+.compare-run-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* The sweep's axes, folded away behind a bar: which values it spans is set once and then left
+   alone, so it should not sit between the reader and the Run button every visit. */
+.matrix-settings {
+  margin-bottom: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+}
+.matrix-settings > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead — and it has
+     to say which way the bar will move, not just that it is a bar. */
+  list-style: none;
+}
+.matrix-settings > summary::-webkit-details-marker {
+  display: none;
+}
+.matrix-settings > summary::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--faint);
+}
+.matrix-settings[open] > summary::before {
+  content: "▾";
+}
+.matrix-settings > summary:hover {
+  color: var(--text);
+}
+.matrix-settings-gear {
+  font-size: 14px;
+}
+/* What the tick lists come to, so the bar says something while it is shut. */
+.matrix-settings-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+.matrix-settings[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 12px;
+}
+.matrix-settings > .row {
+  padding: 0 12px;
+}
+.matrix-settings > .row > .field:last-child {
+  margin-bottom: 12px;
+}
+.axis-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.axis-option {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.axis-note {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.matrix-summary {
+  margin-bottom: 10px;
+}
+.matrix-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.matrix-summary-figure {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--accent);
+}
+.matrix-summary-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+table.data.matrix-table {
+  border-collapse: separate;
+  border-spacing: 4px;
+}
+table.data.matrix-table th,
+table.data.matrix-table td {
+  border-bottom: none;
+  padding: 0;
+}
+table.data.matrix-table thead th {
+  padding: 0 4px 2px;
+  text-align: center;
+}
+/* The axis names: "Preset" spanning its columns, "Quality" over the row heads. */
+table.data.matrix-table th.matrix-axis-label {
+  padding-bottom: 6px;
+  letter-spacing: 1px;
+  color: var(--faint);
+}
+table.data.matrix-table th.matrix-corner {
+  text-align: left;
+  color: var(--faint);
+  letter-spacing: 1px;
+}
+table.data.matrix-table th.matrix-row-head {
+  padding-right: 8px;
+  text-transform: none;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+/* Every square is a button whether or not it can be pressed yet, so the grid keeps its shape as
+   the sweep fills it in rather than reflowing under the reader. */
+.matrix-cell {
+  position: relative;
+  width: 100%;
+  min-width: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.matrix-cell:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.matrix-cell:disabled {
+  cursor: default;
+}
+.matrix-cell.best {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+/* The square in the A/B window is called out by a ring rather than a fill, so it can sit on top of
+   the best square's colour without either mark being lost. */
+.matrix-cell.selected {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 1px;
+}
+.matrix-cell.failed {
+  border-color: var(--err-border);
+  color: var(--err);
+}
+.matrix-change {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.matrix-change.grew {
+  color: var(--warn);
+}
+.matrix-change.matrix-pending {
+  color: var(--faint);
+  font-weight: 500;
+}
+.matrix-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.matrix-flag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.matrix-legend {
+  margin: 10px 0;
+  font-size: 12px;
+  color: var(--faint);
+}
+
 /* Compare Quality: the estimated data savings strip that sits between the run summary and the
    panes. Two bars on one shared scale, so the projected file is read against the original at a
    glance rather than by subtracting two numbers. */

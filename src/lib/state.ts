@@ -1,6 +1,7 @@
 // Shared, mutable, single-source-of-truth state objects. Every tab renderer reads and writes these
 // directly (no framework/store layer) — mirrors the original monolithic script's globals, just typed.
 
+import { DEFAULT_MATRIX_PRESETS, MATRIX_QUALITIES } from "./qualityMatrix";
 import type { AppState, CliState, EncodeTestState } from "./types";
 
 export const state: AppState = {
@@ -47,11 +48,23 @@ export const encodeTest: EncodeTestState = {
   startTime: 0,
   duration: 3,
   running: false,
+  mode: "single",
   originalSink: null,
   encodedSink: null,
   encodedInput: null,
   segDuration: 0,
   encodedSize: null,
+  activeCombo: null,
+  matrix: {
+    qualities: [...MATRIX_QUALITIES],
+    presets: [...DEFAULT_MATRIX_PRESETS],
+    cells: [],
+    segmentStart: 0,
+    segmentLength: 3,
+    running: false,
+    cancelRequested: false,
+    selectedKey: null,
+  },
   zoom: null,
 };
 
@@ -83,11 +96,22 @@ export function resetState(): void {
   encodeTest.startTime = 0;
   encodeTest.duration = 3;
   encodeTest.running = false;
+  encodeTest.mode = "single";
   encodeTest.originalSink = null;
   encodeTest.encodedSink = null;
   encodeTest.encodedInput = null;
   encodeTest.segDuration = 0;
   encodeTest.encodedSize = null;
+  encodeTest.activeCombo = null;
+  // A new file's matrix starts empty: the old sweep's sizes were measured on video that is gone.
+  encodeTest.matrix.qualities = [...MATRIX_QUALITIES];
+  encodeTest.matrix.presets = [...DEFAULT_MATRIX_PRESETS];
+  encodeTest.matrix.cells = [];
+  encodeTest.matrix.segmentStart = 0;
+  encodeTest.matrix.segmentLength = 3;
+  encodeTest.matrix.running = false;
+  encodeTest.matrix.cancelRequested = false;
+  encodeTest.matrix.selectedKey = null;
   encodeTest.zoom = null;
 }
 
