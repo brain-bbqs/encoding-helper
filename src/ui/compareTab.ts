@@ -13,6 +13,7 @@ import {
   MATRIX_MODE_TEACH,
   RESOLUTION_INFO,
   SCALER_INFO,
+  SEGMENTS_INFO,
   UPSCALE_VIEW_INFO,
   X264_PRESET_INFO,
 } from "../lib/explainers";
@@ -43,8 +44,17 @@ import {
 import { extOf } from "../lib/save";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import { fmtBytes } from "../lib/format";
-import { currentSizeEstimate, estimateSizeSavings, type SizeEstimate } from "../lib/sizeEstimate";
-import type { CliState, EncodeSettings, MatrixCell, MatrixQuality, Scaler, TrackInfo, X264Preset } from "../lib/types";
+import { currentSizeEstimate, estimateSizeSavings, pickSampleWindows, type SizeEstimate } from "../lib/sizeEstimate";
+import type {
+  CliState,
+  EncodeSettings,
+  MatrixCell,
+  MatrixQuality,
+  SampleWindow,
+  Scaler,
+  TrackInfo,
+  X264Preset,
+} from "../lib/types";
 import { parseScale, parseScaler, scaleOptions, scalerOptions, syncQualityControls } from "./cliControls";
 import { clearLog, fieldNumber, fieldSelect, logConsole, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
@@ -60,6 +70,15 @@ interface RunUi {
   matrixSec: HTMLDivElement;
   resultSec: HTMLDivElement;
 }
+
+/**
+ * The most stretches one run will encode.
+ *
+ * Ten of them at the ten-second maximum is a hundred seconds of encoding per setting, which on a
+ * single-threaded in-browser core is already a long wait; past that the projection is barely
+ * improving anyway, since the band narrows with √n.
+ */
+const MAX_SEGMENTS = 10;
 
 /** The source file's bytes, read once and passed down a sweep rather than re-read per combination. */
 interface SourceBytes {
@@ -97,6 +116,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
     ),
   );
   row1.append(fieldNumber("etDuration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5));
+  row1.append(fieldNumber("etSegments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1, SEGMENTS_INFO));
   row1.append(
     fieldSelect(
       "etMode",
@@ -255,6 +275,16 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
 
   const ui: RunUi = { runButton: runBtn, stopButton: stopBtn, progress, note, log, matrixSec, resultSec };
 
+  // Above one segment the placement is the sampler's, so the start field stops meaning anything and
+  // says so rather than sitting there accepting numbers a run will ignore.
+  const applySegmentCount = (): void => {
+    const startField = document.getElementById("etStart") as HTMLInputElement | null;
+    if (!startField) return;
+    const several = encodeTest.segments > 1;
+    startField.disabled = several;
+    startField.title = several ? "Picked at random for each segment while more than one is sampled" : "";
+  };
+
   const applyMode = (): void => {
     const matrix = encodeTest.mode === "matrix";
     singleControls.style.display = matrix ? "none" : "";
@@ -269,6 +299,12 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   document.getElementById("etDuration")?.addEventListener("input", (e) => {
     encodeTest.duration = parseFloat((e.target as HTMLInputElement).value) || 1;
   });
+  document.getElementById("etSegments")?.addEventListener("input", (e) => {
+    const asked = parseInt((e.target as HTMLInputElement).value, 10);
+    encodeTest.segments = Math.min(MAX_SEGMENTS, Math.max(1, Number.isFinite(asked) ? asked : 1));
+    applySegmentCount();
+  });
+  applySegmentCount();
   document.getElementById("etMode")?.addEventListener("change", (e) => {
     encodeTest.mode = (e.target as HTMLSelectElement).value === "matrix" ? "matrix" : "single";
     applyMode();
@@ -389,6 +425,43 @@ async function encodeSegment(
   return new Blob([data], { type: "video/mp4" });
 }
 
+/**
+ * Encodes every sampled stretch at `cliState`, in order, and reports what they came to together.
+ *
+ * The A/B window can only show one of them, so the first is kept whole; the rest are measured and
+ * dropped. That is the trade sampling several places makes: the size question gets a fair share of
+ * the file, while the eye still gets one continuous stretch to judge rather than a cut-up reel.
+ */
+async function encodeWindows(
+  cliState: CliState,
+  source: SourceBytes,
+  windows: SampleWindow[],
+  ui: RunUi,
+  onProgress: (fraction: number) => void,
+): Promise<{ first: Blob; bytes: number; measured: SampleWindow[] }> {
+  let first: Blob | null = null;
+  let bytes = 0;
+  const measured: SampleWindow[] = [];
+  for (let i = 0; i < windows.length; i++) {
+    const w = windows[i];
+    const blob = await encodeSegment(cliState, source, { start: w.startSeconds, length: w.seconds }, ui, (fraction) =>
+      onProgress((i + fraction) / windows.length),
+    );
+    bytes += blob.size;
+    let seconds = w.seconds;
+    try {
+      const measuredSeconds = await segmentDuration(blob);
+      if (measuredSeconds > 0) seconds = measuredSeconds;
+    } catch {
+      // The projection falls back to the requested length; the encode itself is still good.
+    }
+    measured.push({ startSeconds: w.startSeconds, seconds });
+    if (!first) first = blob;
+  }
+  if (!first) throw new Error("No stretch of video to encode");
+  return { first, bytes, measured };
+}
+
 /** The encoded segment's own playback length, which the size projection is taken over. */
 async function segmentDuration(blob: Blob): Promise<number> {
   const mb = await ensureMediabunny();
@@ -402,6 +475,7 @@ async function loadEncodedIntoAB(
   settings: EncodeSettings,
   vt: TrackInfo,
   resultSec: HTMLDivElement,
+  totals?: { bytes: number; windows: SampleWindow[] },
 ): Promise<void> {
   const mb = await ensureMediabunny();
   const encodedInput = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
@@ -413,7 +487,10 @@ async function loadEncodedIntoAB(
   encodeTest.encodedSink = new mb.CanvasSink(encodedTrack, { poolSize: 2 });
   encodeTest.encodedInput = encodedInput;
   encodeTest.segDuration = encodedDuration;
-  encodeTest.encodedSize = blob.size;
+  // The bytes and the stretches are the run's, not this blob's: with several sampled stretches the
+  // window below shows the first while the size figures cover them all.
+  encodeTest.encodedSize = totals?.bytes ?? blob.size;
+  encodeTest.windows = totals?.windows ?? [{ startSeconds: encodeTest.startTime, seconds: encodedDuration }];
   encodeTest.activeCombo = settings;
   renderCompareResult(resultSec, vt);
 }
@@ -449,19 +526,29 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
     await ensureFfmpegLoaded();
     ui.note.textContent = "Writing input to virtual filesystem…";
     source = await readSource();
+    const windows = pickSampleWindows(
+      state.duration ?? 0,
+      encodeTest.duration,
+      encodeTest.segments,
+      encodeTest.startTime,
+    );
+    // The A/B window draws the original from startTime, so it follows the stretch actually shown.
+    syncStartField(windows[0]?.startSeconds ?? encodeTest.startTime);
     ui.note.textContent = "Encoding test segment…";
-    const segment = { start: encodeTest.startTime, length: encodeTest.duration };
-    const blob = await encodeSegment(cli, source, segment, ui, (fraction) => {
+    const { first, bytes, measured } = await encodeWindows(cli, source, windows, ui, (fraction) => {
       const pct = fraction * 100;
       if (fill) fill.style.width = pct.toFixed(0) + "%";
-      ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
+      ui.note.textContent =
+        windows.length > 1
+          ? `Encoding ${windows.length} sampled segments… ${pct.toFixed(0)}%`
+          : `Encoding test segment… ${pct.toFixed(0)}%`;
     });
 
     ui.note.textContent = "Decoding frames…";
     // A single run is its own comparison, so nothing in the matrix grid is showing anymore.
     encodeTest.matrix.selectedKey = null;
     renderMatrixSection(ui.matrixSec, vt, ui);
-    await loadEncodedIntoAB(blob, cliSettings(cli), vt, ui.resultSec);
+    await loadEncodedIntoAB(first, cliSettings(cli), vt, ui.resultSec, { bytes, windows: measured });
     // A full bar, in the colour the app uses for a good outcome, rather than the word "Done." under
     // an empty one: the run either filled the bar or it did not.
     if (fill) {
@@ -505,8 +592,16 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   }
   matrix.cells = makeMatrixCells(combos);
   // Fixed here rather than read per encode, so a square retried after the fields have been moved
-  // still covers the seconds the rest of the grid was measured over.
-  matrix.segmentStart = encodeTest.startTime;
+  // still covers the seconds the rest of the grid was measured over. Sampled once for the whole
+  // sweep for the same reason squared: two squares measured over different stretches of video are
+  // not comparable, which is the only thing the grid is for.
+  matrix.windows = pickSampleWindows(
+    state.duration ?? 0,
+    encodeTest.duration,
+    encodeTest.segments,
+    encodeTest.startTime,
+  );
+  matrix.segmentStart = matrix.windows[0]?.startSeconds ?? encodeTest.startTime;
   matrix.segmentLength = encodeTest.duration;
   matrix.selectedKey = null;
   await encodeCells(matrix.cells, vt, ui);
@@ -551,7 +646,7 @@ async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promis
  */
 async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
   const matrix = encodeTest.matrix;
-  const segment = { start: matrix.segmentStart, length: matrix.segmentLength };
+  const windows = matrixWindows();
   matrix.cancelRequested = false;
   matrix.running = true;
   activeQueue = queue;
@@ -584,17 +679,12 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
       showProgress(0);
       const startedAt = performance.now();
       try {
-        const blob = await encodeSegment(matrixCliState(cli, cell.combo), source, segment, ui, showProgress);
+        const encoded = await encodeWindows(matrixCliState(cli, cell.combo), source, windows, ui, showProgress);
         cell.elapsedMs = performance.now() - startedAt;
-        cell.bytes = blob.size;
-        cell.blob = blob;
+        cell.bytes = encoded.bytes;
+        cell.blob = encoded.first;
+        cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
         cell.status = "done";
-        try {
-          cell.segmentSeconds = await segmentDuration(blob);
-        } catch {
-          // The projection falls back to the requested length; the encode itself is still good.
-          cell.segmentSeconds = null;
-        }
       } catch (err) {
         cell.status = "failed";
         cell.error = err instanceof Error ? err.message : String(err);
@@ -649,13 +739,13 @@ function reportRunFailure(err: unknown, ui: RunUi): void {
 /** Puts one square of the grid in the A/B window, re-encoding it if its output has been released. */
 async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Promise<void> {
   const matrix = encodeTest.matrix;
-  const segment = { start: matrix.segmentStart, length: matrix.segmentLength };
+  const windows = matrixWindows();
   let blob = cell.blob;
   if (!blob) {
     ui.note.textContent = `Re-encoding ${describeSettings(cell.combo)} for the A/B window…`;
     const source = await readSource();
     try {
-      blob = await encodeSegment(matrixCliState(cli, cell.combo), source, segment, ui, () => {});
+      blob = (await encodeWindows(matrixCliState(cli, cell.combo), source, windows, ui, () => {})).first;
     } finally {
       await deleteFfmpegFile(inputNameFor(source));
     }
@@ -666,8 +756,25 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Pro
   // duration fields may have been moved off since.
   syncSegmentToMatrix();
   matrix.selectedKey = cell.combo.key;
-  await loadEncodedIntoAB(blob, cell.combo, vt, ui.resultSec);
+  await loadEncodedIntoAB(blob, cell.combo, vt, ui.resultSec, {
+    bytes: cell.bytes ?? blob.size,
+    windows: matrixWindows(),
+  });
   renderMatrixSection(ui.matrixSec, vt, ui);
+}
+
+/** The stretches the sweep covered, or the one segment it used before several were asked for. */
+function matrixWindows(): SampleWindow[] {
+  const matrix = encodeTest.matrix;
+  if (matrix.windows.length) return matrix.windows;
+  return [{ startSeconds: matrix.segmentStart, seconds: matrix.segmentLength }];
+}
+
+/** Moves the start field (and the state behind it) onto a stretch a run picked for itself. */
+function syncStartField(startSeconds: number): void {
+  encodeTest.startTime = startSeconds;
+  const startField = document.getElementById("etStart") as HTMLInputElement | null;
+  if (startField) startField.value = startSeconds.toFixed(1);
 }
 
 /** Puts the segment fields back to the stretch the sweep covered, so the A/B window's original side
@@ -687,11 +794,18 @@ function syncSegmentToMatrix(): void {
 function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
   if (cell.bytes == null || !state.source) return null;
   const matrix = encodeTest.matrix;
+  const windows = matrixWindows();
+  // A trim lands a frame either side of the length asked for, so the stretches are stretched to
+  // what this square's output actually measured, keeping both halves of its ratio on equal terms.
+  const requested = windows.reduce((sum, w) => sum + w.seconds, 0);
+  const measured = cell.segmentSeconds && cell.segmentSeconds > 0 ? cell.segmentSeconds : requested;
+  const factor = requested > 0 ? measured / requested : 1;
   return estimateSizeSavings({
     originalTotalBytes: state.source.size,
     totalSeconds: state.duration ?? 0,
     segmentStartSeconds: matrix.segmentStart,
-    segmentSeconds: cell.segmentSeconds && cell.segmentSeconds > 0 ? cell.segmentSeconds : matrix.segmentLength,
+    segmentSeconds: measured,
+    windows: windows.map((w) => ({ startSeconds: w.startSeconds, seconds: w.seconds * factor })),
     encodedSegmentBytes: cell.bytes,
     samples: state.samples,
   });
@@ -766,16 +880,23 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
 // into the canvases it just replaced.
 let stopActivePlayback: (() => void) | null = null;
 
+/** What a run covered: the one stretch it encoded, or how many it sampled and where the first was. */
+function describeSampledStretches(): string {
+  const windows = encodeTest.windows;
+  const first = windows[0] ?? { startSeconds: encodeTest.startTime, seconds: encodeTest.duration };
+  const span = `${first.startSeconds.toFixed(1)}s–${(first.startSeconds + first.seconds).toFixed(1)}s`;
+  if (windows.length <= 1) return span;
+  const sampled = windows.reduce((sum, w) => sum + w.seconds, 0);
+  return `${windows.length} × ${first.seconds.toFixed(1)}s at random (${sampled.toFixed(1)}s total), showing ${span}`;
+}
+
 /** The facts above the panes: which seconds were encoded, at what settings, and what they came to.
  * The resolution row appears only when it is not the source's, since a row reading "100%" over
  * every comparison would say nothing. */
 function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeight: number): HTMLDivElement {
   const g = h("div", "grid");
   g.append(
-    gridItem(
-      "Segment",
-      `${encodeTest.startTime.toFixed(1)}s–${(encodeTest.startTime + encodeTest.duration).toFixed(1)}s`,
-    ),
+    gridItem("Segment", describeSampledStretches()),
     gridItem(
       "Quality",
       settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`,

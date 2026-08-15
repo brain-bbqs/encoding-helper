@@ -45,9 +45,11 @@ export function fieldNumber(
   min: number,
   max: number,
   step: number,
+  /** Trusted, author-authored explainer markup, shown from an ⓘ next to the label, as fieldSelect does. */
+  info?: string | null,
 ): HTMLDivElement {
   const f = h("div", "field");
-  f.append(h("label", "field-label", label));
+  f.append(fieldHead(label, info));
   const inp = h("input");
   inp.type = "number";
   inp.id = id;

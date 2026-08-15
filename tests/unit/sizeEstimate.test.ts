@@ -5,6 +5,7 @@ import {
   fmtChangeFactor,
   fmtPct,
   fmtSignedChange,
+  pickSampleWindows,
   type SizeEstimateInput,
 } from "../../src/lib/sizeEstimate";
 import type { SampleInfo } from "../../src/lib/types";
@@ -243,5 +244,107 @@ describe("fmtChangeFactor", () => {
   it("has nothing to state for a ratio no encode could produce", () => {
     expect(fmtChangeFactor(0)).toBe("–");
     expect(fmtChangeFactor(NaN)).toBe("–");
+  });
+});
+
+describe("pickSampleWindows", () => {
+  it("uses the requested start, unmoved, for a single stretch", () => {
+    expect(pickSampleWindows(100, 3, 1, 42)).toEqual([{ startSeconds: 42, seconds: 3 }]);
+  });
+
+  it("keeps a single stretch inside the file", () => {
+    expect(pickSampleWindows(100, 3, 1, 99)).toEqual([{ startSeconds: 97, seconds: 3 }]);
+  });
+
+  // Stratified, so the stretches cover the file end to end instead of clumping wherever the draws
+  // happened to land.
+  it("draws one stretch inside each equal band of the file", () => {
+    const windows = pickSampleWindows(100, 4, 4, 0);
+    expect(windows).toHaveLength(4);
+    windows.forEach((w, i) => {
+      expect(w.startSeconds).toBeGreaterThanOrEqual(i * 25);
+      expect(w.startSeconds).toBeLessThanOrEqual((i + 1) * 25);
+      expect(w.seconds).toBe(4);
+    });
+  });
+
+  it("never runs a stretch off the end of the file", () => {
+    for (const w of pickSampleWindows(10, 3, 5)) {
+      expect(w.startSeconds + w.seconds).toBeLessThanOrEqual(10.0001);
+    }
+  });
+
+  it("asks for no more stretches than the file has room for", () => {
+    expect(pickSampleWindows(10, 4, 8)).toHaveLength(2);
+  });
+
+  it("has nothing to sample from a file with no duration", () => {
+    expect(pickSampleWindows(0, 3, 2)).toEqual([]);
+  });
+});
+
+describe("estimateSizeSavings over several windows", () => {
+  const base = {
+    originalTotalBytes: 1_000_000,
+    totalSeconds: 100,
+    segmentStartSeconds: 0,
+    segmentSeconds: 10,
+  };
+
+  it("sums the sampled seconds and reports how many places they came from", () => {
+    const est = estimateSizeSavings({
+      ...base,
+      windows: [
+        { startSeconds: 0, seconds: 10 },
+        { startSeconds: 50, seconds: 10 },
+      ],
+      encodedSegmentBytes: 100_000,
+    })!;
+    expect(est.segmentSeconds).toBe(20);
+    expect(est.windowCount).toBe(2);
+    expect(est.sampledFraction).toBe(0.2);
+  });
+
+  // Sampling a second stretch of the same length averages one unlucky window against another
+  // instead of letting it be the whole measurement, so the projection's range tightens.
+  it("narrows the band when a run samples more places", () => {
+    // Frame sizes climb across the file, so its ten-second windows genuinely differ from each other
+    // and there is a spread for the band to be derived from.
+    const samples = Array.from({ length: 100 }, (_, i) => ({
+      offset: 0,
+      size: 1_000 + i * 500,
+      cts: i,
+      dts: i,
+      ctsSec: i,
+      dtsSec: i,
+      is_sync: i % 10 === 0,
+      duration: 1,
+    }));
+    const width = (r: { low: number; high: number } | null): number => (r ? r.high - r.low : 0);
+    const one = estimateSizeSavings({
+      ...base,
+      windows: [{ startSeconds: 0, seconds: 10 }],
+      encodedSegmentBytes: 50_000,
+      samples,
+    })!;
+    const three = estimateSizeSavings({
+      ...base,
+      windows: [
+        { startSeconds: 0, seconds: 10 },
+        { startSeconds: 40, seconds: 10 },
+        { startSeconds: 80, seconds: 10 },
+      ],
+      encodedSegmentBytes: 150_000,
+      samples,
+    })!;
+    expect(one.projectedRange).not.toBeNull();
+    expect(three.projectedRange).not.toBeNull();
+    expect(width(three.projectedRange)).toBeLessThan(width(one.projectedRange));
+  });
+
+  it("falls back to the single window when no list is given", () => {
+    const est = estimateSizeSavings({ ...base, encodedSegmentBytes: 50_000 })!;
+    expect(est.windowCount).toBe(1);
+    expect(est.segmentSeconds).toBe(10);
   });
 });

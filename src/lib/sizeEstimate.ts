@@ -22,7 +22,7 @@
 // terms. That residual is what the band reports, and it is why every number here is an estimate.
 
 import { encodeTest, state } from "./state";
-import type { SampleInfo } from "./types";
+import type { SampleInfo, SampleWindow } from "./types";
 
 /** How the cost of the sampled stretch in the *source* was arrived at. */
 export type SizeEstimateBasis =
@@ -40,6 +40,16 @@ export interface SizeEstimateInput {
   segmentStartSeconds: number;
   /** How many seconds of playback the encoded stretch actually covers. */
   segmentSeconds: number;
+  /**
+   * The stretches actually encoded, when there was more than the one above.
+   *
+   * Sampling the file in several places is the answer to this projection's one real weakness: a
+   * single snippet is only as representative as wherever it happened to land, and nothing about the
+   * ratio can tell you how badly it missed. Several disjoint stretches are summed on both sides of
+   * the ratio, so the projection is made against a fair share of the file rather than one moment of
+   * it, and the band narrows accordingly.
+   */
+  windows?: SampleWindow[];
   /** Bytes ffmpeg produced for that stretch. */
   encodedSegmentBytes: number;
   /** The video track's sample table, when the container was one we could parse. */
@@ -65,6 +75,8 @@ export interface SizeEstimate {
   projectedRange: { low: number; high: number } | null;
   /** The share of the file's playback the snippet covers, 0–1. */
   sampledFraction: number;
+  /** How many separate stretches were sampled. 1 unless the run asked for more. */
+  windowCount: number;
   /**
    * The stretch's video bitrate ÷ the track's average: above 1 it is busier than the file at large,
    * below 1 calmer. Null without a sample table. The projection already corrects for this; it is
@@ -128,14 +140,26 @@ function windowSpread(samples: SampleInfo[], totalSeconds: number, windowSeconds
  */
 export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | null {
   const { originalTotalBytes, totalSeconds, segmentSeconds, segmentStartSeconds, encodedSegmentBytes } = input;
-  if (!(originalTotalBytes > 0) || !(totalSeconds > 0) || !(segmentSeconds > 0) || !(encodedSegmentBytes > 0)) {
-    return null;
-  }
+  if (!(originalTotalBytes > 0) || !(totalSeconds > 0) || !(encodedSegmentBytes > 0)) return null;
 
-  const sampledFraction = Math.min(1, segmentSeconds / totalSeconds);
+  // One window unless the run sampled several; everything below is written against the list, so the
+  // two cases are the same arithmetic rather than two code paths.
+  const windows: SampleWindow[] = input.windows?.length
+    ? input.windows
+    : [{ startSeconds: segmentStartSeconds, seconds: segmentSeconds }];
+  const sampledSeconds = windows.reduce((sum, w) => sum + w.seconds, 0);
+  if (!(sampledSeconds > 0)) return null;
+
+  const sampledFraction = Math.min(1, sampledSeconds / totalSeconds);
   const samples = input.samples ?? [];
   const totalVideoBytes = samples.reduce((sum, s) => sum + s.size, 0);
-  const window = windowBytes(samples, segmentStartSeconds, segmentSeconds);
+  const window = windows.reduce(
+    (acc, w) => {
+      const got = windowBytes(samples, w.startSeconds, w.seconds);
+      return { bytes: acc.bytes + got.bytes, count: acc.count + got.count };
+    },
+    { bytes: 0, count: 0 },
+  );
 
   // Everything that is not video sample data — the audio track, the container's headers and sample
   // index — has no per-frame table to sum, so it is spread evenly over the running time. The
@@ -153,26 +177,33 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
   const ratio = encodedSegmentBytes / originalSegmentBytes;
   const projectedTotalBytes = originalTotalBytes * ratio;
 
-  const spread = useSampleTable ? windowSpread(samples, totalSeconds, segmentSeconds) : null;
+  // Measured over windows the size of the ones actually encoded, since that is the unit whose
+  // variability the projection is exposed to.
+  const spread = useSampleTable ? windowSpread(samples, totalSeconds, sampledSeconds / windows.length) : null;
   // Sampling more of the file leaves less of it to be wrong about, and sampling all of it leaves
-  // nothing: at that point the "projection" is the measurement.
+  // nothing: at that point the "projection" is the measurement. Spreading the same seconds over
+  // several places narrows it further, by the usual √n: one unlucky window is averaged against the
+  // others instead of being the whole measurement.
   const band =
     spread == null
       ? null
-      : Math.min(MAX_BAND, Math.max(MIN_BAND, spread * Math.sqrt(Math.max(0, 1 - sampledFraction))));
+      : Math.min(
+          MAX_BAND,
+          Math.max(MIN_BAND, (spread / Math.sqrt(windows.length)) * Math.sqrt(Math.max(0, 1 - sampledFraction))),
+        );
   const projectedRange =
     band == null || sampledFraction >= 1
       ? null
       : { low: Math.max(0, projectedTotalBytes * (1 - band)), high: projectedTotalBytes * (1 + band) };
 
   const windowDifficulty =
-    useSampleTable && totalVideoBytes > 0 ? window.bytes / segmentSeconds / (totalVideoBytes / totalSeconds) : null;
+    useSampleTable && totalVideoBytes > 0 ? window.bytes / sampledSeconds / (totalVideoBytes / totalSeconds) : null;
 
   return {
     basis,
     originalTotalBytes,
     totalSeconds,
-    segmentSeconds,
+    segmentSeconds: sampledSeconds,
     originalSegmentBytes,
     encodedSegmentBytes,
     ratio,
@@ -182,8 +213,42 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
     projectedSavedBytes: originalTotalBytes - projectedTotalBytes,
     projectedRange,
     sampledFraction,
+    windowCount: windows.length,
     windowDifficulty,
   };
+}
+
+/**
+ * Where to take `count` stretches of `seconds` from a file of `totalSeconds`.
+ *
+ * One stretch is the one the fields ask for, unchanged. More than one is picked at random, but
+ * *stratified*: the file is cut into as many equal bands as there are stretches and one start is
+ * drawn inside each. Purely random starts clump — three uniform draws land in the same half of the
+ * file often enough to matter — and clumped samples are the failure the extra encodes were meant to
+ * buy their way out of. Stratifying guarantees the spread while keeping the placement unguessable,
+ * so a run cannot be quietly tuned by picking a flattering moment.
+ */
+export function pickSampleWindows(
+  totalSeconds: number,
+  seconds: number,
+  count: number,
+  startSeconds = 0,
+): SampleWindow[] {
+  if (!(totalSeconds > 0) || !(seconds > 0)) return [];
+  const length = Math.min(seconds, totalSeconds);
+  if (count <= 1)
+    return [{ startSeconds: Math.min(Math.max(0, startSeconds), totalSeconds - length), seconds: length }];
+  const wanted = Math.min(count, Math.max(1, Math.floor(totalSeconds / length)));
+  const band = totalSeconds / wanted;
+  const windows: SampleWindow[] = [];
+  for (let i = 0; i < wanted; i++) {
+    // The last band is short of a full window's room unless the file divides evenly, so every start
+    // is clamped to leave the whole stretch inside the file.
+    const room = Math.max(0, Math.min(band, totalSeconds - i * band) - length);
+    const start = Math.min(i * band + Math.random() * room, totalSeconds - length);
+    windows.push({ startSeconds: Math.max(0, start), seconds: length });
+  }
+  return windows;
 }
 
 /** The estimate for the comparison currently loaded in the Compare Quality tab, or null before one runs. */

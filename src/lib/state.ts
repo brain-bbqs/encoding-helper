@@ -54,6 +54,8 @@ export const cli: CliState = {
 export const encodeTest: EncodeTestState = {
   startTime: 0,
   duration: 3,
+  segments: 1,
+  windows: [],
   running: false,
   mode: "single",
   originalSink: null,
@@ -71,6 +73,7 @@ export const encodeTest: EncodeTestState = {
     cells: [],
     segmentStart: 0,
     segmentLength: 3,
+    windows: [],
     running: false,
     cancelRequested: false,
     selectedKey: null,
@@ -105,6 +108,8 @@ export function resetState(): void {
   state.reencodeResult = null;
   encodeTest.startTime = 0;
   encodeTest.duration = 3;
+  encodeTest.segments = 1;
+  encodeTest.windows = [];
   encodeTest.running = false;
   encodeTest.mode = "single";
   encodeTest.originalSink = null;
@@ -122,6 +127,7 @@ export function resetState(): void {
   encodeTest.matrix.cells = [];
   encodeTest.matrix.segmentStart = 0;
   encodeTest.matrix.segmentLength = 3;
+  encodeTest.matrix.windows = [];
   encodeTest.matrix.running = false;
   encodeTest.matrix.cancelRequested = false;
   encodeTest.matrix.selectedKey = null;

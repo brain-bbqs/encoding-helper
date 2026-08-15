@@ -175,6 +175,12 @@ export interface MatrixCell {
   error: string | null;
 }
 
+/** One stretch of the source that an encode covered. */
+export interface SampleWindow {
+  startSeconds: number;
+  seconds: number;
+}
+
 /** Whether Compare Quality is running one setting or sweeping the grid. */
 export type CompareMode = "single" | "matrix";
 
@@ -194,6 +200,8 @@ export interface MatrixState {
   /** The segment the cells were encoded from, which the start/duration fields may have moved off. */
   segmentStart: number;
   segmentLength: number;
+  /** Every stretch each square covered, which is the one above unless the run sampled several. */
+  windows: SampleWindow[];
   running: boolean;
   /** Set by the Stop button; the sweep checks it between combinations. */
   cancelRequested: boolean;
@@ -205,6 +213,11 @@ export interface MatrixState {
 export interface EncodeTestState {
   startTime: number;
   duration: number;
+  /** How many stretches of `duration` a run encodes. Above 1 they are placed at random (see
+   * pickSampleWindows) and the start field stops applying. */
+  segments: number;
+  /** The stretches the loaded comparison actually covered, with their measured lengths. */
+  windows: SampleWindow[];
   running: boolean;
   mode: CompareMode;
   originalSink: import("mediabunny").CanvasSink | null;

@@ -104,7 +104,8 @@ export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
   g.append(
     gridItem(
       "Sampled",
-      `${fmtDur(est.segmentSeconds)} of ${fmtDur(est.totalSeconds)} (${fmtPct(est.sampledFraction)})`,
+      `${fmtDur(est.segmentSeconds)} of ${fmtDur(est.totalSeconds)} (${fmtPct(est.sampledFraction)})` +
+        (est.windowCount > 1 ? `, in ${est.windowCount} places` : ""),
       { info: SAMPLED_WINDOW_INFO, sm: true },
     ),
   );

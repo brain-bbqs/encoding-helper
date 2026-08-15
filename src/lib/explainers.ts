@@ -222,6 +222,20 @@ export const UPSCALE_VIEW_INFO =
   "<p>Blocks is the better view for judging what a tracking pipeline has left to work with; smooth is the " +
   "better view for judging how it looks. Neither changes the encode or its size.</p>";
 
+/** Why a run would encode the same settings in several places at once. */
+export const SEGMENTS_INFO =
+  "<b>Segments</b> is how many stretches of the length above a run encodes. One is the tab's original " +
+  "behaviour: it starts where the start field says, and the size projection is only ever as representative " +
+  "as wherever that landed." +
+  "<p>Above one, the stretches are placed by the sampler rather than by the start field, one drawn at random " +
+  "inside each equal band of the file, so they cover it end to end instead of clumping. The projection is " +
+  "then taken over all of them together and its range narrows accordingly, which is the whole point: three " +
+  "seconds of a calm scene predicts a talking-heads file well and a wildlife file badly, and the only fix is " +
+  "to look in more than one place.</p>" +
+  "<p>Each one is a real encode, so the run costs that many times as long, and in matrix mode it multiplies " +
+  "the sweep. The A/B window below still shows the first stretch: the eye wants one continuous piece of " +
+  "video to judge, while the byte count wants a fair sample of the file.</p>";
+
 /** What matrix mode does, shown under the mode switch once it is picked. */
 export const MATRIX_MODE_TEACH =
   "<b>Matrix mode</b> encodes the same seconds once for every combination of the two dropdowns and lays the " +
