@@ -1207,16 +1207,36 @@ table.data th {
    sweep fills in — one square per combination, the largest reduction marked in place. */
 /* Row and column group heads, present only when the sweep covered more than one resolution or
    kernel. Left-aligned and shaded so a block of rows reads as belonging to the head above it. */
-.matrix-table .matrix-group-head {
+/* A resolution's title over its block of rows: full size and in the body text's ink rather than the
+   muted small caps the axis labels use, since it names what the rows under it are. */
+table.data.matrix-table th.matrix-group-head {
+  padding: 10px 8px 6px;
   text-align: left;
-  background: var(--panel-2, var(--card));
-  color: var(--muted);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
 }
-.matrix-table .matrix-group-row th {
-  position: sticky;
-  left: 0;
+/* The kernel's title over its columns is the same idea one level down, so it stays smaller. */
+table.data.matrix-table thead th.matrix-group-head {
+  padding: 2px 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+/* Alternating blocks: the shading runs the width of the row so a square in the second resolution
+   reads as belonging with the title above it, without a border cutting the grid up. */
+.matrix-table tr.matrix-band th,
+.matrix-table tr.matrix-band td {
+  background: var(--hover);
+}
+.matrix-table tr.matrix-group-row th {
+  border-top: 1px solid var(--border-soft);
+}
+.matrix-table tr.matrix-group-row:first-child th {
+  border-top: none;
 }
 /* The square the sweep skipped because it would have repeated its neighbour. */
 .matrix-same {

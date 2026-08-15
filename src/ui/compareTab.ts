@@ -512,6 +512,26 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   await encodeCells(matrix.cells, vt, ui);
 }
 
+/**
+ * The queue the run in progress is working through, or null between runs.
+ *
+ * Held so a square can be retried *during* a sweep. There is one encoder, so a second encode cannot
+ * start alongside the first, but the loop below reads `queue.length` on every pass: appending to
+ * the live queue puts the square at the back of the run that is already going, which is what
+ * clicking a failed square while the sweep is still working now does.
+ */
+let activeQueue: MatrixCell[] | null = null;
+
+/** Puts a failed square back in the running sweep's queue, to be re-encoded when it is reached. */
+function queueRetry(cell: MatrixCell, ui: RunUi, repaint: () => void): void {
+  if (!activeQueue || cell.status !== "failed") return;
+  cell.status = "pending";
+  cell.error = null;
+  activeQueue.push(cell);
+  logLine(ui.log, `Queued a retry of ${describeSettings(cell.combo)}`, "info");
+  repaint();
+}
+
 /** Runs the squares that failed, in place, keeping everything the sweep already measured. */
 async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
   if (encodeTest.running || !cells.length) return;
@@ -534,6 +554,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   const segment = { start: matrix.segmentStart, length: matrix.segmentLength };
   matrix.cancelRequested = false;
   matrix.running = true;
+  activeQueue = queue;
   const fill = startRunUi(ui, true);
   const repaint = (): void => renderMatrixSection(ui.matrixSec, vt, ui);
   repaint();
@@ -610,6 +631,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   } finally {
     // The run is over, so the copy of the video inside the core goes with it.
     if (source) await deleteFfmpegFile(inputNameFor(source));
+    activeQueue = null;
     matrix.running = false;
     endRunUi(ui);
     repaint();
@@ -694,10 +716,13 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
       bestKey: best?.combo.key ?? null,
       selectedKey: matrix.selectedKey,
       estimate: matrixCellEstimate,
-      // Squares stay unclickable while the sweep runs: loading one can mean re-encoding it, and
-      // there is only one encoder.
+      // Loading a square can mean re-encoding it, and there is only one encoder, so that waits for
+      // the run to finish. A failed square is different: retrying it mid-run joins the queue the
+      // sweep is already working through, rather than asking for a second encode alongside it.
       onSelect: busy ? undefined : (cell) => void selectMatrixCell(cell, vt, ui),
-      onRetry: busy ? undefined : (cell) => void retryCells([cell], vt, ui),
+      onRetry: busy
+        ? (cell) => queueRetry(cell, ui, () => renderMatrixSection(sec, vt, ui))
+        : (cell) => void retryCells([cell], vt, ui),
     }),
   );
 

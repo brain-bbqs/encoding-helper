@@ -61,6 +61,14 @@ describe("renderMatrixTable", () => {
     expect(headers).toEqual(["Quality", "fast", "fast"]);
   });
 
+  it("shades consecutive resolution blocks apart", () => {
+    const swept = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1, 0.5]));
+    const table = renderMatrixTable({ cells: swept });
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    // Title row plus two quality rows per resolution; the second block is banded, the first is not.
+    expect(rows.map((r) => r.classList.contains("matrix-band"))).toEqual([false, false, false, true, true, true]);
+  });
+
   // Nothing is resampled at 100%, so the second kernel's square there was never run.
   it("marks the square the sweep skipped as the encode beside it", () => {
     const swept = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]));

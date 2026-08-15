@@ -139,16 +139,19 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   table.append(thead);
 
   const tbody = h("tbody");
-  for (const scale of scales) {
+  scales.forEach((scale, i) => {
+    // Consecutive resolutions are shaded apart as well as titled, so which block a square belongs
+    // to is answerable from the square rather than by scrolling up to the nearest heading.
+    const band = i % 2 === 1 ? " matrix-band" : "";
     if (scales.length > 1) {
-      const groupRow = h("tr", "matrix-group-row");
+      const groupRow = h("tr", "matrix-group-row" + band);
       const th = h("th", "matrix-group-head", opts.scaleLabel?.(scale) ?? `${Math.round(scale * 100)}%`);
       th.colSpan = bodyWidth + 1;
       groupRow.append(th);
       tbody.append(groupRow);
     }
     for (const quality of qualities) {
-      const row = h("tr");
+      const row = h("tr", scales.length > 1 ? "matrix-scale-row" + band : null);
       const first = byKey.get(comboKey(quality, presets[0], scale, scalers[0]));
       row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
       for (const column of columns) {
@@ -162,7 +165,7 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
       }
       tbody.append(row);
     }
-  }
+  });
   table.append(tbody);
   wrap.append(table);
   return wrap;
