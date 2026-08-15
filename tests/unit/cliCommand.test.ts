@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildFfmpegArgs, computeGop, CRF_MAP, formatCliCommand } from "../../src/lib/cliCommand";
+import {
+  buildFfmpegArgs,
+  computeGop,
+  CRF_MAP,
+  describeScale,
+  formatCliCommand,
+  isDownscale,
+  scaledDimensions,
+  scaleFilter,
+} from "../../src/lib/cliCommand";
 import type { CliState, VideoInfo } from "../../src/lib/types";
 
 function baseCli(overrides: Partial<CliState> = {}): CliState {
@@ -14,6 +23,7 @@ function baseCli(overrides: Partial<CliState> = {}): CliState {
     faststart: false,
     audioMode: "copy",
     fps: null,
+    scale: 1,
     ...overrides,
   };
 }
@@ -59,6 +69,24 @@ describe("buildFfmpegArgs", () => {
     expect(buildFfmpegArgs(baseCli({ pad: false }), info)).not.toContain("-vf");
   });
 
+  it("scales with lanczos when a fraction of the source resolution is asked for", () => {
+    const args = buildFfmpegArgs(baseCli({ scale: 0.5 }), info);
+    expect(args[args.indexOf("-vf") + 1]).toBe("scale=trunc(iw*0.5/2)*2:-2:flags=lanczos");
+  });
+
+  it("leaves the resolution alone at scale 1", () => {
+    const args = buildFfmpegArgs(baseCli({ scale: 1, pad: false }), info);
+    expect(args).not.toContain("-vf");
+  });
+
+  // scale's `-2` already lands on even dimensions, so padding after it would be a no-op — and a
+  // second -vf would silently replace the first rather than adding to it.
+  it("replaces the pad with the scale rather than emitting -vf twice", () => {
+    const args = buildFfmpegArgs(baseCli({ scale: 0.5, pad: true }), info);
+    expect(args.filter((a) => a === "-vf")).toHaveLength(1);
+    expect(args[args.indexOf("-vf") + 1]).toBe("scale=trunc(iw*0.5/2)*2:-2:flags=lanczos");
+  });
+
   it("includes +faststart only when faststart is enabled", () => {
     const args = buildFfmpegArgs(baseCli({ faststart: true }), info);
     expect(args[args.indexOf("-movflags") + 1]).toBe("+faststart");
@@ -82,6 +110,58 @@ describe("buildFfmpegArgs", () => {
     const defaults = buildFfmpegArgs(baseCli(), info);
     expect(defaults).toContain("in.mp4");
     expect(defaults).toContain("out.reencoded.mp4");
+  });
+});
+
+describe("isDownscale", () => {
+  it("is true only for a fraction below the source's resolution", () => {
+    expect(isDownscale(0.5)).toBe(true);
+    expect(isDownscale(1)).toBe(false);
+  });
+
+  it("rejects values a field could produce but the filter could not use", () => {
+    expect(isDownscale(0)).toBe(false);
+    expect(isDownscale(-0.5)).toBe(false);
+    expect(isDownscale(NaN)).toBe(false);
+    expect(isDownscale(2)).toBe(false);
+  });
+});
+
+describe("scaleFilter", () => {
+  it("scales with lanczos and leaves the height to -2", () => {
+    expect(scaleFilter(0.5)).toBe("scale=trunc(iw*0.5/2)*2:-2:flags=lanczos");
+  });
+});
+
+describe("scaledDimensions", () => {
+  it("leaves the source alone at full resolution", () => {
+    expect(scaledDimensions(1920, 1080, 1)).toEqual({ width: 1920, height: 1080 });
+  });
+
+  it("halves both dimensions and keeps the aspect ratio", () => {
+    expect(scaledDimensions(1920, 1080, 0.5)).toEqual({ width: 960, height: 540 });
+    expect(scaledDimensions(640, 480, 0.25)).toEqual({ width: 160, height: 120 });
+  });
+
+  it("lands on even dimensions from an odd source, as yuv420p needs", () => {
+    const { width, height } = scaledDimensions(1919, 1081, 0.75);
+    expect(width % 2).toBe(0);
+    expect(height % 2).toBe(0);
+  });
+
+  it("never scales a tiny source below a 2×2 frame", () => {
+    expect(scaledDimensions(4, 4, 0.25)).toEqual({ width: 2, height: 2 });
+  });
+});
+
+describe("describeScale", () => {
+  it("names the source and the size each fraction comes out at", () => {
+    expect(describeScale(1, { width: 640, height: 480 })).toBe("Source (100%) (640×480)");
+    expect(describeScale(0.5, { width: 640, height: 480 })).toBe("50% (320×240)");
+  });
+
+  it("falls back to the bare fraction with no file loaded", () => {
+    expect(describeScale(0.5, null)).toBe("50%");
   });
 });
 

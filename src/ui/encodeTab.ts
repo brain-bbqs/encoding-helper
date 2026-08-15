@@ -3,10 +3,10 @@
 
 import { computeGop } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
-import { X264_PRESET_INFO } from "../lib/explainers";
+import { RESOLUTION_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
-import { refreshCliCommand, syncQualityControls } from "./cliControls";
+import { parseScale, refreshCliCommand, scaleOptions, syncQualityControls } from "./cliControls";
 import { fieldNumber, fieldSelect } from "./formControls";
 
 export function renderEncodeTab(panel: HTMLElement): void {
@@ -59,6 +59,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   form.append(crfField);
 
   const row1 = h("div", "row");
+  row1.append(fieldSelect("cliScale", "Resolution", scaleOptions(info), String(cli.scale), RESOLUTION_INFO));
   row1.append(
     fieldSelect(
       "cliPreset",
@@ -154,6 +155,10 @@ export function renderEncodeTab(panel: HTMLElement): void {
   });
   document.getElementById("cliPreset")?.addEventListener("change", (e) => {
     cli.preset = (e.target as HTMLSelectElement).value as typeof cli.preset;
+    syncQualityControls();
+  });
+  document.getElementById("cliScale")?.addEventListener("change", (e) => {
+    cli.scale = parseScale((e.target as HTMLSelectElement).value);
     syncQualityControls();
   });
   bindNumber("cliKeyframeInterval", "keyframeInterval", true);

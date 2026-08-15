@@ -13,7 +13,7 @@
 // the quality half of the judgement, and the grid is what tells you how much the next row down
 // would have saved.
 
-import { CRF_MAP } from "./cliCommand";
+import { CRF_MAP, isDownscale } from "./cliCommand";
 import type { CliState, EncodeSettings, MatrixCell, MatrixCombo, MatrixQuality, X264Preset } from "./types";
 
 /** The quality dropdown's named entries, best picture first. "custom" is a single arbitrary CRF, so
@@ -62,9 +62,11 @@ export function comboCrf(quality: MatrixQuality): number {
   return CRF_MAP[quality];
 }
 
-/** e.g. "medium (CRF 25), veryfast" — the same wording the single-run summary uses. */
+/** e.g. "medium (CRF 25), veryfast" — the same wording the single-run summary uses. The resolution
+ * joins it only when it is not the source's, since every square of a sweep shares the one value. */
 export function describeSettings(settings: EncodeSettings): string {
-  return `${settings.quality} (CRF ${settings.crf}), ${settings.preset}`;
+  const base = `${settings.quality} (CRF ${settings.crf}), ${settings.preset}`;
+  return isDownscale(settings.scale) ? `${base}, ${Math.round(settings.scale * 100)}%` : base;
 }
 
 /** What the dropdowns currently come to, for labelling a single (non-matrix) run's encode. */
@@ -73,20 +75,27 @@ export function cliSettings(cliState: CliState): EncodeSettings {
     quality: cliState.quality,
     crf: cliState.quality === "custom" ? cliState.crf : CRF_MAP[cliState.quality],
     preset: cliState.preset,
+    scale: cliState.scale,
   };
 }
 
 /**
  * The cartesian product of the two axes, quality-major and in dropdown order whatever order the
  * boxes were ticked in, so the table's rows and columns do not depend on how the selection was made.
+ *
+ * `scale` is carried onto every combination rather than being a third axis: it is the same value
+ * for the whole sweep, deliberately. A grid that mixed resolutions could not be read down a column
+ * (the cells would no longer be the same picture stored differently), and since `bestReductionCell`
+ * ranks on bytes alone the lowest resolution would take the ★ every time, which is not a finding.
+ * Sweeping at one resolution and then again at another compares two whole grids instead.
  */
-export function buildMatrixCombos(qualities: MatrixQuality[], presets: X264Preset[]): MatrixCombo[] {
+export function buildMatrixCombos(qualities: MatrixQuality[], presets: X264Preset[], scale = 1): MatrixCombo[] {
   const rows = MATRIX_QUALITIES.filter((q) => qualities.includes(q));
   const cols = MATRIX_PRESETS.filter((p) => presets.includes(p));
   const combos: MatrixCombo[] = [];
   for (const quality of rows) {
     for (const preset of cols) {
-      combos.push({ key: comboKey(quality, preset), quality, crf: comboCrf(quality), preset });
+      combos.push({ key: comboKey(quality, preset), quality, crf: comboCrf(quality), preset, scale });
     }
   }
   return combos;

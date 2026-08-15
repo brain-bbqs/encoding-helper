@@ -42,6 +42,7 @@ export const cli: CliState = {
   faststart: false,
   audioMode: "copy",
   fps: null,
+  scale: 1,
 };
 
 export const encodeTest: EncodeTestState = {

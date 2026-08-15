@@ -7,9 +7,9 @@
 // still looks acceptable is only ever a question for the eye, and that is the window below it.
 
 import { fetchFile } from "@ffmpeg/util";
-import { buildFfmpegArgs } from "../lib/cliCommand";
+import { buildFfmpegArgs, isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { gridItem, h, infoIcon, teachBox } from "../lib/dom";
-import { MATRIX_MODE_TEACH, X264_PRESET_INFO } from "../lib/explainers";
+import { MATRIX_MODE_TEACH, RESOLUTION_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import {
   deleteFfmpegFile,
   ensureFfmpegInput,
@@ -38,7 +38,7 @@ import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import { fmtBytes } from "../lib/format";
 import { currentSizeEstimate, estimateSizeSavings, type SizeEstimate } from "../lib/sizeEstimate";
 import type { CliState, EncodeSettings, MatrixCell, MatrixQuality, TrackInfo, X264Preset } from "../lib/types";
-import { syncQualityControls } from "./cliControls";
+import { parseScale, scaleOptions, syncQualityControls } from "./cliControls";
 import { fieldNumber, fieldSelect, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
@@ -102,6 +102,14 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
     ),
   );
   sec.append(row1);
+
+  // Resolution sits outside both mode blocks because it applies to either whole: a sweep runs at
+  // one resolution, and comparing two of them means comparing two grids (see buildMatrixCombos).
+  const resRow = h("div", "row");
+  resRow.append(
+    fieldSelect("etScale", "Resolution", scaleOptions(currentVideoInfo()), String(cli.scale), RESOLUTION_INFO),
+  );
+  sec.append(resRow);
 
   // Both control blocks stay in the DOM whichever mode is showing, so the shared quality/preset
   // fields keep answering to syncQualityControls() from the Reencode tab while they are hidden.
@@ -241,6 +249,10 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   });
   document.getElementById("etPreset")?.addEventListener("change", (e) => {
     cli.preset = (e.target as HTMLSelectElement).value as typeof cli.preset;
+    syncQualityControls();
+  });
+  document.getElementById("etScale")?.addEventListener("change", (e) => {
+    cli.scale = parseScale((e.target as HTMLSelectElement).value);
     syncQualityControls();
   });
   runBtn.addEventListener("click", () => {
@@ -449,7 +461,7 @@ function stopRequested(): boolean {
 async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   if (encodeTest.running) return;
   const matrix = encodeTest.matrix;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets);
+  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, cli.scale);
   if (!combos.length) {
     ui.note.textContent = "Tick at least one quality level and one preset first.";
     return;
@@ -700,6 +712,13 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   // The settings the loaded encode was made with, which in matrix mode is the winning square's
   // rather than whatever the dropdowns happen to say.
   const settings = encodeTest.activeCombo ?? cliSettings(cli);
+  const srcWidth = vt.codedWidth ?? 0;
+  const srcHeight = vt.codedHeight ?? 0;
+  // A downscaled encode is drawn back at the source's geometry, so the two panes stay one
+  // coordinate system: the same zoom shows the same part of the frame on each side, and the pixel
+  // grid keeps measuring source pixels rather than two different things per pane.
+  const downscaled = isDownscale(settings.scale);
+  const encSize = scaledDimensions(srcWidth, srcHeight, settings.scale);
   const g = h("div", "grid");
   g.append(
     gridItem(
@@ -711,8 +730,16 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
       settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`,
     ),
     gridItem("Preset", settings.preset),
-    gridItem("Encoded Segment Size", fmtBytes(encodeTest.encodedSize)),
   );
+  if (downscaled) {
+    g.append(
+      gridItem(
+        "Resolution",
+        `${srcWidth}×${srcHeight} → ${encSize.width}×${encSize.height} (${Math.round(settings.scale * 100)}%)`,
+      ),
+    );
+  }
+  g.append(gridItem("Encoded Segment Size", fmtBytes(encodeTest.encodedSize)));
   resultSec.append(g);
 
   // The size question is half of what the tab is for, so its headline goes above the panes rather
@@ -730,13 +757,20 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   const origGrid = h("div", "pixel-grid");
   origPane.append(origGrid);
   const encPane = h("div", "compare-pane");
-  encPane.append(
-    h(
-      "span",
-      "pane-label",
-      `Encoded (${settings.quality === "custom" ? "CRF " + settings.crf : settings.quality}, ${settings.preset})`,
-    ),
+  const encLabel = h(
+    "span",
+    "pane-label",
+    `Encoded (${settings.quality === "custom" ? "CRF " + settings.crf : settings.quality}, ${settings.preset}` +
+      (downscaled ? `, ${encSize.width}×${encSize.height}` : "") +
+      ")",
   );
+  if (downscaled) {
+    encLabel.title =
+      `Encoded at ${encSize.width}×${encSize.height} and drawn back at ${srcWidth}×${srcHeight} with ` +
+      `nearest-neighbour, so each encoded pixel shows as a block: no interpolation is added that the ` +
+      `encode does not contain.`;
+  }
+  encPane.append(encLabel);
   const encCanvas = h("canvas");
   encCanvas.width = vt.codedWidth ?? 0;
   encCanvas.height = vt.codedHeight ?? 0;
@@ -790,16 +824,26 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
   actualBtn.addEventListener("click", () => zoomPan.actualSize());
   syncZoomButtons(zoomPan.state.scale);
 
+  // `target` is the geometry to draw into when it is not the frame's own: only a downscaled encode
+  // has one, and it is the source's size. Nearest-neighbour rather than the browser's smoothing,
+  // because interpolating would invent detail the encode does not carry, and this window exists to
+  // show what survived — an encoded pixel reads as a block, which is what it now is.
   const drawFrame = (
     canvas: HTMLCanvasElement,
     frame: { canvas: HTMLCanvasElement | OffscreenCanvas } | null,
+    target?: { width: number; height: number } | null,
   ): void => {
     if (!frame) return;
-    if (canvas.width !== frame.canvas.width || canvas.height !== frame.canvas.height) {
-      canvas.width = frame.canvas.width;
-      canvas.height = frame.canvas.height;
+    const width = target?.width || frame.canvas.width;
+    const height = target?.height || frame.canvas.height;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
     }
-    canvas.getContext("2d")?.drawImage(frame.canvas, 0, 0);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(frame.canvas, 0, 0, width, height);
   };
   const drawAt = async (relT: number): Promise<void> => {
     if (!encodeTest.originalSink || !encodeTest.encodedSink) return;
@@ -808,7 +852,7 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
       encodeTest.encodedSink.getCanvas(Math.min(relT, Math.max(0, encodeTest.segDuration - 0.001))),
     ]);
     drawFrame(origCanvas, originalFrame);
-    drawFrame(encCanvas, encodedFrame);
+    drawFrame(encCanvas, encodedFrame, downscaled ? { width: srcWidth, height: srcHeight } : null);
   };
   const showTime = (relT: number): void => {
     scrub.value = String((relT / encodeTest.duration) * 1000);

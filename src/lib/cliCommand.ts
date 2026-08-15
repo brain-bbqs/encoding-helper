@@ -10,6 +10,60 @@ export const CRF_MAP: Record<Exclude<CliState["quality"], "custom">, number> = {
   low: 32,
 };
 
+/**
+ * Output resolutions offered, as a fraction of the source's.
+ *
+ * Resolution is the largest lever on file size in the whole tool and the only one that is not
+ * CRF's job: CRF quantizes more coarsely within the sampling grid it is given, and still pays the
+ * per-macroblock cost of every block in the frame however hard it quantizes. Halving each dimension
+ * deletes three quarters of those blocks outright.
+ *
+ * It is also the only lever here that changes what was measured rather than how faithfully it is
+ * stored. A keypoint stays localizable to sub-pixel precision through a brutal CRF, because the
+ * artifacts are texture-level; half resolution puts a hard floor under that precision which nothing
+ * downstream recovers. Hence a short ladder of round fractions rather than a free-form field: this
+ * is a decision made once for a dataset, not a number to tune.
+ */
+export const SCALE_OPTIONS = [1, 0.75, 0.5, 0.25] as const;
+
+/** The rescaler used whenever the output is downscaled. Lanczos over swscale's default bicubic:
+ * downscaling is where a sharper kernel actually shows, and the cost is trivial beside the encode. */
+export const SCALE_FLAGS = "lanczos";
+
+/** Whether a scale factor asks for anything at all. Guards against a 0 or a NaN out of a field as
+ * much as against the 1 that means "leave it alone". */
+export function isDownscale(scale: number): boolean {
+  return Number.isFinite(scale) && scale > 0 && scale < 1;
+}
+
+/**
+ * The `scale` filter for a fraction of the source.
+ *
+ * Width is truncated to an even number and height left to `-2`, which keeps the aspect ratio and
+ * rounds to an even number itself. yuv420p needs both dimensions even, so this is what makes the
+ * separate pad unnecessary once any scaling is in play.
+ */
+export function scaleFilter(scale: number): string {
+  return `scale=trunc(iw*${scale}/2)*2:-2:flags=${SCALE_FLAGS}`;
+}
+
+/** What `scaleFilter` will come out at for a known source size, for labelling the control and for
+ * drawing the A/B comparison back at the source's geometry. */
+export function scaledDimensions(width: number, height: number, scale: number): { width: number; height: number } {
+  if (!isDownscale(scale)) return { width, height };
+  const w = Math.max(2, Math.trunc((width * scale) / 2) * 2);
+  const h = Math.max(2, Math.round((height * w) / width / 2) * 2);
+  return { width: w, height: h };
+}
+
+/** e.g. "50% (320×240)", the label the resolution dropdown carries once a file is loaded. */
+export function describeScale(scale: number, info?: { width: number; height: number } | null): string {
+  const pct = `${Math.round(scale * 100)}%`;
+  if (!info || !(info.width > 0) || !(info.height > 0)) return scale === 1 ? "Source (100%)" : pct;
+  const { width, height } = scaledDimensions(info.width, info.height, scale);
+  return `${scale === 1 ? "Source (100%)" : pct} (${width}×${height})`;
+}
+
 export function computeGop(cliState: CliState, fps: number): number {
   if (cliState.gopOverride != null && cliState.gopOverride > 0) return cliState.gopOverride;
   return Math.max(1, Math.round(cliState.keyframeInterval * fps));
@@ -38,7 +92,13 @@ export function buildFfmpegArgs(cliState: CliState, info: VideoInfo, inName?: st
   ];
   if (cliState.noBFrames) args.push("-bf", "0");
   args.push("-pix_fmt", "yuv420p");
-  if (cliState.pad) args.push("-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2");
+  // One -vf, however many filters: a second one silently replaces the first rather than adding to
+  // it. The pad is only reached at full resolution, since scale's `-2` already lands on even
+  // dimensions and padding an already-even frame is a no-op that only makes the command longer.
+  const filters: string[] = [];
+  if (isDownscale(cliState.scale)) filters.push(scaleFilter(cliState.scale));
+  else if (cliState.pad) filters.push("pad=ceil(iw/2)*2:ceil(ih/2)*2");
+  if (filters.length) args.push("-vf", filters.join(","));
   if (cliState.faststart) args.push("-movflags", "+faststart");
   if (cliState.fps) args.push("-r", String(cliState.fps));
   if (cliState.audioMode === "copy") args.push("-c:a", "copy");

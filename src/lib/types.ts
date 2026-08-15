@@ -121,6 +121,8 @@ export interface CliState {
   faststart: boolean;
   audioMode: "copy" | "strip";
   fps: number | null;
+  /** Output resolution as a fraction of the source's, 1 being the source untouched. */
+  scale: number;
 }
 
 /** Basic video info needed to fill in CLI defaults (fps for GOP math, dimensions for padding). */
@@ -139,6 +141,8 @@ export interface EncodeSettings {
   /** The CRF actually used, i.e. the quality preset's own value unless the preset is "custom". */
   crf: number;
   preset: X264Preset;
+  /** The resolution fraction the encode was made at; 1 unless it was downscaled. */
+  scale: number;
 }
 
 /** One square of the matrix — a pair of dropdown settings to encode the segment with. */

@@ -187,6 +187,21 @@ export const X264_PRESET_INFO =
   "slowest presets can take minutes over a few seconds of video, or exhaust the encoder outright. Run the " +
   "command natively to use them.</p>";
 
+/** Why resolution is its own knob rather than something CRF already covers, from the ⓘ beside the
+ * field in both tabs that offer it. */
+export const RESOLUTION_INFO =
+  "<b>Resolution</b> is the biggest lever on file size here, and it is not CRF's job. CRF quantizes more " +
+  "coarsely within the grid of pixels it is given, and however hard it quantizes it still pays the " +
+  "per-block cost of every block in the frame. Halving each dimension deletes three quarters of those " +
+  "blocks outright, which is why the two trade against each other: below some bitrate, half resolution at a " +
+  "moderate CRF looks better than full resolution at a punishing one." +
+  "<p>Downscaling uses <code>flags=lanczos</code>, and <code>-2</code> for the height, which keeps the " +
+  "aspect ratio and lands on the even dimensions <code>yuv420p</code> requires (so the pad is not needed).</p>" +
+  "<p><b>It is not the same kind of loss as CRF.</b> A keypoint stays localizable to sub-pixel precision " +
+  "through a brutal CRF, because those artifacts are texture-level. Resolution puts a hard floor under that " +
+  "precision, and no downstream step recovers it. Judge it against what the tracking needs, not only by how " +
+  "the A/B window looks.</p>";
+
 /** What matrix mode does, shown under the mode switch once it is picked. */
 export const MATRIX_MODE_TEACH =
   "<b>Matrix mode</b> encodes the same seconds once for every combination of the two dropdowns and lays the " +

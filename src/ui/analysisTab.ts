@@ -12,7 +12,7 @@
 
 import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
-import { buildFfmpegArgs, formatCliCommand } from "../lib/cliCommand";
+import { buildFfmpegArgs, formatCliCommand, isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { CONTAINER_PREAMBLE, describeContainer } from "../lib/containerKb";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import {
@@ -360,6 +360,16 @@ function compareSection(): AnalysisSection | null {
     ["Preset", settings.preset],
     ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
   ];
+  // Only when it is not the source's: a resolution row reading "100%" on every document would say
+  // nothing, but a comparison made at half resolution is not comparable to one that was not.
+  const vt = state.tracks?.find((t) => t.kind === "video");
+  if (isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight) {
+    const out = scaledDimensions(vt.codedWidth, vt.codedHeight, settings.scale);
+    items.splice(3, 0, [
+      "Resolution",
+      `${vt.codedWidth}×${vt.codedHeight} → ${out.width}×${out.height} (${Math.round(settings.scale * 100)}%)`,
+    ]);
+  }
   const blocks: AnalysisBlock[] = [
     {
       kind: "prose",

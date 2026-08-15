@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+#### 🚀 Enhancement
+
+- **Reencode & CLI** and **Compare Quality** have a **Resolution** dropdown that downscales the output with Lanczos, labelled with the size each fraction produces ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A downscaled comparison is drawn back at the source's geometry with nearest-neighbour, so both panes keep one zoom, pixel grid and coordinate system ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A matrix sweep runs wholly at the chosen resolution, which the A/B summary and **Full Analysis** report whenever it is not the source's ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+
 ## 0.4.0
 
 #### 🚀 Enhancement

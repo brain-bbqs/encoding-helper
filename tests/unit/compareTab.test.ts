@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_MATRIX_PRESETS, MATRIX_PRESETS, MATRIX_QUALITIES } from "../../src/lib/qualityMatrix";
-import { encodeTest, resetState, state } from "../../src/lib/state";
+import { cli, encodeTest, resetState, state } from "../../src/lib/state";
 import type { TrackInfo } from "../../src/lib/types";
 import { renderEncodeTestTab } from "../../src/ui/compareTab";
 
@@ -37,6 +37,9 @@ function axisBoxes(panel: HTMLElement, label: string): HTMLInputElement[] {
 beforeEach(() => {
   document.body.innerHTML = "";
   resetState();
+  // The CLI settings deliberately survive resetState (they are the user's, not the file's), so the
+  // one this file edits is put back by hand rather than leaking into the tests after it.
+  cli.scale = 1;
 });
 
 describe("renderEncodeTestTab", () => {
@@ -66,6 +69,28 @@ describe("renderEncodeTestTab", () => {
     expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Matrix");
     // The quality/preset dropdowns stay in the DOM so the Reencode tab can still sync them.
     expect(panel.querySelector("#etQuality")).not.toBeNull();
+  });
+
+  it("labels each resolution with the size it comes out at, and applies it to the CLI state", () => {
+    const panel = renderTab();
+    const scale = panel.querySelector<HTMLSelectElement>("#etScale")!;
+    expect(scale.value).toBe("1");
+    expect(Array.from(scale.options).map((o) => o.textContent)).toEqual([
+      "Source (100%) (640×480)",
+      "75% (480×360)",
+      "50% (320×240)",
+      "25% (160×120)",
+    ]);
+    scale.value = "0.5";
+    scale.dispatchEvent(new Event("change"));
+    expect(cli.scale).toBe(0.5);
+  });
+
+  it("keeps the resolution out of both mode blocks, since a sweep runs at one of them", () => {
+    const panel = renderTab();
+    const scale = panel.querySelector<HTMLSelectElement>("#etScale")!;
+    expect(scale.closest(".compare-single-controls")).toBeNull();
+    expect(scale.closest(".compare-matrix-controls")).toBeNull();
   });
 
   it("ticks every quality and the faster presets to begin with", () => {
