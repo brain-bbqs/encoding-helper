@@ -96,6 +96,8 @@ describe("renderMatrixTable", () => {
     const first = cellButtons(table)[0];
     // 60 KB against the 100 KB the same 10 s costs in the source.
     expect(first.querySelector(".matrix-change")!.textContent).toBe("−40%");
+    // The same change as a factor, on the square itself rather than only in its tooltip.
+    expect(first.querySelector(".matrix-factor")!.textContent).toBe("1.7× reduction");
     // 60% of the 1 MB source, i.e. 600,000 bytes.
     expect(first.querySelector(".matrix-sub")!.textContent).toBe("585.9 KB · 4.2s");
   });

@@ -41,9 +41,12 @@ export function fmtElapsed(ms: number): string {
   return Math.floor(ms / 60_000) + "m " + Math.round((ms % 60_000) / 1000) + "s";
 }
 
-/** What a square says: the headline, the line under it, and the tooltip spelling both out. */
+/** What a square says: the headline, the lines under it, and the tooltip spelling them all out. */
 interface CellFace {
   main: string;
+  /** The same change as a factor, on its own line: the percentage crowds together at the deep end,
+   * where the squares worth finding are. Empty for a square with nothing measured yet. */
+  factor: string;
   sub: string;
   title: string;
   /** Nothing measured yet, so the headline is drawn as a placeholder rather than a figure. */
@@ -60,6 +63,7 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   if (cell.elapsedMs != null) sub.push(fmtElapsed(cell.elapsedMs));
   return {
     main: change,
+    factor: est ? fmtChangeFactor(est.ratio) : "",
     sub: sub.join(" · "),
     title:
       `${describeSettings(cell.combo)} — segment ${fmtBytes(bytes)}` +
@@ -75,11 +79,19 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   if (cell.status === "done" && cell.bytes != null) return doneFace(cell, est);
   const settings = describeSettings(cell.combo);
   if (cell.status === "running") {
-    return { main: "…", sub: "encoding", title: `${settings} — encoding now`, pending: true, grew: false };
+    return {
+      main: "…",
+      factor: "",
+      sub: "encoding",
+      title: `${settings} — encoding now`,
+      pending: true,
+      grew: false,
+    };
   }
   if (cell.status === "failed") {
     return {
       main: "✕",
+      factor: "",
       sub: "retry",
       title: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
       pending: false,
@@ -89,6 +101,7 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   const skipped = cell.status === "skipped";
   return {
     main: "–",
+    factor: "",
     sub: skipped ? "skipped" : "queued",
     title: `${settings} — ${skipped ? "not run" : "queued"}`,
     pending: true,
@@ -198,6 +211,7 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   btn.append(
     h("span", "matrix-change" + (face.grew ? " grew" : "") + (face.pending ? " matrix-pending" : ""), face.main),
   );
+  if (face.factor) btn.append(h("span", "matrix-factor", face.factor));
   btn.append(h("span", "matrix-sub", face.sub));
   btn.title = face.title;
   if (isBest) btn.append(h("span", "matrix-flag", "★ best"));

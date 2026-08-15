@@ -10,7 +10,7 @@
 - A **Scaler** field beside the resolution picks the kernel the downscale resamples with, `lanczos` (sharper) or `bicubic` (softer) ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - The A/B window switches a downscaled encode between **Blocks**, showing exactly the pixels that survived, and **Smooth**, showing what a player would ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - The matrix preset list no longer tags the slower presets "slow in-browser" ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- Data savings are stated as a factor ("2.4× reduction", "1.3× inflation") beside the percentage, which crowds together at the deep end ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- Data savings are stated as a factor ("2.4× reduction", "1.3× inflation") beside the percentage, on every matrix square as well as the summaries ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - The output console under both encode tabs is a fold that starts collapsed, showing its line count until you open it ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - Each output in a matrix sweep gets its own block of rows with a full-size title, so a second kernel stacks below rather than widening the table ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - **Single** and **Matrix** mode are radio buttons, both readable without opening a dropdown ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
