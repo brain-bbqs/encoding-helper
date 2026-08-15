@@ -23,6 +23,8 @@ export interface MatrixTableOptions {
   estimate?: (cell: MatrixCell) => SizeEstimate | null;
   /** Called when a finished cell is clicked, to load it into the A/B window. */
   onSelect?: (cell: MatrixCell) => void;
+  /** Called when a failed cell is clicked, to encode that combination again. */
+  onRetry?: (cell: MatrixCell) => void;
 }
 
 /** An encode's wall-clock cost, at the precision a table column can carry. */
@@ -71,8 +73,8 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   if (cell.status === "failed") {
     return {
       main: "✕",
-      sub: "failed",
-      title: `${settings} — ${cell.error ?? "failed"}`,
+      sub: "retry",
+      title: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
       pending: false,
       grew: false,
     };
@@ -147,10 +149,13 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   btn.append(h("span", "matrix-sub", face.sub));
   btn.title = face.title;
   if (isBest) btn.append(h("span", "matrix-flag", "★ best"));
-  const selectable = cell.status === "done" && cell.bytes != null;
-  btn.disabled = !selectable || !opts.onSelect;
+  // A finished square loads into the A/B window; a failed one is a second attempt at the encode.
+  const selectable = cell.status === "done" && cell.bytes != null && !!opts.onSelect;
+  const retryable = cell.status === "failed" && !!opts.onRetry;
+  btn.disabled = !selectable && !retryable;
   btn.setAttribute("aria-pressed", String(isSelected));
-  if (selectable && opts.onSelect) btn.addEventListener("click", () => opts.onSelect?.(cell));
+  if (selectable) btn.addEventListener("click", () => opts.onSelect?.(cell));
+  else if (retryable) btn.addEventListener("click", () => opts.onRetry?.(cell));
   return btn;
 }
 

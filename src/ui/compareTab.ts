@@ -138,6 +138,19 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
 
   const matrixControls = h("div", "compare-matrix-controls");
   matrixControls.append(teachBox(MATRIX_MODE_TEACH));
+  // Which values the sweep spans is a decision most runs never revisit, so the two tick lists fold
+  // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled
+  // toggle: it opens on click, on Enter, and for a page search hitting text inside it.
+  const axisSettings = h("details", "matrix-settings");
+  const axisSummary = h("summary");
+  axisSummary.append(h("span", "matrix-settings-gear", "⚙"), h("span", null, "Settings to sweep"));
+  const axisCount = h("span", "matrix-settings-count");
+  const refreshAxisCount = (): void => {
+    const { qualities, presets } = encodeTest.matrix;
+    axisCount.textContent = `${qualities.length} × ${presets.length}`;
+  };
+  axisSummary.append(axisCount);
+  axisSettings.append(axisSummary);
   const axisRow = h("div", "row");
   axisRow.append(
     axisCheckboxes(
@@ -146,6 +159,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
       encodeTest.matrix.qualities,
       (values) => {
         encodeTest.matrix.qualities = values as MatrixQuality[];
+        refreshAxisCount();
       },
     ),
   );
@@ -160,11 +174,14 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
       encodeTest.matrix.presets,
       (values) => {
         encodeTest.matrix.presets = values as X264Preset[];
+        refreshAxisCount();
       },
       X264_PRESET_INFO,
     ),
   );
-  matrixControls.append(axisRow);
+  refreshAxisCount();
+  axisSettings.append(axisRow);
+  matrixControls.append(axisSettings);
   sec.append(matrixControls);
 
   const buttons = h("div", "compare-run-buttons");
@@ -293,6 +310,7 @@ function inputNameFor(source: SourceBytes): string {
 async function encodeSegment(
   cliState: CliState,
   source: SourceBytes,
+  segment: { start: number; length: number },
   ui: RunUi,
   onFraction: (fraction: number) => void,
 ): Promise<Blob> {
@@ -304,15 +322,15 @@ async function encodeSegment(
   // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
   // preceding keyframe — the two sides need to show the same content, not just start "close enough."
   const iIdx = args.indexOf("-i");
-  args.splice(iIdx + 2, 0, "-ss", String(encodeTest.startTime), "-t", String(encodeTest.duration));
+  args.splice(iIdx + 2, 0, "-ss", String(segment.start), "-t", String(segment.length));
   setFfmpegHandlers((msg) => {
     logLine(ui.log, msg, "info");
     // Progress is taken from the status lines rather than from the core's own progress events,
     // which are a fraction of the whole input: a 3-second segment of a 30-second file would
     // creep to 10% and stop there, looking like it gave up rather than finished.
     const at = parseFfmpegTimeSeconds(msg);
-    if (at == null || !(encodeTest.duration > 0)) return;
-    onFraction(Math.min(1, Math.max(0, at / encodeTest.duration)));
+    if (at == null || !(segment.length > 0)) return;
+    onFraction(Math.min(1, Math.max(0, at / segment.length)));
   }, null);
   // Written only if this core does not already hold it, so a sweep pays for it once — and pays
   // again only after a crash, the replaced core starting with an empty filesystem.
@@ -383,7 +401,8 @@ async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
     ui.note.textContent = "Writing input to virtual filesystem…";
     source = await readSource();
     ui.note.textContent = "Encoding test segment…";
-    const blob = await encodeSegment(cli, source, ui, (fraction) => {
+    const segment = { start: encodeTest.startTime, length: encodeTest.duration };
+    const blob = await encodeSegment(cli, source, segment, ui, (fraction) => {
       const pct = fraction * 100;
       if (fill) fill.style.width = pct.toFixed(0) + "%";
       ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
@@ -436,9 +455,34 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
     return;
   }
   matrix.cells = makeMatrixCells(combos);
+  // Fixed here rather than read per encode, so a square retried after the fields have been moved
+  // still covers the seconds the rest of the grid was measured over.
   matrix.segmentStart = encodeTest.startTime;
   matrix.segmentLength = encodeTest.duration;
   matrix.selectedKey = null;
+  await encodeCells(matrix.cells, vt, ui);
+}
+
+/** Runs the squares that failed, in place, keeping everything the sweep already measured. */
+async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
+  if (encodeTest.running || !cells.length) return;
+  for (const cell of cells) {
+    cell.status = "pending";
+    cell.error = null;
+  }
+  await encodeCells(cells, vt, ui);
+}
+
+/**
+ * Encodes each of `queue` in turn, filling its square in as it goes, then puts the grid's largest
+ * reduction in the A/B window.
+ *
+ * Shared by the sweep and by a retry, so a square encoded on the second attempt is measured exactly
+ * as its neighbours were.
+ */
+async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
+  const matrix = encodeTest.matrix;
+  const segment = { start: matrix.segmentStart, length: matrix.segmentLength };
   matrix.cancelRequested = false;
   matrix.running = true;
   const fill = startRunUi(ui, true);
@@ -452,25 +496,25 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
     ui.note.textContent = "Writing input to virtual filesystem…";
     source = await readSource();
 
-    for (let i = 0; i < matrix.cells.length; i++) {
-      const cell = matrix.cells[i];
+    for (let i = 0; i < queue.length; i++) {
+      const cell = queue[i];
       if (stopRequested()) {
         cell.status = "skipped";
         continue;
       }
       cell.status = "running";
       repaint();
-      const label = `${i + 1}/${matrix.cells.length}: ${describeSettings(cell.combo)}`;
+      const label = `${i + 1}/${queue.length}: ${describeSettings(cell.combo)}`;
       const showProgress = (fraction: number): void => {
-        // One bar for the whole sweep: a combination's own progress is a fraction of its share.
-        const overall = ((i + fraction) / matrix.cells.length) * 100;
+        // One bar for the whole run: a combination's own progress is a fraction of its share.
+        const overall = ((i + fraction) / queue.length) * 100;
         if (fill) fill.style.width = overall.toFixed(1) + "%";
         ui.note.textContent = `Encoding ${label} — ${(fraction * 100).toFixed(0)}%`;
       };
       showProgress(0);
       const startedAt = performance.now();
       try {
-        const blob = await encodeSegment(matrixCliState(cli, cell.combo), source, ui, showProgress);
+        const blob = await encodeSegment(matrixCliState(cli, cell.combo), source, segment, ui, showProgress);
         cell.elapsedMs = performance.now() - startedAt;
         cell.bytes = blob.size;
         cell.blob = blob;
@@ -496,8 +540,11 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
       ui.progress.style.display = "none";
       return;
     }
-    ui.note.textContent = `Loading the best reduction (${describeSettings(best.combo)}) into the A/B window…`;
-    await selectMatrixCell(best, vt, ui);
+    // A retry that did not beat what is already showing leaves the A/B window alone.
+    if (best.combo.key !== matrix.selectedKey) {
+      ui.note.textContent = `Loading the best reduction (${describeSettings(best.combo)}) into the A/B window…`;
+      await selectMatrixCell(best, vt, ui);
+    }
     if (fill) {
       fill.style.width = "100%";
       fill.classList.add("done");
@@ -512,7 +559,7 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
-    // The sweep is over, so the copy of the video inside the core goes with it.
+    // The run is over, so the copy of the video inside the core goes with it.
     if (source) await deleteFfmpegFile(inputNameFor(source));
     matrix.running = false;
     endRunUi(ui);
@@ -530,21 +577,39 @@ function reportRunFailure(err: unknown, ui: RunUi): void {
 
 /** Puts one square of the grid in the A/B window, re-encoding it if its output has been released. */
 async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Promise<void> {
+  const matrix = encodeTest.matrix;
+  const segment = { start: matrix.segmentStart, length: matrix.segmentLength };
   let blob = cell.blob;
   if (!blob) {
     ui.note.textContent = `Re-encoding ${describeSettings(cell.combo)} for the A/B window…`;
     const source = await readSource();
     try {
-      blob = await encodeSegment(matrixCliState(cli, cell.combo), source, ui, () => {});
+      blob = await encodeSegment(matrixCliState(cli, cell.combo), source, segment, ui, () => {});
     } finally {
       await deleteFfmpegFile(inputNameFor(source));
     }
     cell.blob = blob;
     cell.bytes = blob.size;
   }
-  encodeTest.matrix.selectedKey = cell.combo.key;
+  // The A/B window compares against the seconds the grid was measured over, which the start and
+  // duration fields may have been moved off since.
+  syncSegmentToMatrix();
+  matrix.selectedKey = cell.combo.key;
   await loadEncodedIntoAB(blob, cell.combo, vt, ui.resultSec);
   renderMatrixSection(ui.matrixSec, vt, ui);
+}
+
+/** Puts the segment fields back to the stretch the sweep covered, so the A/B window's original side
+ * shows the same seconds as the encode beside it. */
+function syncSegmentToMatrix(): void {
+  const matrix = encodeTest.matrix;
+  if (!(matrix.segmentLength > 0)) return;
+  encodeTest.startTime = matrix.segmentStart;
+  encodeTest.duration = matrix.segmentLength;
+  const startField = document.getElementById("etStart") as HTMLInputElement | null;
+  if (startField) startField.value = matrix.segmentStart.toFixed(1);
+  const durationField = document.getElementById("etDuration") as HTMLInputElement | null;
+  if (durationField) durationField.value = String(matrix.segmentLength);
 }
 
 /** What a matrix square projects the whole file to, on the segment that square was encoded from. */
@@ -570,6 +635,7 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Matrix Results"));
+  const busy = matrix.running || encodeTest.running;
   const best = bestReductionCell(matrix.cells);
   sec.append(renderMatrixSummary(best, matrixCellEstimate));
   sec.append(
@@ -580,7 +646,8 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
       estimate: matrixCellEstimate,
       // Squares stay unclickable while the sweep runs: loading one can mean re-encoding it, and
       // there is only one encoder.
-      onSelect: matrix.running || encodeTest.running ? undefined : (cell) => void selectMatrixCell(cell, vt, ui),
+      onSelect: busy ? undefined : (cell) => void selectMatrixCell(cell, vt, ui),
+      onRetry: busy ? undefined : (cell) => void retryCells([cell], vt, ui),
     }),
   );
 
@@ -594,6 +661,16 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
   ].filter(Boolean);
   sec.append(h("div", "matrix-legend", legend.join(" · ")));
 
+  const actions = h("div", "compare-run-buttons");
+  // One press for a grid full of failures, since retrying them one square at a time is the same
+  // work with more clicking. A single failure is one click on the square itself.
+  const failed = matrix.cells.filter((c) => c.status === "failed");
+  if (failed.length > 1 && !busy) {
+    const retry = h("button", "btn sm sec", `Retry ${failed.length} failed`);
+    retry.type = "button";
+    retry.addEventListener("click", () => void retryCells(failed, vt, ui));
+    actions.append(retry);
+  }
   const selected = matrix.cells.find((c) => c.combo.key === matrix.selectedKey);
   if (selected) {
     const apply = h("button", "btn sm sec", "Use these settings in the CLI command");
@@ -605,8 +682,9 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
       syncQualityControls();
       apply.textContent = "Applied";
     });
-    sec.append(apply);
+    actions.append(apply);
   }
+  if (actions.children.length) sec.append(actions);
 }
 
 // Halts the previous run's playback loop, so a fresh comparison does not leave one decoding frames

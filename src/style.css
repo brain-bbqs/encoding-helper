@@ -1169,6 +1169,59 @@ table.data th {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* The sweep's axes, folded away behind a bar: which values it spans is set once and then left
+   alone, so it should not sit between the reader and the Run button every visit. */
+.matrix-settings {
+  margin-bottom: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+}
+.matrix-settings > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead — and it has
+     to say which way the bar will move, not just that it is a bar. */
+  list-style: none;
+}
+.matrix-settings > summary::-webkit-details-marker {
+  display: none;
+}
+.matrix-settings > summary::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--faint);
+}
+.matrix-settings[open] > summary::before {
+  content: "▾";
+}
+.matrix-settings > summary:hover {
+  color: var(--text);
+}
+.matrix-settings-gear {
+  font-size: 14px;
+}
+/* What the tick lists come to, so the bar says something while it is shut. */
+.matrix-settings-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+.matrix-settings[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 12px;
+}
+.matrix-settings > .row {
+  padding: 0 12px;
+}
+.matrix-settings > .row > .field:last-child {
+  margin-bottom: 12px;
+}
 .axis-list {
   display: flex;
   flex-wrap: wrap;

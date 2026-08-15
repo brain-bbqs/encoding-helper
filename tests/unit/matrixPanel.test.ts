@@ -106,6 +106,31 @@ describe("renderMatrixTable", () => {
     expect(button.title).toContain("ffmpeg.wasm crashed part-way through");
   });
 
+  it("offers a failed square as a retry, and hands it back when clicked", () => {
+    const failed = cells();
+    failed[2].status = "failed";
+    failed[2].error = "crashed";
+    const retried: string[] = [];
+    const table = renderMatrixTable({
+      cells: failed,
+      onSelect: () => {},
+      onRetry: (cell) => retried.push(cell.combo.key),
+    });
+    const button = cellButtons(table)[2];
+    expect(button.querySelector(".matrix-sub")!.textContent).toBe("retry");
+    expect(button.title).toContain("Click to try it again");
+    expect(button.disabled).toBe(false);
+    button.click();
+    expect(retried).toEqual(["low:ultrafast"]);
+  });
+
+  it("leaves a failed square unclickable when retrying is not on offer", () => {
+    const failed = cells();
+    failed[2].status = "failed";
+    const table = renderMatrixTable({ cells: failed, onSelect: () => {} });
+    expect(cellButtons(table)[2].disabled).toBe(true);
+  });
+
   it("hands the clicked square back, and disables selection when no handler is given", () => {
     const picked: string[] = [];
     const table = renderMatrixTable({ cells: cells(), onSelect: (cell) => picked.push(cell.combo.key) });

@@ -80,6 +80,16 @@ describe("renderEncodeTestTab", () => {
     expect(axisBoxes(panel, "x264 presets")).toHaveLength(MATRIX_PRESETS.length);
   });
 
+  it("folds the axis tick lists away behind a bar carrying what they come to", () => {
+    const panel = renderTab();
+    const settings = panel.querySelector<HTMLDetailsElement>(".matrix-settings")!;
+    expect(settings.open).toBe(false);
+    expect(settings.querySelector("summary")!.textContent).toContain("Settings to sweep");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6");
+    // The lists themselves are inside it, not beside it.
+    expect(axisBoxes(panel, "Quality levels")[0].closest(".matrix-settings")).toBe(settings);
+  });
+
   it("records what the axes are ticked to as the next sweep's coverage", () => {
     const panel = renderTab();
     for (const box of axisBoxes(panel, "x264 presets").slice(1)) {
@@ -98,5 +108,6 @@ describe("renderEncodeTestTab", () => {
       box.dispatchEvent(new Event("change"));
     }
     expect(encodeTest.matrix.qualities).toEqual([]);
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2");
   });
 });
