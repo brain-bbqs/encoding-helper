@@ -223,3 +223,21 @@ export function fmtSignedChange(estimate: SizeEstimate): string {
   const change = estimate.ratio - 1;
   return (change >= 0 ? "+" : "-") + fmtPct(Math.abs(change));
 }
+
+/**
+ * The same change as a factor, e.g. "2.6× reduction" or "1.1× inflation".
+ *
+ * A percentage compresses exactly where the interesting encodes are: 90% and 95% smaller read as
+ * neighbours, but one file is twice the size of the other. The factor keeps that distance visible
+ * (10× against 20×), which is the form these numbers are usually quoted in anyway. Both are shown,
+ * since a percentage is the better feel for the shallow end where a factor hugs 1.
+ */
+export function fmtChangeFactor(ratio: number): string {
+  if (!Number.isFinite(ratio) || ratio <= 0) return "–";
+  if (Math.abs(ratio - 1) < NEGLIGIBLE) return "1× (no change)";
+  const inflating = ratio > 1;
+  const factor = inflating ? ratio : 1 / ratio;
+  // A tenth is meaningful at 2.4× and noise at 24×, where the digits before the point carry it.
+  const digits = factor < 10 ? 1 : 0;
+  return `${factor.toFixed(digits)}× ${inflating ? "inflation" : "reduction"}`;
+}

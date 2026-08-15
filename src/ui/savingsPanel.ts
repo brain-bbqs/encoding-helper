@@ -10,7 +10,7 @@
 import { gridItem, h } from "../lib/dom";
 import { ORIGINAL_SEGMENT_INFO, PROJECTED_SIZE_INFO, SAMPLED_WINDOW_INFO } from "../lib/explainers";
 import { fmtBytes, fmtDur } from "../lib/format";
-import { describeSavings, fmtPct, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
+import { describeSavings, fmtChangeFactor, fmtPct, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
 
 /** Under this the two projections differ by less than the byte figures beside them would show. */
 const NEGLIGIBLE_BYTES = 1024;
@@ -52,7 +52,13 @@ export function renderSavingsStrip(est: SizeEstimate): HTMLDivElement {
   const wrap = h("div", "savings");
   const grew = est.savedFraction < 0;
   const figure = h("div", "savings-figure");
-  figure.append(h("div", "savings-headline" + (grew ? " grew" : ""), describeSavings(est)));
+  // Two readings of the one change, side by side: the percentage carries the shallow end, where a
+  // factor hugs 1, and the factor carries the deep end, where 90% and 95% smaller read as
+  // neighbours but are 10× and 20×.
+  figure.append(
+    h("div", "savings-headline" + (grew ? " grew" : ""), describeSavings(est)),
+    h("div", "savings-factor", fmtChangeFactor(est.ratio)),
+  );
   const delta = Math.abs(est.projectedSavedBytes);
   const across = `Projected across the whole ${fmtDur(est.totalSeconds)}: `;
   figure.append(
@@ -84,7 +90,7 @@ export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
   const g = h("div", "grid");
   g.append(
     gridItem("Original Segment Size", fmtBytes(est.originalSegmentBytes), { info: ORIGINAL_SEGMENT_INFO }),
-    gridItem("Segment Change", fmtSignedChange(est)),
+    gridItem("Segment Change", `${fmtSignedChange(est)} (${fmtChangeFactor(est.ratio)})`),
     gridItem("Original File Size", fmtBytes(est.originalTotalBytes)),
     gridItem("Projected Full File", fmtBytes(est.projectedTotalBytes), { info: PROJECTED_SIZE_INFO }),
   );

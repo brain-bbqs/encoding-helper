@@ -14,7 +14,7 @@ import { h, infoIcon } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
 import { MATRIX_BEST_INFO } from "../lib/explainers";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
-import { fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
+import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
 import type { MatrixCell } from "../lib/types";
 
 export interface MatrixTableOptions {
@@ -63,7 +63,7 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
     sub: sub.join(" · "),
     title:
       `${describeSettings(cell.combo)} — segment ${fmtBytes(bytes)}` +
-      (est ? `, whole file projected at ${fmtBytes(est.projectedTotalBytes)}` : "") +
+      (est ? ` (${fmtChangeFactor(est.ratio)}), whole file projected at ${fmtBytes(est.projectedTotalBytes)}` : "") +
       (cell.elapsedMs != null ? `, encoded in ${fmtElapsed(cell.elapsedMs)}` : "") +
       (cell.blob ? "" : " (output released; selecting it re-encodes this square)"),
     pending: false,
@@ -224,8 +224,11 @@ export function renderMatrixSummary(
       "matrix-summary-figure",
       est ? `${fmtPct(Math.abs(est.savedFraction))} ${est.savedFraction < 0 ? "larger" : "smaller"}` : "Best reduction",
     ),
-    infoIcon(MATRIX_BEST_INFO, "About the best reduction"),
   );
+  // The percentage and the factor say the same thing, and which one lands depends on how deep the
+  // reduction is, so the winner carries both.
+  if (est) head.append(h("span", "matrix-summary-factor", fmtChangeFactor(est.ratio)));
+  head.append(infoIcon(MATRIX_BEST_INFO, "About the best reduction"));
   wrap.append(head);
   return wrap;
 }

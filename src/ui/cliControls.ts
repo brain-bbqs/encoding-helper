@@ -13,6 +13,7 @@ import {
 } from "../lib/cliCommand";
 import { gridItem, h } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
+import { fmtChangeFactor } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, state } from "../lib/state";
 import type { Scaler } from "../lib/types";
 import type { EngineBox } from "./formControls";
@@ -92,7 +93,13 @@ export function showReencodeResult(box: EngineBox, engine: "fast" | "exact", ori
   g.append(
     gridItem("Original Size", fmtBytes(origSize)),
     gridItem("Encoded Size", fmtBytes(outSize)),
-    gridItem("Change", (pct >= 0 ? "-" : "+") + Math.abs(pct).toFixed(1) + "%"),
+    gridItem(
+      "Change",
+      (pct >= 0 ? "-" : "+") +
+        Math.abs(pct).toFixed(1) +
+        "%" +
+        (origSize > 0 ? ` (${fmtChangeFactor(outSize / origSize)})` : ""),
+    ),
   );
   box.result.append(g);
   box.note.textContent = "Done.";

@@ -56,6 +56,8 @@ describe("renderSavingsStrip", () => {
     const strip = renderSavingsStrip(estimate(50_000));
     expect(strip.querySelector(".savings-headline")!.textContent).toBe("50% smaller");
     expect(strip.querySelector(".savings-headline")!.classList.contains("grew")).toBe(false);
+    // The same change stated the other way, for the deep end where percentages crowd together.
+    expect(strip.querySelector(".savings-factor")!.textContent).toBe("2.0× reduction");
     expect(strip.querySelector(".savings-sub")!.textContent).toBe(
       "Projected across the whole 1m 40.0s: ≈ 488.3 KB saved",
     );
@@ -65,6 +67,7 @@ describe("renderSavingsStrip", () => {
     const strip = renderSavingsStrip(estimate(150_000));
     expect(strip.querySelector(".savings-headline")!.textContent).toBe("50% larger");
     expect(strip.querySelector(".savings-headline")!.classList.contains("grew")).toBe(true);
+    expect(strip.querySelector(".savings-factor")!.textContent).toBe("1.5× inflation");
     expect(strip.querySelector(".savings-sub")!.textContent).toContain("≈ 488.3 KB added");
   });
 

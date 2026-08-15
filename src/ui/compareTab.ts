@@ -46,7 +46,7 @@ import { fmtBytes } from "../lib/format";
 import { currentSizeEstimate, estimateSizeSavings, type SizeEstimate } from "../lib/sizeEstimate";
 import type { CliState, EncodeSettings, MatrixCell, MatrixQuality, Scaler, TrackInfo, X264Preset } from "../lib/types";
 import { parseScale, parseScaler, scaleOptions, scalerOptions, syncQualityControls } from "./cliControls";
-import { fieldNumber, fieldSelect, logLine } from "./formControls";
+import { clearLog, fieldNumber, fieldSelect, logConsole, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
 import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
@@ -241,9 +241,8 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   sec.append(progress);
   const note = h("div", "progress-label");
   sec.append(note);
-  const log = h("div", "log-console");
-  log.style.display = "none";
-  sec.append(log);
+  const { wrap: logWrap, log } = logConsole();
+  sec.append(logWrap);
   panel.append(sec);
 
   const matrixSec = h("div", "section");
@@ -431,7 +430,7 @@ function startRunUi(ui: RunUi, matrix: boolean): HTMLDivElement | null {
     fill.style.width = "0%";
     fill.classList.remove("done");
   }
-  ui.log.innerHTML = "";
+  clearLog(ui.log);
   return fill;
 }
 

@@ -40,7 +40,7 @@ import { describeMetadataTag } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { bestReductionCell, cliSettings, comboCrf, comboKey, matrixAxes } from "../lib/qualityMatrix";
 import { downloadBlob } from "../lib/save";
-import { currentSizeEstimate, describeSavings, fmtSignedChange } from "../lib/sizeEstimate";
+import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
@@ -384,7 +384,7 @@ function compareSection(): AnalysisSection | null {
   if (est) {
     items.push(
       ["Original Segment Size", fmtBytes(est.originalSegmentBytes)],
-      ["Segment Change", fmtSignedChange(est)],
+      ["Segment Change", `${fmtSignedChange(est)} (${fmtChangeFactor(est.ratio)})`],
       ["Original File Size", fmtBytes(est.originalTotalBytes)],
       ["Projected Full File", fmtBytes(est.projectedTotalBytes)],
     );
