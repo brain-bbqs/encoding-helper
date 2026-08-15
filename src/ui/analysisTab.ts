@@ -418,7 +418,7 @@ function matrixSection(): AnalysisSection | null {
           `time the encode took; ★ marks the largest reduction, which is the comparison above. Size is the only ` +
           `ranking here — no picture-quality metric is computed, so the highest CRF wins nearly every sweep.`,
       },
-      { kind: "table", headers: ["Quality \\ Preset", ...presets], rows },
+      { kind: "table", headers: ["Quality", ...presets], rows },
     ],
   };
 }

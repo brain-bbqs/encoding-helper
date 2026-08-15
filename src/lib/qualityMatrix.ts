@@ -43,9 +43,6 @@ export const MATRIX_PRESETS: X264Preset[] = [
  */
 export const DEFAULT_MATRIX_PRESETS: X264Preset[] = MATRIX_PRESETS.slice(0, 6);
 
-/** Combinations past this many, and the sweep is worth warning about before it is started. */
-export const MATRIX_LARGE_RUN = 24;
-
 /**
  * How many bytes of encoded segments to keep in memory across a sweep.
  *

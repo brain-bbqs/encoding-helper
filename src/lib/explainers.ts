@@ -193,19 +193,14 @@ export const MATRIX_MODE_TEACH =
   "results out as a grid, so the trade is read off one table instead of remembered across a run each. The " +
   "largest reduction is marked ★ and loaded into the A/B window below; click any other square to look at that " +
   "one instead." +
-  "<p>Each square is a real encode, so a sweep costs the sum of its parts: the count below is worth a glance " +
-  "before starting one, and the slower presets are left unticked because a single-threaded in-browser encoder " +
-  "can spend minutes on each. <b>Stop</b> ends the sweep after the square it is on, keeping everything already " +
-  "measured.</p>";
+  "<p>Each square is a real encode, so a sweep costs the sum of its parts: the slower presets are left " +
+  "unticked because a single-threaded in-browser encoder can spend minutes on each. <b>Stop</b> ends the sweep " +
+  "after the square it is on, keeping everything already measured.</p>";
 
 /** Why "best" is a size ranking and nothing more. */
 export const MATRIX_BEST_INFO =
   "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
-  "highest CRF offered wins nearly every sweep — it is the setting throwing the most away. That is what the " +
-  "A/B window is for. The grid is kept on screen beside the winner so the rows above it, which give the bytes " +
-  "back in exchange for picture, can be read against it." +
-  "<p>Ties go to the better picture first and the faster preset second, since neither is worth giving up for " +
-  "a file of the same size.</p>";
+  "highest CRF offered wins nearly every sweep.";
 
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +

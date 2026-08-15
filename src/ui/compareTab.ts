@@ -27,7 +27,6 @@ import {
   DEFAULT_MATRIX_PRESETS,
   evictBeyondBudget,
   makeMatrixCells,
-  MATRIX_LARGE_RUN,
   MATRIX_PRESETS,
   MATRIX_QUALITIES,
   MATRIX_RETAINED_BYTES,
@@ -140,16 +139,6 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   const matrixControls = h("div", "compare-matrix-controls");
   matrixControls.append(teachBox(MATRIX_MODE_TEACH));
   const axisRow = h("div", "row");
-  const countHint = h("div", "field hint matrix-count");
-  const refreshCount = (): void => {
-    const n = buildMatrixCombos(encodeTest.matrix.qualities, encodeTest.matrix.presets).length;
-    countHint.textContent =
-      n === 0
-        ? "Tick at least one quality and one preset."
-        : `${n} combination${n === 1 ? "" : "s"} × ${encodeTest.duration.toFixed(1)}s of video` +
-          (n > MATRIX_LARGE_RUN ? " — a long sweep; Stop keeps whatever has finished." : "");
-    countHint.classList.toggle("warn-hint", n > MATRIX_LARGE_RUN);
-  };
   axisRow.append(
     axisCheckboxes(
       "Quality levels",
@@ -157,7 +146,6 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
       encodeTest.matrix.qualities,
       (values) => {
         encodeTest.matrix.qualities = values as MatrixQuality[];
-        refreshCount();
       },
     ),
   );
@@ -172,12 +160,11 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
       encodeTest.matrix.presets,
       (values) => {
         encodeTest.matrix.presets = values as X264Preset[];
-        refreshCount();
       },
       X264_PRESET_INFO,
     ),
   );
-  matrixControls.append(axisRow, countHint);
+  matrixControls.append(axisRow);
   sec.append(matrixControls);
 
   const buttons = h("div", "compare-run-buttons");
@@ -214,7 +201,6 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
     singleControls.style.display = matrix ? "none" : "";
     matrixControls.style.display = matrix ? "" : "none";
     runBtn.textContent = matrix ? "Run Matrix" : "Run Comparison";
-    refreshCount();
   };
   applyMode();
 
@@ -223,7 +209,6 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   });
   document.getElementById("etDuration")?.addEventListener("input", (e) => {
     encodeTest.duration = parseFloat((e.target as HTMLInputElement).value) || 1;
-    refreshCount();
   });
   document.getElementById("etMode")?.addEventListener("change", (e) => {
     encodeTest.mode = (e.target as HTMLSelectElement).value === "matrix" ? "matrix" : "single";

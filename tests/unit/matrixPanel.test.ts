@@ -44,7 +44,8 @@ describe("renderMatrixTable", () => {
   it("lays the axes out as a grid, quality down the side and preset across the top", () => {
     const table = renderMatrixTable({ cells: cells() });
     const headers = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent);
-    expect(headers).toEqual(["Quality \\ Preset", "ultrafast", "fast"]);
+    expect(headers).toEqual(["", "Preset", "Quality", "ultrafast", "fast"]);
+    expect(table.querySelector<HTMLTableCellElement>(".matrix-axis-label")!.colSpan).toBe(2);
     const rowHeads = Array.from(table.querySelectorAll(".matrix-row-head")).map((th) => th.textContent);
     expect(rowHeads).toEqual(["high (CRF 18)", "low (CRF 32)"]);
     expect(cellButtons(table)).toHaveLength(4);
@@ -121,10 +122,9 @@ describe("renderMatrixSummary", () => {
     expect(summary.querySelector(".matrix-summary-figure")).toBeNull();
   });
 
-  it("leads with the winner's saving and names the settings behind it", () => {
-    const best = cells()[1];
-    const summary = renderMatrixSummary(best, estimateFor);
+  it("leads with the winner's saving", () => {
+    const summary = renderMatrixSummary(cells()[1], estimateFor);
     expect(summary.querySelector(".matrix-summary-figure")!.textContent).toBe("60% smaller");
-    expect(summary.querySelector(".matrix-summary-sub")!.textContent).toContain("high (CRF 18), fast");
+    expect(summary.querySelector(".matrix-summary-sub")).toBeNull();
   });
 });

@@ -95,10 +95,17 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   const wrap = h("div", "scroll-x");
   const table = h("table", "data matrix-table");
   const thead = h("thead");
+  // The two axes are named once each, over the columns and over the row heads, rather than crammed
+  // into one corner cell with a slash between them.
+  const axisRow = h("tr");
+  axisRow.append(h("th", "matrix-corner"));
+  const presetLabel = h("th", "matrix-axis-label", "Preset");
+  presetLabel.colSpan = Math.max(1, presets.length);
+  axisRow.append(presetLabel);
   const headRow = h("tr");
-  headRow.append(h("th", null, "Quality \\ Preset"));
+  headRow.append(h("th", "matrix-corner", "Quality"));
   presets.forEach((p) => headRow.append(h("th", null, p)));
-  thead.append(headRow);
+  thead.append(axisRow, headRow);
   table.append(thead);
 
   const tbody = h("tbody");
@@ -168,8 +175,5 @@ export function renderMatrixSummary(
     infoIcon(MATRIX_BEST_INFO, "About the best reduction"),
   );
   wrap.append(head);
-  wrap.append(
-    h("div", "matrix-summary-sub", `Best reduction: ${describeSettings(best.combo)}. Now in the A/B window.`),
-  );
   return wrap;
 }

@@ -34,10 +34,6 @@ function axisBoxes(panel: HTMLElement, label: string): HTMLInputElement[] {
   return Array.from(field?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]') ?? []);
 }
 
-function hint(panel: HTMLElement): string {
-  return panel.querySelector(".field.hint")?.textContent ?? "";
-}
-
 beforeEach(() => {
   document.body.innerHTML = "";
   resetState();
@@ -84,39 +80,23 @@ describe("renderEncodeTestTab", () => {
     expect(axisBoxes(panel, "x264 presets")).toHaveLength(MATRIX_PRESETS.length);
   });
 
-  it("counts the combinations a sweep would run as the axes are ticked", () => {
+  it("records what the axes are ticked to as the next sweep's coverage", () => {
     const panel = renderTab();
-    expect(hint(panel)).toBe("24 combinations × 3.0s of video");
-
-    const presets = axisBoxes(panel, "x264 presets");
-    for (const box of presets.slice(1)) {
+    for (const box of axisBoxes(panel, "x264 presets").slice(1)) {
       box.checked = false;
       box.dispatchEvent(new Event("change"));
     }
     expect(encodeTest.matrix.presets).toEqual(["ultrafast"]);
-    expect(hint(panel)).toBe("4 combinations × 3.0s of video");
 
-    const qualities = axisBoxes(panel, "Quality levels");
-    for (const box of qualities) {
+    const slowest = axisBoxes(panel, "x264 presets").at(-1)!;
+    slowest.checked = true;
+    slowest.dispatchEvent(new Event("change"));
+    expect(encodeTest.matrix.presets).toEqual(["ultrafast", "veryslow"]);
+
+    for (const box of axisBoxes(panel, "Quality levels")) {
       box.checked = false;
       box.dispatchEvent(new Event("change"));
     }
-    expect(hint(panel)).toBe("Tick at least one quality and one preset.");
-  });
-
-  it("warns when the sweep gets long, and follows the segment length", () => {
-    const panel = renderTab();
-    for (const box of axisBoxes(panel, "x264 presets")) {
-      box.checked = true;
-      box.dispatchEvent(new Event("change"));
-    }
-    const hintEl = panel.querySelector<HTMLElement>(".field.hint")!;
-    expect(hintEl.textContent).toContain("36 combinations");
-    expect(hintEl.classList.contains("warn-hint")).toBe(true);
-
-    const duration = panel.querySelector<HTMLInputElement>("#etDuration")!;
-    duration.value = "5";
-    duration.dispatchEvent(new Event("input"));
-    expect(hintEl.textContent).toContain("× 5.0s of video");
+    expect(encodeTest.matrix.qualities).toEqual([]);
   });
 });
