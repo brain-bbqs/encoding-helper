@@ -1014,25 +1014,37 @@ details.teach-more summary {
 }
 
 /* Log console */
-/* A small set of choices side by side, where a dropdown would hide the alternative behind a click. */
-.radio-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  align-items: center;
-  min-height: 38px;
-}
-.radio-option {
+/* Segmented control for a short set of choices, where a dropdown would hide the alternative behind
+   a click. Mirrors the `.seg` control in brain-bbqs/clip-extractor, keeping the two apps' pickers
+   identical the way the theme toggle and dropzone already are. */
+.seg {
   display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.seg button {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid var(--border);
   cursor: pointer;
   white-space: nowrap;
 }
-.radio-option input {
-  margin: 0 2px 0 0;
-  cursor: pointer;
+.seg button:last-child {
+  border-right: none;
+}
+.seg button:hover:not(.active) {
+  background: var(--accent-soft);
+}
+.seg button.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
 /* The output console lives in a fold that starts closed, so a finished run's result is what is on

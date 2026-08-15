@@ -62,13 +62,16 @@ export function fieldNumber(
 }
 
 /**
- * A short, fixed set of choices as radios rather than a dropdown.
+ * A short, fixed set of choices as a segmented control rather than a dropdown.
  *
  * Worth the width when the options are few and the choice changes what the panel below shows: both
  * are on screen at once, so the alternative is readable without opening anything, and switching is
  * one click rather than two.
+ *
+ * The markup and styling mirror the `.seg` control in brain-bbqs/clip-extractor, the way the theme
+ * toggle and the dropzone already do, so the two apps' controls are the same control.
  */
-export function fieldRadios(
+export function fieldSegmented(
   name: string,
   label: string,
   options: [string, string][],
@@ -78,21 +81,28 @@ export function fieldRadios(
 ): HTMLDivElement {
   const f = h("div", "field");
   f.append(fieldHead(label, info));
-  const row = h("div", "radio-row");
+  const seg = h("div", "seg");
+  seg.id = name;
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", label);
+  const buttons: HTMLButtonElement[] = [];
   for (const [optValue, text] of options) {
-    const wrap = h("label", "radio-option");
-    const input = h("input");
-    input.type = "radio";
-    input.name = name;
-    input.value = optValue;
-    input.checked = optValue === value;
-    input.addEventListener("change", () => {
-      if (input.checked) onChange(optValue);
+    const btn = h("button", optValue === value ? "active" : null, text);
+    btn.type = "button";
+    btn.dataset.value = optValue;
+    btn.setAttribute("aria-pressed", String(optValue === value));
+    btn.addEventListener("click", () => {
+      for (const other of buttons) {
+        const on = other === btn;
+        other.classList.toggle("active", on);
+        other.setAttribute("aria-pressed", String(on));
+      }
+      onChange(optValue);
     });
-    wrap.append(input, document.createTextNode(" " + text));
-    row.append(wrap);
+    buttons.push(btn);
+    seg.append(btn);
   }
-  f.append(row);
+  f.append(seg);
   return f;
 }
 

@@ -13,7 +13,7 @@
 - Data savings are stated as a factor ("2.4× reduction", "1.3× inflation") beside the percentage, on every matrix square as well as the summaries ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - The output console under both encode tabs is a fold that starts collapsed, showing its line count until you open it ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - Each output in a matrix sweep gets its own block of rows with a full-size title, so a second kernel stacks below rather than widening the table ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- **Single** and **Matrix** mode are radio buttons, both readable without opening a dropdown ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- **Single** and **Matrix** mode are a segmented control matching [clip-extractor](https://github.com/brain-bbqs/clip-extractor), both readable without opening a dropdown ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - A **Segments** count encodes that many stretches spread at random across the whole video, projecting the size from all of them and narrowing the range ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 - Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))

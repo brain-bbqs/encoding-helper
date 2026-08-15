@@ -59,7 +59,7 @@ import type {
   X264Preset,
 } from "../lib/types";
 import { parseScale, parseScaler, scaleOptions, scalerOptions, syncQualityControls } from "./cliControls";
-import { clearLog, fieldNumber, fieldRadios, fieldSelect, logConsole, logLine } from "./formControls";
+import { clearLog, fieldNumber, fieldSegmented, fieldSelect, logConsole, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
 import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
@@ -121,7 +121,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   row1.append(fieldNumber("etDuration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5));
   row1.append(fieldNumber("etSegments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1, SEGMENTS_INFO));
   row1.append(
-    fieldRadios(
+    fieldSegmented(
       "etMode",
       "Mode",
       [
