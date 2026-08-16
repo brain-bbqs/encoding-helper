@@ -10,3 +10,4 @@
 - Keep PR descriptions as short and concise as possible: the fewest words that describe the change accurately. No walking the diff file by file, no restating what the code already says, no background the reviewer does not need to review it
 - Always keep the PR title and description accurate to what the branch currently does. When follow-up commits add, drop or change behaviour, update them in place rather than leaving them describing an earlier state, and correct anything in them that misdescribes the diff
 - Limit use of em-dashes in all text
+- When a request is genuinely ambiguous, ask in plain text at the end of your reply and stop there. Do not use interactive prompts. Waiting for an answer is fine, there is no time pressure to guess. Bundle related questions into one message rather than asking them one at a time
