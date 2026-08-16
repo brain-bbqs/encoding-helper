@@ -275,14 +275,28 @@ export function pickSampleWindows(totalSeconds: number, seconds: number, count: 
 /** The estimate for the comparison currently loaded in the Compare Quality tab, or null before one runs. */
 export function currentSizeEstimate(): SizeEstimate | null {
   if (encodeTest.encodedSize == null || !state.source) return null;
-  // The measured output duration, not the requested one: a trim can land a frame either side of it,
-  // and the ratio is only fair if both halves cover the same seconds.
-  const segmentSeconds = encodeTest.segDuration > 0 ? encodeTest.segDuration : encodeTest.duration;
+  // Every stretch the run covered, not just the one the A/B window is showing: the bytes on the
+  // other side of this ratio are all of them added together, so the source side has to cover all
+  // of them too. Left as the shown stretch alone, a five-segment run measured five stretches of
+  // output against one stretch of source and projected a file about five times too big.
+  //
+  // The seconds are the measured output durations rather than the requested ones — a trim lands a
+  // frame either side of the length asked for, and the ratio is only fair if both halves cover the
+  // same seconds — which is what the run stored on each window.
+  const windows: SampleWindow[] = encodeTest.windows.length
+    ? encodeTest.windows
+    : [
+        {
+          startSeconds: encodeTest.startTime,
+          seconds: encodeTest.segDuration > 0 ? encodeTest.segDuration : encodeTest.duration,
+        },
+      ];
   return estimateSizeSavings({
     originalTotalBytes: state.source.size,
     totalSeconds: state.duration ?? 0,
-    segmentStartSeconds: encodeTest.startTime,
-    segmentSeconds,
+    segmentStartSeconds: windows[0].startSeconds,
+    segmentSeconds: windows.reduce((sum, w) => sum + w.seconds, 0),
+    windows,
     encodedSegmentBytes: encodeTest.encodedSize,
     samples: state.samples,
   });

@@ -246,7 +246,7 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   sec.append(logWrap);
   panel.append(sec);
 
-  const matrixSec = h("div", "section");
+  const matrixSec = h("div", "section matrix-section");
   matrixSec.style.display = "none";
   panel.append(matrixSec);
 
@@ -1062,7 +1062,7 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Pro
   matrix.selectedKey = cell.combo.key;
   await loadEncodedIntoAB(blob, cell.combo, vt, ui.resultSec, {
     bytes: cell.bytes ?? blob.size,
-    windows: matrixWindows(),
+    windows: matrixCellWindows(cell),
   });
   renderMatrixSection(ui.matrixSec, vt, ui);
 }
@@ -1085,22 +1085,32 @@ function syncSegmentToMatrix(): void {
   if (durationField) durationField.value = String(matrix.segmentLength);
 }
 
-/** What a matrix square projects the whole file to, on the segment that square was encoded from. */
-function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
-  if (cell.bytes == null || !state.source) return null;
-  const matrix = encodeTest.matrix;
+/**
+ * The stretches a square was measured over, at the seconds its output actually came to.
+ *
+ * A trim lands a frame either side of the length asked for, so the stretches are stretched to what
+ * this square's output measured, keeping both halves of its ratio on equal terms. Shared with the
+ * A/B window below the grid, so the square and the card it opens report the same saving rather
+ * than two numbers a fraction of a percent apart.
+ */
+function matrixCellWindows(cell: MatrixCell): SampleWindow[] {
   const windows = matrixWindows();
-  // A trim lands a frame either side of the length asked for, so the stretches are stretched to
-  // what this square's output actually measured, keeping both halves of its ratio on equal terms.
   const requested = windows.reduce((sum, w) => sum + w.seconds, 0);
   const measured = cell.segmentSeconds && cell.segmentSeconds > 0 ? cell.segmentSeconds : requested;
   const factor = requested > 0 ? measured / requested : 1;
+  return windows.map((w) => ({ startSeconds: w.startSeconds, seconds: w.seconds * factor }));
+}
+
+/** What a matrix square projects the whole file to, on the segments that square was encoded from. */
+function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
+  if (cell.bytes == null || !state.source) return null;
+  const windows = matrixCellWindows(cell);
   return estimateSizeSavings({
     originalTotalBytes: state.source.size,
     totalSeconds: state.duration ?? 0,
-    segmentStartSeconds: matrix.segmentStart,
-    segmentSeconds: measured,
-    windows: windows.map((w) => ({ startSeconds: w.startSeconds, seconds: w.seconds * factor })),
+    segmentStartSeconds: windows[0]?.startSeconds ?? encodeTest.matrix.segmentStart,
+    segmentSeconds: windows.reduce((sum, w) => sum + w.seconds, 0),
+    windows,
     encodedSegmentBytes: cell.bytes,
     samples: state.samples,
   });

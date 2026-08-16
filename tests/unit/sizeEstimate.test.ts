@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { encodeTest, resetState, state } from "../../src/lib/state";
 import {
+  currentSizeEstimate,
   describeSavings,
   estimateSizeSavings,
   fmtChangeFactor,
@@ -390,5 +392,57 @@ describe("windowsForRun", () => {
     for (const w of windowsForRun([], 100, 3, 4, snap)) {
       expect(w.startSeconds % 10).toBe(0);
     }
+  });
+});
+
+// The A/B window shows one stretch while the byte count behind it is every stretch the run
+// encoded, so the source side has to be read over all of them.
+describe("currentSizeEstimate", () => {
+  beforeEach(() => {
+    resetState();
+    state.source = { kind: "file", name: "clip.mp4", size: 30_000_000 };
+    state.duration = 30;
+    state.samples = evenSamples(900, 30, () => 33_000);
+  });
+
+  it("measures every stretch the run covered, not just the one on screen", () => {
+    encodeTest.encodedSize = 5_000_000;
+    encodeTest.segDuration = 5;
+    encodeTest.windows = [0, 5, 10, 15, 20].map((startSeconds) => ({ startSeconds, seconds: 5 }));
+    const est = currentSizeEstimate()!;
+    expect(est.segmentSeconds).toBe(25);
+    expect(est.sampledFraction).toBeCloseTo(25 / 30, 5);
+    // 25 of the file's 30 seconds went in and came out a fifth the size, so the whole file does too.
+    expect(est.ratio).toBeCloseTo(0.2, 2);
+  });
+
+  // The grid square and the card the square opens are the same measurement, so they cannot report
+  // different numbers: they did, by a factor of the segment count, until the card read the windows.
+  it("reports what the matrix square that opened it reports", () => {
+    const windows = [0, 5, 10, 15, 20].map((startSeconds) => ({ startSeconds, seconds: 5 }));
+    encodeTest.encodedSize = 5_000_000;
+    encodeTest.segDuration = 5;
+    encodeTest.windows = windows;
+    const square = estimateSizeSavings({
+      originalTotalBytes: 30_000_000,
+      totalSeconds: 30,
+      segmentStartSeconds: 0,
+      segmentSeconds: 25,
+      windows,
+      encodedSegmentBytes: 5_000_000,
+      samples: state.samples,
+    })!;
+    const card = currentSizeEstimate()!;
+    expect(card.ratio).toBe(square.ratio);
+    expect(card.projectedTotalBytes).toBe(square.projectedTotalBytes);
+    expect(card.savedFraction).toBe(square.savedFraction);
+  });
+
+  it("falls back to the stretch on screen when a run recorded no windows", () => {
+    encodeTest.encodedSize = 1_000_000;
+    encodeTest.segDuration = 5;
+    encodeTest.windows = [];
+    const est = currentSizeEstimate()!;
+    expect(est.segmentSeconds).toBe(5);
   });
 });

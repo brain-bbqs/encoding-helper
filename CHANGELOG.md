@@ -20,6 +20,7 @@
 - Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - A run encodes on several ffmpeg.wasm cores at once, so a matrix sweep finishes in a fraction of the time it took on one ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - One run button says what pressing it does: it turns into **Retry N failed** once a sweep leaves squares unmeasured, and the results section drops its legend and its own buttons ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The matrix results card is half again as wide as the rest of the page on a large screen, so a sweep's grid fits without scrolling sideways ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 #### 🐛 Bug Fix
 
@@ -28,6 +29,7 @@
 - The ★ largest reduction is marked only once every combination has run, rather than moving from square to square as the grid fills in ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - A core that ran out of memory no longer takes every later square with it: the run gives its replacement the stretches back instead of failing on a missing input ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - An out-of-memory crash is reported as one, with the settings that bring it on, rather than as the core's own `memory access out of bounds` ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The estimated savings under the A/B window covers every stretch a run encoded, instead of measuring all of their bytes against one stretch of the source and projecting a file several times too large ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 ## 0.4.0
 

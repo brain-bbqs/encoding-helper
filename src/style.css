@@ -1266,6 +1266,27 @@ table.data th {
 
 /* Compare Quality: matrix mode. The tick lists that pick the axes, and the results grid the
    sweep fills in — one square per combination, the largest reduction marked in place. */
+/* The results card is the one thing on the page a 940px column cannot hold: a sweep over several
+   outputs is six columns of three-line figures, and the alternative to width is a horizontal
+   scrollbar on the table that matters most. So this card alone is allowed up to 1.5x the body's
+   content box, taking the extra width out of the page margins either side rather than out of the
+   rest of the page, which stays in its column.
+
+   The gutter is what it may not take: above 1420px the corner watermarks are fixed there and the
+   card would slide under them, and below it they are gone, leaving only the page's own padding.
+   `clamp()`'s lower bound is the column itself, so on any viewport too narrow to give the card
+   more, it is exactly as wide as every other card and the margin below comes out at zero. */
+.matrix-section {
+  --matrix-gutter: 240px;
+  --matrix-width: clamp(100%, 1410px, calc(100vw - 2 * var(--matrix-gutter)));
+  width: var(--matrix-width);
+  margin-left: calc(50% - var(--matrix-width) / 2);
+}
+@media (max-width: 1420px) {
+  .matrix-section {
+    --matrix-gutter: 20px;
+  }
+}
 /* Row and column group heads, present only when the sweep covered more than one resolution or
    kernel. Left-aligned and shaded so a block of rows reads as belonging to the head above it. */
 /* One output's title over its block of rows: full size and in the body text's ink rather than the
