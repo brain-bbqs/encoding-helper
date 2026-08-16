@@ -1014,6 +1014,89 @@ details.teach-more summary {
 }
 
 /* Log console */
+/* Compare Quality's field rows share one column rhythm, so a row of two lines up with a row of
+   three rather than each splitting the card between however many fields it happens to hold. Fixed
+   at three rather than auto-filled: the columns have to land in the same places from row to row,
+   and they have to be wide enough for "Source (100%) (1024×768)" to fit in one. A row that gains a
+   field (the scaler, a custom CRF) wraps onto another line of the same three. */
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 16px;
+}
+@media (max-width: 700px) {
+  .compare-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 440px) {
+  .compare-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Centred row for a segmented control that governs the card under it, as in clip-extractor. */
+.toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* Segmented control for a short set of choices, where a dropdown would hide the alternative behind
+   a click. Mirrors the `.seg` control in brain-bbqs/clip-extractor, keeping the two apps' pickers
+   identical the way the theme toggle and dropzone already are. */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.seg button {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg button:last-child {
+  border-right: none;
+}
+.seg button:hover:not(.active) {
+  background: var(--accent-soft);
+}
+.seg button.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* The output console lives in a fold that starts closed, so a finished run's result is what is on
+   screen rather than the transcript that produced it. */
+.log-details {
+  margin-top: 8px;
+}
+.log-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.log-summary:hover {
+  color: var(--text);
+}
+.log-count {
+  color: var(--faint);
+  font-size: 11px;
+}
 .log-console {
   background: var(--sunken);
   border-radius: 6px;
@@ -1022,7 +1105,7 @@ details.teach-more summary {
   overflow-y: auto;
   font-family: Monaco, Consolas, monospace;
   font-size: 11.5px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 .log-console .l {
   padding: 1px 0;
@@ -1162,8 +1245,87 @@ table.data th {
   line-height: 1;
 }
 
-/* Compare Quality: matrix mode. The two tick lists that pick the axes, and the results grid the
+/* How a downscaled encode is drawn back at the source's size. Only present when one is loaded, so
+   it sits at the end of the control row rather than holding a gap open the rest of the time. */
+.compare-view {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.compare-view-label {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.compare-view-select {
+  margin-bottom: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+  width: auto;
+}
+
+/* Compare Quality: matrix mode. The tick lists that pick the axes, and the results grid the
    sweep fills in — one square per combination, the largest reduction marked in place. */
+/* The results card is the one thing on the page a 940px column cannot hold: a sweep over several
+   outputs is six columns of three-line figures, and the alternative to width is a horizontal
+   scrollbar on the table that matters most. So this card alone is allowed up to 1.5x the body's
+   content box, taking the extra width out of the page margins either side rather than out of the
+   rest of the page, which stays in its column.
+
+   The gutter is what it may not take: above 1420px the corner watermarks are fixed there and the
+   card would slide under them, and below it they are gone, leaving only the page's own padding.
+   `clamp()`'s lower bound is the column itself, so on any viewport too narrow to give the card
+   more, it is exactly as wide as every other card and the margin below comes out at zero. */
+.matrix-section {
+  --matrix-gutter: 240px;
+  --matrix-width: clamp(100%, 1410px, calc(100vw - 2 * var(--matrix-gutter)));
+  width: var(--matrix-width);
+  margin-left: calc(50% - var(--matrix-width) / 2);
+}
+@media (max-width: 1420px) {
+  .matrix-section {
+    --matrix-gutter: 20px;
+  }
+}
+/* Row and column group heads, present only when the sweep covered more than one resolution or
+   kernel. Left-aligned and shaded so a block of rows reads as belonging to the head above it. */
+/* One output's title over its block of rows: full size and in the body text's ink rather than the
+   muted small caps the axis labels use, since it names what the rows under it are. */
+table.data.matrix-table th.matrix-group-head {
+  padding: 16px 8px 4px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.matrix-group-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+/* The kernel reads as a footnote to the resolution rather than a peer of it. */
+.matrix-group-note {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+/* Alternating blocks: the shading runs the width of the row so a square reads as belonging with the
+   title above it, without a border cutting the grid up. */
+.matrix-table tr.matrix-band th,
+.matrix-table tr.matrix-band td {
+  background: var(--hover);
+}
+/* The blocks after the first are set off by a rule as well, since shading alone leaves every other
+   boundary invisible. */
+.matrix-table tr.matrix-group-row + tr th,
+.matrix-table tr.matrix-group-row + tr td {
+  border-top: 1px solid var(--border-soft);
+}
+.matrix-table tbody tr:first-child th,
+.matrix-table tbody tr:first-child td {
+  border-top: none;
+}
 .compare-run-buttons {
   display: flex;
   gap: 8px;
@@ -1233,10 +1395,17 @@ table.data th {
   font-size: 13px;
   white-space: nowrap;
 }
-.axis-note {
-  margin-left: 4px;
-  font-size: 11px;
-  color: var(--faint);
+/* The change as a factor, under (or beside) the percentage that says the same thing. */
+.savings-factor {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.matrix-summary-factor {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
 }
 .matrix-summary {
   margin-bottom: 10px;
@@ -1293,7 +1462,8 @@ table.data.matrix-table th.matrix-row-head {
 .matrix-cell {
   position: relative;
   width: 100%;
-  min-width: 84px;
+  /* Wide enough for "2.4× reduction" to sit on one line, which is the longest thing a square says. */
+  min-width: 104px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1326,6 +1496,16 @@ table.data.matrix-table th.matrix-row-head {
   border-color: var(--err-border);
   color: var(--err);
 }
+/* The change as a factor, under the percentage that says the same thing. */
+.matrix-factor {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.matrix-cell.best .matrix-factor {
+  color: var(--accent);
+}
 .matrix-change {
   font-size: 15px;
   font-weight: 700;
@@ -1349,11 +1529,6 @@ table.data.matrix-table th.matrix-row-head {
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.4px;
-}
-.matrix-legend {
-  margin: 10px 0;
-  font-size: 12px;
-  color: var(--faint);
 }
 
 /* Compare Quality: the estimated data savings strip that sits between the run summary and the

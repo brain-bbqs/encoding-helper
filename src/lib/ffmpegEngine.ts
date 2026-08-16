@@ -53,13 +53,12 @@ export function parseFfmpegTimeSeconds(line: string): number | null {
   return Number(m[2]) * 3600 + Number(m[3]) * 60 + Number(m[4]);
 }
 
-let ffmpegInstance: FFmpeg | null = null;
 let logHandler: FfmpegLogHandler | null = null;
-let progressHandler: FfmpegProgressHandler | null = null;
 
 /**
- * The core's two blob: URLs, kept across instances. A crashed core has to be replaced by a fresh
- * one (see resetFfmpeg), and re-fetching ~30 MB to do it would make every crash cost a download.
+ * The core's two blob: URLs, shared by every instance. A crashed core has to be replaced by a fresh
+ * one (see resetFfmpeg) and a pool runs several at once, and re-fetching ~30 MB for each would make
+ * both prohibitive. The download happens once per page.
  */
 let coreUrls: Promise<{ coreURL: string; wasmURL: string }> | null = null;
 
@@ -79,70 +78,168 @@ function loadCoreUrls(): Promise<{ coreURL: string; wasmURL: string }> {
   return coreUrls;
 }
 
-/**
- * Throws away the loaded core, so the next run builds a new one.
- *
- * Emscripten's `abort()` does not fail one call, it kills the runtime: the module sets its abort
- * flag and every later call into that instance throws the same way, whatever it is asked to do. A
- * cached instance that has aborted therefore fails every subsequent encode until the page is
- * reloaded — including encodes with settings that would have worked — so a run that crashes has to
- * drop the instance rather than keep it for next time.
- */
-export function resetFfmpeg(): void {
-  ffmpegInstance?.terminate();
-  ffmpegInstance = null;
-  // The filesystem went with the instance, so nothing is written anymore.
-  virtualFiles.clear();
-}
-
-/**
- * The names the *current* core's virtual filesystem is known to hold, so an input written once can
- * be reused by later runs instead of being sent over again. Cleared with the instance itself: a
- * replaced core starts with an empty filesystem, whatever the one before it held.
- */
-const virtualFiles = new Set<string>();
-
-/** Rebinds the log/progress callbacks used by the shared FFmpeg instance for its next run. */
-export function setFfmpegHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void {
-  logHandler = onLog;
-  progressHandler = onProgress;
-}
-
-export async function ensureFfmpegLoaded(): Promise<FFmpeg> {
-  if (ffmpegInstance) return ffmpegInstance;
-  const ffmpeg = new FFmpeg();
-  ffmpeg.on("log", ({ message }) => {
-    if (!CORE_EXIT_NOISE.test(message.trim())) logHandler?.(message);
-  });
-  ffmpeg.on("progress", ({ progress }) => progressHandler?.(progress));
-  await ffmpeg.load(await loadCoreUrls());
-  ffmpegInstance = ffmpeg;
-  return ffmpeg;
-}
-
 export interface FfmpegRunResult {
   data: Uint8Array<ArrayBuffer>;
 }
 
 /**
- * Puts `data` in the core's virtual filesystem as `name`, unless the current core already holds it.
+ * One loaded ffmpeg.wasm core, with its own virtual filesystem and its own log/progress callbacks.
  *
- * A *copy* goes over, because `writeFile` posts the array to the worker with its buffer in the
- * transfer list, which detaches the caller's own array: without the copy, a second write of the
- * same input fails with "an ArrayBuffer is detached and could not be cloned" — and a second write
- * is exactly what a crashed core (replaced, with an empty filesystem) or a fresh run asks for.
+ * The core is single-threaded WebAssembly, so one of these can only ever encode one thing at a
+ * time — but a machine has more than one CPU, and several instances encode side by side on them.
+ * Everything an instance needs is per-instance for that reason: two encodes running at once cannot
+ * share a filesystem they both write outputs into, nor a progress callback that would report each
+ * other's frames.
  */
-export async function ensureFfmpegInput(name: string, data: Uint8Array): Promise<void> {
-  if (virtualFiles.has(name)) return;
-  const ffmpeg = await ensureFfmpegLoaded();
-  await ffmpeg.writeFile(name, new Uint8Array(data));
-  virtualFiles.add(name);
+export interface FfmpegWorker {
+  /** 0 for the app's default core; a pool numbers the rest from 1, for the log's benefit. */
+  readonly id: number;
+  /** Rebinds the log/progress callbacks for this core's next run. */
+  setHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void;
+  load(): Promise<void>;
+  /** Puts `data` in this core's filesystem as `name`, unless it already holds it. */
+  ensureInput(name: string, data: Uint8Array): Promise<void>;
+  has(name: string): boolean;
+  run(args: string[], outputName: string): Promise<FfmpegRunResult>;
+  /** Runs `args` and leaves the output in this core's filesystem for a later run to read. */
+  runToFile(args: string[], outputName: string): Promise<void>;
+  readFile(name: string): Promise<Uint8Array<ArrayBuffer>>;
+  deleteFile(name: string): Promise<void>;
+  /** Throws the core away, so the next run builds a new one. */
+  reset(): void;
 }
 
-/** Drops a file from the core's virtual filesystem; a no-op once the core it lived in is gone. */
+export function createFfmpegWorker(id = 0): FfmpegWorker {
+  let instance: FFmpeg | null = null;
+  let onLog: FfmpegLogHandler | null = null;
+  let onProgress: FfmpegProgressHandler | null = null;
+  /**
+   * The names this core's filesystem is known to hold, so an input written once can be reused by
+   * later runs instead of being sent over again. Cleared with the instance itself: a replaced core
+   * starts with an empty filesystem, whatever the one before it held.
+   */
+  const files = new Set<string>();
+
+  const ensureLoaded = async (): Promise<FFmpeg> => {
+    if (instance) return instance;
+    const ffmpeg = new FFmpeg();
+    ffmpeg.on("log", ({ message }) => {
+      if (!CORE_EXIT_NOISE.test(message.trim())) onLog?.(message);
+    });
+    ffmpeg.on("progress", ({ progress }) => onProgress?.(progress));
+    await ffmpeg.load(await loadCoreUrls());
+    instance = ffmpeg;
+    return ffmpeg;
+  };
+
+  const reset = (): void => {
+    instance?.terminate();
+    instance = null;
+    files.clear();
+  };
+
+  return {
+    id,
+    setHandlers(log, progress) {
+      onLog = log;
+      onProgress = progress;
+      // The core download announces itself through whichever handler is current.
+      if (id === 0) logHandler = log;
+    },
+    async load() {
+      await ensureLoaded();
+    },
+    /**
+     * A *copy* goes over, because `writeFile` posts the array to the worker with its buffer in the
+     * transfer list, which detaches the caller's own array: without the copy, a second write of the
+     * same input fails with "an ArrayBuffer is detached and could not be cloned" — and a second
+     * write is exactly what a crashed core (replaced, with an empty filesystem), a fresh run, or a
+     * second core in the pool asks for.
+     */
+    async ensureInput(name, data) {
+      if (files.has(name)) return;
+      const ffmpeg = await ensureLoaded();
+      await ffmpeg.writeFile(name, new Uint8Array(data));
+      files.add(name);
+    },
+    has(name) {
+      return files.has(name);
+    },
+    async run(args, outputName) {
+      const ffmpeg = await ensureLoaded();
+      let data: Uint8Array<ArrayBuffer>;
+      try {
+        await ffmpeg.exec(args);
+        // ffmpeg.wasm's FileData type is generically `Uint8Array<ArrayBufferLike> | string`; copying
+        // into a fresh Uint8Array guarantees a plain ArrayBuffer-backed view, which is what
+        // Blob/BlobPart expect.
+        data = new Uint8Array((await ffmpeg.readFile(outputName)) as Uint8Array);
+      } catch (err) {
+        // Anything that rejects here reached us through the worker's catch-all, which means the call
+        // into wasm threw rather than ffmpeg merely exiting non-zero. The instance is not to be
+        // trusted afterwards, so it goes rather than being left to fail every later run.
+        reset();
+        throw new Error(describeFfmpegFailure(err));
+      }
+      // Only on the way out of a healthy run: a dead instance has no filesystem left to tidy.
+      await this.deleteFile(outputName);
+      return { data };
+    },
+    async runToFile(args, outputName) {
+      const ffmpeg = await ensureLoaded();
+      try {
+        await ffmpeg.exec(args);
+      } catch (err) {
+        reset();
+        throw new Error(describeFfmpegFailure(err));
+      }
+      files.add(outputName);
+    },
+    async readFile(name) {
+      const ffmpeg = await ensureLoaded();
+      return new Uint8Array((await ffmpeg.readFile(name)) as Uint8Array);
+    },
+    async deleteFile(name) {
+      files.delete(name);
+      await instance?.deleteFile(name).catch(() => {});
+    },
+    reset,
+  };
+}
+
+/**
+ * The core every part of the app reaches for by default, and the one a pool's extra cores are extra
+ * to. The module-level functions below are its methods, kept as free functions because most of the
+ * app has only ever needed the one core.
+ */
+export const defaultFfmpegWorker = createFfmpegWorker(0);
+
+export function resetFfmpeg(): void {
+  defaultFfmpegWorker.reset();
+}
+
+export function setFfmpegHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void {
+  defaultFfmpegWorker.setHandlers(onLog, onProgress);
+}
+
+export async function ensureFfmpegLoaded(): Promise<void> {
+  await defaultFfmpegWorker.load();
+}
+
+export async function ensureFfmpegInput(name: string, data: Uint8Array): Promise<void> {
+  await defaultFfmpegWorker.ensureInput(name, data);
+}
+
+export function hasFfmpegFile(name: string): boolean {
+  return defaultFfmpegWorker.has(name);
+}
+
+export async function runFfmpegToFile(args: string[], outputName: string): Promise<void> {
+  await defaultFfmpegWorker.runToFile(args, outputName);
+}
+
 export async function deleteFfmpegFile(name: string): Promise<void> {
-  virtualFiles.delete(name);
-  await ffmpegInstance?.deleteFile(name).catch(() => {});
+  await defaultFfmpegWorker.deleteFile(name);
 }
 
 /**
@@ -153,23 +250,7 @@ export async function deleteFfmpegFile(name: string): Promise<void> {
  * than sent across to the worker again for each set of settings.
  */
 export async function runFfmpegArgs(args: string[], outputName: string): Promise<FfmpegRunResult> {
-  const ffmpeg = await ensureFfmpegLoaded();
-  let data: Uint8Array<ArrayBuffer>;
-  try {
-    await ffmpeg.exec(args);
-    // ffmpeg.wasm's FileData type is generically `Uint8Array<ArrayBufferLike> | string`; copying into
-    // a fresh Uint8Array guarantees a plain ArrayBuffer-backed view, which is what Blob/BlobPart expect.
-    data = new Uint8Array((await ffmpeg.readFile(outputName)) as Uint8Array);
-  } catch (err) {
-    // Anything that rejects here reached us through the worker's catch-all, which means the call
-    // into wasm threw rather than ffmpeg merely exiting non-zero. The instance is not to be trusted
-    // afterwards, so it goes rather than being left to fail every later run.
-    resetFfmpeg();
-    throw new Error(describeFfmpegFailure(err));
-  }
-  // Only on the way out of a healthy run: a dead instance has no filesystem left to tidy.
-  await deleteFfmpegFile(outputName);
-  return { data };
+  return await defaultFfmpegWorker.run(args, outputName);
 }
 
 /**
@@ -197,6 +278,16 @@ export async function runFfmpegEncode(
  */
 function describeFfmpegFailure(err: unknown): string {
   const raw = (err instanceof Error ? err.message : String(err)).trim();
+  // The core's own words for running out of memory, which say nothing about what to do about it.
+  if (/memory access out of bounds|out of memory|allocation failed/i.test(raw)) {
+    return (
+      `ffmpeg.wasm ran out of memory (${raw}). The core gets a fixed slice of the tab's memory, and ` +
+      `x264 asks for more of it the larger the frame, the longer the segment and the slower the ` +
+      `preset — a smaller resolution, fewer or shorter segments, or a quicker preset usually gets ` +
+      `through. The command itself is sound: run it outside the browser for the exact result. The ` +
+      `encoder has been reset, so the next run starts from a fresh core.`
+    );
+  }
   if (!/abort/i.test(raw)) return raw;
   return (
     `ffmpeg.wasm crashed part-way through (${raw}). The in-browser core is a single-threaded build, ` +

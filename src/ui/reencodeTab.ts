@@ -12,7 +12,7 @@ import { downloadBlob, extOf, pickSaveTarget } from "../lib/save";
 import { cli, currentVideoInfo, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
 import { showReencodeResult } from "./cliControls";
-import { engineBox, logLine, type EngineBox } from "./formControls";
+import { clearLog, engineBox, logLine, type EngineBox } from "./formControls";
 
 export function renderReencodeTab(panel: HTMLElement): void {
   panel.innerHTML = "";
@@ -115,7 +115,7 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
   if (fill) fill.style.width = "0%";
   box.note.textContent = "Loading ffmpeg.wasm…";
   box.result.innerHTML = "";
-  box.log.innerHTML = "";
+  clearLog(box.log);
   setFfmpegHandlers(
     (msg) => logLine(box.log, msg, "info"),
     (ratio) => {

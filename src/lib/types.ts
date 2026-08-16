@@ -108,6 +108,10 @@ export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 export type X264Preset =
   "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow" | "slower" | "veryslow";
 
+/** swscale kernels offered for a downscale. Both are sane choices, which is why both are offered:
+ * see SCALER_INFO for what each one trades. */
+export type Scaler = "lanczos" | "bicubic";
+
 /** Shared CLI-command state, edited from both the Reencode tab and the Compare Quality tab. */
 export interface CliState {
   quality: QualityPreset;
@@ -121,6 +125,10 @@ export interface CliState {
   faststart: boolean;
   audioMode: "copy" | "strip";
   fps: number | null;
+  /** Output resolution as a fraction of the source's, 1 being the source untouched. */
+  scale: number;
+  /** Which kernel `scale` resamples with. Only reaches the command when `scale` is below 1. */
+  scaler: Scaler;
 }
 
 /** Basic video info needed to fill in CLI defaults (fps for GOP math, dimensions for padding). */
@@ -139,6 +147,10 @@ export interface EncodeSettings {
   /** The CRF actually used, i.e. the quality preset's own value unless the preset is "custom". */
   crf: number;
   preset: X264Preset;
+  /** The resolution fraction the encode was made at; 1 unless it was downscaled. */
+  scale: number;
+  /** The kernel it was downscaled with, meaningless (but carried) at full resolution. */
+  scaler: Scaler;
 }
 
 /** One square of the matrix — a pair of dropdown settings to encode the segment with. */
@@ -163,6 +175,12 @@ export interface MatrixCell {
   error: string | null;
 }
 
+/** One stretch of the source that an encode covered. */
+export interface SampleWindow {
+  startSeconds: number;
+  seconds: number;
+}
+
 /** Whether Compare Quality is running one setting or sweeping the grid. */
 export type CompareMode = "single" | "matrix";
 
@@ -172,11 +190,18 @@ export interface MatrixState {
   qualities: MatrixQuality[];
   /** Ticked presets, i.e. the columns the next sweep will run. */
   presets: X264Preset[];
+  /** Ticked resolutions, which group the rows. One value keeps the grid two-axis. */
+  scales: number[];
+  /** Ticked kernels, which group the columns. Only ever more than one when a downscale is ticked
+   * too, since nothing is resampled at the source's resolution. */
+  scalers: Scaler[];
   /** The last sweep's squares, in canonical order; empty before one has been started. */
   cells: MatrixCell[];
   /** The segment the cells were encoded from, which the start/duration fields may have moved off. */
   segmentStart: number;
   segmentLength: number;
+  /** Every stretch each square covered, which is the one above unless the run sampled several. */
+  windows: SampleWindow[];
   running: boolean;
   /** Set by the Stop button; the sweep checks it between combinations. */
   cancelRequested: boolean;
@@ -188,6 +213,15 @@ export interface MatrixState {
 export interface EncodeTestState {
   startTime: number;
   duration: number;
+  /** How many stretches of `duration` a run encodes. Above 1 they are placed at random (see
+   * pickSampleWindows) and the start field stops applying. */
+  segments: number;
+  /** The stretches the loaded comparison actually covered, with their measured lengths. */
+  windows: SampleWindow[];
+  /** The stretches a run asks the encoder for: the sampler's picks, snapped to keyframes. Kept
+   * across runs so two settings are compared over the same seconds (and the cut snippets are still
+   * in the core's filesystem to encode from). */
+  sampled: SampleWindow[];
   running: boolean;
   mode: CompareMode;
   originalSink: import("mediabunny").CanvasSink | null;
@@ -198,6 +232,9 @@ export interface EncodeTestState {
   /** The settings the encode currently in the A/B window was made with — which in matrix mode is
    * the winning cell's, not whatever the dropdowns say. */
   activeCombo: EncodeSettings | null;
+  /** How a downscaled encode is drawn back at the source's geometry: interpolated when true, one
+   * block per encoded pixel when false. A view preference, not part of any encode. */
+  upscaleSmoothing: boolean;
   matrix: MatrixState;
   zoom: ZoomPanState | null;
 }

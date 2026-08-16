@@ -1,17 +1,21 @@
-// The matrix-mode results grid under Compare Quality: one square per combination of the quality and
-// preset dropdowns, filled in as the sweep reaches it.
+// The matrix-mode results grid under Compare Quality: one square per swept combination, filled in as
+// the sweep reaches it.
 //
-// A grid rather than a ranked list, because the two axes are not interchangeable: reading down a
-// column shows what CRF costs at a fixed effort, reading across a row shows what the preset buys at
-// a fixed quality, and a list sorted by size hides both. The winner is marked in place instead of
-// being lifted out for the same reason — what makes it useful is the squares around it.
+// A grid rather than a ranked list, because the axes are not interchangeable: reading down a column
+// shows what CRF costs at a fixed effort, reading across a row shows what the preset buys at a fixed
+// quality, and a list sorted by size hides both. The winner is marked in place instead of being
+// lifted out for the same reason — what makes it useful is the squares around it.
+//
+// Resolution and the kernel it resamples with stack as blocks of rows rather than widening the
+// table, so every block is the same width and reads exactly like the grid did before they existed.
 
 import { h, infoIcon } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
 import { MATRIX_BEST_INFO } from "../lib/explainers";
-import { describeSettings, matrixAxes } from "../lib/qualityMatrix";
-import { fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
-import type { MatrixCell } from "../lib/types";
+import { isDownscale } from "../lib/cliCommand";
+import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
+import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
+import type { MatrixCell, Scaler } from "../lib/types";
 
 export interface MatrixTableOptions {
   cells: MatrixCell[];
@@ -25,6 +29,9 @@ export interface MatrixTableOptions {
   onSelect?: (cell: MatrixCell) => void;
   /** Called when a failed cell is clicked, to encode that combination again. */
   onRetry?: (cell: MatrixCell) => void;
+  /** Names a resolution over the block of rows run at it, e.g. "50% (512×384)". Falls back to the
+   * bare percentage, since only the caller knows the source's dimensions. */
+  scaleLabel?: (scale: number) => string;
 }
 
 /** An encode's wall-clock cost, at the precision a table column can carry. */
@@ -34,9 +41,12 @@ export function fmtElapsed(ms: number): string {
   return Math.floor(ms / 60_000) + "m " + Math.round((ms % 60_000) / 1000) + "s";
 }
 
-/** What a square says: the headline, the line under it, and the tooltip spelling both out. */
+/** What a square says: the headline, the lines under it, and the tooltip spelling them all out. */
 interface CellFace {
   main: string;
+  /** The same change as a factor, on its own line: the percentage crowds together at the deep end,
+   * where the squares worth finding are. Empty for a square with nothing measured yet. */
+  factor: string;
   sub: string;
   title: string;
   /** Nothing measured yet, so the headline is drawn as a placeholder rather than a figure. */
@@ -53,10 +63,11 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   if (cell.elapsedMs != null) sub.push(fmtElapsed(cell.elapsedMs));
   return {
     main: change,
+    factor: est ? fmtChangeFactor(est.ratio) : "",
     sub: sub.join(" · "),
     title:
       `${describeSettings(cell.combo)} — segment ${fmtBytes(bytes)}` +
-      (est ? `, whole file projected at ${fmtBytes(est.projectedTotalBytes)}` : "") +
+      (est ? ` (${fmtChangeFactor(est.ratio)}), whole file projected at ${fmtBytes(est.projectedTotalBytes)}` : "") +
       (cell.elapsedMs != null ? `, encoded in ${fmtElapsed(cell.elapsedMs)}` : "") +
       (cell.blob ? "" : " (output released; selecting it re-encodes this square)"),
     pending: false,
@@ -68,11 +79,19 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   if (cell.status === "done" && cell.bytes != null) return doneFace(cell, est);
   const settings = describeSettings(cell.combo);
   if (cell.status === "running") {
-    return { main: "…", sub: "encoding", title: `${settings} — encoding now`, pending: true, grew: false };
+    return {
+      main: "…",
+      factor: "",
+      sub: "encoding",
+      title: `${settings} — encoding now`,
+      pending: true,
+      grew: false,
+    };
   }
   if (cell.status === "failed") {
     return {
       main: "✕",
+      factor: "",
       sub: "retry",
       title: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
       pending: false,
@@ -82,17 +101,37 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   const skipped = cell.status === "skipped";
   return {
     main: "–",
-    sub: skipped ? "skipped" : "queued",
-    title: `${settings} — ${skipped ? "not run" : "queued"}`,
+    factor: "",
+    sub: skipped ? "run it" : "queued",
+    title: `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`,
     pending: true,
     grew: false,
   };
 }
 
-/** The grid itself: quality down the side, preset across the top. */
+/**
+ * The grid itself: quality down the side, preset across the top, and one block of rows per output
+ * the sweep produced.
+ *
+ * Both outer axes stack rather than widen. Resolution and kernel are properties of the *output*,
+ * not of the encoder settings the columns describe, so they belong to a block of rows rather than
+ * to a second tier of columns: a kernel spread across the header would double the table's width for
+ * a value that says nothing about any individual column, and push the far columns off the screen on
+ * exactly the runs that need reading most. Stacked, every block is the same width and reads down a
+ * column as CRF at a fixed effort, whatever the sweep covered.
+ *
+ * The block titles only appear once there is more than one, so the common grid is the same
+ * two-axis table it has always been rather than one captioned "100%" throughout.
+ */
 export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
-  const { qualities, presets } = matrixAxes(opts.cells);
+  const { qualities, presets, scales, scalers } = matrixAxes(opts.cells);
   const byKey = new Map(opts.cells.map((c) => [c.combo.key, c]));
+  const width = Math.max(1, presets.length);
+  // One block per output actually encoded. Nothing is resampled at the source resolution, so it
+  // contributes one block whatever kernels were ticked, and no square anywhere goes unfilled.
+  const blocks = scales.flatMap((scale) =>
+    (isDownscale(scale) ? scalers : scalers.slice(0, 1)).map((scaler) => ({ scale, scaler })),
+  );
 
   const wrap = h("div", "scroll-x");
   const table = h("table", "data matrix-table");
@@ -102,7 +141,7 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   const axisRow = h("tr");
   axisRow.append(h("th", "matrix-corner"));
   const presetLabel = h("th", "matrix-axis-label", "Preset");
-  presetLabel.colSpan = Math.max(1, presets.length);
+  presetLabel.colSpan = width;
   axisRow.append(presetLabel);
   const headRow = h("tr");
   headRow.append(h("th", "matrix-corner", "Quality"));
@@ -111,21 +150,47 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   table.append(thead);
 
   const tbody = h("tbody");
-  for (const quality of qualities) {
-    const row = h("tr");
-    const first = byKey.get(`${quality}:${presets[0]}`);
-    row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
-    for (const preset of presets) {
-      const cell = byKey.get(`${quality}:${preset}`);
-      const td = h("td", "matrix-td");
-      if (cell) td.append(renderCell(cell, opts));
-      row.append(td);
+  blocks.forEach((block, i) => {
+    // Consecutive blocks are shaded apart as well as titled, so which one a square belongs to is
+    // answerable from the square rather than by scrolling up to the nearest heading.
+    const band = i % 2 === 1 ? " matrix-band" : "";
+    if (blocks.length > 1) tbody.append(blockTitleRow(block, scalers.length > 1, width, band, opts));
+    for (const quality of qualities) {
+      const row = h("tr", blocks.length > 1 ? "matrix-scale-row" + band : null);
+      const first = byKey.get(comboKey(quality, presets[0], block.scale, block.scaler));
+      row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
+      for (const preset of presets) {
+        const cell = byKey.get(comboKey(quality, preset, block.scale, block.scaler));
+        const td = h("td", "matrix-td");
+        if (cell) td.append(renderCell(cell, opts));
+        row.append(td);
+      }
+      tbody.append(row);
     }
-    tbody.append(row);
-  }
+  });
   table.append(tbody);
   wrap.append(table);
   return wrap;
+}
+
+/** The heading over one block of rows: the resolution it was encoded at, and the kernel that got it
+ * there when the sweep tried more than one. */
+function blockTitleRow(
+  block: { scale: number; scaler: Scaler },
+  showScaler: boolean,
+  width: number,
+  band: string,
+  opts: MatrixTableOptions,
+): HTMLTableRowElement {
+  const row = h("tr", "matrix-group-row" + band);
+  const th = h("th", "matrix-group-head");
+  th.colSpan = width + 1;
+  th.append(h("span", "matrix-group-title", opts.scaleLabel?.(block.scale) ?? `${Math.round(block.scale * 100)}%`));
+  // The kernel is a footnote to the resolution rather than a peer of it: it only changes how the
+  // pixels were resampled, and at the source resolution it changed nothing at all.
+  if (showScaler && isDownscale(block.scale)) th.append(h("span", "matrix-group-note", block.scaler));
+  row.append(th);
+  return row;
 }
 
 /** One square, as a button whether or not it can be pressed yet, so the grid keeps its shape. */
@@ -146,12 +211,14 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   btn.append(
     h("span", "matrix-change" + (face.grew ? " grew" : "") + (face.pending ? " matrix-pending" : ""), face.main),
   );
+  if (face.factor) btn.append(h("span", "matrix-factor", face.factor));
   btn.append(h("span", "matrix-sub", face.sub));
   btn.title = face.title;
   if (isBest) btn.append(h("span", "matrix-flag", "★ best"));
-  // A finished square loads into the A/B window; a failed one is a second attempt at the encode.
+  // A finished square loads into the A/B window; one that failed or was never reached is an attempt
+  // at the encode.
   const selectable = cell.status === "done" && cell.bytes != null && !!opts.onSelect;
-  const retryable = cell.status === "failed" && !!opts.onRetry;
+  const retryable = (cell.status === "failed" || cell.status === "skipped") && !!opts.onRetry;
   btn.disabled = !selectable && !retryable;
   btn.setAttribute("aria-pressed", String(isSelected));
   if (selectable) btn.addEventListener("click", () => opts.onSelect?.(cell));
@@ -163,10 +230,11 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
 export function renderMatrixSummary(
   best: MatrixCell | null,
   estimate?: (cell: MatrixCell) => SizeEstimate | null,
+  emptyNote = "No combination has finished yet.",
 ): HTMLElement {
   const wrap = h("div", "matrix-summary");
   if (!best) {
-    wrap.append(h("div", "matrix-summary-sub", "No combination has finished yet."));
+    wrap.append(h("div", "matrix-summary-sub", emptyNote));
     return wrap;
   }
   const est = estimate?.(best) ?? null;
@@ -177,8 +245,11 @@ export function renderMatrixSummary(
       "matrix-summary-figure",
       est ? `${fmtPct(Math.abs(est.savedFraction))} ${est.savedFraction < 0 ? "larger" : "smaller"}` : "Best reduction",
     ),
-    infoIcon(MATRIX_BEST_INFO, "About the best reduction"),
   );
+  // The percentage and the factor say the same thing, and which one lands depends on how deep the
+  // reduction is, so the winner carries both.
+  if (est) head.append(h("span", "matrix-summary-factor", fmtChangeFactor(est.ratio)));
+  head.append(infoIcon(MATRIX_BEST_INFO, "About the best reduction"));
   wrap.append(head);
   return wrap;
 }

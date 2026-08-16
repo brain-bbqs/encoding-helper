@@ -187,20 +187,64 @@ export const X264_PRESET_INFO =
   "slowest presets can take minutes over a few seconds of video, or exhaust the encoder outright. Run the " +
   "command natively to use them.</p>";
 
-/** What matrix mode does, shown under the mode switch once it is picked. */
-export const MATRIX_MODE_TEACH =
-  "<b>Matrix mode</b> encodes the same seconds once for every combination of the two dropdowns and lays the " +
-  "results out as a grid, so the trade is read off one table instead of remembered across a run each. The " +
-  "largest reduction is marked ★ and loaded into the A/B window below; click any other square to look at that " +
-  "one instead." +
-  "<p>Each square is a real encode, so a sweep costs the sum of its parts: the slower presets are left " +
-  "unticked because a single-threaded in-browser encoder can spend minutes on each. <b>Stop</b> ends the sweep " +
-  "after the square it is on, keeping everything already measured.</p>";
+/** Why resolution is its own knob rather than something CRF already covers, from the ⓘ beside the
+ * field in both tabs that offer it. */
+export const RESOLUTION_INFO =
+  "<b>Resolution</b> is the biggest lever on file size here, and it is not CRF's job. CRF quantizes more " +
+  "coarsely within the grid of pixels it is given, and however hard it quantizes it still pays the " +
+  "per-block cost of every block in the frame. Halving each dimension deletes three quarters of those " +
+  "blocks outright, which is why the two trade against each other: below some bitrate, half resolution at a " +
+  "moderate CRF looks better than full resolution at a punishing one." +
+  "<p>Downscaling uses <code>flags=lanczos</code>, and <code>-2</code> for the height, which keeps the " +
+  "aspect ratio and lands on the even dimensions <code>yuv420p</code> requires (so the pad is not needed).</p>" +
+  "<p><b>It is not the same kind of loss as CRF.</b> A keypoint stays localizable to sub-pixel precision " +
+  "through a brutal CRF, because those artifacts are texture-level. Resolution puts a hard floor under that " +
+  "precision, and no downstream step recovers it. Judge it against what the tracking needs, not only by how " +
+  "the A/B window looks.</p>";
+
+/** What the two offered kernels trade, from the ⓘ beside the field that picks between them. */
+export const SCALER_INFO =
+  "<b>Scaler</b> is the kernel <code>scale</code> resamples with, and it only matters when the resolution is " +
+  "below 100%. <code>lanczos</code> is the sharper of the two: it weighs a wider neighbourhood of source " +
+  "pixels and keeps fine detail (whiskers, tail tips, grid lines) that a softer kernel averages away. " +
+  "<code>bicubic</code> is swscale's own default, softer, and less prone to the faint ringing lanczos can " +
+  "leave along hard edges." +
+  "<p>Sharper is not automatically better downstream. Lanczos preserves more detail for the encoder to " +
+  "spend bits on, so the same CRF costs slightly more; bicubic's smoothing throws some of that away before " +
+  "x264 ever sees it. Compare them in the A/B window at 100% zoom rather than assuming.</p>";
+
+/** Why the A/B window offers two ways of drawing a downscaled encode back up. */
+export const UPSCALE_VIEW_INFO =
+  "A downscaled encode is drawn back at the source's size so both panes share one coordinate system, and " +
+  "there are two honest ways to do that. <b>Blocks</b> repeats each encoded pixel, so what you see is " +
+  "exactly what survived the downscale and nothing else. <b>Smooth</b> interpolates between them, which is " +
+  "closer to what a player or a viewer's screen would actually put up." +
+  "<p>Blocks is the better view for judging what a tracking pipeline has left to work with; smooth is the " +
+  "better view for judging how it looks. Neither changes the encode or its size.</p>";
+
+/** Why a run would encode the same settings in several places at once. */
+export const SEGMENTS_INFO =
+  "<b>Segments</b> is how many stretches of the length above a run encodes. Where they land is the sampler's " +
+  "to decide, never yours: a stretch picked by hand is picked for a reason, and a size measured over a " +
+  "flattering moment is the one number this tab must not produce. One stretch lands anywhere in the file; " +
+  "several are drawn one per equal band of it, so they cover it end to end instead of clumping." +
+  "<p>The projection is taken over all of them together and its range narrows accordingly, which is the whole " +
+  "point: three seconds of a calm scene predicts a talking-heads file well and a wildlife file badly, and the " +
+  "only fix is to look in more than one place.</p>" +
+  "<p>Each one is a real encode, so the run costs that many times as long, and in matrix mode it multiplies " +
+  "the sweep. The A/B window below still shows the first stretch: the eye wants one continuous piece of " +
+  "video to judge, while the byte count wants a fair sample of the file.</p>" +
+  "<p>The stretches are cut out of the source once and kept, so every setting after the first encodes them " +
+  "without touching the video again — and a re-run at another CRF measures the same seconds, which is what " +
+  "makes two runs comparable at all.</p>";
 
 /** Why "best" is a size ranking and nothing more. */
 export const MATRIX_BEST_INFO =
   "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
-  "highest CRF offered wins nearly every sweep.";
+  "highest CRF offered wins nearly every sweep." +
+  "<p>Tick a second resolution and it stops being close: resolution deletes bits faster than anything on the " +
+  "other axes, so the smallest one takes the ★ outright. Read the grid, not the star, when the sweep spans " +
+  "resolutions, and remember the star has no idea what your tracking needs.</p>";
 
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +

@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.5.0
+
+#### 🚀 Enhancement
+
+- **Reencode & CLI** and **Compare Quality** have a **Resolution** dropdown that downscales the output, labelled with the size each fraction produces ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A downscaled comparison is drawn back at the source's geometry, so both panes keep one zoom, pixel grid and coordinate system ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- Matrix mode sweeps resolution and scaler as extra axes grouping the grid's rows and columns, ticked to one value each so a default sweep is unchanged ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A **Scaler** field beside the resolution picks the kernel the downscale resamples with, `lanczos` (sharper) or `bicubic` (softer) ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The A/B window switches a downscaled encode between **Blocks**, showing exactly the pixels that survived, and **Smooth**, showing what a player would ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The matrix preset list no longer tags the slower presets "slow in-browser" ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- Data savings are stated as a factor ("2.4× reduction", "1.3× inflation") beside the percentage, on every matrix square as well as the summaries ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The output console under both encode tabs is a fold that starts collapsed, showing its line count until you open it ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- Each output in a matrix sweep gets its own block of rows with a full-size title, so a second kernel stacks below rather than widening the table ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- **Single** and **Matrix** mode are a segmented control matching [clip-extractor](https://github.com/brain-bbqs/clip-extractor), both readable without opening a dropdown ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A **Segments** count encodes that many stretches spread at random across the whole video, projecting the size from all of them and narrowing the range ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- **Compare Quality** asks only how long a stretch should be and how many: the sampler places them, so there is no start time to pick, and it defaults to five stretches of five seconds ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A run encodes on several ffmpeg.wasm cores at once, so a matrix sweep finishes in a fraction of the time it took on one ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- One run button says what pressing it does: it turns into **Retry N failed** once a sweep leaves squares unmeasured, and the results section drops its legend and its own buttons ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The matrix results card is half again as wide as the rest of the page on a large screen, so a sweep's grid fits without scrolling sideways ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+
+#### 🐛 Bug Fix
+
+- A failed matrix square can be retried while the sweep is still running: it joins the queue instead of being unclickable until the end ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- **Stop** ends a run at once, terminating the encode in progress, instead of leaving the page locked and the bar filling until it finishes ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The ★ largest reduction is marked only once every combination has run, rather than moving from square to square as the grid fills in ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A core that ran out of memory no longer takes every later square with it: the run gives its replacement the stretches back instead of failing on a missing input ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- An out-of-memory crash is reported as one, with the settings that bring it on, rather than as the core's own `memory access out of bounds` ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The estimated savings under the A/B window covers every stretch a run encoded, instead of measuring all of their bytes against one stretch of the source and projecting a file several times too large ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+
 ## 0.4.0
 
 #### 🚀 Enhancement

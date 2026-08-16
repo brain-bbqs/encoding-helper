@@ -1,9 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { encodeTest, resetState, state } from "../../src/lib/state";
 import {
+  currentSizeEstimate,
   describeSavings,
   estimateSizeSavings,
+  fmtChangeFactor,
   fmtPct,
   fmtSignedChange,
+  pickSampleWindows,
+  windowsForRun,
   type SizeEstimateInput,
 } from "../../src/lib/sizeEstimate";
 import type { SampleInfo } from "../../src/lib/types";
@@ -210,5 +215,234 @@ describe("savings wording", () => {
     expect(fmtPct(0.62)).toBe("62%");
     expect(fmtPct(0.005)).toBe("0.5%");
     expect(fmtPct(1)).toBe("100%");
+  });
+});
+
+describe("fmtChangeFactor", () => {
+  it("states a shrink as a reduction factor", () => {
+    expect(fmtChangeFactor(0.5)).toBe("2.0× reduction");
+    expect(fmtChangeFactor(0.05)).toBe("20× reduction");
+  });
+
+  it("states a growth as an inflation factor", () => {
+    expect(fmtChangeFactor(1.3)).toBe("1.3× inflation");
+  });
+
+  // Where a percentage flattens out is exactly where the factor separates: 90% and 95% smaller are
+  // 10× and 20×, one file twice the size of the other.
+  it("keeps the deep end apart, where percentages crowd together", () => {
+    expect(fmtChangeFactor(0.1)).toBe("10× reduction");
+    expect(fmtChangeFactor(0.05)).toBe("20× reduction");
+  });
+
+  it("drops the decimal once the digits before it carry the number", () => {
+    expect(fmtChangeFactor(0.09)).toBe("11× reduction");
+    expect(fmtChangeFactor(0.4)).toBe("2.5× reduction");
+  });
+
+  it("says so plainly when nothing changed", () => {
+    expect(fmtChangeFactor(1)).toBe("1× (no change)");
+  });
+
+  it("has nothing to state for a ratio no encode could produce", () => {
+    expect(fmtChangeFactor(0)).toBe("–");
+    expect(fmtChangeFactor(NaN)).toBe("–");
+  });
+});
+
+describe("pickSampleWindows", () => {
+  // One stretch is the same stratified draw with one band, so it can land anywhere in the file.
+  it("places a single stretch anywhere in the file", () => {
+    const starts = new Set<number>();
+    for (let i = 0; i < 40; i++) {
+      const [only] = pickSampleWindows(100, 3, 1);
+      expect(only.seconds).toBe(3);
+      expect(only.startSeconds).toBeGreaterThanOrEqual(0);
+      expect(only.startSeconds).toBeLessThanOrEqual(97);
+      starts.add(only.startSeconds);
+    }
+    // Not pinned to one spot, which is the whole difference from a start field.
+    expect(starts.size).toBeGreaterThan(1);
+  });
+
+  // Stratified, so the stretches cover the file end to end instead of clumping wherever the draws
+  // happened to land.
+  it("draws one stretch inside each equal band of the file", () => {
+    const windows = pickSampleWindows(100, 4, 4);
+    expect(windows).toHaveLength(4);
+    windows.forEach((w, i) => {
+      expect(w.startSeconds).toBeGreaterThanOrEqual(i * 25);
+      expect(w.startSeconds).toBeLessThanOrEqual((i + 1) * 25);
+      expect(w.seconds).toBe(4);
+    });
+  });
+
+  it("never runs a stretch off the end of the file", () => {
+    for (const w of pickSampleWindows(10, 3, 5)) {
+      expect(w.startSeconds + w.seconds).toBeLessThanOrEqual(10.0001);
+    }
+  });
+
+  it("asks for no more stretches than the file has room for", () => {
+    expect(pickSampleWindows(10, 4, 8)).toHaveLength(2);
+  });
+
+  it("has nothing to sample from a file with no duration", () => {
+    expect(pickSampleWindows(0, 3, 2)).toEqual([]);
+  });
+});
+
+describe("estimateSizeSavings over several windows", () => {
+  const base = {
+    originalTotalBytes: 1_000_000,
+    totalSeconds: 100,
+    segmentStartSeconds: 0,
+    segmentSeconds: 10,
+  };
+
+  it("sums the sampled seconds and reports how many places they came from", () => {
+    const est = estimateSizeSavings({
+      ...base,
+      windows: [
+        { startSeconds: 0, seconds: 10 },
+        { startSeconds: 50, seconds: 10 },
+      ],
+      encodedSegmentBytes: 100_000,
+    })!;
+    expect(est.segmentSeconds).toBe(20);
+    expect(est.windowCount).toBe(2);
+    expect(est.sampledFraction).toBe(0.2);
+  });
+
+  // Sampling a second stretch of the same length averages one unlucky window against another
+  // instead of letting it be the whole measurement, so the projection's range tightens.
+  it("narrows the band when a run samples more places", () => {
+    // Frame sizes climb across the file, so its ten-second windows genuinely differ from each other
+    // and there is a spread for the band to be derived from.
+    const samples = Array.from({ length: 100 }, (_, i) => ({
+      offset: 0,
+      size: 1_000 + i * 500,
+      cts: i,
+      dts: i,
+      ctsSec: i,
+      dtsSec: i,
+      is_sync: i % 10 === 0,
+      duration: 1,
+    }));
+    const width = (r: { low: number; high: number } | null): number => (r ? r.high - r.low : 0);
+    const one = estimateSizeSavings({
+      ...base,
+      windows: [{ startSeconds: 0, seconds: 10 }],
+      encodedSegmentBytes: 50_000,
+      samples,
+    })!;
+    const three = estimateSizeSavings({
+      ...base,
+      windows: [
+        { startSeconds: 0, seconds: 10 },
+        { startSeconds: 40, seconds: 10 },
+        { startSeconds: 80, seconds: 10 },
+      ],
+      encodedSegmentBytes: 150_000,
+      samples,
+    })!;
+    expect(one.projectedRange).not.toBeNull();
+    expect(three.projectedRange).not.toBeNull();
+    expect(width(three.projectedRange)).toBeLessThan(width(one.projectedRange));
+  });
+
+  it("falls back to the single window when no list is given", () => {
+    const est = estimateSizeSavings({ ...base, encodedSegmentBytes: 50_000 })!;
+    expect(est.windowCount).toBe(1);
+    expect(est.segmentSeconds).toBe(10);
+  });
+});
+
+describe("windowsForRun", () => {
+  const kept = [
+    { startSeconds: 10, seconds: 3 },
+    { startSeconds: 60, seconds: 3 },
+  ];
+
+  // Two settings are only comparable if they were measured over the same seconds, so a re-run at
+  // another CRF keeps the last run's stretches (which are also still cut and waiting).
+  it("keeps the stretches when the run asks for the same shape", () => {
+    expect(windowsForRun(kept, 100, 3, 2)).toBe(kept);
+  });
+
+  it("draws fresh ones when the length changes", () => {
+    expect(windowsForRun(kept, 100, 5, 2)).not.toBe(kept);
+  });
+
+  it("draws fresh ones when the count changes", () => {
+    const drawn = windowsForRun(kept, 100, 3, 3);
+    expect(drawn).not.toBe(kept);
+    expect(drawn).toHaveLength(3);
+  });
+
+  // A single stretch is kept for the same reason several are: two settings are only comparable
+  // measured over the same seconds, and nothing about the fields says where it should be.
+  it("keeps a single stretch across runs too", () => {
+    const one = [{ startSeconds: 10, seconds: 3 }];
+    expect(windowsForRun(one, 100, 3, 1)).toBe(one);
+  });
+
+  it("snaps drawn starts onto what the source can be cut at", () => {
+    const snap = (t: number): number => Math.floor(t / 10) * 10;
+    for (const w of windowsForRun([], 100, 3, 4, snap)) {
+      expect(w.startSeconds % 10).toBe(0);
+    }
+  });
+});
+
+// The A/B window shows one stretch while the byte count behind it is every stretch the run
+// encoded, so the source side has to be read over all of them.
+describe("currentSizeEstimate", () => {
+  beforeEach(() => {
+    resetState();
+    state.source = { kind: "file", name: "clip.mp4", size: 30_000_000 };
+    state.duration = 30;
+    state.samples = evenSamples(900, 30, () => 33_000);
+  });
+
+  it("measures every stretch the run covered, not just the one on screen", () => {
+    encodeTest.encodedSize = 5_000_000;
+    encodeTest.segDuration = 5;
+    encodeTest.windows = [0, 5, 10, 15, 20].map((startSeconds) => ({ startSeconds, seconds: 5 }));
+    const est = currentSizeEstimate()!;
+    expect(est.segmentSeconds).toBe(25);
+    expect(est.sampledFraction).toBeCloseTo(25 / 30, 5);
+    // 25 of the file's 30 seconds went in and came out a fifth the size, so the whole file does too.
+    expect(est.ratio).toBeCloseTo(0.2, 2);
+  });
+
+  // The grid square and the card the square opens are the same measurement, so they cannot report
+  // different numbers: they did, by a factor of the segment count, until the card read the windows.
+  it("reports what the matrix square that opened it reports", () => {
+    const windows = [0, 5, 10, 15, 20].map((startSeconds) => ({ startSeconds, seconds: 5 }));
+    encodeTest.encodedSize = 5_000_000;
+    encodeTest.segDuration = 5;
+    encodeTest.windows = windows;
+    const square = estimateSizeSavings({
+      originalTotalBytes: 30_000_000,
+      totalSeconds: 30,
+      segmentStartSeconds: 0,
+      segmentSeconds: 25,
+      windows,
+      encodedSegmentBytes: 5_000_000,
+      samples: state.samples,
+    })!;
+    const card = currentSizeEstimate()!;
+    expect(card.ratio).toBe(square.ratio);
+    expect(card.projectedTotalBytes).toBe(square.projectedTotalBytes);
+    expect(card.savedFraction).toBe(square.savedFraction);
+  });
+
+  it("falls back to the stretch on screen when a run recorded no windows", () => {
+    encodeTest.encodedSize = 1_000_000;
+    encodeTest.segDuration = 5;
+    encodeTest.windows = [];
+    const est = currentSizeEstimate()!;
+    expect(est.segmentSeconds).toBe(5);
   });
 });

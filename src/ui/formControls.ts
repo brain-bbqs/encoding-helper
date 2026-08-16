@@ -45,9 +45,11 @@ export function fieldNumber(
   min: number,
   max: number,
   step: number,
+  /** Trusted, author-authored explainer markup, shown from an ⓘ next to the label, as fieldSelect does. */
+  info?: string | null,
 ): HTMLDivElement {
   const f = h("div", "field");
-  f.append(h("label", "field-label", label));
+  f.append(fieldHead(label, info));
   const inp = h("input");
   inp.type = "number";
   inp.id = id;
@@ -57,6 +59,49 @@ export function fieldNumber(
   inp.step = String(step);
   f.append(inp);
   return f;
+}
+
+/**
+ * A short, fixed set of choices as a segmented control rather than a dropdown.
+ *
+ * Worth the width when the options are few and the choice changes what the panel below shows: both
+ * are on screen at once, so the alternative is readable without opening anything, and switching is
+ * one click rather than two.
+ *
+ * The markup and styling mirror the `.seg` control in brain-bbqs/clip-extractor, the way the theme
+ * toggle and the dropzone already do, so the two apps' controls are the same control. Returned bare
+ * rather than wrapped in a labelled field, since that app centres it above the card it governs and
+ * lets the options themselves say what it is.
+ */
+export function segmentedControl(
+  id: string,
+  label: string,
+  options: [string, string][],
+  value: string,
+  onChange: (value: string) => void,
+): HTMLDivElement {
+  const seg = h("div", "seg");
+  seg.id = id;
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", label);
+  const buttons: HTMLButtonElement[] = [];
+  for (const [optValue, text] of options) {
+    const btn = h("button", optValue === value ? "active" : null, text);
+    btn.type = "button";
+    btn.dataset.value = optValue;
+    btn.setAttribute("aria-pressed", String(optValue === value));
+    btn.addEventListener("click", () => {
+      for (const other of buttons) {
+        const on = other === btn;
+        other.classList.toggle("active", on);
+        other.setAttribute("aria-pressed", String(on));
+      }
+      onChange(optValue);
+    });
+    buttons.push(btn);
+    seg.append(btn);
+  }
+  return seg;
 }
 
 export interface EngineBox {
@@ -86,13 +131,45 @@ export function engineBox(kind: "fast" | "exact", title: string, desc: string): 
   const note = h("div", "progress-label");
   note.style.marginTop = "4px";
   el.append(note);
-  const log = h("div", "log-console");
-  log.style.display = "none";
-  el.append(log);
+  const console_ = logConsole();
+  el.append(console_.wrap);
+  const log = console_.log;
   const result = h("div");
   result.style.marginTop = "8px";
   el.append(result);
   return { el, button, progress, note, log, result };
+}
+
+/**
+ * The output console and the fold it lives in, hidden until something is logged into it.
+ *
+ * Collapsed to begin with: it is a transcript to consult when a run looks wrong, not something to
+ * read while it scrolls, and open by default it pushed the result of the run that produced it off
+ * the screen. The summary carries the line count, so a closed fold still says whether there is
+ * anything in there. <details> for the same reasons the matrix settings use one: it opens on click,
+ * on Enter, and for a page search that hits text inside it.
+ */
+export function logConsole(): { wrap: HTMLDetailsElement; log: HTMLDivElement } {
+  const wrap = h("details", "log-details");
+  wrap.style.display = "none";
+  const summary = h("summary", "log-summary");
+  summary.append(h("span", null, "Output console"), h("span", "log-count"));
+  const log = h("div", "log-console");
+  wrap.append(summary, log);
+  return { wrap, log };
+}
+
+/** Empties a console and puts its fold back out of sight, for the start of a fresh run. */
+export function clearLog(container: HTMLDivElement): void {
+  container.innerHTML = "";
+  const wrap = container.closest<HTMLElement>(".log-details");
+  if (!wrap) {
+    container.style.display = "none";
+    return;
+  }
+  wrap.style.display = "none";
+  const count = wrap.querySelector(".log-count");
+  if (count) count.textContent = "";
 }
 
 export function logLine(
@@ -100,7 +177,10 @@ export function logLine(
   msg: string,
   level: "info" | "success" | "warn" | "error" = "info",
 ): void {
-  container.style.display = "block";
+  const wrap = container.closest<HTMLElement>(".log-details");
+  // A console outside a fold shows itself, as it did before there was one to hide behind.
+  if (wrap) wrap.style.display = "";
+  else container.style.display = "block";
   const line = h("div", "l " + level, msg);
   container.append(line);
   container.scrollTop = container.scrollHeight;
@@ -108,4 +188,6 @@ export function logLine(
     const first = container.firstChild;
     if (first) container.removeChild(first);
   }
+  const count = wrap?.querySelector(".log-count");
+  if (count) count.textContent = `${container.children.length} line${container.children.length === 1 ? "" : "s"}`;
 }

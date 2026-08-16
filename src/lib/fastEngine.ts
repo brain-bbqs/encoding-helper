@@ -1,6 +1,7 @@
 // Fast engine: mediabunny / WebCodecs (hardware-accelerated, approximate — no CRF control).
 
 import type { Input, Output, Quality, Target } from "mediabunny";
+import { isDownscale, scaledDimensions } from "./cliCommand";
 import { ensureMediabunny } from "./mediabunny";
 import type { SaveTarget } from "./save";
 import type { CliState, VideoInfo } from "./types";
@@ -35,7 +36,15 @@ async function qualityForPreset(quality: CliState["quality"]): Promise<Quality> 
 
 export async function buildMediabunnyOptions(cliState: CliState, info: VideoInfo): Promise<MediabunnyEncodeOptions> {
   const video: MediabunnyEncodeOptions["video"] = { codec: "avc", quality: await qualityForPreset(cliState.quality) };
-  if (cliState.pad) {
+  // The fast engine resizes through WebCodecs rather than swscale, so a downscale here is the same
+  // output size as the exact engine's but not the same rescaler: the Scaler choice has no
+  // equivalent to pass on, which is one more way this engine is an approximation of the command.
+  if (isDownscale(cliState.scale)) {
+    const scaled = scaledDimensions(info.width, info.height, cliState.scale);
+    video.width = scaled.width;
+    video.height = scaled.height;
+    video.fit = "contain";
+  } else if (cliState.pad) {
     const w = Math.ceil(info.width / 2) * 2;
     const hgt = Math.ceil(info.height / 2) * 2;
     if (w !== info.width || hgt !== info.height) {
