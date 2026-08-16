@@ -51,6 +51,9 @@ import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoo
 
 interface RunUi {
   runButton: HTMLButtonElement;
+  /** Puts the run button back to what pressing it would do now, which the last run may have
+   * changed: a sweep that left squares unmeasured turns it into the button that runs those. */
+  syncRunAction: () => void;
   stopButton: HTMLButtonElement;
   progress: HTMLDivElement;
   note: HTMLDivElement;
@@ -251,13 +254,24 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   resultSec.style.display = "none";
   panel.append(resultSec);
 
-  const ui: RunUi = { runButton: runBtn, stopButton: stopBtn, progress, note, log, matrixSec, resultSec };
+  const ui: RunUi = {
+    runButton: runBtn,
+    stopButton: stopBtn,
+    progress,
+    note,
+    log,
+    matrixSec,
+    resultSec,
+    syncRunAction: () => {
+      runBtn.textContent = runActionLabel();
+    },
+  };
 
   const applyMode = (): void => {
     const matrix = encodeTest.mode === "matrix";
     singleControls.style.display = matrix ? "none" : "";
     matrixControls.style.display = matrix ? "" : "none";
-    runBtn.textContent = matrix ? "Run Matrix" : "Run Comparison";
+    ui.syncRunAction();
   };
   applyMode();
 
@@ -289,14 +303,25 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
     syncQualityControls();
   });
   runBtn.addEventListener("click", () => {
-    if (encodeTest.mode === "matrix") void runMatrix(vt, ui);
-    else void runEncodeTest(vt, ui);
+    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
+    // the run has started.
+    runBtn.disabled = true;
+    const run = (): Promise<void> => {
+      if (encodeTest.mode !== "matrix") return runEncodeTest(vt, ui);
+      // A grid with holes in it is what the one button offers to fill: sweeping the whole thing
+      // again would re-encode everything that already worked.
+      const unmeasured = unmeasuredCells();
+      return unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui);
+    };
+    // A run puts the button back itself when it ends; this is for the presses that never start
+    // one, such as a sweep with nothing ticked to sweep.
+    void run().finally(() => {
+      if (encodeTest.running) return;
+      runBtn.disabled = false;
+      ui.syncRunAction();
+    });
   });
-  stopBtn.addEventListener("click", () => {
-    encodeTest.matrix.cancelRequested = true;
-    stopBtn.disabled = true;
-    note.textContent = "Stopping after the combination in progress…";
-  });
+  stopBtn.addEventListener("click", () => requestStop(ui));
 }
 
 /** One axis of the matrix as a tick list, reporting the whole selection on every change. */
@@ -400,21 +425,26 @@ function hashName(text: string): string {
  * which is what lets a second run at another CRF start encoding immediately — and why a remote
  * source is not fetched again for it.
  */
-async function ensureSnippets(windows: SampleWindow[], workers: FfmpegWorker[], ui: RunUi): Promise<string[]> {
+async function ensureSnippets(
+  windows: SampleWindow[],
+  workers: FfmpegWorker[],
+  ui: RunUi,
+): Promise<{ names: string[]; data: Uint8Array[] }> {
   const cutter = workers[0];
   const source = await sourceForWindows(windows, cutter);
   const names = windows.map(snippetName);
   if (source) await cutSnippets(windows, names, source, cutter, ui);
-  // Every core encodes from its own filesystem, so each needs the cuts. They are a few hundred KB
-  // apiece, which is the whole reason a pool is affordable: a copy of the video per core would not
-  // be. A core that already holds one from an earlier run is left alone.
-  for (const worker of workers.slice(1)) {
-    for (const name of names) {
-      if (worker.has(name)) continue;
-      await worker.ensureInput(name, await cutter.readFile(name));
-    }
+  // Read out of the core and kept for the run. Every core encodes from its own filesystem, so each
+  // needs the cuts anyway; holding them here as well is what lets a core that crashed — and so
+  // came back with an empty filesystem — be handed them again instead of failing every square it
+  // is given afterwards. They are a few hundred KB apiece, which is the whole reason a pool is
+  // affordable: a copy of the video per core would not be.
+  const data: Uint8Array[] = [];
+  for (const name of names) {
+    if (stopRequested()) throw new RunStopped();
+    data.push(await cutter.readFile(name));
   }
-  return names;
+  return { names, data };
 }
 
 async function cutSnippets(
@@ -428,6 +458,7 @@ async function cutSnippets(
   for (let i = 0; i < windows.length; i++) {
     const window = windows[i];
     const name = names[i];
+    if (stopRequested()) throw new RunStopped();
     if (cutter.has(name)) continue;
     ui.note.textContent = "Cutting the sampled video out of the source…";
     await cutter.ensureInput(inputName, source.data);
@@ -473,13 +504,18 @@ async function sourceForWindows(windows: SampleWindow[], cutter: FfmpegWorker): 
  */
 async function encodeSegment(
   cliState: CliState,
-  input: { name: string; trim: SampleWindow | null },
+  input: { name: string; data: Uint8Array; trim: SampleWindow | null },
   worker: FfmpegWorker,
   ui: RunUi,
   onFraction: (fraction: number) => void,
 ): Promise<Blob> {
   const info = currentVideoInfo();
   if (!info) throw new Error("No video track loaded");
+  // A core that ran out of memory part-way through a sweep was thrown away and comes back empty,
+  // so what it reads is checked here rather than once before the run: without this, one square
+  // crashing a core failed every later square that core was handed, for a missing input rather
+  // than for anything wrong with the settings. A core that still holds the file does nothing.
+  await worker.ensureInput(input.name, input.data);
   // Named per core: two of them writing "et_out.mp4" would be one filesystem each, but the name is
   // also what the log shows, and a shared one would read as the same encode running twice.
   const outputName = `et_out_${worker.id}.mp4`;
@@ -515,14 +551,20 @@ async function encodeSegment(
  */
 async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[], ui: RunUi): Promise<RunInputs> {
   if (canCutSnippets()) {
-    const names = await ensureSnippets(windows, workers, ui);
-    return { windows, names, preCut: true };
+    const { names, data } = await ensureSnippets(windows, workers, ui);
+    return { windows, names, data, preCut: true };
   }
   // Nothing to cut, so every core needs the whole video. That is the case a pool cannot help with
   // and should not be paid for, so it runs on one core alone.
   const source = await readSource();
   await workers[0].ensureInput(inputNameFor(source), source.data);
-  return { windows, names: windows.map(() => inputNameFor(source)), preCut: false, wholeFileOn: workers[0] };
+  return {
+    windows,
+    names: windows.map(() => inputNameFor(source)),
+    data: windows.map(() => source.data),
+    preCut: false,
+    wholeFileOn: workers[0],
+  };
 }
 
 /** Prefixes a log line with which core it came from, once there is more than one to tell apart. */
@@ -536,6 +578,9 @@ interface RunInputs {
   /** One filename per window: a stretch cut out beforehand, or the whole video for every one of
    * them when the container did not allow cutting. */
   names: string[];
+  /** The bytes behind each name, held for the length of the run so a core that was replaced
+   * mid-run can be given its inputs back. */
+  data: Uint8Array[];
   /** Whether those names are cut stretches (so no trim is needed) or the source itself. */
   preCut: boolean;
   /** The core holding the whole video, when there was no cutting and only one core can be used. */
@@ -573,7 +618,7 @@ async function encodeWindows(
     async ({ window, index }, worker) => {
       const blob = await encodeSegment(
         cliState,
-        { name: inputs.names[index], trim: inputs.preCut ? null : window },
+        { name: inputs.names[index], data: inputs.data[index], trim: inputs.preCut ? null : window },
         worker,
         ui,
         (fraction) => {
@@ -593,8 +638,10 @@ async function encodeWindows(
       }
       measured[index] = { startSeconds: window.startSeconds, seconds };
     },
+    stopRequested,
   );
 
+  if (stopRequested()) throw new RunStopped();
   const first = blobs[0];
   if (!first) throw new Error("No stretch of video to encode");
   return {
@@ -654,11 +701,29 @@ async function loadEncodedIntoAB(
   renderCompareResult(resultSec, vt);
 }
 
+/** The squares a sweep left without a size: the ones that failed, and the ones Stop never reached. */
+function unmeasuredCells(): MatrixCell[] {
+  if (encodeTest.mode !== "matrix") return [];
+  return encodeTest.matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
+}
+
+/** What the run button says, which is what pressing it would do to the grid as it stands. */
+function runActionLabel(): string {
+  if (encodeTest.mode !== "matrix") return "Run Comparison";
+  const unmeasured = unmeasuredCells();
+  if (!unmeasured.length) return "Run Matrix";
+  const failed = unmeasured.filter((c) => c.status === "failed").length;
+  return failed === unmeasured.length ? `Retry ${failed} failed` : `Run ${unmeasured.length} unmeasured`;
+}
+
 /** Readies the progress bar and console for a run, and hands back the bar's fill. */
-function startRunUi(ui: RunUi, matrix: boolean): HTMLDivElement | null {
+function startRunUi(ui: RunUi): HTMLDivElement | null {
   encodeTest.running = true;
+  encodeTest.matrix.cancelRequested = false;
   ui.runButton.disabled = true;
-  ui.stopButton.style.display = matrix ? "" : "none";
+  // Offered in both modes: a single run is several stretches encoded one after another, which is
+  // long enough to want out of.
+  ui.stopButton.style.display = "";
   ui.stopButton.disabled = false;
   ui.progress.style.display = "block";
   const fill = ui.progress.querySelector<HTMLDivElement>(".fill");
@@ -672,19 +737,22 @@ function startRunUi(ui: RunUi, matrix: boolean): HTMLDivElement | null {
 
 function endRunUi(ui: RunUi): void {
   encodeTest.running = false;
+  activeWorkers = [];
   ui.runButton.disabled = false;
+  ui.syncRunAction();
   ui.stopButton.style.display = "none";
 }
 
 async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
   if (encodeTest.running) return;
-  const fill = startRunUi(ui, false);
+  const fill = startRunUi(ui);
   ui.note.textContent = "Loading ffmpeg.wasm…";
   let inputs: RunInputs | null = null;
   try {
     const windows = runWindows();
     encodeTest.sampled = windows;
     const workers = ffmpegPool(poolSizeFor(windows.length));
+    activeWorkers = workers;
     await workers[0].load();
     inputs = await prepareRun(windows, workers, ui);
     // The A/B window draws the original from startTime, so it follows the stretch actually shown.
@@ -737,6 +805,35 @@ async function dropWholeFileInput(inputs: RunInputs | null): Promise<void> {
  */
 function stopRequested(): boolean {
   return encodeTest.matrix.cancelRequested;
+}
+
+/** The cores the run in progress is encoding on, so Stop has something to stop. */
+let activeWorkers: FfmpegWorker[] = [];
+
+/** A run ended because Stop was pressed, which is not a failure to report as one. */
+class RunStopped extends Error {
+  constructor() {
+    super("Stopped");
+    this.name = "RunStopped";
+  }
+}
+
+/**
+ * Stops the run now, rather than at the end of whatever is already in flight.
+ *
+ * The encode runs inside wasm, which offers no way to interrupt a call already in it, so waiting
+ * for the encode in progress means waiting for exactly the slow combination Stop tends to be
+ * pressed about — with the tab's buttons disabled and the bar still filling the whole time.
+ * Terminating the core is the interrupt: its pending call rejects, the run unwinds through the
+ * error handling it already has, and the next run builds a fresh core. What that costs is the cut
+ * stretches the terminated core was holding, which the next run cuts again.
+ */
+function requestStop(ui: RunUi): void {
+  if (!encodeTest.running) return;
+  encodeTest.matrix.cancelRequested = true;
+  ui.stopButton.disabled = true;
+  ui.note.textContent = "Stopping…";
+  for (const worker of activeWorkers) worker.reset();
 }
 
 /**
@@ -807,10 +904,9 @@ async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promis
  */
 async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
   const matrix = encodeTest.matrix;
-  matrix.cancelRequested = false;
   matrix.running = true;
   activeQueue = queue;
-  const fill = startRunUi(ui, true);
+  const fill = startRunUi(ui);
   const repaint = (): void => renderMatrixSection(ui.matrixSec, vt, ui);
   repaint();
 
@@ -818,6 +914,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   try {
     ui.note.textContent = "Loading ffmpeg.wasm…";
     const workers = ffmpegPool(poolSizeFor(queue.length));
+    activeWorkers = workers;
     await workers[0].load();
     inputs = await prepareRun(matrixWindows(), workers, ui);
     if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
@@ -827,6 +924,9 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
     // in-flight fractions between them, and the line names what is being worked on.
     const inFlight = new Map<string, number>();
     const showProgress = (): void => {
+      // A stopped run leaves the bar where it got to instead of creeping on as the last cores
+      // unwind: the figures it would show are of a sweep that is no longer happening.
+      if (stopRequested()) return;
       const finished = queue.filter((c) => c.status === "done" || c.status === "failed").length;
       const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
       if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
@@ -856,9 +956,11 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
           cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
           cell.status = "done";
         } catch (err) {
-          cell.status = "failed";
-          cell.error = err instanceof Error ? err.message : String(err);
-          logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
+          // A core terminated by Stop rejects whatever it was running; the square it was on was
+          // never measured, which is what "skipped" already means for the ones never reached.
+          cell.status = stopRequested() ? "skipped" : "failed";
+          cell.error = cell.status === "failed" ? (err instanceof Error ? err.message : String(err)) : null;
+          if (cell.error) logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
         }
         inFlight.delete(cell.combo.key);
         evictBeyondBudget(matrix.cells, MATRIX_RETAINED_BYTES, matrix.selectedKey);
@@ -870,6 +972,12 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
     // Whatever Stop left unreached is not pending, it is not going to run.
     for (const cell of queue) {
       if (cell.status === "pending") cell.status = "skipped";
+    }
+    if (stopRequested()) {
+      const stoppedAt = matrixProgress(matrix.cells);
+      ui.note.textContent = `Stopped: ${stoppedAt.done} of ${stoppedAt.total} encoded`;
+      ui.progress.style.display = "none";
+      return;
     }
 
     const best = bestReductionCell(matrix.cells);
@@ -918,6 +1026,11 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
 }
 
 function reportRunFailure(err: unknown, ui: RunUi): void {
+  if (err instanceof RunStopped) {
+    ui.note.textContent = "Stopped.";
+    ui.progress.style.display = "none";
+    return;
+  }
   console.error("[encoding-helper] encode test failed:", err);
   ui.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
   logLine(ui.log, String(err instanceof Error ? err.message : err), "error");
@@ -1003,8 +1116,20 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
   sec.style.display = "block";
   sec.append(h("h2", null, "Matrix Results"));
   const busy = matrix.running || encodeTest.running;
-  const best = bestReductionCell(matrix.cells);
-  sec.append(renderMatrixSummary(best, matrixCellEstimate));
+  // Which combination wins is a statement about the whole sweep, so it waits for the whole sweep: a
+  // ★ that hops from square to square as the grid fills in names the best of what has finished so
+  // far, which is not the question the grid is being run to answer. A square that failed has run —
+  // it produced no size, and it is not going to — so it does not hold the ranking up; one Stop left
+  // unmeasured does, until the button below has run it.
+  const unrun = matrix.cells.some((c) => c.status !== "done" && c.status !== "failed");
+  const best = unrun ? null : bestReductionCell(matrix.cells);
+  sec.append(
+    renderMatrixSummary(
+      best,
+      matrixCellEstimate,
+      busy ? "Ranked once every combination has run." : "Ranked once the unmeasured combinations have run.",
+    ),
+  );
   sec.append(
     renderMatrixTable({
       scaleLabel: (scale) => describeScale(scale, currentVideoInfo()),
@@ -1021,46 +1146,6 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
         : (cell) => void retryCells([cell], vt, ui),
     }),
   );
-
-  const progress = matrixProgress(matrix.cells);
-  const legend = [
-    `${progress.done} of ${progress.total} encoded`,
-    progress.failed ? `${progress.failed} failed` : "",
-    progress.skipped ? `${progress.skipped} skipped` : "",
-    "★ largest reduction",
-    "each square shows the projected whole-file change, the size it projects to, and the encode's own time",
-  ].filter(Boolean);
-  sec.append(h("div", "matrix-legend", legend.join(" · ")));
-
-  const actions = h("div", "compare-run-buttons");
-  // One press for everything the sweep did not measure, which is failures and whatever Stop left
-  // unreached: retrying them a square at a time is the same work with more clicking. Offered from
-  // the first one rather than the second, since one unmeasured square is still a grid with a hole
-  // in it and nothing else on screen says how to fill it.
-  const unmeasured = matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
-  if (unmeasured.length && !busy) {
-    const failedCount = unmeasured.filter((c) => c.status === "failed").length;
-    const label =
-      failedCount === unmeasured.length ? `Retry ${failedCount} failed` : `Run ${unmeasured.length} unmeasured`;
-    const retry = h("button", "btn sm sec", label);
-    retry.type = "button";
-    retry.addEventListener("click", () => void retryCells(unmeasured, vt, ui));
-    actions.append(retry);
-  }
-  const selected = matrix.cells.find((c) => c.combo.key === matrix.selectedKey);
-  if (selected) {
-    const apply = h("button", "btn sm sec", "Use these settings in the CLI command");
-    apply.type = "button";
-    apply.addEventListener("click", () => {
-      cli.quality = selected.combo.quality;
-      cli.crf = selected.combo.crf;
-      cli.preset = selected.combo.preset;
-      syncQualityControls();
-      apply.textContent = "Applied";
-    });
-    actions.append(apply);
-  }
-  if (actions.children.length) sec.append(actions);
 }
 
 // Halts the previous run's playback loop, so a fresh comparison does not leave one decoding frames

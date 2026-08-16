@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_MATRIX_PRESETS, MATRIX_PRESETS, MATRIX_QUALITIES } from "../../src/lib/qualityMatrix";
+import {
+  buildMatrixCombos,
+  DEFAULT_MATRIX_PRESETS,
+  makeMatrixCells,
+  MATRIX_PRESETS,
+  MATRIX_QUALITIES,
+} from "../../src/lib/qualityMatrix";
 import { cli, encodeTest, resetState, state } from "../../src/lib/state";
 import type { TrackInfo } from "../../src/lib/types";
 import { renderEncodeTestTab } from "../../src/ui/compareTab";
@@ -186,6 +192,27 @@ describe("renderEncodeTestTab", () => {
     segments.value = "0";
     segments.dispatchEvent(new Event("input"));
     expect(encodeTest.segments).toBe(1);
+  });
+
+  // One button, saying what pressing it would do to the grid as it stands: a sweep that left holes
+  // is asking to have those filled, not to be run again from the top.
+  it("turns the run button into the one that fills a swept grid's holes", () => {
+    const panel = renderTab();
+    encodeTest.matrix.cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1], ["lanczos"]));
+    pickMode(panel, "matrix");
+    const runButton = (): HTMLButtonElement => panel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!;
+    expect(runButton().textContent).toBe("Run Matrix");
+
+    encodeTest.matrix.cells[0].status = "failed";
+    pickMode(panel, "single");
+    pickMode(panel, "matrix");
+    expect(runButton().textContent).toBe("Retry 1 failed");
+
+    encodeTest.matrix.cells[1].status = "skipped";
+    pickMode(panel, "single");
+    expect(runButton().textContent).toBe("Run Comparison");
+    pickMode(panel, "matrix");
+    expect(runButton().textContent).toBe("Run 2 unmeasured");
   });
 
   it("ticks every quality and the faster presets to begin with", () => {

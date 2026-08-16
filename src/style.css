@@ -1509,11 +1509,6 @@ table.data.matrix-table th.matrix-row-head {
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
-.matrix-legend {
-  margin: 10px 0;
-  font-size: 12px;
-  color: var(--faint);
-}
 
 /* Compare Quality: the estimated data savings strip that sits between the run summary and the
    panes. Two bars on one shared scale, so the projected file is read against the original at a

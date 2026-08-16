@@ -203,6 +203,13 @@ describe("renderMatrixSummary", () => {
     expect(summary.querySelector(".matrix-summary-figure")).toBeNull();
   });
 
+  // The caller says so while the sweep is still running: naming a winner then would only name the
+  // best of whatever has finished so far.
+  it("takes the caller's word for why there is no winner yet", () => {
+    const summary = renderMatrixSummary(null, estimateFor, "Ranked once every combination has run.");
+    expect(summary.querySelector(".matrix-summary-sub")!.textContent).toBe("Ranked once every combination has run.");
+  });
+
   it("leads with the winner's saving", () => {
     const summary = renderMatrixSummary(cells()[1], estimateFor);
     expect(summary.querySelector(".matrix-summary-figure")!.textContent).toBe("60% smaller");

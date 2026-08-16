@@ -16,13 +16,18 @@
 - **Single** and **Matrix** mode are a segmented control matching [clip-extractor](https://github.com/brain-bbqs/clip-extractor), both readable without opening a dropdown ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - A **Segments** count encodes that many stretches spread at random across the whole video, projecting the size from all of them and narrowing the range ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - **Compare Quality** asks only how long a stretch should be and how many: the sampler places them, so there is no start time to pick, and it defaults to five stretches of five seconds ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-
 - Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 - Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A run encodes on several ffmpeg.wasm cores at once, so a matrix sweep finishes in a fraction of the time it took on one ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- One run button says what pressing it does: it turns into **Retry N failed** once a sweep leaves squares unmeasured, and the results section drops its legend and its own buttons ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 #### 🐛 Bug Fix
 
 - A failed matrix square can be retried while the sweep is still running: it joins the queue instead of being unclickable until the end ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- **Stop** ends a run at once, terminating the encode in progress, instead of leaving the page locked and the bar filling until it finishes ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- The ★ largest reduction is marked only once every combination has run, rather than moving from square to square as the grid fills in ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- A core that ran out of memory no longer takes every later square with it: the run gives its replacement the stretches back instead of failing on a missing input ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
+- An out-of-memory crash is reported as one, with the settings that bring it on, rather than as the core's own `memory access out of bounds` ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 ## 0.4.0
 
@@ -41,9 +46,6 @@
 
 ## 0.3.3
 
-- Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-
 #### 🐛 Bug Fix
 
 - Wheel zoom in **Compare Quality** now holds the point under the cursor still, instead of drifting once the panes have been zoomed or panned ([#20](https://github.com/brain-bbqs/encoding-helper/pull/20))
@@ -54,9 +56,6 @@
 
 - The **x264 Preset** field now has an ⓘ explaining what it trades: the same quality at a given CRF, reached in fewer bytes the longer the encoder is given ([#19](https://github.com/brain-bbqs/encoding-helper/pull/19))
 - A finished comparison leaves a full green bar instead of the word "Done." under an empty one ([#19](https://github.com/brain-bbqs/encoding-helper/pull/19))
-
-- Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 #### 🐛 Bug Fix
 
@@ -71,9 +70,6 @@
 - The projection applies the snippet's compression ratio to the source's real size, reading the sampled stretch's cost from the sample table where there is one ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
 - The projection carries a range, drawn on its bar, that narrows as more of the file is sampled ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
 - Added an **Estimate Detail** block with the numbers behind the headline, and the same projection to the **Full Analysis** document ([#18](https://github.com/brain-bbqs/encoding-helper/pull/18))
-
-- Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 #### 🐛 Bug Fix
 
@@ -150,9 +146,6 @@
 - Retitled the Inspect tab's first card to "Video Container Overview", with the container explainer under the heading and the field relabelled "Type" ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
 - Reflowed the GOP explainer: it reads before the numbers, the I/P/B definitions are a list, and the sleap-io note has its own paragraph ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
 
-- Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-
 #### 🐛 Bug Fix
 
 - Styled hyperlinks with the theme accent; they were falling back to the browser default `#0000EE`, nearly unreadable in dark mode ([#12](https://github.com/brain-bbqs/encoding-helper/pull/12))
@@ -191,9 +184,6 @@
 - Added the `reuse` pre-commit hook, `REUSE.toml`, `LICENSES/MIT.txt` and a root `LICENSE`, for REUSE compliance ([#6](https://github.com/brain-bbqs/encoding-helper/pull/6))
 
 ## 0.1.0
-
-- Each sampled stretch is cut out of the source once and every encode reads that, instead of decoding the file from the start for every setting ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
-- Re-running at another setting reuses the stretches the last run measured, so the comparison is fair and a remote file is not downloaded again ([#22](https://github.com/brain-bbqs/encoding-helper/pull/22))
 
 #### 🐛 Bug Fix
 

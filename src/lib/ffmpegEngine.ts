@@ -278,6 +278,16 @@ export async function runFfmpegEncode(
  */
 function describeFfmpegFailure(err: unknown): string {
   const raw = (err instanceof Error ? err.message : String(err)).trim();
+  // The core's own words for running out of memory, which say nothing about what to do about it.
+  if (/memory access out of bounds|out of memory|allocation failed/i.test(raw)) {
+    return (
+      `ffmpeg.wasm ran out of memory (${raw}). The core gets a fixed slice of the tab's memory, and ` +
+      `x264 asks for more of it the larger the frame, the longer the segment and the slower the ` +
+      `preset — a smaller resolution, fewer or shorter segments, or a quicker preset usually gets ` +
+      `through. The command itself is sound: run it outside the browser for the exact result. The ` +
+      `encoder has been reset, so the next run starts from a fresh core.`
+    );
+  }
   if (!/abort/i.test(raw)) return raw;
   return (
     `ffmpeg.wasm crashed part-way through (${raw}). The in-browser core is a single-threaded build, ` +

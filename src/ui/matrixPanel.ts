@@ -230,10 +230,11 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
 export function renderMatrixSummary(
   best: MatrixCell | null,
   estimate?: (cell: MatrixCell) => SizeEstimate | null,
+  emptyNote = "No combination has finished yet.",
 ): HTMLElement {
   const wrap = h("div", "matrix-summary");
   if (!best) {
-    wrap.append(h("div", "matrix-summary-sub", "No combination has finished yet."));
+    wrap.append(h("div", "matrix-summary-sub", emptyNote));
     return wrap;
   }
   const est = estimate?.(best) ?? null;
