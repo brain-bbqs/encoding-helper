@@ -102,8 +102,8 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   return {
     main: "–",
     factor: "",
-    sub: skipped ? "skipped" : "queued",
-    title: `${settings} — ${skipped ? "not run" : "queued"}`,
+    sub: skipped ? "run it" : "queued",
+    title: `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`,
     pending: true,
     grew: false,
   };
@@ -215,9 +215,10 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   btn.append(h("span", "matrix-sub", face.sub));
   btn.title = face.title;
   if (isBest) btn.append(h("span", "matrix-flag", "★ best"));
-  // A finished square loads into the A/B window; a failed one is a second attempt at the encode.
+  // A finished square loads into the A/B window; one that failed or was never reached is an attempt
+  // at the encode.
   const selectable = cell.status === "done" && cell.bytes != null && !!opts.onSelect;
-  const retryable = cell.status === "failed" && !!opts.onRetry;
+  const retryable = (cell.status === "failed" || cell.status === "skipped") && !!opts.onRetry;
   btn.disabled = !selectable && !retryable;
   btn.setAttribute("aria-pressed", String(isSelected));
   if (selectable) btn.addEventListener("click", () => opts.onSelect?.(cell));

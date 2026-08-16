@@ -604,11 +604,21 @@ async function encodeWindows(
   };
 }
 
-/** The encoded segment's own playback length, which the size projection is taken over. */
+/**
+ * The encoded segment's own playback length, which the size projection is taken over.
+ *
+ * Disposed on the way out: a default sweep measures 120 of these, and an Input left open holds the
+ * blob and whatever the browser gave it to read the blob with. Leaked by the hundred, the browser
+ * eventually refuses to decode anything at all.
+ */
 async function segmentDuration(blob: Blob): Promise<number> {
   const mb = await ensureMediabunny();
   const input = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
-  return await input.computeDuration();
+  try {
+    return await input.computeDuration();
+  } finally {
+    input.dispose();
+  }
 }
 
 /** Puts an encoded segment in the A/B window, against the original, and redraws the comparison. */
@@ -623,8 +633,15 @@ async function loadEncodedIntoAB(
   const encodedInput = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
   const encodedTrack = await encodedInput.getPrimaryVideoTrack();
   if (!encodedTrack) throw new Error("Encoded segment has no video track");
+  // Asked rather than assumed: mediabunny throws out of the frame reads otherwise, which land in a
+  // playback loop nothing is awaiting and surface as an unhandled rejection with no clue attached.
+  if (!(await encodedTrack.canDecode())) {
+    throw new Error("This browser will not decode the encode that was just made, so it cannot be shown side by side.");
+  }
   const encodedDuration = await encodedInput.computeDuration();
   if (!state.videoTrack) throw new Error("No video track loaded");
+  // The window is about to point at a new input; the one it was pointing at goes.
+  encodeTest.encodedInput?.dispose();
   encodeTest.originalSink = new mb.CanvasSink(state.videoTrack, { poolSize: 2 });
   encodeTest.encodedSink = new mb.CanvasSink(encodedTrack, { poolSize: 2 });
   encodeTest.encodedInput = encodedInput;
@@ -763,7 +780,7 @@ let activeQueue: MatrixCell[] | null = null;
 
 /** Puts a failed square back in the running sweep's queue, to be re-encoded when it is reached. */
 function queueRetry(cell: MatrixCell, ui: RunUi, repaint: () => void): void {
-  if (!activeQueue || cell.status !== "failed") return;
+  if (!activeQueue || (cell.status !== "failed" && cell.status !== "skipped")) return;
   cell.status = "pending";
   cell.error = null;
   activeQueue.push(cell);
@@ -771,7 +788,7 @@ function queueRetry(cell: MatrixCell, ui: RunUi, repaint: () => void): void {
   repaint();
 }
 
-/** Runs the squares that failed, in place, keeping everything the sweep already measured. */
+/** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
 async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
   if (encodeTest.running || !cells.length) return;
   for (const cell of cells) {
@@ -864,7 +881,19 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
     // A retry that did not beat what is already showing leaves the A/B window alone.
     if (best.combo.key !== matrix.selectedKey) {
       ui.note.textContent = `Loading the best reduction (${describeSettings(best.combo)}) into the A/B window…`;
-      await selectMatrixCell(best, vt, ui);
+      try {
+        await selectMatrixCell(best, vt, ui);
+      } catch (err) {
+        // The sweep measured everything it was asked to; only the preview of the winner failed,
+        // which is a browser that will not decode what ffmpeg just wrote. Reporting that as the
+        // run failing would throw away a grid full of good measurements.
+        console.error("[encoding-helper] could not show the best square:", err);
+        logLine(
+          ui.log,
+          "Encoded fine, but could not be shown: " + (err instanceof Error ? err.message : String(err)),
+          "warn",
+        );
+      }
     }
     if (fill) {
       fill.style.width = "100%";
@@ -1004,13 +1033,18 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
   sec.append(h("div", "matrix-legend", legend.join(" · ")));
 
   const actions = h("div", "compare-run-buttons");
-  // One press for a grid full of failures, since retrying them one square at a time is the same
-  // work with more clicking. A single failure is one click on the square itself.
-  const failed = matrix.cells.filter((c) => c.status === "failed");
-  if (failed.length > 1 && !busy) {
-    const retry = h("button", "btn sm sec", `Retry ${failed.length} failed`);
+  // One press for everything the sweep did not measure, which is failures and whatever Stop left
+  // unreached: retrying them a square at a time is the same work with more clicking. Offered from
+  // the first one rather than the second, since one unmeasured square is still a grid with a hole
+  // in it and nothing else on screen says how to fill it.
+  const unmeasured = matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
+  if (unmeasured.length && !busy) {
+    const failedCount = unmeasured.filter((c) => c.status === "failed").length;
+    const label =
+      failedCount === unmeasured.length ? `Retry ${failedCount} failed` : `Run ${unmeasured.length} unmeasured`;
+    const retry = h("button", "btn sm sec", label);
     retry.type = "button";
-    retry.addEventListener("click", () => void retryCells(failed, vt, ui));
+    retry.addEventListener("click", () => void retryCells(unmeasured, vt, ui));
     actions.append(retry);
   }
   const selected = matrix.cells.find((c) => c.combo.key === matrix.selectedKey);
@@ -1218,6 +1252,10 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     ctx.imageSmoothingEnabled = encodeTest.upscaleSmoothing;
     ctx.drawImage(frame.canvas, 0, 0, width, height);
   };
+  const drawError = h("div", "error-msg");
+  drawError.style.display = "none";
+  resultSec.append(drawError);
+
   const drawAt = async (relT: number): Promise<void> => {
     if (!encodeTest.originalSink || !encodeTest.encodedSink) return;
     const [originalFrame, encodedFrame] = await Promise.all([
@@ -1227,6 +1265,21 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     drawFrame(origCanvas, originalFrame);
     drawFrame(encCanvas, encodedFrame, downscaled ? { width: srcWidth, height: srcHeight } : null);
   };
+  /**
+   * Draws a frame from a handler that cannot await it.
+   *
+   * A rejected draw used to leave the page with an unhandled rejection and the panes with whatever
+   * they last held, which reads as the comparison silently freezing. It says so under the panes
+   * instead, since a comparison that will not draw is the one thing this section is for.
+   */
+  const drawFrom = (relT: number): void => {
+    void drawAt(relT).catch((err: unknown) => {
+      console.error("[encoding-helper] could not draw the comparison:", err);
+      drawError.textContent = "Could not draw the comparison: " + (err instanceof Error ? err.message : String(err));
+      drawError.style.display = "";
+    });
+  };
+
   const showTime = (relT: number): void => {
     scrub.value = String((relT / encodeTest.duration) * 1000);
     scrubLabel.textContent = relT.toFixed(2) + "s";
@@ -1291,7 +1344,7 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     syncEncLabel();
     // Redraw where the playhead already is, so the switch shows on the frame being looked at
     // rather than only on the next one.
-    void drawAt((parseFloat(scrub.value) / 1000) * encodeTest.duration);
+    drawFrom((parseFloat(scrub.value) / 1000) * encodeTest.duration);
   });
 
   scrub.addEventListener("input", () => {
@@ -1301,5 +1354,5 @@ function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
     if (playing) rebase(relT);
     void drawAt(relT);
   });
-  void drawAt(0);
+  drawFrom(0);
 }

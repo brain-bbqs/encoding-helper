@@ -130,16 +130,26 @@ describe("renderMatrixTable", () => {
     expect(ultrafast.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("labels the squares the sweep has not reached, and leaves them unclickable", () => {
+  it("labels a square being encoded, and leaves it unclickable", () => {
     const pending = cells();
     pending[2].status = "running";
-    pending[3].status = "skipped";
     const table = renderMatrixTable({ cells: pending, onSelect: () => {} });
-    const [, , running, skipped] = cellButtons(table);
+    const running = cellButtons(table)[2];
     expect(running.querySelector(".matrix-sub")!.textContent).toBe("encoding");
-    expect(skipped.querySelector(".matrix-sub")!.textContent).toBe("skipped");
     expect(running.disabled).toBe(true);
-    expect(skipped.disabled).toBe(true);
+  });
+
+  // A square Stop never reached is a hole in the grid, so it offers to fill itself.
+  it("offers a square the sweep never reached as one to run", () => {
+    const pending = cells();
+    pending[3].status = "skipped";
+    const ran: string[] = [];
+    const table = renderMatrixTable({ cells: pending, onRetry: (c) => ran.push(c.combo.key) });
+    const skipped = cellButtons(table)[3];
+    expect(skipped.querySelector(".matrix-sub")!.textContent).toBe("run it");
+    expect(skipped.disabled).toBe(false);
+    skipped.click();
+    expect(ran).toEqual([comboKey("low", "fast")]);
   });
 
   it("shows a failed square with the reason on it", () => {
