@@ -61,7 +61,7 @@ export const encodeTest: EncodeTestState = {
   windows: [],
   sampled: [],
   running: false,
-  mode: "single",
+  cancelRequested: false,
   originalSink: null,
   encodedSink: null,
   encodedInput: null,
@@ -79,7 +79,6 @@ export const encodeTest: EncodeTestState = {
     segmentLength: 5,
     windows: [],
     running: false,
-    cancelRequested: false,
     selectedKey: null,
   },
   zoom: null,
@@ -116,7 +115,7 @@ export function resetState(): void {
   encodeTest.windows = [];
   encodeTest.sampled = [];
   encodeTest.running = false;
-  encodeTest.mode = "single";
+  encodeTest.cancelRequested = false;
   encodeTest.originalSink = null;
   encodeTest.encodedSink = null;
   encodeTest.encodedInput = null;
@@ -134,12 +133,11 @@ export function resetState(): void {
   encodeTest.matrix.segmentLength = 5;
   encodeTest.matrix.windows = [];
   encodeTest.matrix.running = false;
-  encodeTest.matrix.cancelRequested = false;
   encodeTest.matrix.selectedKey = null;
   encodeTest.zoom = null;
 }
 
-/** Basic video-track info shared by the FFmpeg Command Builder and Compare Quality tabs, or null pre-load. */
+/** Basic video-track info shared by the FFmpeg Command Builder and the encoding runs, or null pre-load. */
 export function currentVideoInfo(): { fps: number | null; width: number; height: number } | null {
   const vt = state.tracks && state.tracks.find((t) => t.kind === "video");
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;

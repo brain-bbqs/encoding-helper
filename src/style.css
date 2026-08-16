@@ -1035,46 +1035,6 @@ details.teach-more summary {
   }
 }
 
-/* Centred row for a segmented control that governs the card under it, as in clip-extractor. */
-.toggle-row {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-
-/* Segmented control for a short set of choices, where a dropdown would hide the alternative behind
-   a click. Mirrors the `.seg` control in brain-bbqs/clip-extractor, keeping the two apps' pickers
-   identical the way the theme toggle and dropzone already are. */
-.seg {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.seg button {
-  background: transparent;
-  color: var(--muted);
-  font-weight: 500;
-  font-size: 0.85rem;
-  padding: 0.35rem 0.9rem;
-  border: none;
-  border-radius: 0;
-  border-right: 1px solid var(--border);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.seg button:last-child {
-  border-right: none;
-}
-.seg button:hover:not(.active) {
-  background: var(--accent-soft);
-}
-.seg button.active {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-}
-
 /* The output console lives in a fold that starts closed, so a finished run's result is what is on
    screen rather than the transcript that produced it. */
 .log-details {

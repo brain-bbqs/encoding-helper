@@ -1,5 +1,4 @@
-// Small reusable form-field / engine-progress-box builders shared by the Reencode and Compare Quality
-// tabs.
+// Small reusable form-field / engine-progress-box builders shared by the tabs that run an encode.
 
 import { h, infoIcon, teachBox } from "../lib/dom";
 
@@ -59,49 +58,6 @@ export function fieldNumber(
   inp.step = String(step);
   f.append(inp);
   return f;
-}
-
-/**
- * A short, fixed set of choices as a segmented control rather than a dropdown.
- *
- * Worth the width when the options are few and the choice changes what the panel below shows: both
- * are on screen at once, so the alternative is readable without opening anything, and switching is
- * one click rather than two.
- *
- * The markup and styling mirror the `.seg` control in brain-bbqs/clip-extractor, the way the theme
- * toggle and the dropzone already do, so the two apps' controls are the same control. Returned bare
- * rather than wrapped in a labelled field, since that app centres it above the card it governs and
- * lets the options themselves say what it is.
- */
-export function segmentedControl(
-  id: string,
-  label: string,
-  options: [string, string][],
-  value: string,
-  onChange: (value: string) => void,
-): HTMLDivElement {
-  const seg = h("div", "seg");
-  seg.id = id;
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", label);
-  const buttons: HTMLButtonElement[] = [];
-  for (const [optValue, text] of options) {
-    const btn = h("button", optValue === value ? "active" : null, text);
-    btn.type = "button";
-    btn.dataset.value = optValue;
-    btn.setAttribute("aria-pressed", String(optValue === value));
-    btn.addEventListener("click", () => {
-      for (const other of buttons) {
-        const on = other === btn;
-        other.classList.toggle("active", on);
-        other.setAttribute("aria-pressed", String(on));
-      }
-      onChange(optValue);
-    });
-    buttons.push(btn);
-    seg.append(btn);
-  }
-  return seg;
 }
 
 export interface EngineBox {

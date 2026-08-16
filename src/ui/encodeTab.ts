@@ -1,11 +1,18 @@
-// Tab: Reencode & CLI — the FFmpeg Command Builder. The in-browser engines that consume these
-// settings live in their own tab (reencodeTab.ts).
+// Tab: Reencode with ffmpeg — the FFmpeg Command Builder, and a run of the command it builds over a
+// few sampled seconds so the setting can be seen before it is committed to. The in-browser engines
+// that encode the whole video with these settings live in their own tab (reencodeTab.ts).
+//
+// The command and the comparison belong together: the point of trying a setting on five seconds of
+// video is to decide what to run on the file, and what to run on the file is the block of text
+// directly above it.
 
 import { computeGop, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
-import { cli, state } from "../lib/state";
-import type { VideoInfo } from "../lib/types";
+import { cliSettings } from "../lib/qualityMatrix";
+import { cli, encodeTest, state } from "../lib/state";
+import type { TrackInfo, VideoInfo } from "../lib/types";
+import { loadEncodedIntoAB } from "./abPanel";
 import {
   parseScale,
   parseScaler,
@@ -15,6 +22,20 @@ import {
   syncQualityControls,
 } from "./cliControls";
 import { fieldNumber, fieldSelect } from "./formControls";
+import {
+  acquireWorkers,
+  dropWholeFileInput,
+  encodeWindows,
+  endRunUi,
+  prepareRun,
+  reportRunFailure,
+  runControls,
+  runWindows,
+  sampleFields,
+  startRunUi,
+  type RunInputs,
+  type RunUi,
+} from "./segmentRun";
 
 export function renderEncodeTab(panel: HTMLElement): void {
   panel.innerHTML = "";
@@ -194,4 +215,95 @@ export function renderEncodeTab(panel: HTMLElement): void {
   });
   bindNumber("cliFps", "fps", false);
   refreshCliCommand();
+
+  panel.append(...sampleRunSection(vt));
+}
+
+/**
+ * The command above, run over a few short stretches of the loaded video, with the result shown
+ * against the original.
+ *
+ * A CRF is a number until you have seen what it does to your footage, and what it does depends on
+ * the footage: the same 25 that is invisible on a static cage view smears a fast-moving animal.
+ * Five seconds encoded here answers that in a few seconds, and the same run measures what the
+ * setting would save across the whole file — both questions the command itself cannot answer, and
+ * both cheaper to ask here than by encoding a full recording to find out.
+ */
+function sampleRunSection(vt: TrackInfo): HTMLElement[] {
+  const sec = h("div", "section");
+  sec.append(h("h2", null, "Try It on a Sample"));
+  sec.append(
+    teachBox(
+      `Encodes a few short stretches of the video with the command above — the real ffmpeg, compiled to ` +
+        `WebAssembly, so the bytes are the bytes it would produce — and shows the result against the same ` +
+        `seconds of the original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
+        `<p>The stretches are placed across the whole file rather than picked by hand, so what they cost stands ` +
+        `for the recording rather than for its opening seconds; more of them narrows the projected saving below. ` +
+        `Sweeping several settings at once instead is the <b>Compare Quality</b> tab.</p>`,
+    ),
+  );
+  sec.append(sampleFields("sample"));
+  const { nodes, ui } = runControls("Run Comparison");
+  sec.append(...nodes);
+
+  const resultSec = h("div", "section");
+  resultSec.style.display = "none";
+
+  ui.runButton.addEventListener("click", () => {
+    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
+    // the run has started.
+    ui.runButton.disabled = true;
+    void runSample(vt, ui, resultSec).finally(() => {
+      if (encodeTest.running) return;
+      ui.runButton.disabled = false;
+    });
+  });
+  return [sec, resultSec];
+}
+
+/** Encodes the sampled stretches at whatever the builder currently says, and puts the first of them
+ * in the A/B window. */
+async function runSample(vt: TrackInfo, ui: RunUi, resultSec: HTMLDivElement): Promise<void> {
+  // One encoder, one pool: a sweep running on the other tab has both, and its run is the one that
+  // was asked for first.
+  if (encodeTest.running) {
+    ui.note.textContent = "An encode is already running on the Compare Quality tab. Wait for it to finish.";
+    return;
+  }
+  const fill = startRunUi(ui);
+  ui.note.textContent = "Loading ffmpeg.wasm…";
+  let inputs: RunInputs | null = null;
+  try {
+    const windows = runWindows();
+    encodeTest.sampled = windows;
+    const workers = acquireWorkers(windows.length);
+    await workers[0].load();
+    inputs = await prepareRun(windows, workers, ui);
+    // The A/B window draws the original from startTime, so it follows the stretch actually shown.
+    encodeTest.startTime = windows[0]?.startSeconds ?? encodeTest.startTime;
+    ui.note.textContent = "Encoding test segment…";
+    const { first, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
+      const pct = fraction * 100;
+      if (fill) fill.style.width = pct.toFixed(0) + "%";
+      ui.note.textContent =
+        windows.length > 1
+          ? `Encoding ${windows.length} sampled segments… ${pct.toFixed(0)}%`
+          : `Encoding test segment… ${pct.toFixed(0)}%`;
+    });
+
+    ui.note.textContent = "Decoding frames…";
+    await loadEncodedIntoAB(first, cliSettings(cli), vt, resultSec, { bytes, windows: measured });
+    // A full bar, in the colour the app uses for a good outcome, rather than the word "Done." under
+    // an empty one: the run either filled the bar or it did not.
+    if (fill) {
+      fill.style.width = "100%";
+      fill.classList.add("done");
+    }
+    ui.note.textContent = "";
+  } catch (err) {
+    reportRunFailure(err, ui);
+  } finally {
+    await dropWholeFileInput(inputs);
+    endRunUi(ui);
+  }
 }

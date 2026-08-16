@@ -8,7 +8,7 @@ import {
 } from "../../src/lib/qualityMatrix";
 import { cli, encodeTest, resetState, state } from "../../src/lib/state";
 import type { TrackInfo } from "../../src/lib/types";
-import { renderEncodeTestTab } from "../../src/ui/compareTab";
+import { renderCompareTab } from "../../src/ui/compareTab";
 
 const VIDEO_TRACK: TrackInfo = {
   kind: "video",
@@ -23,23 +23,14 @@ const VIDEO_TRACK: TrackInfo = {
 };
 
 /** The tab, rendered over one loaded 20-second file. The panel goes into the document because the
- * tab binds its fields by id, the way the app's own panels are already in the page. */
+ * tab reaches for its fields by class, the way the app's own panels are already in the page. */
 function renderTab(): HTMLElement {
   state.tracks = [VIDEO_TRACK];
   state.duration = 20;
   const panel = document.createElement("div");
   document.body.append(panel);
-  renderEncodeTestTab(panel);
+  renderCompareTab(panel);
   return panel;
-}
-
-/** Both modes are on screen at once, as a segmented control rather than a dropdown. */
-function modeButton(panel: HTMLElement, value: string): HTMLButtonElement {
-  return panel.querySelector<HTMLButtonElement>(`#etMode button[data-value="${value}"]`)!;
-}
-
-function pickMode(panel: HTMLElement, value: string): void {
-  modeButton(panel, value).click();
 }
 
 function axisBoxes(panel: HTMLElement, label: string): HTMLInputElement[] {
@@ -49,11 +40,18 @@ function axisBoxes(panel: HTMLElement, label: string): HTMLInputElement[] {
   return Array.from(field?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]') ?? []);
 }
 
+function runButton(panel: HTMLElement): HTMLButtonElement {
+  return panel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!;
+}
+
 beforeEach(() => {
   document.body.innerHTML = "";
   resetState();
   // The CLI settings deliberately survive resetState (they are the user's, not the file's), so the
   // ones this file edits are put back by hand rather than leaking into the tests after it.
+  cli.quality = "medium";
+  cli.crf = 25;
+  cli.preset = "superfast";
   cli.scale = 1;
   cli.scaler = "lanczos";
   encodeTest.segments = 5;
@@ -61,77 +59,31 @@ beforeEach(() => {
   encodeTest.matrix.scalers = ["lanczos"];
 });
 
-describe("renderEncodeTestTab", () => {
+describe("renderCompareTab", () => {
   it("renders nothing without a video track", () => {
     state.tracks = [];
     const panel = document.createElement("div");
-    renderEncodeTestTab(panel);
+    renderCompareTab(panel);
     expect(panel.children).toHaveLength(0);
   });
 
-  it("opens on the single-setting controls, with the matrix ones out of the way", () => {
+  // One setting at a time is the Reencode with ffmpeg tab's job now, so there is no mode to pick
+  // and no second copy of the quality/preset dropdowns to keep in step with the builder.
+  it("offers the sweep alone, without a mode control or the single-run dropdowns", () => {
     const panel = renderTab();
-    expect(modeButton(panel, "single").classList.contains("active")).toBe(true);
-    expect(panel.querySelector<HTMLElement>(".compare-single-controls")!.style.display).toBe("");
-    expect(panel.querySelector<HTMLElement>(".compare-matrix-controls")!.style.display).toBe("none");
-    expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Comparison");
+    expect(panel.querySelector("#etMode")).toBeNull();
+    expect(panel.querySelector("#etQuality")).toBeNull();
+    expect(panel.querySelector("#etPreset")).toBeNull();
+    expect(panel.querySelector("#etScale")).toBeNull();
+    expect(panel.querySelector("#etScaler")).toBeNull();
+    expect(runButton(panel).textContent).toBe("Run Matrix");
   });
 
-  it("swaps the controls and the button when matrix mode is picked", () => {
+  it("offers resolution and the scaler as sweep axes", () => {
     const panel = renderTab();
-    pickMode(panel, "matrix");
-    expect(encodeTest.mode).toBe("matrix");
-    expect(panel.querySelector<HTMLElement>(".compare-single-controls")!.style.display).toBe("none");
-    expect(panel.querySelector<HTMLElement>(".compare-matrix-controls")!.style.display).toBe("");
-    expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Matrix");
-    // The quality/preset dropdowns stay in the DOM so the Reencode tab can still sync them.
-    expect(panel.querySelector("#etQuality")).not.toBeNull();
-    // Both modes stay readable side by side, so the alternative needs no click to see.
-    expect(panel.querySelectorAll("#etMode button")).toHaveLength(2);
-    expect(modeButton(panel, "single").classList.contains("active")).toBe(false);
-    expect(modeButton(panel, "matrix").getAttribute("aria-pressed")).toBe("true");
-    expect(modeButton(panel, "single").getAttribute("aria-pressed")).toBe("false");
-  });
-
-  it("labels each resolution with the size it comes out at, and applies it to the CLI state", () => {
-    const panel = renderTab();
-    const scale = panel.querySelector<HTMLSelectElement>("#etScale")!;
-    expect(scale.value).toBe("1");
-    expect(Array.from(scale.options).map((o) => o.textContent)).toEqual([
-      "Source (100%) (640×480)",
-      "75% (480×360)",
-      "50% (320×240)",
-      "25% (160×120)",
-    ]);
-    scale.value = "0.5";
-    scale.dispatchEvent(new Event("change"));
-    expect(cli.scale).toBe(0.5);
-  });
-
-  // The kernel resamples nothing at 100%, so the field only appears once there is a downscale.
-  it("shows the scaler field only when the resolution is below the source's", () => {
-    const panel = renderTab();
-    const scaler = panel.querySelector<HTMLSelectElement>("#etScaler")!;
-    expect(scaler.value).toBe("lanczos");
-    expect(scaler.parentElement!.style.display).toBe("none");
-
-    const scale = panel.querySelector<HTMLSelectElement>("#etScale")!;
-    scale.value = "0.5";
-    scale.dispatchEvent(new Event("change"));
-    expect(scaler.parentElement!.style.display).toBe("");
-
-    scaler.value = "bicubic";
-    scaler.dispatchEvent(new Event("change"));
-    expect(cli.scaler).toBe("bicubic");
-  });
-
-  // The dropdown sets one run's resolution; a sweep asks for it as an axis instead.
-  it("keeps the resolution dropdowns to single mode and offers them as axes in matrix mode", () => {
-    const panel = renderTab();
-    expect(panel.querySelector("#etScale")!.closest(".compare-single-controls")).not.toBeNull();
     expect(axisBoxes(panel, "Resolutions")).toHaveLength(4);
     expect(axisBoxes(panel, "Scalers")).toHaveLength(2);
-    expect(axisBoxes(panel, "Resolutions")[0].closest(".compare-matrix-controls")).not.toBeNull();
+    expect(axisBoxes(panel, "Resolutions")[0].closest(".matrix-settings")).not.toBeNull();
   });
 
   it("sweeps the source resolution with one kernel until told otherwise", () => {
@@ -197,22 +149,14 @@ describe("renderEncodeTestTab", () => {
   // One button, saying what pressing it would do to the grid as it stands: a sweep that left holes
   // is asking to have those filled, not to be run again from the top.
   it("turns the run button into the one that fills a swept grid's holes", () => {
-    const panel = renderTab();
     encodeTest.matrix.cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1], ["lanczos"]));
-    pickMode(panel, "matrix");
-    const runButton = (): HTMLButtonElement => panel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!;
-    expect(runButton().textContent).toBe("Run Matrix");
+    expect(runButton(renderTab()).textContent).toBe("Run Matrix");
 
     encodeTest.matrix.cells[0].status = "failed";
-    pickMode(panel, "single");
-    pickMode(panel, "matrix");
-    expect(runButton().textContent).toBe("Retry 1 failed");
+    expect(runButton(renderTab()).textContent).toBe("Retry 1 failed");
 
     encodeTest.matrix.cells[1].status = "skipped";
-    pickMode(panel, "single");
-    expect(runButton().textContent).toBe("Run Comparison");
-    pickMode(panel, "matrix");
-    expect(runButton().textContent).toBe("Run 2 unmeasured");
+    expect(runButton(renderTab()).textContent).toBe("Run 2 unmeasured");
   });
 
   it("ticks every quality and the faster presets to begin with", () => {
@@ -256,5 +200,46 @@ describe("renderEncodeTestTab", () => {
     }
     expect(encodeTest.matrix.qualities).toEqual([]);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2");
+  });
+});
+
+// The sweep ranks settings; the command is how the winner leaves the browser and reaches the file.
+describe("the command for the selected square", () => {
+  /** A finished grid with one square showing in the A/B window. */
+  function sweptWith(quality: "high" | "low", preset: "fast", scale = 1): void {
+    encodeTest.matrix.cells = makeMatrixCells(buildMatrixCombos([quality], [preset], [scale], ["lanczos"]));
+    const cell = encodeTest.matrix.cells[0];
+    cell.status = "done";
+    cell.bytes = 1024;
+    encodeTest.matrix.selectedKey = cell.combo.key;
+  }
+
+  it("stays out of the page until a square is showing", () => {
+    const panel = renderTab();
+    expect(panel.querySelector("pre.cmd")).toBeNull();
+  });
+
+  it("writes the square's own quality, preset and resolution into the command", () => {
+    sweptWith("low", "fast", 0.5);
+    const panel = renderTab();
+    const command = panel.querySelector("pre.cmd")!.textContent!;
+    expect(command).toContain("-crf 32");
+    expect(command).toContain("-preset fast");
+    expect(command).toContain("scale=trunc(iw*0.5/2)*2:-2:flags=lanczos");
+  });
+
+  // Everything the sweep does not vary comes from the builder, so the command runs the same encode
+  // the tab next door is set up for rather than a partial one.
+  it("takes the settings the sweep does not vary from the command builder", () => {
+    cli.audioMode = "strip";
+    cli.faststart = true;
+    sweptWith("high", "fast");
+    const panel = renderTab();
+    const command = panel.querySelector("pre.cmd")!.textContent!;
+    expect(command).toContain("-crf 18");
+    expect(command).toContain("-an");
+    expect(command).toContain("+faststart");
+    cli.audioMode = "copy";
+    cli.faststart = false;
   });
 });

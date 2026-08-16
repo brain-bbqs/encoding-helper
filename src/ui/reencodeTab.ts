@@ -1,6 +1,6 @@
-// Tab: Reencode — the two in-browser engines (fast / mediabunny-WebCodecs and exact /
-// ffmpeg.wasm). Both process the whole video, using the settings from the FFmpeg CLI tab, and write
-// the result straight to disk.
+// Tab: Reencode In-Browser — the two in-browser engines (fast / mediabunny-WebCodecs and exact /
+// ffmpeg.wasm). Both process the whole video, using the settings from the Reencode with ffmpeg tab,
+// and write the result straight to disk.
 
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
@@ -23,7 +23,7 @@ export function renderReencodeTab(panel: HTMLElement): void {
   sec.append(h("h2", null, "Reencode In-Browser"));
   sec.append(
     teachBox(
-      `Runs the settings from the <b>Reencode &amp; CLI</b> tab over the <b>whole video</b>, here in the page, ` +
+      `Runs the settings from the <b>Reencode with ffmpeg</b> tab over the <b>whole video</b>, here in the page, ` +
         `and saves the result to a file you choose. Nothing is uploaded: the frames are decoded and reencoded ` +
         `locally. Pick where to save when prompted, or the file lands in your downloads folder.` +
         `<p>Two engines, differing in fidelity rather than in what they produce:</p>` +
@@ -34,7 +34,7 @@ export function renderReencodeTab(panel: HTMLElement): void {
         `would give you, at the cost of a ~30 MB download and single-threaded speed.</li>` +
         `</ul>` +
         `<p>For a full-length recording or a whole dataset, copy the command from the ` +
-        `<b>Reencode &amp; CLI</b> tab and run ffmpeg natively instead; these engines are bounded by what the ` +
+        `<b>Reencode with ffmpeg</b> tab and run ffmpeg natively instead; these engines are bounded by what the ` +
         `browser tab can hold in memory.</p>`,
     ),
   );
@@ -48,7 +48,7 @@ export function renderReencodeTab(panel: HTMLElement): void {
   const exactBox = engineBox(
     "exact",
     "Exact (ffmpeg.wasm)",
-    "Runs the literal command from the Reencode &amp; CLI tab. Lazy-loads ~30 MB on first use and runs single-threaded (no COOP/COEP needed on static hosting), so it is slower than realtime but byte-for-byte matches the CLI.",
+    "Runs the literal command from the Reencode with ffmpeg tab. Lazy-loads ~30 MB on first use and runs single-threaded (no COOP/COEP needed on static hosting), so it is slower than realtime but byte-for-byte matches the CLI.",
   );
   sec.append(exactBox.el);
   panel.append(sec);

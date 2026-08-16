@@ -184,7 +184,7 @@
           <button class="tab on" data-tab="inspect" type="button">Inspect</button>
           <button class="tab" data-tab="atoms" type="button">Atom Map</button>
           <button class="tab" data-tab="seek" type="button">GOP &amp; Seeking</button>
-          <button class="tab" data-tab="encode" type="button">Reencode &amp; CLI</button>
+          <button class="tab" data-tab="encode" type="button">Reencode with ffmpeg</button>
           <button class="tab" data-tab="compare" type="button">Compare Quality</button>
           <button class="tab" data-tab="reencode" type="button">Reencode In-Browser</button>
         </div>
@@ -220,9 +220,9 @@
       <div class="tab-panel" id="panel-atoms"></div>
       <!-- Tab: GOP & Seeking -->
       <div class="tab-panel" id="panel-seek"></div>
-      <!-- Tab: Reencode & CLI -->
+      <!-- Tab: Reencode with ffmpeg (command builder + a run of it on sampled seconds) -->
       <div class="tab-panel" id="panel-encode"></div>
-      <!-- Tab: Compare Quality (side-by-side CRF/preset comparison) -->
+      <!-- Tab: Compare Quality (matrix sweep of CRF/preset/resolution) -->
       <div class="tab-panel" id="panel-compare"></div>
       <!-- Tab: Reencode In-Browser (whole-video encode with the fast/exact engines) -->
       <div class="tab-panel" id="panel-reencode"></div>

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0
+
+#### 🚀 Enhancement
+
+- **Reencode & CLI** is now **Reencode with ffmpeg**, and runs the command it builds over a few sampled seconds so the setting can be seen before it is used ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- **Compare Quality** is the sweep alone: there is no mode to pick, and the single-run quality, preset and resolution dropdowns have moved to the command builder ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The square showing in the A/B window is written out as an ffmpeg command at the bottom of **Compare Quality**, with a button to copy it ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+
+#### 🏠 Internal
+
+- The sampled-stretch encoder and the A/B window are shared modules, so both encoding tabs run and draw the one comparison between them ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+
 ## 0.5.0
 
 #### 🚀 Enhancement

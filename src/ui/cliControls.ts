@@ -1,5 +1,5 @@
-// CLI preview refresh + quality/preset control syncing, shared by the FFmpeg Command Builder (Reencode
-// tab) and the Compare Quality tab — both edit the same `cli` state object.
+// CLI preview refresh + quality/preset control syncing for the FFmpeg Command Builder on the
+// Reencode with ffmpeg tab, which is the one place the shared `cli` state object is edited.
 
 import {
   buildFfmpegArgs,
@@ -54,29 +54,27 @@ export function parseScaler(value: string): Scaler {
   return SCALER_OPTIONS.includes(value as Scaler) ? (value as Scaler) : DEFAULT_SCALER;
 }
 
-// Quality/CRF/preset/resolution controls exist in both the FFmpeg Command Builder ("cli" prefix) and
-// the Encode Test tab ("et" prefix), bound to the same `cli` object — this keeps both sets of
-// controls (and the CLI preview) showing the same values after either edits.
+// The quality, CRF, preset and resolution controls all bear on each other — a named quality hides
+// the CRF field, a full-resolution output hides the kernel — so every one of them refreshes the lot
+// rather than only the field it owns, and the command preview with them.
 export function syncQualityControls(): void {
-  for (const prefix of ["cli", "et"]) {
-    const qSel = document.getElementById(prefix + "Quality") as HTMLSelectElement | null;
-    if (qSel) qSel.value = cli.quality;
-    const crfField = document.getElementById(prefix + "Crf") as HTMLInputElement | null;
-    if (crfField) {
-      crfField.value = String(cli.crf);
-      if (crfField.parentElement) crfField.parentElement.style.display = cli.quality === "custom" ? "" : "none";
-    }
-    const presetSel = document.getElementById(prefix + "Preset") as HTMLSelectElement | null;
-    if (presetSel) presetSel.value = cli.preset;
-    const scaleSel = document.getElementById(prefix + "Scale") as HTMLSelectElement | null;
-    if (scaleSel) scaleSel.value = String(cli.scale);
-    // The kernel only reaches the command when something is being resampled, so the field goes
-    // away at full resolution rather than sitting there setting nothing.
-    const scalerSel = document.getElementById(prefix + "Scaler") as HTMLSelectElement | null;
-    if (scalerSel) {
-      scalerSel.value = cli.scaler;
-      if (scalerSel.parentElement) scalerSel.parentElement.style.display = isDownscale(cli.scale) ? "" : "none";
-    }
+  const qSel = document.getElementById("cliQuality") as HTMLSelectElement | null;
+  if (qSel) qSel.value = cli.quality;
+  const crfField = document.getElementById("cliCrf") as HTMLInputElement | null;
+  if (crfField) {
+    crfField.value = String(cli.crf);
+    if (crfField.parentElement) crfField.parentElement.style.display = cli.quality === "custom" ? "" : "none";
+  }
+  const presetSel = document.getElementById("cliPreset") as HTMLSelectElement | null;
+  if (presetSel) presetSel.value = cli.preset;
+  const scaleSel = document.getElementById("cliScale") as HTMLSelectElement | null;
+  if (scaleSel) scaleSel.value = String(cli.scale);
+  // The kernel only reaches the command when something is being resampled, so the field goes away
+  // at full resolution rather than sitting there setting nothing.
+  const scalerSel = document.getElementById("cliScaler") as HTMLSelectElement | null;
+  if (scalerSel) {
+    scalerSel.value = cli.scaler;
+    if (scalerSel.parentElement) scalerSel.parentElement.style.display = isDownscale(cli.scale) ? "" : "none";
   }
   refreshCliCommand();
 }

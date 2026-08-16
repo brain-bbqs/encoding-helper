@@ -44,7 +44,7 @@ import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange 
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
-import { describeSampledStretches } from "./compareTab";
+import { describeSampledStretches } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
 import { flattenMetadataTags } from "./inspectTab";
 import { GOP_HISTOGRAM_CAPTION, renderGopHistogram, renderSeekScatter, SEEK_SCATTER_CAPTION } from "./seekTab";
@@ -339,7 +339,7 @@ function cliCommandSection(): AnalysisSection | null {
       {
         kind: "prose",
         html:
-          "The command the <b>Reencode &amp; CLI</b> tab's settings come to, as they stood when this document " +
+          "The command the <b>Reencode with ffmpeg</b> tab's settings come to, as they stood when this document " +
           "was generated. Run it wherever ffmpeg is installed; nothing about it is specific to the browser.",
       },
       { kind: "code", lang: "bash", content: formatCliCommand(buildFfmpegArgs(cli, info)) },
@@ -350,7 +350,7 @@ function cliCommandSection(): AnalysisSection | null {
 function compareSection(): AnalysisSection | null {
   if (!encodeTest.originalSink || !encodeTest.encodedSink) return null;
   // The settings the loaded encode was made with: after a matrix sweep that is the winning square's,
-  // which is not what the dropdowns say.
+  // which is not what the command builder says.
   const settings = encodeTest.activeCombo ?? cliSettings(cli);
   const items: [string, string | number][] = [
     ["Segment", describeSampledStretches()],
@@ -400,7 +400,7 @@ function compareSection(): AnalysisSection | null {
     blocks.push({ kind: "prose", html: SIZE_SAVINGS_INTRO }, { kind: "prose", html: sizeEstimateTeach(est) });
   }
 
-  return { title: "Compare Quality (A/B) Result", blocks: [{ kind: "kv", items }, ...blocks] };
+  return { title: "Side-by-Side (A/B) Result", blocks: [{ kind: "kv", items }, ...blocks] };
 }
 
 /** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */

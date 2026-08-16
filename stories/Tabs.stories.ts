@@ -4,7 +4,7 @@ const TAB_LABELS: Record<string, string> = {
   inspect: "Inspect",
   atoms: "Atom Map",
   seek: "GOP & Seeking",
-  encode: "Reencode & CLI",
+  encode: "Reencode with ffmpeg",
   compare: "Compare Quality",
   reencode: "Reencode In-Browser",
 };

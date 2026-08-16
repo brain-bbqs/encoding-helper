@@ -1,23 +1,17 @@
-// Tab: Compare Quality — short-segment A/B comparison with synchronized pixel-level zoom & pan.
+// Tab: Compare Quality — a sweep of the encoder settings, laid out as a grid, with the square you
+// pick shown against the original in the A/B window below it.
 //
-// Two modes share the one encoder and the one A/B window. A *single* run encodes the segment at the
-// settings in the dropdowns, which is the tab's original job. *Matrix* mode sweeps those settings as
-// axes instead and lays the results out as a grid, then loads the largest reduction into the A/B
-// window — the settings ranking is a table's job, but whether the winner still looks acceptable is
-// only ever a question for the eye, and that is the window below it.
+// The settings ranking is a table's job, but whether the winner still looks acceptable is only ever
+// a question for the eye, and that is the window under the grid. Trying one setting on its own —
+// which this tab used to offer as a mode — is the Reencode with ffmpeg tab's job now, beside the
+// command that setting comes to.
 
-import { fetchFile } from "@ffmpeg/util";
-import { buildFfmpegArgs, describeScale, isDownscale, scaledDimensions } from "../lib/cliCommand";
-import { gridItem, h, infoIcon } from "../lib/dom";
-import { RESOLUTION_INFO, SCALER_INFO, SEGMENTS_INFO, UPSCALE_VIEW_INFO, X264_PRESET_INFO } from "../lib/explainers";
-import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
-import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
-import { ensureMediabunny } from "../lib/mediabunny";
-import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
+import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
+import { copyToClipboard, h, infoIcon, teachBox } from "../lib/dom";
+import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import {
   bestReductionCell,
   buildMatrixCombos,
-  cliSettings,
   describeSettings,
   evictBeyondBudget,
   makeMatrixCells,
@@ -29,133 +23,59 @@ import {
   matrixCliState,
   matrixProgress,
 } from "../lib/qualityMatrix";
-import { extOf } from "../lib/save";
+import { drainWithPool } from "../lib/ffmpegPool";
 import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
-import { fmtBytes } from "../lib/format";
-import { currentSizeEstimate, estimateSizeSavings, windowsForRun, type SizeEstimate } from "../lib/sizeEstimate";
-import type {
-  CliState,
-  EncodeSettings,
-  MatrixCell,
-  MatrixQuality,
-  SampleWindow,
-  Scaler,
-  TrackInfo,
-  X264Preset,
-} from "../lib/types";
-import { parseScale, parseScaler, scaleOptions, scalerOptions, syncQualityControls } from "./cliControls";
-import { clearLog, fieldNumber, fieldSelect, logConsole, logLine, segmentedControl } from "./formControls";
+import { estimateSizeSavings, type SizeEstimate } from "../lib/sizeEstimate";
+import type { MatrixCell, MatrixQuality, SampleWindow, Scaler, TrackInfo, X264Preset } from "../lib/types";
+import { loadEncodedIntoAB, onAbDisplaced } from "./abPanel";
+import { logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
-import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
-import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
+import {
+  acquireWorkers,
+  dropWholeFileInput,
+  encodeWindows,
+  endRunUi,
+  prepareRun,
+  reportRunFailure,
+  runControls,
+  runWindows,
+  sampleFields,
+  startRunUi,
+  stopRequested,
+  syncSampleFields,
+  type RunInputs,
+  type RunUi,
+} from "./segmentRun";
 
-interface RunUi {
-  runButton: HTMLButtonElement;
-  /** Puts the run button back to what pressing it would do now, which the last run may have
-   * changed: a sweep that left squares unmeasured turns it into the button that runs those. */
-  syncRunAction: () => void;
-  stopButton: HTMLButtonElement;
-  progress: HTMLDivElement;
-  note: HTMLDivElement;
-  log: HTMLDivElement;
+/** The run's controls, plus the three sections a sweep fills in below them. */
+interface MatrixUi extends RunUi {
   matrixSec: HTMLDivElement;
   resultSec: HTMLDivElement;
+  cmdSec: HTMLDivElement;
 }
 
-/**
- * The most stretches one run will encode.
- *
- * Ten of them at the ten-second maximum is a hundred seconds of encoding per setting, which on a
- * single-threaded in-browser core is already a long wait; past that the projection is barely
- * improving anyway, since the band narrows with √n.
- */
-const MAX_SEGMENTS = 10;
-
-/** The source file's bytes, read once and passed down a sweep rather than re-read per combination. */
-interface SourceBytes {
-  name: string;
-  data: Uint8Array;
-}
-
-export function renderEncodeTestTab(panel: HTMLElement): void {
+export function renderCompareTab(panel: HTMLElement): void {
   panel.innerHTML = "";
   const vt = state.tracks?.find((t) => t.kind === "video");
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return;
 
-  const maxDuration = Math.max(1, Math.min(10, state.duration || 10));
-  encodeTest.duration = Math.min(Math.max(1, encodeTest.duration || 3), maxDuration);
-
   const sec = h("div", "section");
   sec.append(h("h2", null, "Compare Encoding Quality"));
-
-  // The mode governs everything below it, so it sits above the fields and centred rather than in
-  // among them, the way clip-extractor places the same control.
-  const modeRow = h("div", "toggle-row");
-  modeRow.append(
-    segmentedControl(
-      "etMode",
-      "Mode",
-      [
-        ["single", "Single (one setting)"],
-        ["matrix", "Matrix (sweep every setting)"],
-      ],
-      encodeTest.mode,
-      (value) => {
-        encodeTest.mode = value === "matrix" ? "matrix" : "single";
-        applyMode();
-      },
+  sec.append(
+    teachBox(
+      `Encodes a few short stretches of the video once per combination of the settings ticked below, and lays ` +
+        `what they came to out as a grid: down a column is what CRF costs at a fixed effort, across a row is ` +
+        `what the preset buys at a fixed quality. Nothing is uploaded and the source file is never touched.` +
+        `<p>Size is the only thing ranked here, so ★ marks the smallest encode and no more than that; click any ` +
+        `square to put it in the A/B window and judge the picture yourself. The command that reproduces the ` +
+        `square you are looking at is at the bottom of this page.</p>` +
+        `<p>To try a single setting rather than a sweep, use the <b>Reencode with ffmpeg</b> tab, which runs the ` +
+        `same comparison on whatever the command builder there is set to.</p>`,
     ),
   );
-  sec.append(modeRow);
 
-  const row1 = h("div", "row compare-grid");
-  row1.append(fieldNumber("etDuration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5));
-  row1.append(fieldNumber("etSegments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1, SEGMENTS_INFO));
-  sec.append(row1);
+  sec.append(sampleFields("et"));
 
-  // Both control blocks stay in the DOM whichever mode is showing, so the shared quality/preset
-  // fields keep answering to syncQualityControls() from the Reencode tab while they are hidden.
-  const singleControls = h("div", "compare-single-controls");
-  // One row for everything a single run encodes with, so the card reads as even columns rather than
-  // a full-width dropdown above a pair. The resolution is here because it is a single run's
-  // question: matrix mode asks it as an axis instead, from the tick lists below.
-  const row2 = h("div", "row compare-grid");
-  row2.append(
-    fieldSelect("etScale", "Resolution", scaleOptions(currentVideoInfo()), String(cli.scale), RESOLUTION_INFO),
-  );
-  const etScalerField = fieldSelect("etScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
-  etScalerField.style.display = isDownscale(cli.scale) ? "" : "none";
-  row2.append(etScalerField);
-  row2.append(
-    fieldSelect(
-      "etQuality",
-      "Quality",
-      [
-        ["lossless", "Lossless (CRF 0)"],
-        ["high", "High (CRF 18)"],
-        ["medium", "Medium (CRF 25)"],
-        ["low", "Low (CRF 32)"],
-        ["custom", "Custom CRF"],
-      ],
-      cli.quality,
-    ),
-  );
-  const etCrfField = fieldNumber("etCrf", "Custom CRF", cli.crf, 0, 51, 1);
-  etCrfField.style.display = cli.quality === "custom" ? "" : "none";
-  row2.append(etCrfField);
-  row2.append(
-    fieldSelect(
-      "etPreset",
-      "x264 Preset",
-      MATRIX_PRESETS.map((p) => [p, p] as [string, string]),
-      cli.preset,
-      X264_PRESET_INFO,
-    ),
-  );
-  singleControls.append(row2);
-  sec.append(singleControls);
-
-  const matrixControls = h("div", "compare-matrix-controls");
   // Which values the sweep spans is a decision most runs never revisit, so the two tick lists fold
   // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled
   // toggle: it opens on click, on Enter, and for a page search hitting text inside it.
@@ -225,25 +145,10 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   );
   refreshAxisCount();
   axisSettings.append(axisRow, outerRow);
-  matrixControls.append(axisSettings);
-  sec.append(matrixControls);
+  sec.append(axisSettings);
 
-  const buttons = h("div", "compare-run-buttons");
-  const runBtn = h("button", "btn", "Run Comparison");
-  runBtn.type = "button";
-  const stopBtn = h("button", "btn sec", "Stop");
-  stopBtn.type = "button";
-  stopBtn.style.display = "none";
-  buttons.append(runBtn, stopBtn);
-  sec.append(buttons);
-  const progress = h("div", "progress-wrap");
-  progress.style.display = "none";
-  progress.append(h("div", "fill"));
-  sec.append(progress);
-  const note = h("div", "progress-label");
-  sec.append(note);
-  const { wrap: logWrap, log } = logConsole();
-  sec.append(logWrap);
+  const { nodes, ui: runUi } = runControls(runActionLabel());
+  sec.append(...nodes);
   panel.append(sec);
 
   const matrixSec = h("div", "section matrix-section");
@@ -254,74 +159,43 @@ export function renderEncodeTestTab(panel: HTMLElement): void {
   resultSec.style.display = "none";
   panel.append(resultSec);
 
-  const ui: RunUi = {
-    runButton: runBtn,
-    stopButton: stopBtn,
-    progress,
-    note,
-    log,
-    matrixSec,
-    resultSec,
-    syncRunAction: () => {
-      runBtn.textContent = runActionLabel();
-    },
-  };
+  const cmdSec = h("div", "section");
+  cmdSec.style.display = "none";
+  panel.append(cmdSec);
 
-  const applyMode = (): void => {
-    const matrix = encodeTest.mode === "matrix";
-    singleControls.style.display = matrix ? "none" : "";
-    matrixControls.style.display = matrix ? "" : "none";
-    ui.syncRunAction();
+  const ui: MatrixUi = { ...runUi, matrixSec, resultSec, cmdSec };
+  ui.syncRunAction = () => {
+    ui.runButton.textContent = runActionLabel();
   };
-  applyMode();
+  // A single run started on the other tab takes the A/B window over, so no square is showing here
+  // anymore and the command under it is no longer the command for what is on screen.
+  onAbDisplaced(resultSec, () => {
+    encodeTest.matrix.selectedKey = null;
+    renderMatrixSection(matrixSec, vt, ui);
+    renderSelectedCommand(cmdSec);
+  });
 
-  document.getElementById("etDuration")?.addEventListener("input", (e) => {
-    encodeTest.duration = parseFloat((e.target as HTMLInputElement).value) || 1;
-  });
-  document.getElementById("etSegments")?.addEventListener("input", (e) => {
-    const asked = parseInt((e.target as HTMLInputElement).value, 10);
-    encodeTest.segments = Math.min(MAX_SEGMENTS, Math.max(1, Number.isFinite(asked) ? asked : 1));
-  });
-  document.getElementById("etQuality")?.addEventListener("change", (e) => {
-    cli.quality = (e.target as HTMLSelectElement).value as typeof cli.quality;
-    syncQualityControls();
-  });
-  document.getElementById("etCrf")?.addEventListener("input", (e) => {
-    cli.crf = parseInt((e.target as HTMLInputElement).value, 10) || 0;
-    syncQualityControls();
-  });
-  document.getElementById("etPreset")?.addEventListener("change", (e) => {
-    cli.preset = (e.target as HTMLSelectElement).value as typeof cli.preset;
-    syncQualityControls();
-  });
-  document.getElementById("etScale")?.addEventListener("change", (e) => {
-    cli.scale = parseScale((e.target as HTMLSelectElement).value);
-    syncQualityControls();
-  });
-  document.getElementById("etScaler")?.addEventListener("change", (e) => {
-    cli.scaler = parseScaler((e.target as HTMLSelectElement).value);
-    syncQualityControls();
-  });
-  runBtn.addEventListener("click", () => {
+  // Drawn from the state rather than only from a run, so a grid and the square showing in the A/B
+  // window survive the panel being rebuilt.
+  renderMatrixSection(matrixSec, vt, ui);
+  renderSelectedCommand(cmdSec);
+
+  ui.runButton.addEventListener("click", () => {
     // Disabled here as well as by the run itself, so a second click cannot land in the gap before
     // the run has started.
-    runBtn.disabled = true;
-    const run = (): Promise<void> => {
-      if (encodeTest.mode !== "matrix") return runEncodeTest(vt, ui);
-      // A grid with holes in it is what the one button offers to fill: sweeping the whole thing
-      // again would re-encode everything that already worked.
-      const unmeasured = unmeasuredCells();
-      return unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui);
-    };
+    ui.runButton.disabled = true;
+    // A grid with holes in it is what the one button offers to fill: sweeping the whole thing
+    // again would re-encode everything that already worked.
+    const unmeasured = unmeasuredCells();
+    const run = (): Promise<void> => (unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui));
     // A run puts the button back itself when it ends; this is for the presses that never start
     // one, such as a sweep with nothing ticked to sweep.
     void run().finally(() => {
       if (encodeTest.running) return;
-      runBtn.disabled = false;
+      ui.runButton.disabled = false;
       ui.syncRunAction();
     });
   });
-  stopBtn.addEventListener("click", () => requestStop(ui));
 }
 
 /** One axis of the matrix as a tick list, reporting the whole selection on every change. */
@@ -355,496 +229,28 @@ function axisCheckboxes(
   return field;
 }
 
-/** The file's bytes, as ffmpeg.wasm wants them. Read per run rather than cached: a whole video held
- * in memory between runs is a large thing to keep for a button that may never be pressed again. */
-async function readSource(): Promise<SourceBytes> {
-  if (!state.source) throw new Error("No video loaded");
-  return { name: state.source.name, data: await fetchFile(state.file ?? state.source.url ?? undefined) };
-}
-
-/** What the source is called inside the core's filesystem, keeping its extension so ffmpeg can
- * still tell what it is being handed. */
-function inputNameFor(source: SourceBytes): string {
-  return "et_in" + extOf(source.name);
-}
-
-/** The stretches the next run covers: the last run's where they still fit what the fields ask for
- * (see windowsForRun), each snapped to a keyframe so it can be cut out by copy. */
-function runWindows(): SampleWindow[] {
-  return windowsForRun(
-    encodeTest.sampled,
-    state.duration ?? 0,
-    encodeTest.duration,
-    encodeTest.segments,
-    snapToKeyframe,
-  );
-}
-
-/** The keyframe at or before `seconds`, or the time itself when the container gave us no table to
- * look in (in which case snippets cannot be cut by copy and the old whole-file trim is used). */
-function snapToKeyframe(seconds: number): number {
-  const at = nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, seconds);
-  return at == null ? seconds : at;
-}
-
-/** Whether stretches can be cut out of the source ahead of encoding them. Needs the keyframe table:
- * without it a copy-cut lands wherever ffmpeg's own seek decides, which the A/B window's original
- * side would then be misaligned against. */
-function canCutSnippets(): boolean {
-  return state.keyframeTimestampsSec.length > 0;
-}
-
-/**
- * What one cut stretch is called in the core's filesystem.
- *
- * Named for the loaded file and the seconds it holds, so a later run over the same stretch finds it
- * already there, and a different video can never be handed one of the last one's cuts. Read off the
- * loaded source rather than off any bytes in hand, so the name is the same whether or not the file
- * has been fetched yet — which is what lets a run decide it needs no fetch at all.
- */
-function snippetName(window: SampleWindow): string {
-  const source = state.source;
-  const stamp = `${window.startSeconds.toFixed(3)}_${window.seconds.toFixed(3)}`;
-  return `et_snip_${hashName(`${source?.name ?? ""}:${source?.size ?? 0}`)}_${stamp}.mp4`;
-}
-
-/** A short, stable id for a file, so two different videos cannot share a cut stretch's name. */
-function hashName(text: string): string {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) hash = (Math.imul(hash, 31) + text.charCodeAt(i)) | 0;
-  return (hash >>> 0).toString(36);
-}
-
-/**
- * Cuts every stretch out of the source once, so the encodes that follow read a few hundred KB each
- * instead of the whole video.
- *
- * This is the difference between a sweep that decodes the file from the beginning for every square
- * and one that does not. The cut itself is `-c copy`, so no decoding happens at all, and `-ss`
- * ahead of `-i` seeks rather than reading forward. Cuts already in the filesystem are left alone,
- * which is what lets a second run at another CRF start encoding immediately — and why a remote
- * source is not fetched again for it.
- */
-async function ensureSnippets(
-  windows: SampleWindow[],
-  workers: FfmpegWorker[],
-  ui: RunUi,
-): Promise<{ names: string[]; data: Uint8Array[] }> {
-  const cutter = workers[0];
-  const source = await sourceForWindows(windows, cutter);
-  const names = windows.map(snippetName);
-  if (source) await cutSnippets(windows, names, source, cutter, ui);
-  // Read out of the core and kept for the run. Every core encodes from its own filesystem, so each
-  // needs the cuts anyway; holding them here as well is what lets a core that crashed — and so
-  // came back with an empty filesystem — be handed them again instead of failing every square it
-  // is given afterwards. They are a few hundred KB apiece, which is the whole reason a pool is
-  // affordable: a copy of the video per core would not be.
-  const data: Uint8Array[] = [];
-  for (const name of names) {
-    if (stopRequested()) throw new RunStopped();
-    data.push(await cutter.readFile(name));
-  }
-  return { names, data };
-}
-
-async function cutSnippets(
-  windows: SampleWindow[],
-  names: string[],
-  source: SourceBytes,
-  cutter: FfmpegWorker,
-  ui: RunUi,
-): Promise<void> {
-  const inputName = inputNameFor(source);
-  for (let i = 0; i < windows.length; i++) {
-    const window = windows[i];
-    const name = names[i];
-    if (stopRequested()) throw new RunStopped();
-    if (cutter.has(name)) continue;
-    ui.note.textContent = "Cutting the sampled video out of the source…";
-    await cutter.ensureInput(inputName, source.data);
-    const args = [
-      "-y",
-      // Ahead of -i, so the seek is a seek: after it, ffmpeg would decode from the start of the
-      // file and throw away everything before the stretch asked for.
-      "-ss",
-      String(window.startSeconds),
-      "-i",
-      inputName,
-      "-t",
-      String(window.seconds),
-      "-c",
-      "copy",
-      // The cut starts on a keyframe, so the copied packets carry timestamps from part-way into the
-      // source; this rebases them to zero, leaving a file that plays from its own beginning.
-      "-avoid_negative_ts",
-      "make_zero",
-      name,
-    ];
-    cutter.setHandlers((msg) => logLine(ui.log, msg, "info"), null);
-    logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
-    await cutter.runToFile(args, name);
-  }
-  await cutter.deleteFile(inputName);
-}
-
-/** The cut stretches this run needs, or null when every one of them is already in the filesystem —
- * which is the case that spares a remote file from being downloaded again. */
-async function sourceForWindows(windows: SampleWindow[], cutter: FfmpegWorker): Promise<SourceBytes | null> {
-  if (!state.source) throw new Error("No video loaded");
-  if (windows.every((w) => cutter.has(snippetName(w)))) return null;
-  return await readSource();
-}
-
-/**
- * Encodes one already-cut stretch at `cliState` and hands back the result.
- *
- * Shared by both modes, so a matrix square and a single run are the same encode over the same
- * seconds. `input` is a stretch cut out beforehand where the container allowed it, and the whole
- * video otherwise, in which case the trim is done here as it always was.
- */
-async function encodeSegment(
-  cliState: CliState,
-  input: { name: string; data: Uint8Array; trim: SampleWindow | null },
-  worker: FfmpegWorker,
-  ui: RunUi,
-  onFraction: (fraction: number) => void,
-): Promise<Blob> {
-  const info = currentVideoInfo();
-  if (!info) throw new Error("No video track loaded");
-  // A core that ran out of memory part-way through a sweep was thrown away and comes back empty,
-  // so what it reads is checked here rather than once before the run: without this, one square
-  // crashing a core failed every later square that core was handed, for a missing input rather
-  // than for anything wrong with the settings. A core that still holds the file does nothing.
-  await worker.ensureInput(input.name, input.data);
-  // Named per core: two of them writing "et_out.mp4" would be one filesystem each, but the name is
-  // also what the log shows, and a shared one would read as the same encode running twice.
-  const outputName = `et_out_${worker.id}.mp4`;
-  const args = buildFfmpegArgs(cliState, info, input.name, outputName);
-  const length = input.trim?.seconds ?? encodeTest.duration;
-  if (input.trim) {
-    // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
-    // preceding keyframe — the two sides need to show the same content, not just start "close
-    // enough". Only reached when the stretch could not be cut out beforehand.
-    const iIdx = args.indexOf("-i");
-    args.splice(iIdx + 2, 0, "-ss", String(input.trim.startSeconds), "-t", String(input.trim.seconds));
-  }
-  worker.setHandlers((msg) => {
-    logLine(ui.log, prefixed(worker, msg), "info");
-    // Progress is taken from the status lines rather than from the core's own progress events,
-    // which are a fraction of the whole input: a 3-second segment of a 30-second file would
-    // creep to 10% and stop there, looking like it gave up rather than finished.
-    const at = parseFfmpegTimeSeconds(msg);
-    if (at == null || !(length > 0)) return;
-    onFraction(Math.min(1, Math.max(0, at / length)));
-  }, null);
-  logLine(ui.log, prefixed(worker, "$ ffmpeg " + args.join(" ")), "success");
-  const { data } = await worker.run(args, outputName);
-  return new Blob([data], { type: "video/mp4" });
-}
-
-/**
- * Readies everything a run encodes from: the stretches, and a file per stretch to read.
- *
- * Where the container gives up a keyframe table, each stretch is cut out once with a stream copy
- * and every encode reads that instead of the whole video. Where it does not, the whole video goes
- * in and each encode trims it itself, which is what the tab did before any of this.
- */
-async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[], ui: RunUi): Promise<RunInputs> {
-  if (canCutSnippets()) {
-    const { names, data } = await ensureSnippets(windows, workers, ui);
-    return { windows, names, data, preCut: true };
-  }
-  // Nothing to cut, so every core needs the whole video. That is the case a pool cannot help with
-  // and should not be paid for, so it runs on one core alone.
-  const source = await readSource();
-  await workers[0].ensureInput(inputNameFor(source), source.data);
-  return {
-    windows,
-    names: windows.map(() => inputNameFor(source)),
-    data: windows.map(() => source.data),
-    preCut: false,
-    wholeFileOn: workers[0],
-  };
-}
-
-/** Prefixes a log line with which core it came from, once there is more than one to tell apart. */
-function prefixed(worker: FfmpegWorker, message: string): string {
-  return worker.id === 0 ? message : `[core ${worker.id}] ${message}`;
-}
-
-/** What one run encodes: the stretches it covers and the file in the core holding each. */
-interface RunInputs {
-  windows: SampleWindow[];
-  /** One filename per window: a stretch cut out beforehand, or the whole video for every one of
-   * them when the container did not allow cutting. */
-  names: string[];
-  /** The bytes behind each name, held for the length of the run so a core that was replaced
-   * mid-run can be given its inputs back. */
-  data: Uint8Array[];
-  /** Whether those names are cut stretches (so no trim is needed) or the source itself. */
-  preCut: boolean;
-  /** The core holding the whole video, when there was no cutting and only one core can be used. */
-  wholeFileOn?: FfmpegWorker;
-}
-
-/**
- * Encodes every sampled stretch at `cliState` and reports what they came to together.
- *
- * The A/B window can only show one of them, so the first is kept whole; the rest are measured and
- * dropped. That is the trade sampling several places makes: the size question gets a fair share of
- * the file, while the eye still gets one continuous stretch to judge rather than a cut-up reel.
- *
- * Given more than one core, the stretches encode side by side on them. A sweep hands one core in,
- * since its cores are already busy with the other squares.
- */
-async function encodeWindows(
-  cliState: CliState,
-  inputs: RunInputs,
-  workers: FfmpegWorker[],
-  ui: RunUi,
-  onProgress: (fraction: number) => void,
-): Promise<{ first: Blob; bytes: number; measured: SampleWindow[] }> {
-  const windows = inputs.windows;
-  // Indexed rather than pushed, since the cores finish in whatever order they finish: the A/B
-  // window wants the *first* stretch, not the first one to come back.
-  const blobs = new Array<Blob | null>(windows.length).fill(null);
-  const measured = new Array<SampleWindow | null>(windows.length).fill(null);
-  const fractions = new Array<number>(windows.length).fill(0);
-  const report = (): void => onProgress(fractions.reduce((sum, f) => sum + f, 0) / windows.length);
-
-  await drainWithPool(
-    windows.map((w, i) => ({ window: w, index: i })),
-    workers,
-    async ({ window, index }, worker) => {
-      const blob = await encodeSegment(
-        cliState,
-        { name: inputs.names[index], data: inputs.data[index], trim: inputs.preCut ? null : window },
-        worker,
-        ui,
-        (fraction) => {
-          fractions[index] = fraction;
-          report();
-        },
-      );
-      fractions[index] = 1;
-      report();
-      blobs[index] = blob;
-      let seconds = window.seconds;
-      try {
-        const measuredSeconds = await segmentDuration(blob);
-        if (measuredSeconds > 0) seconds = measuredSeconds;
-      } catch {
-        // The projection falls back to the requested length; the encode itself is still good.
-      }
-      measured[index] = { startSeconds: window.startSeconds, seconds };
-    },
-    stopRequested,
-  );
-
-  if (stopRequested()) throw new RunStopped();
-  const first = blobs[0];
-  if (!first) throw new Error("No stretch of video to encode");
-  return {
-    first,
-    bytes: blobs.reduce((sum, b) => sum + (b?.size ?? 0), 0),
-    measured: measured.filter((w): w is SampleWindow => w != null),
-  };
-}
-
-/**
- * The encoded segment's own playback length, which the size projection is taken over.
- *
- * Disposed on the way out: a default sweep measures 120 of these, and an Input left open holds the
- * blob and whatever the browser gave it to read the blob with. Leaked by the hundred, the browser
- * eventually refuses to decode anything at all.
- */
-async function segmentDuration(blob: Blob): Promise<number> {
-  const mb = await ensureMediabunny();
-  const input = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
-  try {
-    return await input.computeDuration();
-  } finally {
-    input.dispose();
-  }
-}
-
-/** Puts an encoded segment in the A/B window, against the original, and redraws the comparison. */
-async function loadEncodedIntoAB(
-  blob: Blob,
-  settings: EncodeSettings,
-  vt: TrackInfo,
-  resultSec: HTMLDivElement,
-  totals?: { bytes: number; windows: SampleWindow[] },
-): Promise<void> {
-  const mb = await ensureMediabunny();
-  const encodedInput = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
-  const encodedTrack = await encodedInput.getPrimaryVideoTrack();
-  if (!encodedTrack) throw new Error("Encoded segment has no video track");
-  // Asked rather than assumed: mediabunny throws out of the frame reads otherwise, which land in a
-  // playback loop nothing is awaiting and surface as an unhandled rejection with no clue attached.
-  if (!(await encodedTrack.canDecode())) {
-    throw new Error("This browser will not decode the encode that was just made, so it cannot be shown side by side.");
-  }
-  const encodedDuration = await encodedInput.computeDuration();
-  if (!state.videoTrack) throw new Error("No video track loaded");
-  // The window is about to point at a new input; the one it was pointing at goes.
-  encodeTest.encodedInput?.dispose();
-  encodeTest.originalSink = new mb.CanvasSink(state.videoTrack, { poolSize: 2 });
-  encodeTest.encodedSink = new mb.CanvasSink(encodedTrack, { poolSize: 2 });
-  encodeTest.encodedInput = encodedInput;
-  encodeTest.segDuration = encodedDuration;
-  // The bytes and the stretches are the run's, not this blob's: with several sampled stretches the
-  // window below shows the first while the size figures cover them all.
-  encodeTest.encodedSize = totals?.bytes ?? blob.size;
-  encodeTest.windows = totals?.windows ?? [{ startSeconds: encodeTest.startTime, seconds: encodedDuration }];
-  encodeTest.activeCombo = settings;
-  renderCompareResult(resultSec, vt);
-}
-
 /** The squares a sweep left without a size: the ones that failed, and the ones Stop never reached. */
 function unmeasuredCells(): MatrixCell[] {
-  if (encodeTest.mode !== "matrix") return [];
   return encodeTest.matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
 }
 
 /** What the run button says, which is what pressing it would do to the grid as it stands. */
 function runActionLabel(): string {
-  if (encodeTest.mode !== "matrix") return "Run Comparison";
   const unmeasured = unmeasuredCells();
   if (!unmeasured.length) return "Run Matrix";
   const failed = unmeasured.filter((c) => c.status === "failed").length;
   return failed === unmeasured.length ? `Retry ${failed} failed` : `Run ${unmeasured.length} unmeasured`;
 }
 
-/** Readies the progress bar and console for a run, and hands back the bar's fill. */
-function startRunUi(ui: RunUi): HTMLDivElement | null {
-  encodeTest.running = true;
-  encodeTest.matrix.cancelRequested = false;
-  ui.runButton.disabled = true;
-  // Offered in both modes: a single run is several stretches encoded one after another, which is
-  // long enough to want out of.
-  ui.stopButton.style.display = "";
-  ui.stopButton.disabled = false;
-  ui.progress.style.display = "block";
-  const fill = ui.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) {
-    fill.style.width = "0%";
-    fill.classList.remove("done");
-  }
-  clearLog(ui.log);
-  return fill;
-}
-
-function endRunUi(ui: RunUi): void {
-  encodeTest.running = false;
-  activeWorkers = [];
-  ui.runButton.disabled = false;
-  ui.syncRunAction();
-  ui.stopButton.style.display = "none";
-}
-
-async function runEncodeTest(vt: TrackInfo, ui: RunUi): Promise<void> {
-  if (encodeTest.running) return;
-  const fill = startRunUi(ui);
-  ui.note.textContent = "Loading ffmpeg.wasm…";
-  let inputs: RunInputs | null = null;
-  try {
-    const windows = runWindows();
-    encodeTest.sampled = windows;
-    const workers = ffmpegPool(poolSizeFor(windows.length));
-    activeWorkers = workers;
-    await workers[0].load();
-    inputs = await prepareRun(windows, workers, ui);
-    // The A/B window draws the original from startTime, so it follows the stretch actually shown.
-    encodeTest.startTime = windows[0]?.startSeconds ?? encodeTest.startTime;
-    ui.note.textContent = "Encoding test segment…";
-    const { first, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
-      const pct = fraction * 100;
-      if (fill) fill.style.width = pct.toFixed(0) + "%";
-      ui.note.textContent =
-        windows.length > 1
-          ? `Encoding ${windows.length} sampled segments… ${pct.toFixed(0)}%`
-          : `Encoding test segment… ${pct.toFixed(0)}%`;
-    });
-
-    ui.note.textContent = "Decoding frames…";
-    // A single run is its own comparison, so nothing in the matrix grid is showing anymore.
-    encodeTest.matrix.selectedKey = null;
-    renderMatrixSection(ui.matrixSec, vt, ui);
-    await loadEncodedIntoAB(first, cliSettings(cli), vt, ui.resultSec, { bytes, windows: measured });
-    // A full bar, in the colour the app uses for a good outcome, rather than the word "Done." under
-    // an empty one: the run either filled the bar or it did not.
-    if (fill) {
-      fill.style.width = "100%";
-      fill.classList.add("done");
-    }
-    ui.note.textContent = "";
-  } catch (err) {
-    reportRunFailure(err, ui);
-  } finally {
-    await dropWholeFileInput(inputs);
-    endRunUi(ui);
-  }
-}
-
 /**
- * Drops the whole-video copy a run needed, keeping any cut stretches.
- *
- * The video is the size of the file and there is no telling when another run wants it; the cut
- * stretches are a few hundred KB and are exactly what the next run over the same seconds needs, so
- * they stay. A run that cut its stretches has already dropped the source it cut them from.
- */
-async function dropWholeFileInput(inputs: RunInputs | null): Promise<void> {
-  if (!inputs || inputs.preCut) return;
-  await inputs.wholeFileOn?.deleteFile(inputs.names[0]);
-}
-
-/**
- * Whether Stop has been pressed, read through a call: the button flips the flag while the sweep is
- * awaiting an encode, which a straight field read (assigned false on the line above) cannot see.
- */
-function stopRequested(): boolean {
-  return encodeTest.matrix.cancelRequested;
-}
-
-/** The cores the run in progress is encoding on, so Stop has something to stop. */
-let activeWorkers: FfmpegWorker[] = [];
-
-/** A run ended because Stop was pressed, which is not a failure to report as one. */
-class RunStopped extends Error {
-  constructor() {
-    super("Stopped");
-    this.name = "RunStopped";
-  }
-}
-
-/**
- * Stops the run now, rather than at the end of whatever is already in flight.
- *
- * The encode runs inside wasm, which offers no way to interrupt a call already in it, so waiting
- * for the encode in progress means waiting for exactly the slow combination Stop tends to be
- * pressed about — with the tab's buttons disabled and the bar still filling the whole time.
- * Terminating the core is the interrupt: its pending call rejects, the run unwinds through the
- * error handling it already has, and the next run builds a fresh core. What that costs is the cut
- * stretches the terminated core was holding, which the next run cuts again.
- */
-function requestStop(ui: RunUi): void {
-  if (!encodeTest.running) return;
-  encodeTest.matrix.cancelRequested = true;
-  ui.stopButton.disabled = true;
-  ui.note.textContent = "Stopping…";
-  for (const worker of activeWorkers) worker.reset();
-}
-
-/**
- * Encodes the segment once per combination, filling the grid in as it goes, then loads the largest
- * reduction into the A/B window.
+ * Encodes the sampled stretches once per combination, filling the grid in as it goes, then loads
+ * the largest reduction into the A/B window.
  *
  * A failed combination is a result rather than the end of the sweep: the slowest presets can exhaust
  * the in-browser core (which then replaces itself — see resetFfmpeg), and the point of running the
  * grid is to find out what this file and this browser can actually do.
  */
-async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
+async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
   if (encodeTest.running) return;
   const matrix = encodeTest.matrix;
   const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers);
@@ -868,15 +274,14 @@ async function runMatrix(vt: TrackInfo, ui: RunUi): Promise<void> {
 /**
  * The queue the run in progress is working through, or null between runs.
  *
- * Held so a square can be retried *during* a sweep. There is one encoder, so a second encode cannot
- * start alongside the first, but the loop below reads `queue.length` on every pass: appending to
- * the live queue puts the square at the back of the run that is already going, which is what
- * clicking a failed square while the sweep is still working now does.
+ * Held so a square can be retried *during* a sweep. The loop below reads `queue.length` on every
+ * pass: appending to the live queue puts the square at the back of the run that is already going,
+ * which is what clicking a failed square while the sweep is still working now does.
  */
 let activeQueue: MatrixCell[] | null = null;
 
 /** Puts a failed square back in the running sweep's queue, to be re-encoded when it is reached. */
-function queueRetry(cell: MatrixCell, ui: RunUi, repaint: () => void): void {
+function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
   if (!activeQueue || (cell.status !== "failed" && cell.status !== "skipped")) return;
   cell.status = "pending";
   cell.error = null;
@@ -886,7 +291,7 @@ function queueRetry(cell: MatrixCell, ui: RunUi, repaint: () => void): void {
 }
 
 /** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
-async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
+async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
   if (encodeTest.running || !cells.length) return;
   for (const cell of cells) {
     cell.status = "pending";
@@ -902,7 +307,7 @@ async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: RunUi): Promis
  * Shared by the sweep and by a retry, so a square encoded on the second attempt is measured exactly
  * as its neighbours were.
  */
-async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promise<void> {
+async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
   const matrix = encodeTest.matrix;
   matrix.running = true;
   activeQueue = queue;
@@ -913,8 +318,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   let inputs: RunInputs | null = null;
   try {
     ui.note.textContent = "Loading ffmpeg.wasm…";
-    const workers = ffmpegPool(poolSizeFor(queue.length));
-    activeWorkers = workers;
+    const workers = acquireWorkers(queue.length);
     await workers[0].load();
     inputs = await prepareRun(matrixWindows(), workers, ui);
     if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
@@ -1025,28 +429,15 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: RunUi): Promi
   }
 }
 
-function reportRunFailure(err: unknown, ui: RunUi): void {
-  if (err instanceof RunStopped) {
-    ui.note.textContent = "Stopped.";
-    ui.progress.style.display = "none";
-    return;
-  }
-  console.error("[encoding-helper] encode test failed:", err);
-  ui.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
-  logLine(ui.log, String(err instanceof Error ? err.message : err), "error");
-  // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
-  ui.progress.style.display = "none";
-}
-
 /** Puts one square of the grid in the A/B window, re-encoding it if its output has been released. */
-async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Promise<void> {
+async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
   const matrix = encodeTest.matrix;
   let blob = cell.blob;
   if (!blob) {
     // Its output was dropped to stay inside the memory budget, so the square is encoded again —
     // over the same stretches the sweep measured, which are usually still cut and waiting.
     ui.note.textContent = `Re-encoding ${describeSettings(cell.combo)} for the A/B window…`;
-    const workers = ffmpegPool(1);
+    const workers = acquireWorkers(1);
     const inputs = await prepareRun(matrixWindows(), workers, ui);
     try {
       blob = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {})).first;
@@ -1065,6 +456,7 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: RunUi): Pro
     windows: matrixCellWindows(cell),
   });
   renderMatrixSection(ui.matrixSec, vt, ui);
+  renderSelectedCommand(ui.cmdSec);
 }
 
 /** The stretches the sweep covered, or the one segment it used before several were asked for. */
@@ -1081,8 +473,7 @@ function syncSegmentToMatrix(): void {
   if (!(matrix.segmentLength > 0)) return;
   encodeTest.startTime = matrix.segmentStart;
   encodeTest.duration = matrix.segmentLength;
-  const durationField = document.getElementById("etDuration") as HTMLInputElement | null;
-  if (durationField) durationField.value = String(matrix.segmentLength);
+  syncSampleFields();
 }
 
 /**
@@ -1116,7 +507,7 @@ function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
   });
 }
 
-function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): void {
+function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: MatrixUi): void {
   const matrix = encodeTest.matrix;
   sec.innerHTML = "";
   if (!matrix.cells.length) {
@@ -1158,296 +549,38 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: RunUi): voi
   );
 }
 
-// Halts the previous run's playback loop, so a fresh comparison does not leave one decoding frames
-// into the canvases it just replaced.
-let stopActivePlayback: (() => void) | null = null;
-
-/** What a run covered: the one stretch it encoded, or how many it sampled and where the first was.
- * Shared with the Full Analysis document, so the page and the document say it the same way. */
-export function describeSampledStretches(): string {
-  const windows = encodeTest.windows;
-  const first = windows[0] ?? { startSeconds: encodeTest.startTime, seconds: encodeTest.duration };
-  const span = `${first.startSeconds.toFixed(1)}s–${(first.startSeconds + first.seconds).toFixed(1)}s`;
-  if (windows.length <= 1) return span;
-  const sampled = windows.reduce((sum, w) => sum + w.seconds, 0);
-  return `${windows.length} × ${first.seconds.toFixed(1)}s at random (${sampled.toFixed(1)}s total), showing ${span}`;
-}
-
-/** The facts above the panes: which seconds were encoded, at what settings, and what they came to.
- * The resolution row appears only when it is not the source's, since a row reading "100%" over
- * every comparison would say nothing. */
-function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeight: number): HTMLDivElement {
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Segment", describeSampledStretches()),
-    gridItem(
-      "Quality",
-      settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`,
+/**
+ * The ffmpeg command for the square currently in the A/B window, at the bottom of the page.
+ *
+ * A sweep is run to pick a setting, and the setting is only useful once it is applied to the whole
+ * file — which is a job for ffmpeg on the machine holding the data, not for a browser tab. So the
+ * winner (or whichever square was clicked instead of it) is written out as the command that
+ * reproduces it, with everything the sweep does not touch — keyframe interval, B-frames, audio,
+ * faststart — taken from the Reencode with ffmpeg tab as it stands.
+ */
+function renderSelectedCommand(sec: HTMLDivElement): void {
+  sec.innerHTML = "";
+  const info = currentVideoInfo();
+  const selectedKey = encodeTest.matrix.selectedKey;
+  const cell = encodeTest.matrix.cells.find((c) => c.combo.key === selectedKey);
+  if (!info || !cell) {
+    sec.style.display = "none";
+    return;
+  }
+  sec.style.display = "block";
+  sec.append(h("h2", null, "Run This Setting with ffmpeg"));
+  sec.append(
+    teachBox(
+      `What the square in the A/B window above — <b>${describeSettings(cell.combo)}</b> — comes to as an ffmpeg ` +
+        `command, over the whole file rather than the sampled seconds. Everything the sweep does not vary ` +
+        `(keyframe interval, B-frames, audio, faststart) is taken from the <b>Reencode with ffmpeg</b> tab as it ` +
+        `is set there now.`,
     ),
-    gridItem("Preset", settings.preset),
   );
-  if (isDownscale(settings.scale)) {
-    const out = scaledDimensions(srcWidth, srcHeight, settings.scale);
-    g.append(
-      gridItem(
-        "Resolution",
-        `${srcWidth}×${srcHeight} → ${out.width}×${out.height} ` +
-          `(${Math.round(settings.scale * 100)}%, ${settings.scaler})`,
-      ),
-    );
-  }
-  g.append(gridItem("Encoded Segment Size", fmtBytes(encodeTest.encodedSize)));
-  return g;
-}
-
-function renderCompareResult(resultSec: HTMLDivElement, vt: TrackInfo): void {
-  stopActivePlayback?.();
-  resultSec.innerHTML = "";
-  resultSec.style.display = "block";
-  resultSec.append(h("h2", null, "Side-by-Side"));
-
-  // The settings the loaded encode was made with, which in matrix mode is the winning square's
-  // rather than whatever the dropdowns happen to say.
-  const settings = encodeTest.activeCombo ?? cliSettings(cli);
-  const srcWidth = vt.codedWidth ?? 0;
-  const srcHeight = vt.codedHeight ?? 0;
-  // A downscaled encode is drawn back at the source's geometry, so the two panes stay one
-  // coordinate system: the same zoom shows the same part of the frame on each side, and the pixel
-  // grid keeps measuring source pixels rather than two different things per pane.
-  const downscaled = isDownscale(settings.scale);
-  const encSize = scaledDimensions(srcWidth, srcHeight, settings.scale);
-  resultSec.append(compareSummaryGrid(settings, srcWidth, srcHeight));
-
-  // The size question is half of what the tab is for, so its headline goes above the panes rather
-  // than below the controls, where the detail and the caveats follow it.
-  const estimate = currentSizeEstimate();
-  if (estimate) resultSec.append(h("h3", null, "Estimated Data Savings"), renderSavingsStrip(estimate));
-
-  const stage = h("div", "compare-stage");
-  const origPane = h("div", "compare-pane");
-  origPane.append(h("span", "pane-label", "Original"));
-  const origCanvas = h("canvas");
-  origCanvas.width = vt.codedWidth ?? 0;
-  origCanvas.height = vt.codedHeight ?? 0;
-  origPane.append(origCanvas);
-  const origGrid = h("div", "pixel-grid");
-  origPane.append(origGrid);
-  const encPane = h("div", "compare-pane");
-  const encLabel = h(
-    "span",
-    "pane-label",
-    `Encoded (${settings.quality === "custom" ? "CRF " + settings.crf : settings.quality}, ${settings.preset}` +
-      (downscaled ? `, ${encSize.width}×${encSize.height}` : "") +
-      ")",
-  );
-  // Restated whenever the view switches, since which of the two is on screen changes what the pane
-  // is actually showing you.
-  const syncEncLabel = (): void => {
-    if (!downscaled) return;
-    encLabel.title =
-      `Encoded at ${encSize.width}×${encSize.height} and drawn back at ${srcWidth}×${srcHeight} ` +
-      (encodeTest.upscaleSmoothing
-        ? `with smoothing, which is closer to how a player would show it, at the cost of interpolating in ` +
-          `detail the encode does not contain.`
-        : `one block per encoded pixel, so nothing is interpolated in that the encode does not contain.`);
-  };
-  syncEncLabel();
-  encPane.append(encLabel);
-  const encCanvas = h("canvas");
-  encCanvas.width = vt.codedWidth ?? 0;
-  encCanvas.height = vt.codedHeight ?? 0;
-  encPane.append(encCanvas);
-  const encGrid = h("div", "pixel-grid");
-  encPane.append(encGrid);
-  const ar = `${vt.codedWidth ?? 0} / ${vt.codedHeight ?? 0}`;
-  origPane.style.aspectRatio = ar;
-  encPane.style.aspectRatio = ar;
-  stage.append(origPane, encPane);
-  resultSec.append(stage);
-
-  const controls = h("div", "compare-controls");
-  const scrub = h("input");
-  scrub.type = "range";
-  scrub.min = "0";
-  scrub.max = "1000";
-  scrub.value = "0";
-  const scrubLabel = h("span", "progress-label", "0.00s");
-  const playBtn = h("button", "btn sm sec", "Play");
-  playBtn.type = "button";
-  const zoomBtns = h("div", "zoom-buttons");
-  // Wheel zoom is the fast path, but it is unavailable on a trackpad-less mouse or a touch device,
-  // so every zoom move is reachable from a button too.
-  const zoomOutBtn = h("button", "btn sm sec zoom-step", "−");
-  zoomOutBtn.type = "button";
-  zoomOutBtn.title = "Zoom out";
-  zoomOutBtn.setAttribute("aria-label", "Zoom out");
-  const zoomInBtn = h("button", "btn sm sec zoom-step", "+");
-  zoomInBtn.type = "button";
-  zoomInBtn.title = "Zoom in";
-  zoomInBtn.setAttribute("aria-label", "Zoom in");
-  const fitBtn = h("button", "btn sm sec", "Fit");
-  fitBtn.type = "button";
-  const actualBtn = h("button", "btn sm sec", "Actual Size (100%)");
-  actualBtn.type = "button";
-  zoomBtns.append(zoomOutBtn, zoomInBtn, fitBtn, actualBtn);
-  controls.append(playBtn, scrub, scrubLabel, zoomBtns);
-  // How the downscaled side is drawn back up is a genuine choice, not a default worth hiding:
-  // blocks show exactly which pixels survived, smoothing shows what a player would put on screen.
-  // Only offered when something is actually being drawn back up.
-  const viewSelect = h("select", "compare-view-select");
-  viewSelect.id = "etUpscaleView";
-  viewSelect.setAttribute("aria-label", "How the downscaled encode is drawn");
-  for (const [value, label] of [
-    ["blocks", "Blocks (nearest)"],
-    ["smooth", "Smooth"],
-  ]) {
-    const opt = h("option", null, label);
-    opt.value = value;
-    if ((value === "smooth") === encodeTest.upscaleSmoothing) opt.selected = true;
-    viewSelect.append(opt);
-  }
-  if (downscaled) {
-    const viewWrap = h("div", "compare-view");
-    viewWrap.append(h("span", "compare-view-label", "Downscaled view"), viewSelect, infoIcon(UPSCALE_VIEW_INFO));
-    controls.append(viewWrap);
-  }
-  resultSec.append(controls);
-
-  if (estimate) resultSec.append(...renderSavingsDetail(estimate));
-
-  const syncZoomButtons = (scale: number): void => {
-    zoomOutBtn.disabled = scale <= ZOOM_MIN;
-    zoomInBtn.disabled = scale >= ZOOM_MAX;
-  };
-  const zoomPan = attachSyncedZoomPan(stage, [origCanvas, encCanvas], [origGrid, encGrid], syncZoomButtons);
-  zoomOutBtn.addEventListener("click", () => zoomPan.zoomBy(1 / ZOOM_BUTTON_STEP));
-  zoomInBtn.addEventListener("click", () => zoomPan.zoomBy(ZOOM_BUTTON_STEP));
-  fitBtn.addEventListener("click", () => zoomPan.fit());
-  actualBtn.addEventListener("click", () => zoomPan.actualSize());
-  syncZoomButtons(zoomPan.state.scale);
-
-  // `target` is the geometry to draw into when it is not the frame's own: only a downscaled encode
-  // has one, and it is the source's size. Whether that redraw interpolates is the viewer's call
-  // (see the Downscaled view control); it makes no difference when the frame is already the right
-  // size, since then nothing is being resampled.
-  const drawFrame = (
-    canvas: HTMLCanvasElement,
-    frame: { canvas: HTMLCanvasElement | OffscreenCanvas } | null,
-    target?: { width: number; height: number } | null,
-  ): void => {
-    if (!frame) return;
-    const width = target?.width || frame.canvas.width;
-    const height = target?.height || frame.canvas.height;
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.imageSmoothingEnabled = encodeTest.upscaleSmoothing;
-    ctx.drawImage(frame.canvas, 0, 0, width, height);
-  };
-  const drawError = h("div", "error-msg");
-  drawError.style.display = "none";
-  resultSec.append(drawError);
-
-  const drawAt = async (relT: number): Promise<void> => {
-    if (!encodeTest.originalSink || !encodeTest.encodedSink) return;
-    const [originalFrame, encodedFrame] = await Promise.all([
-      encodeTest.originalSink.getCanvas(encodeTest.startTime + relT),
-      encodeTest.encodedSink.getCanvas(Math.min(relT, Math.max(0, encodeTest.segDuration - 0.001))),
-    ]);
-    drawFrame(origCanvas, originalFrame);
-    drawFrame(encCanvas, encodedFrame, downscaled ? { width: srcWidth, height: srcHeight } : null);
-  };
-  /**
-   * Draws a frame from a handler that cannot await it.
-   *
-   * A rejected draw used to leave the page with an unhandled rejection and the panes with whatever
-   * they last held, which reads as the comparison silently freezing. It says so under the panes
-   * instead, since a comparison that will not draw is the one thing this section is for.
-   */
-  const drawFrom = (relT: number): void => {
-    void drawAt(relT).catch((err: unknown) => {
-      console.error("[encoding-helper] could not draw the comparison:", err);
-      drawError.textContent = "Could not draw the comparison: " + (err instanceof Error ? err.message : String(err));
-      drawError.style.display = "";
-    });
-  };
-
-  const showTime = (relT: number): void => {
-    scrub.value = String((relT / encodeTest.duration) * 1000);
-    scrubLabel.textContent = relT.toFixed(2) + "s";
-  };
-
-  // Playback decodes both panes per frame, so it is paced off the wall clock and asks for whichever
-  // frame the elapsed time lands on: when decoding cannot keep up it drops frames rather than
-  // drifting into slow motion, keeping the two sides on the same timeline.
-  const frameStep = 1 / (vt.packetRate && vt.packetRate > 0 ? vt.packetRate : 30);
-  let playing = false;
-  let baseT = 0;
-  let baseWall = 0;
-  // Bumped on every press of Play, so a loop still awaiting a frame from the run before it neither
-  // keeps drawing nor stops the run that replaced it.
-  let playRun = 0;
-  const rebase = (relT: number): void => {
-    baseT = relT;
-    baseWall = performance.now();
-  };
-  const stopPlayback = (): void => {
-    playing = false;
-    playBtn.textContent = "Play";
-  };
-  stopActivePlayback = stopPlayback;
-  const runPlayback = async (run: number): Promise<void> => {
-    try {
-      while (playing && run === playRun) {
-        const relT = baseT + (performance.now() - baseWall) / 1000;
-        if (relT >= encodeTest.duration) {
-          showTime(encodeTest.duration);
-          await drawAt(encodeTest.duration);
-          return;
-        }
-        showTime(relT);
-        await drawAt(relT);
-        const nextWall = baseWall + (Math.floor((relT - baseT) / frameStep) + 1) * frameStep * 1000;
-        const wait = nextWall - performance.now();
-        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-      }
-    } catch (err) {
-      // A frame that will not decode ends playback rather than leaving the button stuck on "Pause".
-      console.error("[encoding-helper] playback stopped:", err);
-    } finally {
-      if (run === playRun) stopPlayback();
-    }
-  };
-  playBtn.addEventListener("click", () => {
-    if (playing) {
-      stopPlayback();
-      return;
-    }
-    const at = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
-    // Pressing Play with the playhead parked at the end starts the segment over.
-    rebase(at >= encodeTest.duration - frameStep ? 0 : at);
-    playing = true;
-    playBtn.textContent = "Pause";
-    void runPlayback(++playRun);
-  });
-
-  viewSelect.addEventListener("change", () => {
-    encodeTest.upscaleSmoothing = viewSelect.value === "smooth";
-    syncEncLabel();
-    // Redraw where the playhead already is, so the switch shows on the frame being looked at
-    // rather than only on the next one.
-    drawFrom((parseFloat(scrub.value) / 1000) * encodeTest.duration);
-  });
-
-  scrub.addEventListener("input", () => {
-    const relT = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
-    scrubLabel.textContent = relT.toFixed(2) + "s";
-    // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.
-    if (playing) rebase(relT);
-    void drawAt(relT);
-  });
-  drawFrom(0);
+  const cmdPre = h("pre", "cmd", formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info)));
+  sec.append(cmdPre);
+  const copyBtn = h("button", "btn sm", "Copy Command");
+  copyBtn.type = "button";
+  copyBtn.addEventListener("click", () => copyToClipboard(cmdPre.textContent || "", copyBtn));
+  sec.append(copyBtn);
 }
