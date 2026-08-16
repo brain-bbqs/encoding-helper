@@ -53,8 +53,11 @@ export const cli: CliState = {
 
 export const encodeTest: EncodeTestState = {
   startTime: 0,
-  duration: 3,
-  segments: 1,
+  // Five stretches of five seconds: 25 seconds spread across the file, which is enough of it for
+  // the projection to mean something on a recording whose content varies. It is also 5x the encoding
+  // one stretch would cost, which the cut stretches and the core pool are what make affordable.
+  duration: 5,
+  segments: 5,
   windows: [],
   sampled: [],
   running: false,
@@ -73,7 +76,7 @@ export const encodeTest: EncodeTestState = {
     scalers: [...DEFAULT_MATRIX_SCALERS],
     cells: [],
     segmentStart: 0,
-    segmentLength: 3,
+    segmentLength: 5,
     windows: [],
     running: false,
     cancelRequested: false,
@@ -108,8 +111,8 @@ export function resetState(): void {
   state.seekResults = null;
   state.reencodeResult = null;
   encodeTest.startTime = 0;
-  encodeTest.duration = 3;
-  encodeTest.segments = 1;
+  encodeTest.duration = 5;
+  encodeTest.segments = 5;
   encodeTest.windows = [];
   encodeTest.sampled = [];
   encodeTest.running = false;
@@ -128,7 +131,7 @@ export function resetState(): void {
   encodeTest.matrix.scalers = [...DEFAULT_MATRIX_SCALERS];
   encodeTest.matrix.cells = [];
   encodeTest.matrix.segmentStart = 0;
-  encodeTest.matrix.segmentLength = 3;
+  encodeTest.matrix.segmentLength = 5;
   encodeTest.matrix.windows = [];
   encodeTest.matrix.running = false;
   encodeTest.matrix.cancelRequested = false;

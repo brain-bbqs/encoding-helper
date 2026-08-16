@@ -50,7 +50,7 @@ beforeEach(() => {
   // ones this file edits are put back by hand rather than leaking into the tests after it.
   cli.scale = 1;
   cli.scaler = "lanczos";
-  encodeTest.segments = 1;
+  encodeTest.segments = 5;
   encodeTest.matrix.scales = [1];
   encodeTest.matrix.scalers = ["lanczos"];
 });
@@ -169,9 +169,9 @@ describe("renderEncodeTestTab", () => {
   it("asks for a duration and a count, and nothing about placement", () => {
     const panel = renderTab();
     expect(panel.querySelector("#etStart")).toBeNull();
-    expect(panel.querySelector<HTMLInputElement>("#etDuration")!.value).toBe("3");
+    expect(panel.querySelector<HTMLInputElement>("#etDuration")!.value).toBe("5");
     const segments = panel.querySelector<HTMLInputElement>("#etSegments")!;
-    expect(segments.value).toBe("1");
+    expect(segments.value).toBe("5");
     segments.value = "4";
     segments.dispatchEvent(new Event("input"));
     expect(encodeTest.segments).toBe(4);
