@@ -84,7 +84,7 @@
         });
       });
     </script>
-    <script type="module" crossorigin src="./assets/index-C7zd7bN1.js"></script>
+    <script type="module" crossorigin src="./assets/index-BhndRm1I.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
     <link rel="modulepreload" crossorigin href="./assets/ffmpeg-BJaMHjM6.js">
@@ -183,15 +183,12 @@
     <div id="app" style="display: none">
       <!-- The tabs are the file's views; Full Analysis is the one action among them (it bundles every
            view into one document), so it sits apart from the row, against the right edge of the
-           content column, rather than reading as an eighth place to look. -->
+           content column, rather than reading as a fourth place to look. -->
       <div class="tab-bar">
         <div class="tabs">
           <button class="tab on" data-tab="inspect" type="button">Inspect</button>
-          <button class="tab" data-tab="atoms" type="button">Atom Map</button>
-          <button class="tab" data-tab="seek" type="button">GOP &amp; Seeking</button>
-          <button class="tab" data-tab="encode" type="button">Reencode with ffmpeg</button>
+          <button class="tab" data-tab="encode" type="button">REencode with FFmpeg</button>
           <button class="tab" data-tab="compare" type="button">Compare Quality</button>
-          <button class="tab" data-tab="reencode" type="button">Reencode In-Browser</button>
         </div>
         <button
           class="tab-action"
@@ -219,18 +216,12 @@
         </button>
       </div>
 
-      <!-- Tab: Inspect -->
+      <!-- Tab: Inspect (metadata, the atom map, and GOP/keyframe structure with the seeking test) -->
       <div class="tab-panel on" id="panel-inspect"></div>
-      <!-- Tab: Atom Map -->
-      <div class="tab-panel" id="panel-atoms"></div>
-      <!-- Tab: GOP & Seeking -->
-      <div class="tab-panel" id="panel-seek"></div>
-      <!-- Tab: Reencode with ffmpeg (command builder + a run of it on sampled seconds) -->
+      <!-- Tab: REencode with FFmpeg (command builder, a run of it on sampled seconds, whole-file encode) -->
       <div class="tab-panel" id="panel-encode"></div>
       <!-- Tab: Compare Quality (matrix sweep of CRF/preset/resolution) -->
       <div class="tab-panel" id="panel-compare"></div>
-      <!-- Tab: Reencode In-Browser (whole-video encode with the fast/exact engines) -->
-      <div class="tab-panel" id="panel-reencode"></div>
       <!-- Full Analysis: every tab's findings bundled into one document -->
       <div class="tab-panel" id="panel-analysis"></div>
     </div>
