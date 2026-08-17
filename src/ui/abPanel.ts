@@ -1,7 +1,7 @@
 // The A/B window: one encoded stretch against the same seconds of the original, with synchronized
 // pixel-level zoom & pan, and the size figures that go with it.
 //
-// Both encoding tabs put their result here — a single run under Reencode with ffmpeg, a chosen
+// Both encoding tabs put their result here — a single run under REencode with FFmpeg, a chosen
 // square under Compare Quality — so the comparison reads the same whichever produced it. Only one
 // of them is ever showing: the panel keeps a reference to whichever section it last drew into and
 // clears it when the other takes over, since the sinks behind the panes belong to one encode at a

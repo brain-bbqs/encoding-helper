@@ -1,6 +1,6 @@
 // Small reusable form-field / engine-progress-box builders shared by the tabs that run an encode.
 
-import { h, infoIcon, teachBox } from "../lib/dom";
+import { h, infoIcon } from "../lib/dom";
 
 /**
  * A field's label, with an ⓘ explainer beside it when there is one. Same shape as the grid cards'
@@ -69,14 +69,15 @@ export interface EngineBox {
   result: HTMLDivElement;
 }
 
-export function engineBox(kind: "fast" | "exact", title: string, desc: string): EngineBox {
+/**
+ * The controls of a long-running encode: the button that starts it, the bar, the line under it, its
+ * console, and the block its result lands in. The heading and the explainer above it belong to
+ * whichever section is using it, so there is one explainer rather than two stacked.
+ */
+export function engineBox(buttonLabel: string): EngineBox {
   const el = h("div");
   el.style.marginBottom = "18px";
-  el.append(h("h3", null, title));
-  // `desc` is author-authored explainer markup (entities, <b>, <code>), so it goes through
-  // teachBox's innerHTML rather than being set as text.
-  el.append(teachBox(desc));
-  const button = h("button", "btn", kind === "fast" ? "Encode (fast)" : "Encode (exact)");
+  const button = h("button", "btn", buttonLabel);
   button.type = "button";
   button.style.marginTop = "8px";
   el.append(button);

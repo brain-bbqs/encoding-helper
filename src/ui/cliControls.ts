@@ -1,5 +1,5 @@
 // CLI preview refresh + quality/preset control syncing for the FFmpeg Command Builder on the
-// Reencode with ffmpeg tab, which is the one place the shared `cli` state object is edited.
+// REencode with FFmpeg tab, which is the one place the shared `cli` state object is edited.
 
 import {
   buildFfmpegArgs,
@@ -81,10 +81,10 @@ export function syncQualityControls(): void {
 
 /**
  * Shows what an in-browser encode came to, and records it: the Full Analysis document reports the
- * last completed encode, and this is the one place both engines pass through on success.
+ * last completed encode, and this is where a finished one passes through.
  */
-export function showReencodeResult(box: EngineBox, engine: "fast" | "exact", origSize: number, outSize: number): void {
-  state.reencodeResult = { engine, originalSize: origSize, encodedSize: outSize };
+export function showReencodeResult(box: EngineBox, origSize: number, outSize: number): void {
+  state.reencodeResult = { originalSize: origSize, encodedSize: outSize };
   const pct = (1 - outSize / origSize) * 100;
   box.result.innerHTML = "";
   const g = h("div", "grid");

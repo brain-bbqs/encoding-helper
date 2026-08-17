@@ -67,7 +67,7 @@ describe("renderCompareTab", () => {
     expect(panel.children).toHaveLength(0);
   });
 
-  // One setting at a time is the Reencode with ffmpeg tab's job now, so there is no mode to pick
+  // One setting at a time is the REencode with FFmpeg tab's job now, so there is no mode to pick
   // and no second copy of the quality/preset dropdowns to keep in step with the builder.
   it("offers the sweep alone, without a mode control or the single-run dropdowns", () => {
     const panel = renderTab();

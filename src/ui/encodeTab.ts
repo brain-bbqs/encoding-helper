@@ -1,10 +1,10 @@
-// Tab: Reencode with ffmpeg — the FFmpeg Command Builder, and a run of the command it builds over a
-// few sampled seconds so the setting can be seen before it is committed to. The in-browser engines
-// that encode the whole video with these settings live in their own tab (reencodeTab.ts).
+// Tab: REencode with FFmpeg — everything about running one setting on this file, in the order the
+// question is actually asked: build the command, try it on a few sampled seconds, then run it over
+// the whole video (here in the page, or by copying the command and running ffmpeg natively).
 //
-// The command and the comparison belong together: the point of trying a setting on five seconds of
-// video is to decide what to run on the file, and what to run on the file is the block of text
-// directly above it.
+// The three belong on one page because they are one decision. Trying a setting on five seconds is
+// only useful next to the command that setting comes to, and the whole-file encode is that same
+// command over the whole file rather than a separate feature.
 
 import { computeGop, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
@@ -13,6 +13,7 @@ import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
 import type { TrackInfo, VideoInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
+import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
   parseScale,
   parseScaler,
@@ -58,8 +59,8 @@ export function renderEncodeTab(panel: HTMLElement): void {
         `<b>ffmpeg</b></a> on your own machine, which is the way to do this for real work: it is a native ` +
         `multi-threaded build with no 30 MB download and no browser memory ceiling, so it is far faster on a ` +
         `full-length video; it scripts over a whole dataset; and the exact same command reruns later or on a ` +
-        `colleague's machine and produces the same bytes. The in-browser engines further down are for judging a ` +
-        `setting quickly, not for processing a corpus.</p>` +
+        `colleague's machine and produces the same bytes. What runs in the page below is the same ffmpeg, for ` +
+        `judging a setting quickly rather than for processing a corpus.</p>` +
         `<p>The settings here mirror ` +
         `<a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io</a>'s ` +
         `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
@@ -217,6 +218,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   refreshCliCommand();
 
   panel.append(...sampleRunSection(vt));
+  panel.append(inBrowserEncodeSection(info));
 }
 
 /**

@@ -339,7 +339,7 @@ function cliCommandSection(): AnalysisSection | null {
       {
         kind: "prose",
         html:
-          "The command the <b>Reencode with ffmpeg</b> tab's settings come to, as they stood when this document " +
+          "The command the <b>REencode with FFmpeg</b> tab's settings come to, as they stood when this document " +
           "was generated. Run it wherever ffmpeg is installed; nothing about it is specific to the browser.",
       },
       { kind: "code", lang: "bash", content: formatCliCommand(buildFfmpegArgs(cli, info)) },
@@ -459,7 +459,6 @@ function reencodeSection(): AnalysisSection | null {
       {
         kind: "kv",
         items: [
-          ["Engine", result.engine === "fast" ? "Fast (WebCodecs)" : "Exact (ffmpeg.wasm)"],
           ["Original Size", fmtBytes(result.originalSize)],
           ["Encoded Size", fmtBytes(result.encodedSize)],
           ["Change", (pct >= 0 ? "-" : "+") + Math.abs(pct).toFixed(1) + "%"],

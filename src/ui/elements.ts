@@ -25,11 +25,8 @@ export function getElements() {
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),
-      atoms: required<HTMLDivElement>("panel-atoms"),
-      seek: required<HTMLDivElement>("panel-seek"),
       encode: required<HTMLDivElement>("panel-encode"),
       compare: required<HTMLDivElement>("panel-compare"),
-      reencode: required<HTMLDivElement>("panel-reencode"),
       analysis: required<HTMLDivElement>("panel-analysis"),
     },
   };

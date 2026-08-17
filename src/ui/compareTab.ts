@@ -3,7 +3,7 @@
 //
 // The settings ranking is a table's job, but whether the winner still looks acceptable is only ever
 // a question for the eye, and that is the window under the grid. Trying one setting on its own —
-// which this tab used to offer as a mode — is the Reencode with ffmpeg tab's job now, beside the
+// which this tab used to offer as a mode — is the REencode with FFmpeg tab's job now, beside the
 // command that setting comes to.
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
@@ -69,7 +69,7 @@ export function renderCompareTab(panel: HTMLElement): void {
         `<p>Size is the only thing ranked here, so ★ marks the smallest encode and no more than that; click any ` +
         `square to put it in the A/B window and judge the picture yourself. The command that reproduces the ` +
         `square you are looking at is at the bottom of this page.</p>` +
-        `<p>To try a single setting rather than a sweep, use the <b>Reencode with ffmpeg</b> tab, which runs the ` +
+        `<p>To try a single setting rather than a sweep, use the <b>REencode with FFmpeg</b> tab, which runs the ` +
         `same comparison on whatever the command builder there is set to.</p>`,
     ),
   );
@@ -556,7 +556,7 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: MatrixUi): 
  * file — which is a job for ffmpeg on the machine holding the data, not for a browser tab. So the
  * winner (or whichever square was clicked instead of it) is written out as the command that
  * reproduces it, with everything the sweep does not touch — keyframe interval, B-frames, audio,
- * faststart — taken from the Reencode with ffmpeg tab as it stands.
+ * faststart — taken from the REencode with FFmpeg tab as it stands.
  */
 function renderSelectedCommand(sec: HTMLDivElement): void {
   sec.innerHTML = "";
@@ -573,7 +573,7 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
     teachBox(
       `What the square in the A/B window above — <b>${describeSettings(cell.combo)}</b> — comes to as an ffmpeg ` +
         `command, over the whole file rather than the sampled seconds. Everything the sweep does not vary ` +
-        `(keyframe interval, B-frames, audio, faststart) is taken from the <b>Reencode with ffmpeg</b> tab as it ` +
+        `(keyframe interval, B-frames, audio, faststart) is taken from the <b>REencode with FFmpeg</b> tab as it ` +
         `is set there now.`,
     ),
   );

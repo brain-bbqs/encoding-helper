@@ -76,6 +76,17 @@ describe("renderEncodeTab", () => {
     expect(encodeTest.segments).toBe(10);
   });
 
+  // The whole-file encode is the last step of the same page: build the command, try it, run it.
+  it("ends with the in-browser encode of the whole file, on ffmpeg alone", () => {
+    const panel = renderTab();
+    const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
+    expect(headings).toEqual(["FFmpeg Command Builder", "Try It on a Sample", "Encode the Whole File Here"]);
+    // One engine, so one button and no engine picker to choose between them.
+    const buttons = Array.from(panel.querySelectorAll("button")).map((el) => el.textContent);
+    expect(buttons).toContain("Encode and Save");
+    expect(panel.textContent).not.toContain("WebCodecs");
+  });
+
   // Both tabs encode the same sampled stretches, so the two copies of the fields are one setting
   // rather than two that quietly disagree until the next run.
   it("keeps its sample fields in step with the Compare Quality tab's", () => {

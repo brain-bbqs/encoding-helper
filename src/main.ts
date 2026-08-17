@@ -7,19 +7,21 @@ import { getElements } from "./ui/elements";
 import { renderEncodeTab } from "./ui/encodeTab";
 import { initFileLoadingUi } from "./ui/fileLoading";
 import { renderInspect } from "./ui/inspectTab";
-import { renderReencodeTab } from "./ui/reencodeTab";
 import { renderSeekTab } from "./ui/seekTab";
 import { initTabs } from "./ui/tabs";
 
 const els = getElements();
 
 function renderAll(): void {
+  // Inspect is what the file *is*: the metadata, the map of how it is laid out, and the structure
+  // that governs how it seeks. Three renderers, one panel, in reading order — each appends, so the
+  // panel is emptied here rather than three times over.
+  els.panels.inspect.innerHTML = "";
   renderInspect(els.panels.inspect);
-  renderAtomMap(els.panels.atoms);
-  renderSeekTab(els.panels.seek);
+  renderAtomMap(els.panels.inspect);
+  renderSeekTab(els.panels.inspect);
   renderEncodeTab(els.panels.encode);
   renderCompareTab(els.panels.compare);
-  renderReencodeTab(els.panels.reencode);
   renderAnalysisTab(els.panels.analysis);
 }
 
@@ -47,7 +49,7 @@ els.themeToggle.addEventListener("click", () => {
 initFileLoadingUi(els, { onLoaded: renderAll });
 initTabs(() => renderAnalysisTab(els.panels.analysis));
 
-// Preloaded (not deferred to first file drop) so the fast/exact engine checks in the in-browser tab
+// Preloaded (not deferred to first file drop) so the metadata read and the A/B window's decoding
 // don't stall on it later — matches the original CDN version's eager `ensureMediabunny()` call.
 ensureMediabunny().catch((err: unknown) => {
   console.warn("[encoding-helper] mediabunny preload failed:", err);

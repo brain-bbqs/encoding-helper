@@ -1,4 +1,4 @@
-// Tab: Atom Map — the MP4 box tree laid on its side.
+// The atom map — the MP4 box tree laid on its side — as a section of the Inspect tab.
 //
 // Left to right across the file, each row down one level of nesting, so the map stays the same
 // handful of lanes tall whether the video runs ten seconds or ten hours. Siblings split their
@@ -65,8 +65,6 @@ function familyClass(family: string | null): string {
 }
 
 export function renderAtomMap(panel: HTMLElement): void {
-  panel.innerHTML = "";
-
   const sec = h("div", "section");
   sec.append(h("h2", null, "MP4 Box / Atom Structure"));
   sec.append(teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));

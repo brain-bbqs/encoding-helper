@@ -112,7 +112,7 @@ export type X264Preset =
  * see SCALER_INFO for what each one trades. */
 export type Scaler = "lanczos" | "bicubic";
 
-/** Shared CLI-command state, edited from the Reencode with ffmpeg tab's command builder. */
+/** Shared CLI-command state, edited from the REencode with FFmpeg tab's command builder. */
 export interface CliState {
   quality: QualityPreset;
   crf: number;
@@ -244,7 +244,6 @@ export interface ZoomPanState {
 
 /** Result of a completed in-browser reencode, kept so the Full Analysis document can report it. */
 export interface ReencodeResult {
-  engine: "fast" | "exact";
   originalSize: number;
   encodedSize: number;
 }
