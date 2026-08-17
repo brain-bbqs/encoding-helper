@@ -19,7 +19,7 @@ function buildDropzone(mode: Mode): HTMLElement {
     <div class="drop-mini">
       <span class="fname">clip.mp4</span>
       <span class="fsize">4.2 MB</span>
-      <button class="btn sm sec" type="button">Load Another</button>
+      <button class="btn sm sec" type="button">Load another</button>
     </div>
   `;
   return withCard(dz);
