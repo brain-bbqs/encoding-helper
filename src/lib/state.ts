@@ -85,6 +85,10 @@ export const encodeTest: EncodeTestState = {
 };
 
 export function resetState(): void {
+  // Disposed before the references go: an Input holds a decoder and whatever it was reading from,
+  // and a page that loads one file after another would otherwise keep every one of them.
+  state.input?.dispose();
+  encodeTest.encodedInput?.dispose();
   state.source = null;
   state.file = null;
   state.input = null;

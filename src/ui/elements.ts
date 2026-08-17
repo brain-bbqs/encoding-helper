@@ -18,7 +18,7 @@ export function getElements() {
     loadUrlBtn: required<HTMLButtonElement>("loadUrlBtn"),
     miniName: required<HTMLSpanElement>("miniName"),
     miniSize: required<HTMLSpanElement>("miniSize"),
-    loadAnotherBtn: required<HTMLButtonElement>("loadAnotherBtn"),
+    resetBtn: required<HTMLButtonElement>("resetBtn"),
     fileInput: required<HTMLInputElement>("fileInput"),
     app: required<HTMLDivElement>("app"),
     themeToggle: required<HTMLButtonElement>("themeToggle"),

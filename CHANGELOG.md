@@ -10,6 +10,11 @@
 - A link naming one of the retired tabs opens where that content went, and the address bar is corrected to the tab it landed on ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - **Compare Quality** is the sweep alone: there is no mode to pick, and the single-run quality, preset and resolution dropdowns have moved to the command builder ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - The square showing in the A/B window is written out as an ffmpeg command at the bottom of **Compare Quality**, with a button to copy it ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The loaded file's bar carries a **Reset** button at its left edge, which clears the file and brings the dropzone back rather than reopening the file picker ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+
+#### 🐛 Bug Fix
+
+- Loading one file after another releases the decoders the previous file held, instead of keeping one per file for the life of the page ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 
 #### 🏠 Internal
 

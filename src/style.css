@@ -328,6 +328,16 @@ h1 {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  /* The button belongs to the bar rather than to the file name beside it, so it is pinned to the
+     left edge and the name is pushed to the other end instead of trailing it. */
+  width: 100%;
+  justify-content: space-between;
+}
+.drop-mini .mini-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .drop-mini .fname {
   font-weight: 600;
