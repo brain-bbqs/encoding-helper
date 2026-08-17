@@ -2,7 +2,7 @@ import { withCard } from "./utils";
 
 const TAB_LABELS: Record<string, string> = {
   inspect: "Inspect",
-  encode: "REencode with FFmpeg",
+  encode: "Reencode with FFmpeg",
   compare: "Compare Quality",
 };
 

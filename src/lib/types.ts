@@ -112,7 +112,7 @@ export type X264Preset =
  * see SCALER_INFO for what each one trades. */
 export type Scaler = "lanczos" | "bicubic";
 
-/** Shared CLI-command state, edited from the REencode with FFmpeg tab's command builder. */
+/** Shared CLI-command state, edited from the Reencode with FFmpeg tab's command builder. */
 export interface CliState {
   quality: QualityPreset;
   crf: number;

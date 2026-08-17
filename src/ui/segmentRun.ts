@@ -1,5 +1,5 @@
 // Encoding a few sampled stretches of the loaded video with ffmpeg.wasm, shared by the two tabs that
-// do it: the single run under REencode with FFmpeg, which encodes at whatever the command builder
+// do it: the single run under Reencode with FFmpeg, which encodes at whatever the command builder
 // currently says, and the sweep under Compare Quality, which encodes the same stretches once per
 // combination.
 //

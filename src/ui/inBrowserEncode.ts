@@ -1,4 +1,4 @@
-// The whole-video encode, run here in the page: the last section of the REencode with FFmpeg tab.
+// The whole-video encode, run here in the page: the last section of the Reencode with FFmpeg tab.
 //
 // One engine, ffmpeg.wasm, running the literal command built above it, so what comes out of the
 // browser is byte-for-byte what the command would produce on a machine with ffmpeg installed. It is

@@ -1,5 +1,5 @@
 // CLI preview refresh + quality/preset control syncing for the FFmpeg Command Builder on the
-// REencode with FFmpeg tab, which is the one place the shared `cli` state object is edited.
+// Reencode with FFmpeg tab, which is the one place the shared `cli` state object is edited.
 
 import {
   buildFfmpegArgs,

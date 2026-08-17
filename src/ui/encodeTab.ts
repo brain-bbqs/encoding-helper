@@ -1,4 +1,4 @@
-// Tab: REencode with FFmpeg — everything about running one setting on this file, in the order the
+// Tab: Reencode with FFmpeg — everything about running one setting on this file, in the order the
 // question is actually asked: build the command, try it on a few sampled seconds, then run it over
 // the whole video (here in the page, or by copying the command and running ffmpeg natively).
 //

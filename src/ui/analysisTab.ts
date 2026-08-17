@@ -339,7 +339,7 @@ function cliCommandSection(): AnalysisSection | null {
       {
         kind: "prose",
         html:
-          "The command the <b>REencode with FFmpeg</b> tab's settings come to, as they stood when this document " +
+          "The command the <b>Reencode with FFmpeg</b> tab's settings come to, as they stood when this document " +
           "was generated. Run it wherever ffmpeg is installed; nothing about it is specific to the browser.",
       },
       { kind: "code", lang: "bash", content: formatCliCommand(buildFfmpegArgs(cli, info)) },

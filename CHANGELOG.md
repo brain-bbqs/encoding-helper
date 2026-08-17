@@ -4,8 +4,8 @@
 
 #### 🚀 Enhancement
 
-- Six tabs are now three: **Inspect** holds the atom map and the GOP/seeking sections, and **REencode with FFmpeg** (formerly **Reencode & CLI**) holds the whole-file in-browser encode ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
-- **REencode with FFmpeg** runs the command it builds over a few sampled seconds, so a setting can be seen before it is used ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- Six tabs are now three: **Inspect** holds the atom map and the GOP/seeking sections, and **Reencode with FFmpeg** (formerly **Reencode & CLI**) holds the whole-file in-browser encode ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- **Reencode with FFmpeg** runs the command it builds over a few sampled seconds, so a setting can be seen before it is used ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - Every encode now goes through ffmpeg: the WebCodecs "fast" engine, which could only approximate the CRF you asked for, is gone ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - A link naming one of the retired tabs opens where that content went, and the address bar is corrected to the tab it landed on ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - **Compare Quality** is the sweep alone: there is no mode to pick, and the single-run quality, preset and resolution dropdowns have moved to the command builder ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
