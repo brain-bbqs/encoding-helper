@@ -83,9 +83,12 @@ test.describe("Encoding Helper shell", () => {
   });
 
   test("draws every box in the file, in the tab and in the document, none summarised away", async ({ page }) => {
+    // ?tab=atoms is the map's old address, from when it was a tab of its own; it lands on Inspect,
+    // where the map is now a section.
     await page.goto("/?tab=atoms");
     await page.locator("#loadSampleBtn").click();
-    const panel = page.locator("#panel-atoms");
+    await expect(page).toHaveURL(/tab=inspect/);
+    const panel = page.locator("#panel-inspect");
     await expect(panel.locator(".atom-map")).toBeVisible();
     await expect(panel.locator(".atom-block.grouped")).toHaveCount(0);
     const drawn = await panel.locator(".atom-block").count();
@@ -119,7 +122,7 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator("#app")).toBeVisible();
     await expect(action).toBeVisible();
     await expect(action).toHaveText(/Full Analysis/);
-    await expect(page.locator(".tabs .tab")).toHaveCount(6);
+    await expect(page.locator(".tabs .tab")).toHaveCount(3);
     const tabsBox = (await page.locator(".tabs").boundingBox())!;
     const actionBox = (await action.boundingBox())!;
     const barBox = (await page.locator(".tab-bar").boundingBox())!;
@@ -154,6 +157,7 @@ test.describe("Encoding Helper shell", () => {
   });
 
   test("adds the seeking test to the document once it has been run", async ({ page }) => {
+    // The seeking test is the last section of Inspect; its old tab name still points at it.
     await page.goto("/?tab=seek");
     await page.locator("#loadSampleBtn").click();
     await page.locator("#seekN").fill("5");
@@ -176,9 +180,9 @@ test.describe("Encoding Helper shell", () => {
   });
 
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {
-    await page.goto("/?tab=atoms");
+    await page.goto("/");
     await page.locator("#loadSampleBtn").click();
-    const panel = page.locator("#panel-atoms");
+    const panel = page.locator("#panel-inspect");
     await expect(panel.locator(".atom-map")).toBeVisible();
     await expect(panel.locator(".crumb")).toHaveText(["Whole file"]);
 
