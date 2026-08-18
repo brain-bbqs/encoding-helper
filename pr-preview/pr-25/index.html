@@ -84,11 +84,11 @@
         });
       });
     </script>
-    <script type="module" crossorigin src="./assets/index-D8i20RNw.js"></script>
+    <script type="module" crossorigin src="./assets/index-DJQOBC_8.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
     <link rel="modulepreload" crossorigin href="./assets/ffmpeg-BJaMHjM6.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-DmmQtRsg.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-CdFEhU2J.css">
   </head>
   <body>
     <a
@@ -157,7 +157,7 @@
       <span class="goal-sep" aria-hidden="true">&middot;</span>
       <span class="goal"><span class="goal-icon" aria-hidden="true">🎓</span> Learn more about codec parameters</span>
       <span class="goal-sep" aria-hidden="true">&middot;</span>
-      <span class="goal"><span class="goal-icon" aria-hidden="true">⚖️</span> Compare reencoding strategies</span>
+      <span class="goal"><span class="goal-icon" aria-hidden="true">🆚</span> Compare reencoding strategies</span>
     </p>
 
     <div class="error-msg" id="errorMsg"></div>
@@ -187,12 +187,17 @@
     </div>
     <!-- The same slide-switch clip-extractor/bbqs-uploader use for an on/off mode (a restyled checkbox,
          so it stays keyboard- and test-accessible) rather than another button, carrying the same 🎓
-         icon as the "Learn more about codec parameters" goal above so it reads as tied back to it. -->
+         icon as the "Learn more about codec parameters" goal above, so it reads as tied back to that
+         goal. The 💡 each "teach" box carries marks the explanation itself, not the switch. -->
     <div class="edu-toggle-row">
-      <label class="edu-toggle" for="educationalToggle">
+      <label
+        class="edu-toggle"
+        for="educationalToggle"
+        title="Enable educational explanations and ⓘ tooltips throughout the app"
+      >
         <span class="edu-toggle-icon" aria-hidden="true">🎓</span>
         <span class="edu-toggle-label">Educational</span>
-        <input type="checkbox" class="switch" id="educationalToggle" checked title="Toggle educational explanations" />
+        <input type="checkbox" class="switch" id="educationalToggle" checked />
       </label>
     </div>
     <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />
@@ -203,9 +208,15 @@
            content column, rather than reading as a fourth place to look. -->
       <div class="tab-bar">
         <div class="tabs">
-          <button class="tab on" data-tab="inspect" type="button">Inspect</button>
-          <button class="tab" data-tab="encode" type="button">Reencode with FFmpeg</button>
-          <button class="tab" data-tab="compare" type="button">Compare Quality</button>
+          <button class="tab on" data-tab="inspect" type="button">
+            <span class="tab-icon" aria-hidden="true">🔍</span> Inspect
+          </button>
+          <button class="tab" data-tab="encode" type="button">
+            <span class="tab-icon" aria-hidden="true">🎛️</span> Reencode with FFmpeg
+          </button>
+          <button class="tab" data-tab="compare" type="button">
+            <span class="tab-icon" aria-hidden="true">🆚</span> Compare Quality
+          </button>
         </div>
         <button
           class="tab-action"
