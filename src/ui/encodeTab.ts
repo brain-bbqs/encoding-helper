@@ -9,7 +9,6 @@
 import { computeGop, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
-import { SAMPLE_SECONDS } from "../lib/sampleTimeline";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
 import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
@@ -243,12 +242,11 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
         `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
         `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
         `the beginning.</p>` +
-        `<p>One stretch, judged by eye. Sampling several places at once to project what a setting saves across ` +
-        `the whole file, and sweeping several settings against each other, are the <b>Compare Quality</b> ` +
-        `tab's job.</p>`,
+        `<p>One stretch of a fixed length, judged by eye: there is nothing to set here beyond where it comes ` +
+        `from. Sampling several places at once to project what a setting saves across the whole file, and ` +
+        `sweeping several settings against each other, are the <b>Compare Quality</b> tab's job.</p>`,
     ),
   );
-  sec.append(fixedSampleFields());
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
   const { nodes, ui } = runControls("Run Comparison");
@@ -268,28 +266,6 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
     });
   });
   return [sec, resultSec];
-}
-
-/**
- * What the run covers, stated rather than asked: one stretch, three seconds long.
- *
- * The fields are drawn and disabled instead of left out, since they are the same two the sweep on
- * the other tab asks for and their values are what makes the comparison below readable: this run
- * shows one continuous stretch to look at, and where it is taken from is the track underneath.
- * Sampling several places at once, which is a question about size rather than about picture, is
- * what the sweep is for.
- */
-function fixedSampleFields(): HTMLDivElement {
-  const row = h("div", "row compare-grid");
-  const duration = fieldNumber("sampleDuration", "Duration (s)", SAMPLE_SECONDS, SAMPLE_SECONDS, SAMPLE_SECONDS, 1);
-  const segments = fieldNumber("sampleSegments", "Segments", 1, 1, 1, 1);
-  for (const field of [duration, segments]) {
-    const input = field.querySelector("input")!;
-    input.disabled = true;
-    input.title = "Fixed for this run: one stretch of the length below, taken from where the track says";
-  }
-  row.append(duration, segments);
-  return row;
 }
 
 /** Encodes the picked stretch at whatever the builder currently says, and puts it in the A/B

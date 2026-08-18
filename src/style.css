@@ -1055,15 +1055,6 @@ details.teach-more summary {
   height: 30px;
 }
 
-/* A field whose value is a statement rather than a question — the fixed length and count of a
-   single run — reads as one: greyed, and not asking to be clicked. */
-.field input:disabled,
-.field select:disabled {
-  background: var(--btn-off-bg);
-  color: var(--muted);
-  cursor: not-allowed;
-}
-
 /* Picking which seconds a single run encodes: a frame to scan by, a track across the whole
    recording, and the run's window drawn on it. Track, band and ruler are brain-bbqs/clip-extractor's
    trim timeline — same 12px track, same accent band, same gradations — since it is the same gesture

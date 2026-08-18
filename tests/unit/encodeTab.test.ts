@@ -65,14 +65,10 @@ describe("renderEncodeTab", () => {
   // sweep it had nothing to do with; here it is a run of the command directly above it.
   it("offers a run of the built command over one fixed stretch", () => {
     const panel = renderTab();
-    const duration = panel.querySelector<HTMLInputElement>("#sampleDuration")!;
-    const segments = panel.querySelector<HTMLInputElement>("#sampleSegments")!;
-    expect(duration.value).toBe(String(SAMPLE_SECONDS));
-    expect(segments.value).toBe("1");
-    // Stated rather than asked: this run shows one continuous stretch, and where it comes from is
-    // the track's question rather than a number to type.
-    expect(duration.disabled).toBe(true);
-    expect(segments.disabled).toBe(true);
+    // The length and the count are fixed, so they are not on the page at all: where the stretch
+    // comes from is the only question, and the track below asks it.
+    expect(panel.querySelector("#sampleDuration")).toBeNull();
+    expect(panel.querySelector("#sampleSegments")).toBeNull();
     expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Comparison");
   });
 
@@ -125,7 +121,8 @@ describe("renderEncodeTab", () => {
     sweepDuration.value = "8";
     sweepDuration.dispatchEvent(new Event("input"));
     expect(encodeTest.duration).toBe(8);
-    // This tab's run is three seconds whatever the sweep is set to.
-    expect(panel.querySelector<HTMLInputElement>("#sampleDuration")!.value).toBe(String(SAMPLE_SECONDS));
+    // This tab's run is three seconds whatever the sweep is set to, which the band's width says.
+    const band = panel.querySelector<HTMLElement>(".sample-band")!;
+    expect(band.style.width).toBe(`${(SAMPLE_SECONDS / 20) * 100}%`);
   });
 });
