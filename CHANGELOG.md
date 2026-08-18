@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+#### 🐛 Bug Fix
+
+- Stopping a Compare Quality sweep and then changing which settings it sweeps no longer leaves the run button resuming into the old grid ([#24](https://github.com/brain-bbqs/encoding-helper/pull/24))
+
 ## 0.6.0
 
 #### 🚀 Enhancement

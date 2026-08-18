@@ -159,6 +159,33 @@ describe("renderCompareTab", () => {
     expect(runButton(renderTab()).textContent).toBe("Run 2 unmeasured");
   });
 
+  // Stop (or a failed square) leaves holes the run button offers to fill back into the same grid —
+  // but only while that grid is still what the checkboxes ask for. Once the sweep is edited, filling
+  // the old holes back in would resume into a shape nobody ticked anymore.
+  it("drops a stopped sweep's grid once the ticked axes move away from it, instead of resuming into the old shape", () => {
+    encodeTest.matrix.qualities = ["high", "low"];
+    encodeTest.matrix.presets = ["fast"];
+    encodeTest.matrix.cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1], ["lanczos"]));
+    encodeTest.matrix.cells[0].status = "done";
+    encodeTest.matrix.cells[0].bytes = 100;
+    encodeTest.matrix.cells[1].status = "skipped"; // what Stop leaves behind
+    encodeTest.matrix.selectedKey = encodeTest.matrix.cells[0].combo.key;
+
+    const panel = renderTab();
+    expect(runButton(panel).textContent).toBe("Run 1 unmeasured");
+    expect(panel.querySelector(".matrix-section h2")).not.toBeNull();
+
+    // Adjust the sweep: tick a preset that was not part of the stopped run.
+    const mediumBox = axisBoxes(panel, "x264 presets").find((b) => b.value === "medium")!;
+    mediumBox.checked = true;
+    mediumBox.dispatchEvent(new Event("change"));
+
+    expect(encodeTest.matrix.cells).toEqual([]);
+    expect(encodeTest.matrix.selectedKey).toBeNull();
+    expect(runButton(panel).textContent).toBe("Run Matrix");
+    expect((panel.querySelector(".matrix-section") as HTMLElement).style.display).toBe("none");
+  });
+
   it("ticks every quality and the faster presets to begin with", () => {
     const panel = renderTab();
     const ticked = (label: string): string[] =>
