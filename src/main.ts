@@ -52,19 +52,15 @@ els.themeToggle.addEventListener("click", () => {
 });
 
 // Teaching material — the "teach" boxes and the ⓘ info-icon popovers — is on by default and
-// remembered across reloads; the header toggle flips it for every tab at once, so the panels are
-// simply rebuilt from scratch rather than each renderer tracking the flag itself. The Full Analysis
-// document is unaffected: it always leaves explainers out, toggle or no.
-function syncEducationalToggle(on: boolean): void {
-  els.educationalToggle.classList.toggle("on", on);
-  els.educationalToggle.setAttribute("aria-pressed", String(on));
-}
-syncEducationalToggle(isEducationalEnabled());
-els.educationalToggle.addEventListener("click", () => {
-  setEducationalEnabled(!isEducationalEnabled());
+// remembered across reloads; the switch below the load card flips it for every tab at once, so the
+// panels are simply rebuilt from scratch rather than each renderer tracking the flag itself. The
+// Full Analysis document is unaffected: it always leaves explainers out, toggle or no.
+els.educationalToggle.checked = isEducationalEnabled();
+els.educationalToggle.addEventListener("change", () => {
+  setEducationalEnabled(els.educationalToggle.checked);
 });
 onEducationalChange((on) => {
-  syncEducationalToggle(on);
+  els.educationalToggle.checked = on;
   if (els.app.style.display !== "none") renderAll();
 });
 

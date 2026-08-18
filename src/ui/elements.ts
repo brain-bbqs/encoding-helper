@@ -22,7 +22,7 @@ export function getElements() {
     fileInput: required<HTMLInputElement>("fileInput"),
     app: required<HTMLDivElement>("app"),
     themeToggle: required<HTMLButtonElement>("themeToggle"),
-    educationalToggle: required<HTMLButtonElement>("educationalToggle"),
+    educationalToggle: required<HTMLInputElement>("educationalToggle"),
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),
