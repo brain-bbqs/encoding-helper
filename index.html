@@ -145,10 +145,27 @@
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
           </svg>
         </button>
+        <!-- The 🎓 icon marking "Learn more about codec parameters" below is the same icon carried by
+             the Educational toggle in every tab, so the one control this button is reads as tied back
+             to that goal wherever it shows up. -->
+        <button
+          type="button"
+          id="educationalToggle"
+          class="edu-toggle"
+          aria-pressed="true"
+          title="Toggle educational explanations"
+        >
+          <span class="edu-toggle-icon" aria-hidden="true">🎓</span>
+          <span class="edu-toggle-label">Educational</span>
+        </button>
       </div>
     </header>
     <p class="subtitle">
-      Explore video file layouts &middot; Learn more about codec parameters &middot; Compare reencoding strategies
+      <span class="goal"><span class="goal-icon" aria-hidden="true">🔍</span> Explore video file layouts</span>
+      <span class="goal-sep" aria-hidden="true">&middot;</span>
+      <span class="goal"><span class="goal-icon" aria-hidden="true">🎓</span> Learn more about codec parameters</span>
+      <span class="goal-sep" aria-hidden="true">&middot;</span>
+      <span class="goal"><span class="goal-icon" aria-hidden="true">⚖️</span> Compare reencoding strategies</span>
     </p>
 
     <div class="error-msg" id="errorMsg"></div>

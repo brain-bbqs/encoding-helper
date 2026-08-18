@@ -290,6 +290,73 @@ h1 {
   margin-bottom: 20px;
   font-size: 14px;
 }
+.goal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.goal-icon {
+  font-size: 13px;
+}
+.goal-sep {
+  margin: 0 6px;
+}
+
+/* Educational toggle: a pill beside the theme circle, carrying the same 🎓 icon that marks the
+   "Learn more about codec parameters" goal above, so the one control that hides every "teach" box
+   and ⓘ popover reads as tied back to that goal wherever it shows up. */
+.edu-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.edu-toggle:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.edu-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.edu-toggle-icon {
+  font-size: 16px;
+  opacity: 0.6;
+}
+.edu-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.edu-toggle.on .edu-toggle-icon {
+  opacity: 1;
+}
+@media (max-width: 520px) {
+  .edu-toggle-label {
+    display: none;
+  }
+  .edu-toggle {
+    width: 48px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+}
+
+/* Hidden by the educational toggle: an empty "teach" box or ⓘ icon, kept in the DOM (rather than
+   left out) so every call site can append its result unconditionally. */
+.edu-off {
+  display: none !important;
+}
 
 /* Drop zone / file loading */
 .drop-zone {
@@ -731,6 +798,68 @@ details.teach-more summary {
 }
 .tab-panel.on {
   display: block;
+}
+
+/* Inspect's "On this page" sidebar, in the shape pydata-sphinx-theme's docs use: the sections in a
+   content column on the left, a sticky nav of the same headings pinned to the right, the current
+   section picked out as you scroll (inspectToc.ts). Collapses below the width a 220px rail plus a
+   readable content column no longer both fit. */
+.inspect-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+.inspect-content {
+  flex: 1;
+  min-width: 0;
+}
+.inspect-toc {
+  flex: 0 0 210px;
+  position: sticky;
+  top: 20px;
+  align-self: flex-start;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  font-size: 12.5px;
+}
+.inspect-toc-title {
+  margin-bottom: 8px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.inspect-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--border-soft);
+}
+.inspect-toc li {
+  margin: 0;
+}
+.inspect-toc a {
+  display: block;
+  margin-left: -2px;
+  padding: 4px 0 4px 12px;
+  border-left: 2px solid transparent;
+  color: var(--muted-2);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.inspect-toc a:hover {
+  color: var(--text);
+}
+.inspect-toc a.on {
+  border-left-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+@media (max-width: 900px) {
+  .inspect-toc {
+    display: none;
+  }
 }
 
 /* Atom Map, horizontal: the box tree left to right, one lane per nesting depth. */

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+#### 🚀 Enhancement
+
+- An Educational toggle in the header, remembered across reloads and on by default, hides every "teach" box and ⓘ tooltip across the tabs; Full Analysis always leaves them out regardless ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- **Inspect** carries a sticky "On this page" table of contents beside its sections, pydata-docs style ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- The subtitle's three goals and the Educational toggle share the same 🎓 icon for "Learn more about codec parameters" ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+
 ## 0.6.1
 
 #### 🐛 Bug Fix

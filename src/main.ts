@@ -1,4 +1,5 @@
 import "./style.css";
+import { isEducationalEnabled, onEducationalChange, setEducationalEnabled } from "./lib/educational";
 import { ensureMediabunny } from "./lib/mediabunny";
 import { renderAnalysisTab } from "./ui/analysisTab";
 import { renderAtomMap } from "./ui/atomsTab";
@@ -6,6 +7,7 @@ import { renderCompareTab } from "./ui/compareTab";
 import { getElements } from "./ui/elements";
 import { renderEncodeTab } from "./ui/encodeTab";
 import { initFileLoadingUi } from "./ui/fileLoading";
+import { mountInspectToc } from "./ui/inspectToc";
 import { renderInspect } from "./ui/inspectTab";
 import { renderSeekTab } from "./ui/seekTab";
 import { initTabs } from "./ui/tabs";
@@ -20,6 +22,9 @@ function renderAll(): void {
   renderInspect(els.panels.inspect);
   renderAtomMap(els.panels.inspect);
   renderSeekTab(els.panels.inspect);
+  // Wraps whatever the three renderers above just appended into a content column beside an "On this
+  // page" nav built from their own section headings; must run after them, not interleaved.
+  mountInspectToc(els.panels.inspect);
   renderEncodeTab(els.panels.encode);
   renderCompareTab(els.panels.compare);
   renderAnalysisTab(els.panels.analysis);
@@ -44,6 +49,23 @@ els.themeToggle.addEventListener("click", () => {
   } catch (e) {
     console.warn("Could not save theme preference:", e);
   }
+});
+
+// Teaching material — the "teach" boxes and the ⓘ info-icon popovers — is on by default and
+// remembered across reloads; the header toggle flips it for every tab at once, so the panels are
+// simply rebuilt from scratch rather than each renderer tracking the flag itself. The Full Analysis
+// document is unaffected: it always leaves explainers out, toggle or no.
+function syncEducationalToggle(on: boolean): void {
+  els.educationalToggle.classList.toggle("on", on);
+  els.educationalToggle.setAttribute("aria-pressed", String(on));
+}
+syncEducationalToggle(isEducationalEnabled());
+els.educationalToggle.addEventListener("click", () => {
+  setEducationalEnabled(!isEducationalEnabled());
+});
+onEducationalChange((on) => {
+  syncEducationalToggle(on);
+  if (els.app.style.display !== "none") renderAll();
 });
 
 initFileLoadingUi(els, { onLoaded: renderAll });

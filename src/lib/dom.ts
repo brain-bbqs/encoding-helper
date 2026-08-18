@@ -1,5 +1,7 @@
 // Small DOM-building helpers shared across every tab renderer.
 
+import { isEducationalEnabled } from "./educational";
+
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   cls?: string | null,
@@ -63,6 +65,10 @@ function bindInfoDismiss(): void {
  * pass in text read out of a media file without escaping it first.
  */
 export function infoIcon(html: string, label = "More information"): HTMLSpanElement {
+  // The ⓘ affordance is teaching material like the "teach" boxes below, so it goes with the same
+  // toggle: an empty, hidden span rather than `null`, since every call site treats infoIcon's
+  // return as always present (gridItem appends it unconditionally once it decides to call this).
+  if (!isEducationalEnabled()) return h("span", "info edu-off");
   bindInfoDismiss();
   const wrap = h("span", "info");
   const btn = h("button", "info-btn", "i");
@@ -142,9 +148,17 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup. */
+/**
+ * A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup.
+ * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
+ * every call site can keep appending its result unconditionally.
+ */
 export function teachBox(html: string): HTMLDivElement {
   const d = h("div", "teach");
+  if (!isEducationalEnabled()) {
+    d.classList.add("edu-off");
+    return d;
+  }
   d.innerHTML = html;
   return d;
 }
