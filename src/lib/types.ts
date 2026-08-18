@@ -104,7 +104,7 @@ export interface SeekResult {
 /** Quality preset keys understood by both the ffmpeg CLI builder and the mediabunny fast engine. */
 export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 
-/** x264 presets offered in the FFmpeg Command Builder / Compare Quality tabs. */
+/** x264 presets offered in the FFmpeg Command Builder and swept by the Compare Quality matrix. */
 export type X264Preset =
   "ultrafast" | "superfast" | "veryfast" | "faster" | "fast" | "medium" | "slow" | "slower" | "veryslow";
 
@@ -112,7 +112,7 @@ export type X264Preset =
  * see SCALER_INFO for what each one trades. */
 export type Scaler = "lanczos" | "bicubic";
 
-/** Shared CLI-command state, edited from both the Reencode tab and the Compare Quality tab. */
+/** Shared CLI-command state, edited from the Reencode with FFmpeg tab's command builder. */
 export interface CliState {
   quality: QualityPreset;
   crf: number;
@@ -138,7 +138,7 @@ export interface VideoInfo {
   height: number;
 }
 
-/** The two axes of Compare Quality's matrix mode: a quality level and an x264 preset. */
+/** The two axes every matrix sweep covers: a quality level and an x264 preset. */
 export type MatrixQuality = Exclude<QualityPreset, "custom">;
 
 /** The settings one encode was made with, whichever mode produced it. */
@@ -181,9 +181,6 @@ export interface SampleWindow {
   seconds: number;
 }
 
-/** Whether Compare Quality is running one setting or sweeping the grid. */
-export type CompareMode = "single" | "matrix";
-
 /** Mutable matrix-mode state: what the next sweep will cover, and what the last one found. */
 export interface MatrixState {
   /** Ticked quality levels, i.e. the rows the next sweep will run. */
@@ -203,15 +200,17 @@ export interface MatrixState {
   /** Every stretch each square covered, which is the one above unless the run sampled several. */
   windows: SampleWindow[];
   running: boolean;
-  /** Set by the Stop button; the sweep checks it between combinations. */
-  cancelRequested: boolean;
   /** The combination showing in the A/B window. */
   selectedKey: string | null;
 }
 
-/** Mutable Compare Quality (A/B comparison) state. */
+/** Mutable state of the sampled-stretch encodes and the A/B comparison they feed. */
 export interface EncodeTestState {
   startTime: number;
+  /** Where the single run's window starts, as the Reencode tab's track has it. Its length is fixed
+   * (SAMPLE_SECONDS), so this is the whole of what that tab asks for; `duration` and `segments`
+   * below belong to the Compare Quality sweep. */
+  sampleStart: number;
   duration: number;
   /** How many stretches of `duration` a run encodes. Above 1 they are placed at random (see
    * pickSampleWindows) and the start field stops applying. */
@@ -223,7 +222,8 @@ export interface EncodeTestState {
    * in the core's filesystem to encode from). */
   sampled: SampleWindow[];
   running: boolean;
-  mode: CompareMode;
+  /** Set by the Stop button; a run checks it between (and inside) encodes. */
+  cancelRequested: boolean;
   originalSink: import("mediabunny").CanvasSink | null;
   encodedSink: import("mediabunny").CanvasSink | null;
   encodedInput: Input | null;
@@ -239,7 +239,7 @@ export interface EncodeTestState {
   zoom: ZoomPanState | null;
 }
 
-/** Shared pan/zoom transform for the Compare Quality comparison canvases. */
+/** Shared pan/zoom transform for the A/B comparison canvases. */
 export interface ZoomPanState {
   scale: number;
   tx: number;
@@ -248,7 +248,6 @@ export interface ZoomPanState {
 
 /** Result of a completed in-browser reencode, kept so the Full Analysis document can report it. */
 export interface ReencodeResult {
-  engine: "fast" | "exact";
   originalSize: number;
   encodedSize: number;
 }

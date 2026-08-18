@@ -1,4 +1,6 @@
-// Tab: Inspect — file overview, video/audio track details, codec explainers, metadata tags.
+// Tab: Inspect — what the loaded file *is*. File overview, video/audio track details, codec
+// explainers and metadata tags here; the atom map (atomsTab.ts) and the GOP/seeking sections
+// (seekTab.ts) are appended after them into the same panel by main.ts.
 
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { CONTAINER_PREAMBLE, describeContainer, type ContainerInfo } from "../lib/containerKb";
@@ -234,7 +236,6 @@ function renderMetadataTagsSection(): HTMLDivElement | null {
 }
 
 export function renderInspect(panel: HTMLElement): void {
-  panel.innerHTML = "";
   if (!state.source) return;
 
   panel.append(renderOverviewSection());

@@ -1,5 +1,6 @@
-// Tab: GOP & Seeking — GOP/keyframe/B-frame structure, plus an empirical seeking test with a
-// keyframe-distance-vs-decode-time scatter plot.
+// The GOP/keyframe/B-frame structure and the empirical seeking test, with a
+// keyframe-distance-vs-decode-time scatter plot: the last two sections of the Inspect tab, since
+// how a file seeks is a property of the file rather than a separate thing to go and look at.
 
 import { gridItem, h, svgEl, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
@@ -16,8 +17,6 @@ export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a 
 export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
 
 export function renderSeekTab(panel: HTMLElement): void {
-  panel.innerHTML = "";
-
   const gop = state.gopLengths;
   const avgGop = gop.length ? gop.reduce((a, b) => a + b, 0) / gop.length : 0;
   const minGop = gop.length ? Math.min(...gop) : 0;
@@ -26,7 +25,7 @@ export function renderSeekTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "GOP / Keyframe Structure"));
-  // Explainer first, like the Atom Map tab: read what a GOP is before reading this file's numbers.
+  // Explainer first, like the atom map above: read what a GOP is before reading this file's numbers.
   sec.append(teachBox(GOP_TEACH));
   const g = h("div", "grid");
   g.append(

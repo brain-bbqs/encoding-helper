@@ -2,11 +2,8 @@ import { withCard } from "./utils";
 
 const TAB_LABELS: Record<string, string> = {
   inspect: "Inspect",
-  atoms: "Atom Map",
-  seek: "GOP & Seeking",
-  encode: "Reencode & CLI",
+  encode: "Reencode with FFmpeg",
   compare: "Compare Quality",
-  reencode: "Reencode In-Browser",
 };
 
 // Kept in sync with the markup in index.html; the icon is what marks the button as the one control

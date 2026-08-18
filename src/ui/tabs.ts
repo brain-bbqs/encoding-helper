@@ -31,5 +31,10 @@ export function initTabs(onShowAnalysis: () => void): void {
   window.addEventListener("popstate", () => show(readTabFromUrl() ?? DEFAULT_TAB));
 
   const initial = readTabFromUrl();
-  if (initial) show(initial);
+  if (initial) {
+    // Written back as well as shown, so a link naming a tab that no longer exists leaves the
+    // address bar naming the tab its content moved to.
+    writeTabToUrl(initial, false);
+    show(initial);
+  }
 }

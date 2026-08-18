@@ -17,9 +17,17 @@ function buildDropzone(mode: Mode): HTMLElement {
       </div>
     </div>
     <div class="drop-mini">
-      <span class="fname">clip.mp4</span>
-      <span class="fsize">4.2 MB</span>
-      <button class="btn sm sec" type="button">Load Another</button>
+      <span class="mini-file">
+        <span class="fname">clip.mp4</span>
+        <span class="fsize">4.2 MB</span>
+      </span>
+      <button class="btn sm sec icon-only" type="button" title="Reset" aria-label="Reset">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15 A9 9 0 1 1 18.36 5.64 L23 10" />
+        </svg>
+      </button>
     </div>
   `;
   return withCard(dz);

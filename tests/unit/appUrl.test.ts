@@ -11,17 +11,35 @@ describe("appUrl", () => {
   it("recognizes only the tabs the app actually has", () => {
     expect(isTabId("inspect")).toBe(true);
     expect(isTabId("compare")).toBe(true);
-    expect(isTabId("reencode")).toBe(true);
+    expect(isTabId("encode")).toBe(true);
+    expect(isTabId("reencode")).toBe(false);
     expect(isTabId("nope")).toBe(false);
     expect(isTabId(null)).toBe(false);
   });
 
   it("reads the tab out of the query string, ignoring unknown names", () => {
     expect(readTabFromUrl()).toBeNull();
-    setUrl("?tab=seek");
-    expect(readTabFromUrl()).toBe("seek");
+    setUrl("?tab=compare");
+    expect(readTabFromUrl()).toBe("compare");
     setUrl("?tab=made-up");
     expect(readTabFromUrl()).toBeNull();
+  });
+
+  // The atom map, the seeking test and the in-browser encode are sections of other tabs now, so a
+  // link someone was sent still opens where that content went.
+  it("sends a link naming a retired tab to the tab its content moved to", () => {
+    setUrl("?tab=atoms");
+    expect(readTabFromUrl()).toBe("inspect");
+    setUrl("?tab=seek");
+    expect(readTabFromUrl()).toBe("inspect");
+    setUrl("?tab=reencode");
+    expect(readTabFromUrl()).toBe("encode");
+  });
+
+  it("rewrites a retired tab name to the current one when it is recorded", () => {
+    setUrl("?tab=reencode");
+    writeTabToUrl("encode", false);
+    expect(window.location.search).toBe("?tab=encode");
   });
 
   it("writes the tab without disturbing the rest of the URL", () => {
@@ -33,16 +51,16 @@ describe("appUrl", () => {
 
   it("pushes a history entry only when asked, so back walks the tabs", () => {
     const before = window.history.length;
-    writeTabToUrl("atoms", false);
+    writeTabToUrl("compare", false);
     expect(window.history.length).toBe(before);
     writeTabToUrl("encode", true);
     expect(window.history.length).toBeGreaterThan(before);
   });
 
   it("skips the write when the tab is already the one in the URL", () => {
-    writeTabToUrl("atoms", false);
+    writeTabToUrl("compare", false);
     const before = window.history.length;
-    writeTabToUrl("atoms", true);
+    writeTabToUrl("compare", true);
     expect(window.history.length).toBe(before);
   });
 

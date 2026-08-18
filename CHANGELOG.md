@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.0
+
+#### 🚀 Enhancement
+
+- Six tabs are now three: **Inspect** holds the atom map and the GOP/seeking sections, and **Reencode with FFmpeg** (formerly **Reencode & CLI**) holds the whole-file in-browser encode ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- **Reencode with FFmpeg** runs the command it builds over a few sampled seconds, so a setting can be seen before it is used ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- Every encode now goes through ffmpeg: the WebCodecs "fast" engine, which could only approximate the CRF you asked for, is gone ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- A link naming one of the retired tabs opens where that content went, and the address bar is corrected to the tab it landed on ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- **Compare Quality** is the sweep alone: there is no mode to pick, and the single-run quality, preset and resolution dropdowns have moved to the command builder ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The square showing in the A/B window is written out as an ffmpeg command at the bottom of **Compare Quality**, with a button to copy it ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The loaded file's bar carries a **Reset** button at its right edge — the circular-arrow mark [bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader) uses for the same gesture — which clears the file and brings the dropzone back rather than reopening the file picker ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The whole-file button says which job it is doing: **Reencode and Save** for a source already in MP4, **Transcode and Save** for one in another container ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The sample run on **Reencode with FFmpeg** is one fixed three-second stretch, picked on a track across the whole recording with a frame to scan by, modelled on [clip-extractor](https://github.com/brain-bbqs/clip-extractor)'s timeline ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+
+#### 🐛 Bug Fix
+
+- Loading one file after another releases the decoders the previous file held, instead of keeping one per file for the life of the page ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+
+#### 🏠 Internal
+
+- The sampled-stretch encoder and the A/B window are shared modules, so both encoding tabs run and draw the one comparison between them ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+
 ## 0.5.0
 
 #### 🚀 Enhancement

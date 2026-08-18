@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetState, state } from "../../src/lib/state";
 import type { DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
-import { renderBitrateTimelineSection } from "../../src/ui/inspectTab";
+import { renderAtomMap } from "../../src/ui/atomsTab";
+import { renderBitrateTimelineSection, renderInspect } from "../../src/ui/inspectTab";
+import { renderSeekTab } from "../../src/ui/seekTab";
 
 const VIDEO_TRACK: TrackInfo = {
   kind: "video",
@@ -104,5 +106,33 @@ describe("renderBitrateTimelineSection", () => {
   it("says nothing about a declaration when the file carries none", () => {
     loadFile({ durationSec: 30, samples: samples(600, 30, (i) => (i < 300 ? 500 : 5_000)) });
     expect(renderBitrateTimelineSection()!.textContent).not.toContain("The sample sizes say otherwise");
+  });
+});
+
+// The atom map and the seeking test are sections of Inspect rather than tabs of their own, so the
+// three renderers share a panel and each one appends to what the last one left.
+describe("the Inspect panel", () => {
+  beforeEach(() => resetState());
+
+  it("stacks the metadata, the atom map and the GOP/seeking sections in one panel", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    // The metadata sections only render for a loaded file; the map and the seeking test do not care.
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.format = "mp4";
+    state.boxes = [{ type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] }];
+    state.gopLengths = [30, 30];
+    state.keyframeDecodeIndices = [0, 30];
+    const panel = document.createElement("div");
+    renderInspect(panel);
+    renderAtomMap(panel);
+    renderSeekTab(panel);
+    const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
+    // Metadata first, then the map of where the bytes are, then the structure that governs seeking.
+    expect(headings.slice(0, 2)).toEqual(["Video Container Overview", "Video Track"]);
+    expect(headings.slice(-3)).toEqual([
+      "MP4 Box / Atom Structure",
+      "GOP / Keyframe Structure",
+      "Empirical Seeking Test",
+    ]);
   });
 });

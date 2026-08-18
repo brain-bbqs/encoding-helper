@@ -53,6 +53,7 @@ export const cli: CliState = {
 
 export const encodeTest: EncodeTestState = {
   startTime: 0,
+  sampleStart: 0,
   // Five stretches of five seconds: 25 seconds spread across the file, which is enough of it for
   // the projection to mean something on a recording whose content varies. It is also 5x the encoding
   // one stretch would cost, which the cut stretches and the core pool are what make affordable.
@@ -61,7 +62,7 @@ export const encodeTest: EncodeTestState = {
   windows: [],
   sampled: [],
   running: false,
-  mode: "single",
+  cancelRequested: false,
   originalSink: null,
   encodedSink: null,
   encodedInput: null,
@@ -79,13 +80,16 @@ export const encodeTest: EncodeTestState = {
     segmentLength: 5,
     windows: [],
     running: false,
-    cancelRequested: false,
     selectedKey: null,
   },
   zoom: null,
 };
 
 export function resetState(): void {
+  // Disposed before the references go: an Input holds a decoder and whatever it was reading from,
+  // and a page that loads one file after another would otherwise keep every one of them.
+  state.input?.dispose();
+  encodeTest.encodedInput?.dispose();
   state.source = null;
   state.file = null;
   state.input = null;
@@ -111,12 +115,13 @@ export function resetState(): void {
   state.seekResults = null;
   state.reencodeResult = null;
   encodeTest.startTime = 0;
+  encodeTest.sampleStart = 0;
   encodeTest.duration = 5;
   encodeTest.segments = 5;
   encodeTest.windows = [];
   encodeTest.sampled = [];
   encodeTest.running = false;
-  encodeTest.mode = "single";
+  encodeTest.cancelRequested = false;
   encodeTest.originalSink = null;
   encodeTest.encodedSink = null;
   encodeTest.encodedInput = null;
@@ -134,12 +139,11 @@ export function resetState(): void {
   encodeTest.matrix.segmentLength = 5;
   encodeTest.matrix.windows = [];
   encodeTest.matrix.running = false;
-  encodeTest.matrix.cancelRequested = false;
   encodeTest.matrix.selectedKey = null;
   encodeTest.zoom = null;
 }
 
-/** Basic video-track info shared by the FFmpeg Command Builder and Compare Quality tabs, or null pre-load. */
+/** Basic video-track info shared by the FFmpeg Command Builder and the encoding runs, or null pre-load. */
 export function currentVideoInfo(): { fps: number | null; width: number; height: number } | null {
   const vt = state.tracks && state.tracks.find((t) => t.kind === "video");
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;

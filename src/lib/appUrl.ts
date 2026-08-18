@@ -7,11 +7,24 @@
 
 // "analysis" is the Full Analysis document, reached from the button beside the tab row rather than
 // from a tab, but it is a place the app can be in and so is linkable like the rest.
-export const TAB_IDS = ["inspect", "atoms", "seek", "encode", "compare", "reencode", "analysis"] as const;
+export const TAB_IDS = ["inspect", "encode", "compare", "analysis"] as const;
 
 export type TabId = (typeof TAB_IDS)[number];
 
 export const DEFAULT_TAB: TabId = "inspect";
+
+/**
+ * Tabs that no longer exist, and where their content went.
+ *
+ * A link someone sent still points at a place in the app, so it opens there rather than falling
+ * back to the default tab: the atom map and the seeking test are sections of Inspect now, and the
+ * in-browser encode is a section of the command builder's tab.
+ */
+const LEGACY_TAB_IDS: Record<string, TabId> = {
+  atoms: "inspect",
+  seek: "inspect",
+  reencode: "encode",
+};
 
 const TAB_PARAM = "tab";
 const SRC_PARAM = "src";
@@ -20,10 +33,12 @@ export function isTabId(value: string | null | undefined): value is TabId {
   return !!value && (TAB_IDS as readonly string[]).includes(value);
 }
 
-/** The tab named in the current URL, or null when it names none (or names one that doesn't exist). */
+/** The tab named in the current URL, or null when it names none (or names one that doesn't exist).
+ * A retired tab's name resolves to the tab its content moved to. */
 export function readTabFromUrl(): TabId | null {
   const value = new URL(window.location.href).searchParams.get(TAB_PARAM);
-  return isTabId(value) ? value : null;
+  if (isTabId(value)) return value;
+  return (value ? LEGACY_TAB_IDS[value] : null) ?? null;
 }
 
 /**
@@ -53,9 +68,11 @@ function writeParam(name: string, value: string | null, push: boolean): void {
   else window.history.replaceState({}, "", next);
 }
 
-/** Records the active tab. `push` adds a history entry (use it for a click, not for a restore). */
+/** Records the active tab. `push` adds a history entry (use it for a click, not for a restore).
+ * Compared against what the URL literally says rather than what it resolves to, so a link naming a
+ * retired tab is rewritten to the tab it landed on instead of being left as it was. */
 export function writeTabToUrl(tab: TabId, push: boolean): void {
-  if (readTabFromUrl() === tab) return;
+  if (new URL(window.location.href).searchParams.get(TAB_PARAM) === tab) return;
   writeParam(TAB_PARAM, tab, push);
 }
 

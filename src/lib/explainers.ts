@@ -34,7 +34,7 @@ export const FASTSTART_EXPLAINER =
 export const VIDEO_AVERAGE_INFO =
   "Average bitrate of the video track alone: the total size of its packets &times; 8 &divide; duration. " +
   "Compare it with <b>Overall Bitrate</b> in the Overview, which also counts the audio track and the " +
-  "container overhead. Lowering it (a higher CRF, in the Reencode tab) is what shrinks the file, at the " +
+  "container overhead. Lowering it (a higher CRF, in the Reencode with FFmpeg tab) is what shrinks the file, at the " +
   "cost of visible compression artifacts.";
 
 export const TOO_FEW_FRAMES_NOTE =
@@ -69,7 +69,7 @@ export function constantBitrateNote(avgBitrate: number): string {
     `<p>That is the trade a constant bitrate makes: the rate is predictable, which is what fixed-bandwidth ` +
     `delivery and older broadcast pipelines need, but quality is not. A hard scene gets no more bits than ` +
     `its share and visibly degrades, while an easy one cannot give its unused share back. A ` +
-    `<b>variable bitrate</b> encode (any CRF encode, including the Reencode tab's) inverts that: it holds ` +
+    `<b>variable bitrate</b> encode (any CRF encode, including the Reencode with FFmpeg tab's) inverts that: it holds ` +
     `quality steady and lets the rate move, which is what this card plots for such a file.</p>`
   );
 }
@@ -281,7 +281,7 @@ export function sizeEstimateTeach(estimate: SizeEstimate): string {
     `percentage to survive better than the megabytes. The settings that apply file-wide (the keyframe ` +
     `interval, whether audio is copied or dropped) are already reflected here, since the snippet was encoded ` +
     `with them, but per-file one-offs such as the <code>moov</code> index and faststart are assumed to scale ` +
-    `with length. For an exact number, encode the whole file in the <b>Reencode &amp; CLI</b> tab.</p>`
+    `with length. For an exact number, encode the whole file in the <b>Reencode with FFmpeg</b> tab.</p>`
   );
 }
 

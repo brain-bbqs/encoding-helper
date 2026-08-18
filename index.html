@@ -148,8 +148,7 @@
       </div>
     </header>
     <p class="subtitle">
-      Explore video file layouts &middot; Learn more about codec parameterizations &middot; Compare reencoding
-      strategies
+      Explore video file layouts &middot; Learn more about codec parameters &middot; Compare reencoding strategies
     </p>
 
     <div class="error-msg" id="errorMsg"></div>
@@ -168,9 +167,13 @@
         </div>
       </div>
       <div class="drop-mini">
-        <span class="fname" id="miniName"></span>
-        <span class="fsize" id="miniSize"></span>
-        <button class="btn sm sec" id="loadAnotherBtn" type="button">Load Another</button>
+        <span class="mini-file">
+          <span class="fname" id="miniName"></span>
+          <span class="fsize" id="miniSize"></span>
+        </span>
+        <!-- The circular arrow rather than the word, the way bbqs-uploader draws its re-check
+             control; the icon itself is stamped in by src/ui/fileLoading.ts. -->
+        <button class="btn sm sec icon-only" id="resetBtn" type="button" title="Reset" aria-label="Reset"></button>
       </div>
     </div>
     <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />
@@ -178,15 +181,12 @@
     <div id="app" style="display: none">
       <!-- The tabs are the file's views; Full Analysis is the one action among them (it bundles every
            view into one document), so it sits apart from the row, against the right edge of the
-           content column, rather than reading as an eighth place to look. -->
+           content column, rather than reading as a fourth place to look. -->
       <div class="tab-bar">
         <div class="tabs">
           <button class="tab on" data-tab="inspect" type="button">Inspect</button>
-          <button class="tab" data-tab="atoms" type="button">Atom Map</button>
-          <button class="tab" data-tab="seek" type="button">GOP &amp; Seeking</button>
-          <button class="tab" data-tab="encode" type="button">Reencode &amp; CLI</button>
+          <button class="tab" data-tab="encode" type="button">Reencode with FFmpeg</button>
           <button class="tab" data-tab="compare" type="button">Compare Quality</button>
-          <button class="tab" data-tab="reencode" type="button">Reencode In-Browser</button>
         </div>
         <button
           class="tab-action"
@@ -214,18 +214,12 @@
         </button>
       </div>
 
-      <!-- Tab: Inspect -->
+      <!-- Tab: Inspect (metadata, the atom map, and GOP/keyframe structure with the seeking test) -->
       <div class="tab-panel on" id="panel-inspect"></div>
-      <!-- Tab: Atom Map -->
-      <div class="tab-panel" id="panel-atoms"></div>
-      <!-- Tab: GOP & Seeking -->
-      <div class="tab-panel" id="panel-seek"></div>
-      <!-- Tab: Reencode & CLI -->
+      <!-- Tab: Reencode with FFmpeg (command builder, a run of it on sampled seconds, whole-file encode) -->
       <div class="tab-panel" id="panel-encode"></div>
-      <!-- Tab: Compare Quality (side-by-side CRF/preset comparison) -->
+      <!-- Tab: Compare Quality (matrix sweep of CRF/preset/resolution) -->
       <div class="tab-panel" id="panel-compare"></div>
-      <!-- Tab: Reencode In-Browser (whole-video encode with the fast/exact engines) -->
-      <div class="tab-panel" id="panel-reencode"></div>
       <!-- Full Analysis: every tab's findings bundled into one document -->
       <div class="tab-panel" id="panel-analysis"></div>
     </div>

@@ -3,6 +3,7 @@
 // per-tab renderers.
 
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
+import { resetIcon } from "../lib/dom";
 import { ChunkedSource } from "../lib/chunkedSource";
 import { fmtBytes } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -117,6 +118,27 @@ async function loadSource(
   }
 }
 
+/**
+ * Puts the page back to where it was before a file was loaded.
+ *
+ * The whole dropzone comes back rather than the file picker alone, so the sample and the URL box
+ * are reachable again — this is the way back out of a loaded file, not a shortcut to loading
+ * another one. The parsed file goes with it: what the tabs were showing is about a file that is no
+ * longer open, and the mediabunny inputs behind it hold decoders worth releasing.
+ */
+function resetToDropZone(els: AppElements): void {
+  hideError(els);
+  resetState();
+  els.app.style.display = "none";
+  els.dropZone.classList.remove("collapsed");
+  els.miniName.textContent = "";
+  els.miniSize.textContent = "";
+  els.urlInput.value = "";
+  els.urlRow.style.display = "none";
+  // Nothing is loaded, so the address bar should not offer a file to whoever the link is sent to.
+  writeSrcToUrl(null);
+}
+
 async function pickFile(els: AppElements): Promise<File | null> {
   if (window.showOpenFilePicker) {
     try {
@@ -137,16 +159,20 @@ async function pickFile(els: AppElements): Promise<File | null> {
 }
 
 export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallbacks): void {
+  // Drawn rather than written: the button is the width of its mark in the loaded file's bar, and
+  // the mark is the one bbqs-uploader uses for the same "start again" gesture.
+  els.resetBtn.append(resetIcon(15));
+
   els.pickFileBtn.addEventListener("click", () => {
     void pickFile(els).then((file) => {
       if (file) void loadSource(els, callbacks, "file", file);
     });
   });
-  els.loadAnotherBtn.addEventListener("click", (e) => {
+  els.resetBtn.addEventListener("click", (e) => {
+    // The zone under it is the drop target and the file picker; a click that reached it would
+    // re-open the picker the reset just backed out of.
     e.stopPropagation();
-    void pickFile(els).then((file) => {
-      if (file) void loadSource(els, callbacks, "file", file);
-    });
+    resetToDropZone(els);
   });
   els.loadSampleBtn.addEventListener("click", () => {
     void (async () => {

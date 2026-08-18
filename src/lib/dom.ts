@@ -108,6 +108,30 @@ export function svgEl<K extends keyof SVGElementTagNameMap>(
   return el;
 }
 
+/**
+ * The circular-arrow "start again" mark, as an inline SVG.
+ *
+ * Drawn rather than written as 🔄, matching brain-bbqs/bbqs-uploader's re-check button: Windows
+ * gives the emoji colour presentation, while a stroked path stays monochrome and follows the theme
+ * through currentColor.
+ */
+export function resetIcon(size = 14): SVGSVGElement {
+  const svg = svgEl("svg", {
+    viewBox: "0 0 24 24",
+    width: size,
+    height: size,
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": 2.5,
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "aria-hidden": "true",
+  });
+  svg.append(svgEl("polyline", { points: "23 4 23 10 17 10" }));
+  svg.append(svgEl("path", { d: "M20.49 15 A9 9 0 1 1 18.36 5.64 L23 10" }));
+  return svg;
+}
+
 /** Escapes text read out of a media file so it can be embedded in author-authored explainer markup. */
 export function escapeHtml(text: string): string {
   return text
