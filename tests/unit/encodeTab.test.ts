@@ -18,10 +18,11 @@ const VIDEO_TRACK: TrackInfo = {
 
 /** The tab, rendered over one loaded 20-second file. The panel goes into the document because the
  * tab binds its fields by id, the way the app's own panels are already in the page. */
-function renderTab(): HTMLElement {
+function renderTab(format = "MP4"): HTMLElement {
   state.tracks = [VIDEO_TRACK];
   state.duration = 20;
   state.fps = 30;
+  state.format = format;
   const panel = document.createElement("div");
   document.body.append(panel);
   renderEncodeTab(panel);
@@ -83,8 +84,16 @@ describe("renderEncodeTab", () => {
     expect(headings).toEqual(["FFmpeg Command Builder", "Try It on a Sample", "Encode the Whole File Here"]);
     // One engine, so one button and no engine picker to choose between them.
     const buttons = Array.from(panel.querySelectorAll("button")).map((el) => el.textContent);
-    expect(buttons).toContain("Encode and Save");
+    expect(buttons).toContain("Reencode and Save");
     expect(panel.textContent).not.toContain("WebCodecs");
+  });
+
+  // The output is always an MP4, so what the button offers depends on what went in.
+  it("offers a transcode when the source is in another container", () => {
+    const panel = renderTab("QuickTime File Format");
+    const buttons = Array.from(panel.querySelectorAll("button")).map((el) => el.textContent);
+    expect(buttons).toContain("Transcode and Save");
+    expect(buttons).not.toContain("Reencode and Save");
   });
 
   // Both tabs encode the same sampled stretches, so the two copies of the fields are one setting

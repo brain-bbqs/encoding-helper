@@ -328,8 +328,8 @@ h1 {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  /* The button belongs to the bar rather than to the file name beside it, so the name keeps the
-     left edge and the button is pushed to the right one instead of trailing the name. */
+  /* The button belongs to the bar rather than to the file name beside it, so it keeps the left edge
+     and the name is pushed to the right one instead of the two crowding together. */
   width: 100%;
   justify-content: space-between;
 }
@@ -1492,6 +1492,12 @@ table.data.matrix-table th.matrix-row-head {
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+/* The retry mark stands where the word did, centred on the line rather than sitting on its
+   baseline. */
+.matrix-sub svg {
+  display: block;
+  margin: 1px auto 0;
 }
 .matrix-flag {
   font-size: 10px;

@@ -10,7 +10,9 @@
 - A link naming one of the retired tabs opens where that content went, and the address bar is corrected to the tab it landed on ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - **Compare Quality** is the sweep alone: there is no mode to pick, and the single-run quality, preset and resolution dropdowns have moved to the command builder ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - The square showing in the A/B window is written out as an ffmpeg command at the bottom of **Compare Quality**, with a button to copy it ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
-- The loaded file's bar carries a **Reset** button at its right edge, which clears the file and brings the dropzone back rather than reopening the file picker ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The loaded file's bar carries a **Reset** button at its left edge, which clears the file and brings the dropzone back rather than reopening the file picker ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- A failed square in the matrix offers its retry as the circular-arrow mark used in [bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader) rather than the word ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The whole-file button says which job it is doing: **Reencode and Save** for a source already in MP4, **Transcode and Save** for one in another container ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 
 #### 🐛 Bug Fix
 

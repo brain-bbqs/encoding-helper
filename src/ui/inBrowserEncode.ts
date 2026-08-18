@@ -32,10 +32,21 @@ export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
     ),
   );
 
-  const box = engineBox("Encode and Save");
+  const box = engineBox(`${encodeVerb()} and Save`);
   sec.append(box.el);
   box.button.addEventListener("click", () => void runExactEncode(info, box));
   return sec;
+}
+
+/**
+ * What the button offers to do, named for what actually happens to this file.
+ *
+ * The output is always an MP4, so a source that is already one comes out in the container it went
+ * in: that is a reencode. Anything else (a .mov, say) is being moved into a different container as
+ * well as compressed again, which is what "transcode" names.
+ */
+function encodeVerb(): "Reencode" | "Transcode" {
+  return state.format === "MP4" ? "Reencode" : "Transcode";
 }
 
 async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {

@@ -17,11 +17,11 @@ function buildDropzone(mode: Mode): HTMLElement {
       </div>
     </div>
     <div class="drop-mini">
+      <button class="btn sm sec" type="button">Reset</button>
       <span class="mini-file">
         <span class="fname">clip.mp4</span>
         <span class="fsize">4.2 MB</span>
       </span>
-      <button class="btn sm sec" type="button">Reset</button>
     </div>
   `;
   return withCard(dz);

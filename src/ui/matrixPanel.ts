@@ -9,7 +9,7 @@
 // Resolution and the kernel it resamples with stack as blocks of rows rather than widening the
 // table, so every block is the same width and reads exactly like the grid did before they existed.
 
-import { h, infoIcon } from "../lib/dom";
+import { h, infoIcon, retryIcon } from "../lib/dom";
 import { fmtBytes } from "../lib/format";
 import { MATRIX_BEST_INFO } from "../lib/explainers";
 import { isDownscale } from "../lib/cliCommand";
@@ -48,6 +48,9 @@ interface CellFace {
    * where the squares worth finding are. Empty for a square with nothing measured yet. */
   factor: string;
   sub: string;
+  /** Drawn in place of `sub`: a failed square offers the retry as the circular arrow rather than
+   * as a word, which reads at the size the line is set in. */
+  subIcon?: "retry";
   title: string;
   /** Nothing measured yet, so the headline is drawn as a placeholder rather than a figure. */
   pending: boolean;
@@ -93,6 +96,7 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
       main: "✕",
       factor: "",
       sub: "retry",
+      subIcon: "retry",
       title: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
       pending: false,
       grew: false,
@@ -193,6 +197,16 @@ function blockTitleRow(
   return row;
 }
 
+/** The line under a square's figure: a word, or the mark that stands for one. */
+function subLine(face: CellFace): HTMLSpanElement {
+  const sub = h("span", "matrix-sub", face.subIcon ? null : face.sub);
+  if (!face.subIcon) return sub;
+  sub.append(retryIcon());
+  // The mark still needs a name for anything that reads the grid rather than looks at it.
+  sub.setAttribute("aria-label", face.sub);
+  return sub;
+}
+
 /** One square, as a button whether or not it can be pressed yet, so the grid keeps its shape. */
 function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   const est = opts.estimate?.(cell) ?? null;
@@ -212,7 +226,7 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
     h("span", "matrix-change" + (face.grew ? " grew" : "") + (face.pending ? " matrix-pending" : ""), face.main),
   );
   if (face.factor) btn.append(h("span", "matrix-factor", face.factor));
-  btn.append(h("span", "matrix-sub", face.sub));
+  btn.append(subLine(face));
   btn.title = face.title;
   if (isBest) btn.append(h("span", "matrix-flag", "★ best"));
   // A finished square loads into the A/B window; one that failed or was never reached is an attempt
