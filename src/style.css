@@ -1045,6 +1045,123 @@ details.teach-more summary {
   }
 }
 
+/* A field whose value is a statement rather than a question — the fixed length and count of a
+   single run — reads as one: greyed, and not asking to be clicked. */
+.field input:disabled,
+.field select:disabled {
+  background: var(--btn-off-bg);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* Picking which seconds a single run encodes: a frame to scan by, a track across the whole
+   recording, and the run's window drawn on it. Track, band and ruler are brain-bbqs/clip-extractor's
+   trim timeline — same 12px track, same accent band, same gradations — since it is the same gesture
+   against the same kind of file. The band cannot be resized here: the run's length is fixed. */
+.sample-picker {
+  margin: 14px 0 4px;
+}
+.sample-preview-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 120px;
+  max-height: 260px;
+  overflow: hidden;
+}
+.sample-preview {
+  display: none;
+  max-width: 100%;
+  max-height: 258px;
+  object-fit: contain;
+}
+.sample-preview-wrap.has-frame .sample-preview {
+  display: block;
+}
+.sample-preview-note {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px;
+  text-align: center;
+}
+.sample-readout {
+  margin: 8px 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.sample-track-pad {
+  padding: 0 2px 4px;
+}
+.sample-track {
+  position: relative;
+  height: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  touch-action: none;
+  cursor: pointer;
+}
+/* The stretch that will be encoded. Grabbable along its whole width, since sliding it is the only
+   thing it does. */
+.sample-band {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  min-width: 3px;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border-left: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+  border-radius: 3px;
+  cursor: grab;
+  touch-action: none;
+}
+.sample-band.dragging,
+.sample-band:active {
+  cursor: grabbing;
+}
+.sample-band:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sample-ruler {
+  position: relative;
+  height: 19px;
+  margin-top: 3px;
+}
+.sample-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 4px;
+  background: var(--border);
+}
+.sample-tick.major {
+  height: 8px;
+  background: var(--muted);
+}
+.sample-tick-label {
+  position: absolute;
+  top: 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--muted);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+/* The end labels would hang off the track, so they align inwards instead of centring. */
+.sample-tick-label.at-start {
+  transform: none;
+}
+.sample-tick-label.at-end {
+  transform: translateX(-100%);
+}
+
 /* The output console lives in a fold that starts closed, so a finished run's result is what is on
    screen rather than the transcript that produced it. */
 .log-details {

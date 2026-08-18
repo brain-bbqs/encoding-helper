@@ -53,6 +53,7 @@ export const cli: CliState = {
 
 export const encodeTest: EncodeTestState = {
   startTime: 0,
+  sampleStart: 0,
   // Five stretches of five seconds: 25 seconds spread across the file, which is enough of it for
   // the projection to mean something on a recording whose content varies. It is also 5x the encoding
   // one stretch would cost, which the cut stretches and the core pool are what make affordable.
@@ -114,6 +115,7 @@ export function resetState(): void {
   state.seekResults = null;
   state.reencodeResult = null;
   encodeTest.startTime = 0;
+  encodeTest.sampleStart = 0;
   encodeTest.duration = 5;
   encodeTest.segments = 5;
   encodeTest.windows = [];

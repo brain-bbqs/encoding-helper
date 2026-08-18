@@ -115,6 +115,12 @@ function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeigh
   return g;
 }
 
+/** How long the stretch on screen runs, taken from the stretch itself: the two tabs ask for
+ * different lengths, and the scrub bar belongs to whichever encode is loaded here. */
+function shownStretchSeconds(): number {
+  return encodeTest.windows[0]?.seconds || encodeTest.segDuration || 1;
+}
+
 function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettings): void {
   stopActivePlayback?.();
   // The other tab's copy, if it has one, is of an encode whose sinks have just been replaced.
@@ -139,6 +145,8 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   // than below the controls, where the detail and the caveats follow it.
   const estimate = currentSizeEstimate();
   if (estimate) host.append(h("h3", null, "Estimated Data Savings"), renderSavingsStrip(estimate));
+
+  const shownSeconds = shownStretchSeconds();
 
   const stage = h("div", "compare-stage");
   const origPane = h("div", "compare-pane");
@@ -293,7 +301,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   };
 
   const showTime = (relT: number): void => {
-    scrub.value = String((relT / encodeTest.duration) * 1000);
+    scrub.value = String((relT / shownSeconds) * 1000);
     scrubLabel.textContent = relT.toFixed(2) + "s";
   };
 
@@ -320,9 +328,9 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     try {
       while (playing && run === playRun) {
         const relT = baseT + (performance.now() - baseWall) / 1000;
-        if (relT >= encodeTest.duration) {
-          showTime(encodeTest.duration);
-          await drawAt(encodeTest.duration);
+        if (relT >= shownSeconds) {
+          showTime(shownSeconds);
+          await drawAt(shownSeconds);
           return;
         }
         showTime(relT);
@@ -343,9 +351,9 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
       stopPlayback();
       return;
     }
-    const at = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
+    const at = (parseFloat(scrub.value) / 1000) * shownSeconds;
     // Pressing Play with the playhead parked at the end starts the segment over.
-    rebase(at >= encodeTest.duration - frameStep ? 0 : at);
+    rebase(at >= shownSeconds - frameStep ? 0 : at);
     playing = true;
     playBtn.textContent = "Pause";
     void runPlayback(++playRun);
@@ -356,11 +364,11 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     syncEncLabel();
     // Redraw where the playhead already is, so the switch shows on the frame being looked at
     // rather than only on the next one.
-    drawFrom((parseFloat(scrub.value) / 1000) * encodeTest.duration);
+    drawFrom((parseFloat(scrub.value) / 1000) * shownSeconds);
   });
 
   scrub.addEventListener("input", () => {
-    const relT = (parseFloat(scrub.value) / 1000) * encodeTest.duration;
+    const relT = (parseFloat(scrub.value) / 1000) * shownSeconds;
     scrubLabel.textContent = relT.toFixed(2) + "s";
     // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.
     if (playing) rebase(relT);

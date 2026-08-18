@@ -9,9 +9,10 @@
 import { computeGop, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { SAMPLE_SECONDS } from "../lib/sampleTimeline";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
-import type { TrackInfo, VideoInfo } from "../lib/types";
+import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
 import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
@@ -23,6 +24,7 @@ import {
   syncQualityControls,
 } from "./cliControls";
 import { fieldNumber, fieldSelect } from "./formControls";
+import { samplePicker } from "./samplePicker";
 import {
   acquireWorkers,
   dropWholeFileInput,
@@ -31,8 +33,6 @@ import {
   prepareRun,
   reportRunFailure,
   runControls,
-  runWindows,
-  sampleFields,
   startRunUi,
   type RunInputs,
   type RunUi,
@@ -236,15 +236,21 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
   sec.append(h("h2", null, "Try It on a Sample"));
   sec.append(
     teachBox(
-      `Encodes a few short stretches of the video with the command above — the real ffmpeg, compiled to ` +
-        `WebAssembly, so the bytes are the bytes it would produce — and shows the result against the same ` +
-        `seconds of the original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
-        `<p>The stretches are placed across the whole file rather than picked by hand, so what they cost stands ` +
-        `for the recording rather than for its opening seconds; more of them narrows the projected saving below. ` +
-        `Sweeping several settings at once instead is the <b>Compare Quality</b> tab.</p>`,
+      `Encodes three seconds of the video with the command above — the real ffmpeg, compiled to WebAssembly, so ` +
+        `the bytes are the bytes it would produce — and shows the result against the same seconds of the ` +
+        `original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
+        `<p>Which three seconds is the question worth asking, so the track below scans the whole recording: ` +
+        `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
+        `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
+        `the beginning.</p>` +
+        `<p>One stretch, judged by eye. Sampling several places at once to project what a setting saves across ` +
+        `the whole file, and sweeping several settings against each other, are the <b>Compare Quality</b> ` +
+        `tab's job.</p>`,
     ),
   );
-  sec.append(sampleFields("sample"));
+  sec.append(fixedSampleFields());
+  const picker = samplePicker();
+  if (picker) sec.append(picker.el);
   const { nodes, ui } = runControls("Run Comparison");
   sec.append(...nodes);
 
@@ -255,7 +261,8 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
     // Disabled here as well as by the run itself, so a second click cannot land in the gap before
     // the run has started.
     ui.runButton.disabled = true;
-    void runSample(vt, ui, resultSec).finally(() => {
+    const windows = picker ? [picker.window()] : [];
+    void runSample(windows, vt, ui, resultSec).finally(() => {
       if (encodeTest.running) return;
       ui.runButton.disabled = false;
     });
@@ -263,21 +270,45 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
   return [sec, resultSec];
 }
 
-/** Encodes the sampled stretches at whatever the builder currently says, and puts the first of them
- * in the A/B window. */
-async function runSample(vt: TrackInfo, ui: RunUi, resultSec: HTMLDivElement): Promise<void> {
+/**
+ * What the run covers, stated rather than asked: one stretch, three seconds long.
+ *
+ * The fields are drawn and disabled instead of left out, since they are the same two the sweep on
+ * the other tab asks for and their values are what makes the comparison below readable: this run
+ * shows one continuous stretch to look at, and where it is taken from is the track underneath.
+ * Sampling several places at once, which is a question about size rather than about picture, is
+ * what the sweep is for.
+ */
+function fixedSampleFields(): HTMLDivElement {
+  const row = h("div", "row compare-grid");
+  const duration = fieldNumber("sampleDuration", "Duration (s)", SAMPLE_SECONDS, SAMPLE_SECONDS, SAMPLE_SECONDS, 1);
+  const segments = fieldNumber("sampleSegments", "Segments", 1, 1, 1, 1);
+  for (const field of [duration, segments]) {
+    const input = field.querySelector("input")!;
+    input.disabled = true;
+    input.title = "Fixed for this run: one stretch of the length below, taken from where the track says";
+  }
+  row.append(duration, segments);
+  return row;
+}
+
+/** Encodes the picked stretch at whatever the builder currently says, and puts it in the A/B
+ * window. */
+async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resultSec: HTMLDivElement): Promise<void> {
   // One encoder, one pool: a sweep running on the other tab has both, and its run is the one that
   // was asked for first.
   if (encodeTest.running) {
     ui.note.textContent = "An encode is already running on the Compare Quality tab. Wait for it to finish.";
     return;
   }
+  if (!windows.length) {
+    ui.note.textContent = "No video loaded to encode.";
+    return;
+  }
   const fill = startRunUi(ui);
   ui.note.textContent = "Loading ffmpeg.wasm…";
   let inputs: RunInputs | null = null;
   try {
-    const windows = runWindows();
-    encodeTest.sampled = windows;
     const workers = acquireWorkers(windows.length);
     await workers[0].load();
     inputs = await prepareRun(windows, workers, ui);

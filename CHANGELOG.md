@@ -13,6 +13,7 @@
 - The loaded file's bar carries a **Reset** button at its left edge, which clears the file and brings the dropzone back rather than reopening the file picker ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - A failed square in the matrix offers its retry as the circular-arrow mark used in [bbqs-uploader](https://github.com/brain-bbqs/bbqs-uploader) rather than the word ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 - The whole-file button says which job it is doing: **Reencode and Save** for a source already in MP4, **Transcode and Save** for one in another container ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
+- The sample run on **Reencode with FFmpeg** is one fixed three-second stretch, picked on a track across the whole recording with a frame to scan by, modelled on [clip-extractor](https://github.com/brain-bbqs/clip-extractor)'s timeline ([#23](https://github.com/brain-bbqs/encoding-helper/pull/23))
 
 #### 🐛 Bug Fix
 

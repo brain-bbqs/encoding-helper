@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
 import { cli, encodeTest, resetState, state } from "../../src/lib/state";
 import type { TrackInfo } from "../../src/lib/types";
 import { renderCompareTab } from "../../src/ui/compareTab";
@@ -62,19 +63,35 @@ describe("renderEncodeTab", () => {
 
   // Trying one setting on a few seconds moved here from Compare Quality, where it sat beside a
   // sweep it had nothing to do with; here it is a run of the command directly above it.
-  it("offers a run of the built command over sampled stretches", () => {
+  it("offers a run of the built command over one fixed stretch", () => {
     const panel = renderTab();
-    expect(panel.querySelector<HTMLInputElement>("#sampleDuration")!.value).toBe("5");
-    expect(panel.querySelector<HTMLInputElement>("#sampleSegments")!.value).toBe("5");
+    const duration = panel.querySelector<HTMLInputElement>("#sampleDuration")!;
+    const segments = panel.querySelector<HTMLInputElement>("#sampleSegments")!;
+    expect(duration.value).toBe(String(SAMPLE_SECONDS));
+    expect(segments.value).toBe("1");
+    // Stated rather than asked: this run shows one continuous stretch, and where it comes from is
+    // the track's question rather than a number to type.
+    expect(duration.disabled).toBe(true);
+    expect(segments.disabled).toBe(true);
     expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Comparison");
   });
 
-  it("holds the segment count inside what a run can sensibly encode", () => {
+  it("puts a track across the whole recording to pick that stretch with", () => {
     const panel = renderTab();
-    const segments = panel.querySelector<HTMLInputElement>("#sampleSegments")!;
-    segments.value = "99";
-    segments.dispatchEvent(new Event("input"));
-    expect(encodeTest.segments).toBe(10);
+    const band = panel.querySelector<HTMLElement>(".sample-band")!;
+    // Three seconds of a twenty-second file, drawn to scale.
+    expect(band.style.width).toBe("15%");
+    expect(band.style.left).toBe("0%");
+    expect(panel.querySelectorAll(".sample-tick-label").length).toBeGreaterThan(1);
+
+    band.focus();
+    band.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", shiftKey: true, bubbles: true }));
+    expect(encodeTest.sampleStart).toBe(10);
+    expect(band.style.left).toBe("50%");
+
+    // The window keeps its length at the end of the file rather than being trimmed to fit.
+    band.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    expect(encodeTest.sampleStart).toBe(17);
   });
 
   // The whole-file encode is the last step of the same page: build the command, try it, run it.
@@ -96,20 +113,19 @@ describe("renderEncodeTab", () => {
     expect(buttons).not.toContain("Reencode and Save");
   });
 
-  // Both tabs encode the same sampled stretches, so the two copies of the fields are one setting
-  // rather than two that quietly disagree until the next run.
-  it("keeps its sample fields in step with the Compare Quality tab's", () => {
+  // The two tabs ask for different things now — one stretch here, a sampled spread there — so the
+  // sweep's fields are its own rather than a second copy of these.
+  it("leaves the Compare Quality tab's duration and segments alone", () => {
     const panel = renderTab();
     const comparePanel = document.createElement("div");
     document.body.append(comparePanel);
     renderCompareTab(comparePanel);
 
-    const duration = panel.querySelector<HTMLInputElement>("#sampleDuration")!;
-    duration.value = "3";
-    duration.dispatchEvent(new Event("input"));
-    expect(encodeTest.duration).toBe(3);
-    expect(comparePanel.querySelector<HTMLInputElement>("#etDuration")!.value).toBe("3");
-    // The field being typed in is left alone, so a half-typed number is not rewritten mid-keystroke.
-    expect(duration.value).toBe("3");
+    const sweepDuration = comparePanel.querySelector<HTMLInputElement>("#etDuration")!;
+    sweepDuration.value = "8";
+    sweepDuration.dispatchEvent(new Event("input"));
+    expect(encodeTest.duration).toBe(8);
+    // This tab's run is three seconds whatever the sweep is set to.
+    expect(panel.querySelector<HTMLInputElement>("#sampleDuration")!.value).toBe(String(SAMPLE_SECONDS));
   });
 });
