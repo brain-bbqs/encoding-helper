@@ -328,8 +328,8 @@ h1 {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  /* The button belongs to the bar rather than to the file name beside it, so it keeps the left edge
-     and the name is pushed to the right one instead of the two crowding together. */
+  /* The button belongs to the bar rather than to the file name beside it, so the name keeps the left
+     edge and the button is pushed to the right one instead of trailing the name. */
   width: 100%;
   justify-content: space-between;
 }
@@ -1043,6 +1043,16 @@ details.teach-more summary {
   .compare-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* A button carrying a mark instead of a word: square, and centred on the mark. */
+.btn.icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+  height: 30px;
 }
 
 /* A field whose value is a statement rather than a question — the fixed length and count of a

@@ -3,6 +3,7 @@
 // per-tab renderers.
 
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
+import { resetIcon } from "../lib/dom";
 import { ChunkedSource } from "../lib/chunkedSource";
 import { fmtBytes } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -158,6 +159,10 @@ async function pickFile(els: AppElements): Promise<File | null> {
 }
 
 export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallbacks): void {
+  // Drawn rather than written: the button is the width of its mark in the loaded file's bar, and
+  // the mark is the one bbqs-uploader uses for the same "start again" gesture.
+  els.resetBtn.append(resetIcon(15));
+
   els.pickFileBtn.addEventListener("click", () => {
     void pickFile(els).then((file) => {
       if (file) void loadSource(els, callbacks, "file", file);

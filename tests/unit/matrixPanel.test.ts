@@ -173,10 +173,7 @@ describe("renderMatrixTable", () => {
       onRetry: (cell) => retried.push(cell.combo.key),
     });
     const button = cellButtons(table)[2];
-    const sub = button.querySelector(".matrix-sub")!;
-    // The circular arrow rather than the word, but still named for anything not looking at it.
-    expect(sub.querySelector("svg")).not.toBeNull();
-    expect(sub.getAttribute("aria-label")).toBe("retry");
+    expect(button.querySelector(".matrix-sub")!.textContent).toBe("retry");
     expect(button.title).toContain("Click to try it again");
     expect(button.disabled).toBe(false);
     button.click();

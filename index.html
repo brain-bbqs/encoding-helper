@@ -167,11 +167,13 @@
         </div>
       </div>
       <div class="drop-mini">
-        <button class="btn sm sec" id="resetBtn" type="button">Reset</button>
         <span class="mini-file">
           <span class="fname" id="miniName"></span>
           <span class="fsize" id="miniSize"></span>
         </span>
+        <!-- The circular arrow rather than the word, the way bbqs-uploader draws its re-check
+             control; the icon itself is stamped in by src/ui/fileLoading.ts. -->
+        <button class="btn sm sec icon-only" id="resetBtn" type="button" title="Reset" aria-label="Reset"></button>
       </div>
     </div>
     <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />

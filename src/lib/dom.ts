@@ -109,13 +109,13 @@ export function svgEl<K extends keyof SVGElementTagNameMap>(
 }
 
 /**
- * The circular-arrow retry mark, as an inline SVG.
+ * The circular-arrow "start again" mark, as an inline SVG.
  *
  * Drawn rather than written as 🔄, matching brain-bbqs/bbqs-uploader's re-check button: Windows
  * gives the emoji colour presentation, while a stroked path stays monochrome and follows the theme
  * through currentColor.
  */
-export function retryIcon(size = 14): SVGSVGElement {
+export function resetIcon(size = 14): SVGSVGElement {
   const svg = svgEl("svg", {
     viewBox: "0 0 24 24",
     width: size,
