@@ -18,7 +18,7 @@ import { clearLog, engineBox, logLine, type EngineBox } from "./formControls";
 /** The section that encodes the whole file, for the tab that built the command it runs. */
 export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
   const sec = h("div", "section");
-  sec.append(h("h2", null, "Encode the Whole File Here"));
+  sec.append(h("h2", null, "Encode the Entire File Here"));
   sec.append(
     teachBox(
       `Runs the command above over the <b>whole video</b>, here in the page, and saves the result to a file you ` +

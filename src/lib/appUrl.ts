@@ -1,9 +1,10 @@
 // Shareable app state in the address bar.
 //
-// Two things live in the query string: `tab`, so a link points at the panel the sender was looking
-// at, and `src`, the remote video URL when the file was loaded from one. Local files can never be
-// shared this way (the browser gives no readable path, and the recipient would not have the file),
-// so loading one clears `src`.
+// Three things live in the query string: `tab`, so a link points at the panel the sender was
+// looking at; `src`, the remote video URL when the file was loaded from one; and `edu`, whether the
+// Educational switch is on, so a link can point someone at the app with its explainers already
+// hidden (or shown). Local files can never be shared this way (the browser gives no readable path,
+// and the recipient would not have the file), so loading one clears `src`.
 
 // "analysis" is the Full Analysis document, reached from the button beside the tab row rather than
 // from a tab, but it is a place the app can be in and so is linkable like the rest.
@@ -28,6 +29,7 @@ const LEGACY_TAB_IDS: Record<string, TabId> = {
 
 const TAB_PARAM = "tab";
 const SRC_PARAM = "src";
+const EDU_PARAM = "edu";
 
 export function isTabId(value: string | null | undefined): value is TabId {
   return !!value && (TAB_IDS as readonly string[]).includes(value);
@@ -57,6 +59,14 @@ export function readSrcFromUrl(): string | null {
   }
 }
 
+/** Whether the URL names an Educational state, or null when it says nothing (defer to localStorage). */
+export function readEducationalFromUrl(): boolean | null {
+  const value = new URL(window.location.href).searchParams.get(EDU_PARAM);
+  if (value === "1") return true;
+  if (value === "0") return false;
+  return null;
+}
+
 function writeParam(name: string, value: string | null, push: boolean): void {
   const url = new URL(window.location.href);
   if (value === null) url.searchParams.delete(name);
@@ -79,4 +89,9 @@ export function writeTabToUrl(tab: TabId, push: boolean): void {
 /** Records (or, with null, clears) the remote source URL. Never adds a history entry. */
 export function writeSrcToUrl(src: string | null): void {
   writeParam(SRC_PARAM, src, false);
+}
+
+/** Records the Educational switch's state. Never adds a history entry (see writeSrcToUrl). */
+export function writeEducationalToUrl(on: boolean): void {
+  writeParam(EDU_PARAM, on ? "1" : "0", false);
 }

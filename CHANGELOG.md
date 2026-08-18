@@ -6,7 +6,13 @@
 
 - An Educational switch below the load card, remembered across reloads and on by default, hides every "teach" box and ⓘ tooltip across the tabs; Full Analysis always leaves them out regardless ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
 - **Inspect** carries a sticky "On this page" table of contents beside its sections, pydata-docs style ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
-- The subtitle's three goals and the Educational toggle share the same 🎓 icon for "Learn more about codec parameters" ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- The subtitle's three goals and the Educational switch share the same 🎓 icon for "Learn more about codec parameters"; each tab carries the same icon as its goal, and every "teach" box is marked with 💡; the switch's state is also shareable via a `?edu=` link ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- The Compare Quality/A-B viewer's playback now loops instead of stopping at the end of the sampled stretch ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+
+#### 🏠 Internal
+
+- Dropped the sample-picker's "Encoding … from … of …" readout line beneath the trim track ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- Renamed the whole-file encode section's heading to "Encode the Entire File Here" ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
 
 ## 0.6.1
 

@@ -723,6 +723,9 @@ label.field-label {
 
 /* Teach boxes */
 .teach {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   background: var(--teach-bg);
   border-left: 3px solid var(--accent);
   border-radius: 4px;
@@ -730,6 +733,16 @@ label.field-label {
   margin: 10px 0;
   font-size: 13px;
   color: var(--teach-text);
+}
+.teach-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.teach-body {
+  flex: 1;
+  min-width: 0;
 }
 .teach b {
   color: var(--teach-strong);
@@ -796,6 +809,9 @@ details.teach-more summary {
   color: var(--on-accent);
 }
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--tab-bg);
   border: 1px solid var(--border);
   color: var(--muted-2);
@@ -804,6 +820,11 @@ details.teach-more summary {
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
+}
+/* Each tab's icon is the same one its matching goal carries in the subtitle above, so a tab reads
+   as tied back to the goal it answers. */
+.tab-icon {
+  font-size: 13px;
 }
 .tab:hover {
   border-color: var(--accent);
@@ -1238,12 +1259,6 @@ details.teach-more summary {
   font-size: 13px;
   padding: 12px;
   text-align: center;
-}
-.sample-readout {
-  margin: 8px 0 6px;
-  font-size: 13px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
 }
 .sample-track-pad {
   padding: 0 2px 4px;

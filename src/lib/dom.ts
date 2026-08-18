@@ -149,9 +149,11 @@ export function escapeHtml(text: string): string {
 }
 
 /**
- * A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup.
- * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
- * every call site can keep appending its result unconditionally.
+ * A left-accented "teach" callout box, marked with the same 💡 the Educational switch and the
+ * "Learn more about codec parameters" goal carry, so every explainer reads as tied back to the one
+ * control that hides it. `html` is trusted, author-authored explainer markup. Rendered empty and
+ * hidden (rather than returning `null`) when the educational toggle is off, so every call site can
+ * keep appending its result unconditionally.
  */
 export function teachBox(html: string): HTMLDivElement {
   const d = h("div", "teach");
@@ -159,7 +161,11 @@ export function teachBox(html: string): HTMLDivElement {
     d.classList.add("edu-off");
     return d;
   }
-  d.innerHTML = html;
+  const icon = h("span", "teach-icon", "💡");
+  icon.setAttribute("aria-hidden", "true");
+  const body = h("div", "teach-body");
+  body.innerHTML = html;
+  d.append(icon, body);
   return d;
 }
 

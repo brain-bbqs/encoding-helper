@@ -327,11 +327,12 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const runPlayback = async (run: number): Promise<void> => {
     try {
       while (playing && run === playRun) {
-        const relT = baseT + (performance.now() - baseWall) / 1000;
+        let relT = baseT + (performance.now() - baseWall) / 1000;
+        // Loops rather than stopping at the end, the way a player set to repeat would: rebasing to 0
+        // keeps the same wall-clock pacing loop running instead of restarting it from Play.
         if (relT >= shownSeconds) {
-          showTime(shownSeconds);
-          await drawAt(shownSeconds);
-          return;
+          rebase(0);
+          relT = 0;
         }
         showTime(relT);
         await drawAt(relT);
