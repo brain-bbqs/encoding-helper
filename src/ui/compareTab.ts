@@ -92,6 +92,13 @@ export function renderCompareTab(panel: HTMLElement): void {
     if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
     axisCount.textContent = counts.join(" × ");
   };
+  // `ui` is only assigned further down, once the sections an axis change needs to repaint exist —
+  // but nothing here runs until a checkbox fires, by which point it is. See resetStaleMatrix for why
+  // this has to happen at all.
+  const onAxisChange = (): void => {
+    refreshAxisCount();
+    resetStaleMatrix(ui, vt);
+  };
   axisSummary.append(axisCount);
   axisSettings.append(axisSummary);
   const axisRow = h("div", "row");
@@ -102,7 +109,7 @@ export function renderCompareTab(panel: HTMLElement): void {
       encodeTest.matrix.qualities,
       (values) => {
         encodeTest.matrix.qualities = values as MatrixQuality[];
-        refreshAxisCount();
+        onAxisChange();
       },
     ),
   );
@@ -113,7 +120,7 @@ export function renderCompareTab(panel: HTMLElement): void {
       encodeTest.matrix.presets,
       (values) => {
         encodeTest.matrix.presets = values as X264Preset[];
-        refreshAxisCount();
+        onAxisChange();
       },
       X264_PRESET_INFO,
     ),
@@ -126,7 +133,7 @@ export function renderCompareTab(panel: HTMLElement): void {
       encodeTest.matrix.scales.map(String),
       (values) => {
         encodeTest.matrix.scales = values.map(Number);
-        refreshAxisCount();
+        onAxisChange();
       },
       RESOLUTION_INFO,
     ),
@@ -138,7 +145,7 @@ export function renderCompareTab(panel: HTMLElement): void {
       encodeTest.matrix.scalers,
       (values) => {
         encodeTest.matrix.scalers = values as Scaler[];
-        refreshAxisCount();
+        onAxisChange();
       },
       SCALER_INFO,
     ),
@@ -232,6 +239,30 @@ function axisCheckboxes(
 /** The squares a sweep left without a size: the ones that failed, and the ones Stop never reached. */
 function unmeasuredCells(): MatrixCell[] {
   return encodeTest.matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
+}
+
+/**
+ * Drops a grid that Stop or a failed square left with holes once the ticked axes no longer describe
+ * it, so the run button offers a fresh sweep instead of resuming into a shape the checkboxes are not
+ * asking for anymore.
+ *
+ * A finished grid — nothing left unmeasured — is left alone even once the axes move on: comparing it
+ * while lining up the next sweep is the reason the table is drawn from the cells rather than from
+ * the checkboxes in the first place (see matrixAxes), and "Run Matrix" already rebuilds it correctly
+ * once pressed. It is only the half-run grid, offered back as something to resume, that has to match
+ * what is ticked or it is resuming into the wrong shape.
+ */
+function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
+  const matrix = encodeTest.matrix;
+  if (matrix.running || encodeTest.running || !unmeasuredCells().length) return;
+  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers);
+  const keys = new Set(combos.map((c) => c.key));
+  if (combos.length === matrix.cells.length && matrix.cells.every((c) => keys.has(c.combo.key))) return;
+  matrix.cells = [];
+  matrix.selectedKey = null;
+  renderMatrixSection(ui.matrixSec, vt, ui);
+  renderSelectedCommand(ui.cmdSec);
+  ui.syncRunAction();
 }
 
 /** What the run button says, which is what pressing it would do to the grid as it stands. */
