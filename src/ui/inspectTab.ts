@@ -5,6 +5,7 @@
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { CONTAINER_PREAMBLE, describeContainer, type ContainerInfo } from "../lib/containerKb";
 import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
+import { isEducationalEnabled } from "../lib/educational";
 import {
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
@@ -34,7 +35,9 @@ import { renderBitrateChart } from "./bitrateChart";
  * container name, so loading a different file visibly retitles the card.
  */
 function renderContainerDetailSection(info: ContainerInfo | null): HTMLDivElement | null {
-  if (!info) return null;
+  // The whole card is a heading plus one explainer, nothing else — with educational text off there
+  // is no data left to show, so the card itself goes rather than sitting there empty.
+  if (!info || !isEducationalEnabled()) return null;
   const sec = h("div", "section");
   sec.append(h("h2", null, `This File's Container: ${info.name}`));
   sec.append(teachBox(containerExplainer(info)));
@@ -107,6 +110,27 @@ function renderOverviewSection(): HTMLDivElement {
   fsWrap.append(fsBadge);
   overview.append(fsWrap);
   overview.append(teachBox(FASTSTART_EXPLAINER));
+
+  // Metadata Tags folds into this card rather than getting one of its own: it is more of this same
+  // file-overview information, not a separate finding.
+  const flatTags = flattenMetadataTags();
+  if (Object.keys(flatTags).length) {
+    overview.append(h("h3", null, "Metadata Tags"));
+    overview.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT));
+    const tagsGrid = h("div", "grid");
+    for (const [k, v] of Object.entries(flatTags)) {
+      const value = String(v);
+      const info = describeMetadataTag(k);
+      tagsGrid.append(
+        gridItem(info ? info.label : k, value, {
+          sm: true,
+          rawLabel: !info,
+          info: metadataTagInfoHtml(k, info, value),
+        }),
+      );
+    }
+    overview.append(tagsGrid);
+  }
   return overview;
 }
 
@@ -212,30 +236,12 @@ function renderAudioTrackSection(): HTMLDivElement | null {
   return sec;
 }
 
-function renderMetadataTagsSection(): HTMLDivElement | null {
-  const flatTags = flattenMetadataTags();
-  if (!Object.keys(flatTags).length) return null;
-
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Metadata Tags"));
-  sec.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT));
-  const g = h("div", "grid");
-  for (const [k, v] of Object.entries(flatTags)) {
-    const value = String(v);
-    const info = describeMetadataTag(k);
-    g.append(
-      gridItem(info ? info.label : k, value, {
-        sm: true,
-        rawLabel: !info,
-        info: metadataTagInfoHtml(k, info, value),
-      }),
-    );
-  }
-  sec.append(g);
-  return sec;
-}
-
-export function renderInspect(panel: HTMLElement): void {
+/**
+ * The file-overview cards: container, this file's container detail, and the video track. Split from
+ * {@link renderInspectTail} so main.ts can put the atom map (its own module) between this and the
+ * bitrate/audio cards that follow it, without Inspect's renderer knowing the atom map exists.
+ */
+export function renderInspectHead(panel: HTMLElement): void {
   if (!state.source) return;
 
   panel.append(renderOverviewSection());
@@ -243,10 +249,14 @@ export function renderInspect(panel: HTMLElement): void {
   if (containerSec) panel.append(containerSec);
   const videoSec = renderVideoTrackSection();
   if (videoSec) panel.append(videoSec);
+}
+
+/** The bitrate and audio cards, after the atom map. See {@link renderInspectHead}. */
+export function renderInspectTail(panel: HTMLElement): void {
+  if (!state.source) return;
+
   const bitrateSec = renderBitrateTimelineSection();
   if (bitrateSec) panel.append(bitrateSec);
   const audioSec = renderAudioTrackSection();
   if (audioSec) panel.append(audioSec);
-  const tagsSec = renderMetadataTagsSection();
-  if (tagsSec) panel.append(tagsSec);
 }

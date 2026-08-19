@@ -18,10 +18,10 @@ function slugify(text: string): string {
 let scrollSpyObserver: IntersectionObserver | null = null;
 
 /**
- * Wraps whatever renderInspect/renderAtomMap/renderSeekTab already appended to `panel` into a
- * content column, and builds the nav beside it from each top-level section's own heading — so the
- * list of links can never drift out of sync with what is actually on the page. No-op (leaves the
- * panel as-is) when there is nothing to link to, i.e. no file loaded yet.
+ * Wraps whatever renderInspectHead/renderAtomMap/renderInspectTail/renderSeekTab already appended to
+ * `panel` into a content column, and builds the nav beside it from each top-level section's own
+ * heading — so the list of links can never drift out of sync with what is actually on the page.
+ * No-op (leaves the panel as-is) when there is nothing to link to, i.e. no file loaded yet.
  */
 export function mountInspectToc(panel: HTMLElement): void {
   scrollSpyObserver?.disconnect();

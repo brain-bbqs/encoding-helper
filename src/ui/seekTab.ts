@@ -1,6 +1,7 @@
-// The GOP/keyframe/B-frame structure and the empirical seeking test, with a
-// keyframe-distance-vs-decode-time scatter plot: the last two sections of the Inspect tab, since
-// how a file seeks is a property of the file rather than a separate thing to go and look at.
+// The GOP/keyframe/B-frame structure and the empirical seeking test that measures it, with a
+// keyframe-distance-vs-decode-time scatter plot — one card, the last section of the Inspect tab,
+// since how a file seeks is a consequence of its GOP structure rather than a separate thing to
+// go and look at.
 
 import { gridItem, h, svgEl, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
@@ -50,11 +51,10 @@ export function renderSeekTab(panel: HTMLElement): void {
     sec.append(h("div", "progress-label", GOP_HISTOGRAM_CAPTION));
   }
 
-  panel.append(sec);
-
-  const seekSec = h("div", "section");
-  seekSec.append(h("h2", null, "Empirical Seeking Test"));
-  seekSec.append(h("div", null, SEEK_TEST_INTRO));
+  // The seeking test lives in the same card rather than one of its own: what nearest-keyframe
+  // distance costs to seek to is the GOP structure's consequence, not a separate finding.
+  sec.append(h("h3", null, "Empirical Seeking Test"));
+  sec.append(h("div", null, SEEK_TEST_INTRO));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
   const nField = h("div", "field");
@@ -67,20 +67,20 @@ export function renderSeekTab(panel: HTMLElement): void {
   nInput.id = "seekN";
   nField.append(nInput);
   controls.append(nField);
-  seekSec.append(controls);
+  sec.append(controls);
   const runBtn = h("button", "btn", "Run Seeking Test");
   runBtn.type = "button";
   runBtn.id = "runSeekBtn";
-  seekSec.append(runBtn);
+  sec.append(runBtn);
   const seekProgress = h("div", "progress-wrap");
   seekProgress.style.display = "none";
   seekProgress.id = "seekProgress";
   seekProgress.append(h("div", "fill"));
-  seekSec.append(seekProgress);
+  sec.append(seekProgress);
   const seekResultsWrap = h("div");
   seekResultsWrap.id = "seekResultsWrap";
-  seekSec.append(seekResultsWrap);
-  panel.append(seekSec);
+  sec.append(seekResultsWrap);
+  panel.append(sec);
 
   runBtn.addEventListener("click", () => {
     void runSeekingTest(runBtn, seekProgress, seekResultsWrap, parseInt(nInput.value, 10) || 20);

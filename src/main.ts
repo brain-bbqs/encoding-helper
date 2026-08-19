@@ -8,7 +8,7 @@ import { getElements } from "./ui/elements";
 import { renderEncodeTab } from "./ui/encodeTab";
 import { initFileLoadingUi } from "./ui/fileLoading";
 import { mountInspectToc } from "./ui/inspectToc";
-import { renderInspect } from "./ui/inspectTab";
+import { renderInspectHead, renderInspectTail } from "./ui/inspectTab";
 import { renderSeekTab } from "./ui/seekTab";
 import { initTabs } from "./ui/tabs";
 
@@ -16,11 +16,14 @@ const els = getElements();
 
 function renderAll(): void {
   // Inspect is what the file *is*: the metadata, the map of how it is laid out, and the structure
-  // that governs how it seeks. Three renderers, one panel, in reading order — each appends, so the
-  // panel is emptied here rather than three times over.
+  // that governs how it seeks. Reading order is overview cards, then the atom map, then bitrate/audio,
+  // then GOP/seeking — renderInspectHead/Tail bracket the atom map so it lands between the video
+  // track card and the bitrate one. Each renderer appends, so the panel is emptied here rather than
+  // once per renderer.
   els.panels.inspect.innerHTML = "";
-  renderInspect(els.panels.inspect);
+  renderInspectHead(els.panels.inspect);
   renderAtomMap(els.panels.inspect);
+  renderInspectTail(els.panels.inspect);
   renderSeekTab(els.panels.inspect);
   // Wraps whatever the three renderers above just appended into a content column beside an "On this
   // page" nav built from their own section headings; must run after them, not interleaved.
