@@ -23,6 +23,7 @@ export function getElements() {
     app: required<HTMLDivElement>("app"),
     themeToggle: required<HTMLButtonElement>("themeToggle"),
     educationalToggle: required<HTMLInputElement>("educationalToggle"),
+    eduToggleRow: required<HTMLDivElement>("eduToggleRow"),
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),

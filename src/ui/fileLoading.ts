@@ -107,6 +107,7 @@ async function loadSource(
     state.frameCount = state.samples.length;
 
     els.app.style.display = "block";
+    els.eduToggleRow.style.display = "flex";
     // Only a remote URL can be handed to someone else; a local file leaves the address bar clean.
     writeSrcToUrl(kind === "url" ? (payload as string) : null);
     callbacks.onLoaded();
@@ -130,6 +131,7 @@ function resetToDropZone(els: AppElements): void {
   hideError(els);
   resetState();
   els.app.style.display = "none";
+  els.eduToggleRow.style.display = "none";
   els.dropZone.classList.remove("collapsed");
   els.miniName.textContent = "";
   els.miniSize.textContent = "";
