@@ -84,11 +84,11 @@
         });
       });
     </script>
-    <script type="module" crossorigin src="./assets/index-B16vGuTQ.js"></script>
+    <script type="module" crossorigin src="./assets/index-Ds-YOTA5.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
     <link rel="modulepreload" crossorigin href="./assets/ffmpeg-BJaMHjM6.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-Cz_-JyKY.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-BeSTN9y9.css">
   </head>
   <body>
     <a
@@ -153,7 +153,11 @@
       </div>
     </header>
     <p class="subtitle">
-      Explore video file layouts &middot; Learn more about codec parameters &middot; Compare reencoding strategies
+      <span class="goal"><span class="goal-icon" aria-hidden="true">🔍</span> Explore video file layouts</span>
+      <span class="goal-sep" aria-hidden="true">&middot;</span>
+      <span class="goal"><span class="goal-icon" aria-hidden="true">🎓</span> Learn more about codec parameters</span>
+      <span class="goal-sep" aria-hidden="true">&middot;</span>
+      <span class="goal"><span class="goal-icon" aria-hidden="true">⚖️</span> Compare reencoding strategies</span>
     </p>
 
     <div class="error-msg" id="errorMsg"></div>
@@ -181,6 +185,9 @@
         <button class="btn sm sec icon-only" id="resetBtn" type="button" title="Reset" aria-label="Reset"></button>
       </div>
     </div>
+    <!-- The Educational switch is no longer a fixture here: it is built at the top-right of the first
+         card on Inspect and Reencode with FFmpeg (src/ui/educationalToggle.ts), the two tabs that
+         carry teaching material worth silencing, and left off Compare Quality. -->
     <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />
 
     <div id="app" style="display: none">
@@ -189,9 +196,15 @@
            content column, rather than reading as a fourth place to look. -->
       <div class="tab-bar">
         <div class="tabs">
-          <button class="tab on" data-tab="inspect" type="button">Inspect</button>
-          <button class="tab" data-tab="encode" type="button">Reencode with FFmpeg</button>
-          <button class="tab" data-tab="compare" type="button">Compare Quality</button>
+          <button class="tab on" data-tab="inspect" type="button">
+            <span class="tab-icon" aria-hidden="true">🔍</span> Inspect
+          </button>
+          <button class="tab" data-tab="encode" type="button">
+            <span class="tab-icon" aria-hidden="true">🔧</span> Reencode with FFmpeg
+          </button>
+          <button class="tab" data-tab="compare" type="button">
+            <span class="tab-icon" aria-hidden="true">⚖️</span> Compare Quality
+          </button>
         </div>
         <button
           class="tab-action"
