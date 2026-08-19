@@ -94,7 +94,7 @@ describe("renderEncodeTab", () => {
   it("ends with the in-browser encode of the whole file, on ffmpeg alone", () => {
     const panel = renderTab();
     const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
-    expect(headings).toEqual(["FFmpeg Command Builder", "Try It on a Sample", "Encode the Entire File Here"]);
+    expect(headings).toEqual(["FFmpeg Command Builder", "Try It on a Sample", "Reencode the Entire File Here"]);
     // One engine, so one button and no engine picker to choose between them.
     const buttons = Array.from(panel.querySelectorAll("button")).map((el) => el.textContent);
     expect(buttons).toContain("Reencode and Save");

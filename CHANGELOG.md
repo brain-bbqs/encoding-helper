@@ -17,7 +17,7 @@
 #### 🏠 Internal
 
 - Dropped the sample-picker's "Encoding … from … of …" readout line beneath the trim track, and Compare Quality's intro explainer ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
-- Renamed the whole-file encode section's heading to "Encode the Entire File Here" ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- The whole-file encode section's heading now reads "Reencode the Entire File Here" or "Transcode the Entire File Here", matching the button beneath it ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
 
 ## 0.6.1
 
