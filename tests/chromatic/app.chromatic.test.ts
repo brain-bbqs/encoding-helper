@@ -10,5 +10,5 @@ test("Main page - sample loaded", async ({ page }) => {
   await page.goto("/");
   await page.locator("#loadSampleBtn").click();
   await expect(page.locator("#app")).toBeVisible();
-  await expect(page.locator(".tab.on")).toHaveText("Inspect");
+  await expect(page.locator(".tab.on")).toContainText("Inspect");
 });

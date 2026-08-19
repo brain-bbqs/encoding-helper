@@ -54,6 +54,12 @@ interface MatrixUi extends RunUi {
   cmdSec: HTMLDivElement;
 }
 
+// Whether the "Settings to sweep" <details> was left open, kept at module scope (rather than in
+// shared state) so it survives the full-panel rebuild the Educational toggle triggers — without it,
+// every renderCompareTab() call would start the details closed again, forcibly collapsing it out
+// from under whoever had it open.
+let matrixSettingsOpen = false;
+
 export function renderCompareTab(panel: HTMLElement): void {
   panel.innerHTML = "";
   const vt = state.tracks?.find((t) => t.kind === "video");
@@ -61,18 +67,6 @@ export function renderCompareTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "Compare Encoding Quality"));
-  sec.append(
-    teachBox(
-      `Encodes a few short stretches of the video once per combination of the settings ticked below, and lays ` +
-        `what they came to out as a grid: down a column is what CRF costs at a fixed effort, across a row is ` +
-        `what the preset buys at a fixed quality. Nothing is uploaded and the source file is never touched.` +
-        `<p>Size is the only thing ranked here, so ★ marks the smallest encode and no more than that; click any ` +
-        `square to put it in the A/B window and judge the picture yourself. The command that reproduces the ` +
-        `square you are looking at is at the bottom of this page.</p>` +
-        `<p>To try a single setting rather than a sweep, use the <b>Reencode with FFmpeg</b> tab, which runs the ` +
-        `same comparison on whatever the command builder there is set to.</p>`,
-    ),
-  );
 
   sec.append(sampleFields("et"));
 
@@ -80,6 +74,10 @@ export function renderCompareTab(panel: HTMLElement): void {
   // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled
   // toggle: it opens on click, on Enter, and for a page search hitting text inside it.
   const axisSettings = h("details", "matrix-settings");
+  axisSettings.open = matrixSettingsOpen;
+  axisSettings.addEventListener("toggle", () => {
+    matrixSettingsOpen = axisSettings.open;
+  });
   const axisSummary = h("summary");
   axisSummary.append(h("span", "matrix-settings-gear", "⚙"), h("span", null, "Settings to sweep"));
   const axisCount = h("span", "matrix-settings-count");

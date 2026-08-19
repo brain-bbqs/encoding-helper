@@ -2,10 +2,11 @@
 // document.
 //
 // The tabs each answer their own question and drop the answer on the floor when you leave them;
-// this is where those answers are collected, in reading order, with the explainer that goes with
-// each number rather than behind an ⓘ the reader of a saved file could never click. What the panel
-// shows is the document itself, rendered in an iframe from the same HTML the Download button
-// writes and the print dialog prints, so there is no "preview" that can disagree with the file.
+// this is where those answers are collected, in reading order — results and plots only, with the
+// "teach" prose the interactive tabs carry left out unconditionally (see stripEducationalBlocks
+// below). What the panel shows is the document itself, rendered in an iframe from the same HTML the
+// Download button writes and the print dialog prints, so there is no "preview" that can disagree
+// with the file.
 //
 // State-gathering lives here; how a section is drawn lives in lib/analysisDoc.ts. Sections are
 // rebuilt on every visit to the tab, since the seeking test and the two encode tabs add to them.
@@ -60,11 +61,11 @@ const APP_URL = "https://encoding-helper.brain-bbqs.org";
 const DOCUMENT_WIDTH_PX = 772;
 
 const PANEL_INTRO =
-  "Everything on the other tabs, gathered into one document: the container and track metadata with the " +
-  "explainer that goes with each number, the bitrate plot, the atom map, the GOP " +
-  "structure, and the <code>ffmpeg</code> command these settings produce. Runs that have to be started by " +
-  "hand — the seeking test, Compare Quality, an in-browser reencode — are added to it once you have run " +
-  "them, so run those first if you want them in the document. " +
+  "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
+  "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +
+  "and plots only, with the teaching explainers left out. Runs that have to be started by hand — the seeking " +
+  "test, Compare Quality, an in-browser reencode — are added to it once you have run them, so run those " +
+  "first if you want them in the document. " +
   "<p>Below is the document itself, not a preview of one: <b>Download HTML</b> writes exactly this, in a " +
   "single self-contained file with no external assets, and <b>Save as PDF</b> hands the same thing to the " +
   "browser's print dialog.</p>";
@@ -468,6 +469,19 @@ function reencodeSection(): AnalysisSection | null {
   };
 }
 
+/**
+ * Full Analysis is results and plots — kv grids, badges, figures, tables, the CLI command — never
+ * the "teach" prose that goes with them on the interactive tabs. That distinction is unconditional,
+ * independent of the header's educational toggle: a document meant to be saved, printed or handed to
+ * someone else states what the file *is* without re-teaching the reader how to read it. Sections
+ * that turn up with nothing left (none currently do) are dropped rather than shown with a bare title.
+ */
+function stripEducationalBlocks(sections: AnalysisSection[]): AnalysisSection[] {
+  return sections
+    .map((sec) => ({ ...sec, blocks: sec.blocks.filter((b) => b.kind !== "prose") }))
+    .filter((sec) => sec.blocks.length > 0);
+}
+
 function buildAnalysisSections(): AnalysisSection[] {
   if (!state.source) return [];
   const vt = state.tracks?.find((t) => t.kind === "video");
@@ -519,7 +533,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   panel.innerHTML = "";
   if (!state.source) return;
 
-  const sections = buildAnalysisSections();
+  const sections = stripEducationalBlocks(buildAnalysisSections());
   const meta = documentMeta();
   const documentHtml = buildAnalysisDocument(sections, meta);
   const baseName = (state.source.name || "video").replace(/\.[^.]+$/, "");

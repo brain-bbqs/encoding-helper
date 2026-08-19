@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.0
+
+#### 🚀 Enhancement
+
+- An Educational switch at the top-right of the first card on **Inspect** and **Reencode with FFmpeg** (left off **Compare Quality**), remembered across reloads and on by default, hides every "teach" box and ⓘ tooltip across the tabs; Full Analysis always leaves them out regardless ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- **Inspect** carries a sticky "On this page" table of contents beside its sections, pydata-docs style ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- The subtitle's three goals and the Educational switch share the same 🎓 icon for "Learn more about codec parameters"; each tab carries the same icon as its goal, and every "teach" box is marked with 💡; the switch's state is also shareable via a `?edu=` link ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- The Compare Quality/A-B viewer's playback now loops instead of stopping at the end of the sampled stretch ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- **Inspect** folds Metadata Tags into the Video Container Overview card and the seeking test into the GOP/Keyframe Structure card, and moves the atom map ahead of the bitrate plot; the container-detail card is left out entirely with Educational off ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+
+#### 🐛 Bug Fix
+
+- Toggling Educational no longer collapses an open "Settings to sweep" panel on Compare Quality ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+
+#### 🏠 Internal
+
+- Dropped the sample-picker's "Encoding … from … of …" readout line beneath the trim track, and Compare Quality's intro explainer ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+- The whole-file encode section's heading now reads "Reencode the Entire File Here" or "Transcode the Entire File Here", matching the button beneath it ([#25](https://github.com/brain-bbqs/encoding-helper/pull/25))
+
 ## 0.6.1
 
 #### 🐛 Bug Fix

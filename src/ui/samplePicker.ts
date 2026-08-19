@@ -10,7 +10,6 @@
 // looking at it: a time in seconds says nothing about whether the animal is in shot.
 
 import { h } from "../lib/dom";
-import { fmtDur } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { clampWindowStart, fmtClock, rulerMarks, SAMPLE_SECONDS } from "../lib/sampleTimeline";
@@ -46,9 +45,6 @@ export function samplePicker(): SamplePicker | null {
   const previewNote = h("div", "sample-preview-note");
   previewWrap.append(previewNote);
   wrap.append(previewWrap);
-
-  const readout = h("div", "sample-readout");
-  wrap.append(readout);
 
   const trackPad = h("div", "sample-track-pad");
   const track = h("div", "sample-track");
@@ -128,11 +124,6 @@ export function samplePicker(): SamplePicker | null {
     band.style.width = Math.min(100 - left, (windowSeconds / total) * 100).toFixed(3) + "%";
     band.setAttribute("aria-valuenow", from.toFixed(1));
     band.setAttribute("aria-valuetext", `${fmtClock(from, total)} to ${fmtClock(from + windowSeconds, total)}`);
-    const at = snapped();
-    readout.textContent =
-      `Encoding ${fmtDur(windowSeconds)} from ${at.toFixed(1)}s` +
-      (Math.abs(at - from) > 0.05 ? ` (the keyframe at or before ${from.toFixed(1)}s)` : "") +
-      ` of ${fmtDur(total)}`;
   };
 
   const moveTo = (seconds: number): void => {

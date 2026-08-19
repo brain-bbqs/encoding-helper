@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { resetState, state } from "../../src/lib/state";
 import type { DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
 import { renderAtomMap } from "../../src/ui/atomsTab";
-import { renderBitrateTimelineSection, renderInspect } from "../../src/ui/inspectTab";
+import { renderBitrateTimelineSection, renderInspectHead, renderInspectTail } from "../../src/ui/inspectTab";
 import { renderSeekTab } from "../../src/ui/seekTab";
 
 const VIDEO_TRACK: TrackInfo = {
@@ -123,16 +123,19 @@ describe("the Inspect panel", () => {
     state.gopLengths = [30, 30];
     state.keyframeDecodeIndices = [0, 30];
     const panel = document.createElement("div");
-    renderInspect(panel);
+    renderInspectHead(panel);
     renderAtomMap(panel);
+    renderInspectTail(panel);
     renderSeekTab(panel);
     const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
-    // Metadata first, then the map of where the bytes are, then the structure that governs seeking.
-    expect(headings.slice(0, 2)).toEqual(["Video Container Overview", "Video Track"]);
-    expect(headings.slice(-3)).toEqual([
+    // Metadata first, then the map of where the bytes are (ahead of bitrate/audio), then the
+    // structure that governs seeking, with the seeking test folded into that same card.
+    expect(headings).toEqual([
+      "Video Container Overview",
+      "Video Track",
       "MP4 Box / Atom Structure",
+      "Video Bitrate Over Time",
       "GOP / Keyframe Structure",
-      "Empirical Seeking Test",
     ]);
   });
 });
