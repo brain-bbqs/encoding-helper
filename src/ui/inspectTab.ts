@@ -6,6 +6,7 @@ import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTim
 import { CONTAINER_PREAMBLE, describeContainer, type ContainerInfo } from "../lib/containerKb";
 import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
 import { isEducationalEnabled } from "../lib/educational";
+import { renderEducationalToggle } from "./educationalToggle";
 import {
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
@@ -88,7 +89,9 @@ export function flattenMetadataTags(): Record<string, unknown> {
 
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
-  overview.append(h("h2", null, "Video Container Overview"));
+  const head = h("div", "section-head");
+  head.append(h("h2", null, "Video Container Overview"), renderEducationalToggle());
+  overview.append(head);
   overview.append(teachBox(CONTAINER_PREAMBLE));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   const og = h("div", "grid");

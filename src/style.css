@@ -302,16 +302,22 @@ h1 {
   margin: 0 6px;
 }
 
-/* Educational toggle, placed just below the load card. A slide switch — a restyled checkbox, so it
-   stays keyboard- and test-accessible — the same shape clip-extractor's SLEAP-annotations switch and
-   bbqs-uploader's remote-destination switch use, rather than another button. Carries the same 🎓 icon
-   as the "Learn more about codec parameters" goal above, so the one control that hides every "teach"
-   box and ⓘ popover reads as tied back to that goal. */
-.edu-toggle-row {
+/* A card's <h2> beside an action that belongs to that card rather than the page — currently only
+   the Educational toggle (see .card-toggle below), on the first card of Inspect and Reencode with
+   FFmpeg. */
+.section-head {
   display: flex;
-  justify-content: flex-end;
-  margin: -6px 0 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
+
+/* Educational toggle. A slide switch — a restyled checkbox, so it stays keyboard- and
+   test-accessible — the same shape clip-extractor's SLEAP-annotations switch and bbqs-uploader's
+   remote-destination switch use, rather than another button. Carries the same 🎓 icon as the "Learn
+   more about codec parameters" goal in the subtitle, so the control that hides every "teach" box and
+   ⓘ popover reads as tied back to that goal. Built fresh at the top-right of whichever card carries
+   it (.card-toggle) rather than living as one page-level fixture — see ui/educationalToggle.ts. */
 .edu-toggle {
   display: inline-flex;
   align-items: center;
@@ -326,6 +332,11 @@ h1 {
 }
 .edu-toggle-icon {
   font-size: 15px;
+}
+.card-toggle {
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: normal;
 }
 input[type="checkbox"].switch {
   appearance: none;

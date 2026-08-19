@@ -27,7 +27,11 @@ export function mountInspectToc(panel: HTMLElement): void {
   scrollSpyObserver?.disconnect();
   scrollSpyObserver = null;
 
-  const headings = Array.from(panel.querySelectorAll<HTMLHeadingElement>(":scope > .section > h2"));
+  // A section's <h2> is usually its first child, but a card carrying the Educational toggle wraps
+  // it in a .section-head row alongside that control instead.
+  const headings = Array.from(
+    panel.querySelectorAll<HTMLHeadingElement>(":scope > .section > h2, :scope > .section > .section-head > h2"),
+  );
   if (!headings.length) return;
 
   const content = h("div", "inspect-content");

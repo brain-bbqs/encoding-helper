@@ -1,5 +1,5 @@
 import "./style.css";
-import { isEducationalEnabled, onEducationalChange, setEducationalEnabled } from "./lib/educational";
+import { onEducationalChange } from "./lib/educational";
 import { ensureMediabunny } from "./lib/mediabunny";
 import { renderAnalysisTab } from "./ui/analysisTab";
 import { renderAtomMap } from "./ui/atomsTab";
@@ -55,15 +55,10 @@ els.themeToggle.addEventListener("click", () => {
 });
 
 // Teaching material — the "teach" boxes and the ⓘ info-icon popovers — is on by default and
-// remembered across reloads; the switch below the load card flips it for every tab at once, so the
-// panels are simply rebuilt from scratch rather than each renderer tracking the flag itself. The
-// Full Analysis document is unaffected: it always leaves explainers out, toggle or no.
-els.educationalToggle.checked = isEducationalEnabled();
-els.educationalToggle.addEventListener("change", () => {
-  setEducationalEnabled(els.educationalToggle.checked);
-});
-onEducationalChange((on) => {
-  els.educationalToggle.checked = on;
+// remembered across reloads. The switch itself lives in each card that carries it (see
+// ui/educationalToggle.ts); flipping it rebuilds every tab from scratch, so a panel not currently
+// showing it still picks up the change next time it is visited.
+onEducationalChange(() => {
   if (els.app.style.display !== "none") renderAll();
 });
 

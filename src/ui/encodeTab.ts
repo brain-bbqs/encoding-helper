@@ -13,6 +13,7 @@ import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
 import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
+import { renderEducationalToggle } from "./educationalToggle";
 import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
   parseScale,
@@ -44,7 +45,9 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const info: VideoInfo = { fps: state.fps, width: vt.codedWidth, height: vt.codedHeight };
 
   const builderSec = h("div", "section");
-  builderSec.append(h("h2", null, "FFmpeg Command Builder"));
+  const builderHead = h("div", "section-head");
+  builderHead.append(h("h2", null, "FFmpeg Command Builder"), renderEducationalToggle());
+  builderSec.append(builderHead);
   builderSec.append(
     teachBox(
       `<b>Reencoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
