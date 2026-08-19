@@ -84,11 +84,11 @@
         });
       });
     </script>
-    <script type="module" crossorigin src="./assets/index-BeRrQjQk.js"></script>
+    <script type="module" crossorigin src="./assets/index-CMWkjZs6.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
     <link rel="modulepreload" crossorigin href="./assets/ffmpeg-BJaMHjM6.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-CdFEhU2J.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-BeSTN9y9.css">
   </head>
   <body>
     <a
@@ -185,21 +185,9 @@
         <button class="btn sm sec icon-only" id="resetBtn" type="button" title="Reset" aria-label="Reset"></button>
       </div>
     </div>
-    <!-- The same slide-switch clip-extractor/bbqs-uploader use for an on/off mode (a restyled checkbox,
-         so it stays keyboard- and test-accessible) rather than another button, carrying the same 🎓
-         icon as the "Learn more about codec parameters" goal above, so it reads as tied back to that
-         goal. The 💡 each "teach" box carries marks the explanation itself, not the switch. -->
-    <div class="edu-toggle-row" id="eduToggleRow" style="display: none">
-      <label
-        class="edu-toggle"
-        for="educationalToggle"
-        title="Enable educational explanations and ⓘ tooltips throughout the app"
-      >
-        <span class="edu-toggle-icon" aria-hidden="true">🎓</span>
-        <span class="edu-toggle-label">Educational</span>
-        <input type="checkbox" class="switch" id="educationalToggle" checked />
-      </label>
-    </div>
+    <!-- The Educational switch is no longer a fixture here: it is built at the top-right of the first
+         card on Inspect and Reencode with FFmpeg (src/ui/educationalToggle.ts), the two tabs that
+         carry teaching material worth silencing, and left off Compare Quality. -->
     <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />
 
     <div id="app" style="display: none">
