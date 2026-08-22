@@ -1340,22 +1340,47 @@ details.teach-more summary {
 }
 
 /* The output console lives in a fold that starts closed, so a finished run's result is what is on
-   screen rather than the transcript that produced it. */
+   screen rather than the transcript that produced it. The bar gets the sweep-settings treatment —
+   recessed background and a caret — so a shut console reads as something that opens. */
 .log-details {
   margin-top: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
 }
 .log-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 2px;
+  padding: 6px 10px;
   color: var(--muted);
   font-size: 12px;
   cursor: pointer;
   user-select: none;
+  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead — and it has
+     to say which way the bar will move, not just that it is a bar. */
+  list-style: none;
+}
+.log-summary::-webkit-details-marker {
+  display: none;
+}
+.log-summary::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--faint);
+}
+.log-details[open] > .log-summary::before {
+  content: "▾";
+}
+.log-details[open] > .log-summary {
+  border-bottom: 1px solid var(--border-soft);
 }
 .log-summary:hover {
   color: var(--text);
+}
+.log-details > .log-console {
+  margin-top: 0;
+  border-radius: 0 0 6px 6px;
 }
 .log-count {
   color: var(--faint);
@@ -1652,6 +1677,21 @@ table.data.matrix-table th.matrix-group-head {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
+}
+/* The "select all" beside each tick list's label: styled as a quiet link rather than a button, so
+   the label row stays a label row. */
+.axis-select-all {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--muted-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.axis-select-all:hover {
+  color: var(--text);
 }
 /* The resolution tick list: two columns so the four options sit as a 2×2 grid, aligned down the
    columns instead of wrapping wherever their pixel-dimension labels happen to break. */

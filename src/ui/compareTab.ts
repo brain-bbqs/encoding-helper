@@ -220,9 +220,19 @@ function axisCheckboxes(
   head.append(h("label", "field-label", label));
   // The same ⓘ the dropdown carries, since the sweep is over exactly what the dropdown sets.
   if (info) head.append(infoIcon(info, `About ${label}`));
+  // Ticking the whole axis one box at a time is the only multi-click chore these lists have, so
+  // each carries a "select all" beside its label.
+  const selectAll = h("button", "axis-select-all", "select all");
+  selectAll.type = "button";
+  selectAll.title = `Tick every ${label} option`;
+  head.append(selectAll);
   field.append(head);
   const list = h("div", listClass ? `axis-list ${listClass}` : "axis-list");
   const boxes: HTMLInputElement[] = [];
+  selectAll.addEventListener("click", () => {
+    boxes.forEach((b) => (b.checked = true));
+    onChange(boxes.map((b) => b.value));
+  });
   for (const opt of options) {
     const wrap = h("label", "axis-option");
     const box = h("input");

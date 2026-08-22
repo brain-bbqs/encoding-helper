@@ -233,6 +233,19 @@ describe("renderCompareTab", () => {
     expect(encodeTest.matrix.qualities).toEqual([]);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2 × 2");
   });
+
+  it("ticks a whole axis at once from its select-all button", () => {
+    const panel = renderTab();
+    const field = Array.from(panel.querySelectorAll<HTMLElement>(".field")).find(
+      (f) => f.querySelector(".field-label")?.textContent === "x264 presets",
+    )!;
+    field.querySelector<HTMLButtonElement>(".axis-select-all")!.click();
+    expect(encodeTest.matrix.presets).toEqual(MATRIX_PRESETS);
+    expect(axisBoxes(panel, "x264 presets").every((b) => b.checked)).toBe(true);
+    // The other axes keep their own ticks: each list's button covers that list alone.
+    expect(encodeTest.matrix.qualities).toEqual(DEFAULT_MATRIX_QUALITIES);
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 9 × 2");
+  });
 });
 
 // The sweep ranks settings; the command is how the winner leaves the browser and reaches the file.
