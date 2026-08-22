@@ -3,9 +3,9 @@
 
 import {
   DEFAULT_MATRIX_PRESETS,
+  DEFAULT_MATRIX_QUALITIES,
   DEFAULT_MATRIX_SCALERS,
   DEFAULT_MATRIX_SCALES,
-  MATRIX_QUALITIES,
 } from "./qualityMatrix";
 import type { AppState, CliState, EncodeTestState } from "./types";
 
@@ -71,7 +71,7 @@ export const encodeTest: EncodeTestState = {
   activeCombo: null,
   upscaleSmoothing: false,
   matrix: {
-    qualities: [...MATRIX_QUALITIES],
+    qualities: [...DEFAULT_MATRIX_QUALITIES],
     presets: [...DEFAULT_MATRIX_PRESETS],
     scales: [...DEFAULT_MATRIX_SCALES],
     scalers: [...DEFAULT_MATRIX_SCALERS],
@@ -130,7 +130,7 @@ export function resetState(): void {
   encodeTest.activeCombo = null;
   encodeTest.upscaleSmoothing = false;
   // A new file's matrix starts empty: the old sweep's sizes were measured on video that is gone.
-  encodeTest.matrix.qualities = [...MATRIX_QUALITIES];
+  encodeTest.matrix.qualities = [...DEFAULT_MATRIX_QUALITIES];
   encodeTest.matrix.presets = [...DEFAULT_MATRIX_PRESETS];
   encodeTest.matrix.scales = [...DEFAULT_MATRIX_SCALES];
   encodeTest.matrix.scalers = [...DEFAULT_MATRIX_SCALERS];

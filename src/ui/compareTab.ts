@@ -125,6 +125,8 @@ export function renderCompareTab(panel: HTMLElement): void {
   );
   const outerRow = h("div", "row");
   outerRow.append(
+    // The four resolutions as a 2×2 grid rather than a wrapped line: their labels carry pixel
+    // dimensions of uneven width, and columns keep them from ragging.
     axisCheckboxes(
       "Resolutions",
       MATRIX_SCALES.map((s) => ({ value: String(s), label: describeScale(s, currentVideoInfo()) })),
@@ -134,6 +136,7 @@ export function renderCompareTab(panel: HTMLElement): void {
         onAxisChange();
       },
       RESOLUTION_INFO,
+      "axis-list-grid",
     ),
   );
   outerRow.append(
@@ -149,7 +152,22 @@ export function renderCompareTab(panel: HTMLElement): void {
     ),
   );
   refreshAxisCount();
-  axisSettings.append(axisRow, outerRow);
+  // One "select all" for the whole sweep rather than one per list: it ticks every value on every
+  // axis, for the runs that want the full grid rather than the defaults.
+  const selectAll = h("button", "axis-select-all", "select all");
+  selectAll.type = "button";
+  selectAll.title = "Tick every value on every axis";
+  selectAll.addEventListener("click", () => {
+    for (const list of axisSettings.querySelectorAll<HTMLDivElement>(".axis-list")) {
+      const boxes = list.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+      boxes.forEach((b) => (b.checked = true));
+      // One change per list: the listener reads the whole list, so the first box speaks for it.
+      boxes[0].dispatchEvent(new Event("change"));
+    }
+  });
+  const selectAllRow = h("div", "row axis-select-all-row");
+  selectAllRow.append(selectAll);
+  axisSettings.append(selectAllRow, axisRow, outerRow);
   sec.append(axisSettings);
 
   const { nodes, ui: runUi } = runControls(runActionLabel());
@@ -210,6 +228,7 @@ function axisCheckboxes(
   selected: string[],
   onChange: (values: string[]) => void,
   info?: string | null,
+  listClass?: string,
 ): HTMLDivElement {
   const field = h("div", "field");
   const head = h("div", "field-head");
@@ -217,7 +236,7 @@ function axisCheckboxes(
   // The same ⓘ the dropdown carries, since the sweep is over exactly what the dropdown sets.
   if (info) head.append(infoIcon(info, `About ${label}`));
   field.append(head);
-  const list = h("div", "axis-list");
+  const list = h("div", listClass ? `axis-list ${listClass}` : "axis-list");
   const boxes: HTMLInputElement[] = [];
   for (const opt of options) {
     const wrap = h("label", "axis-option");
