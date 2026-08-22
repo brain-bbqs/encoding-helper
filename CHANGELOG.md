@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+#### 🚀 Enhancement
+
+- The Compare Quality sweep now starts ticked to high and medium quality, presets up to `fast`, and the 100% and 75% resolutions ([#26](https://github.com/brain-bbqs/encoding-helper/pull/26))
+- The resolution tick list is laid out as a 2×2 grid ([#26](https://github.com/brain-bbqs/encoding-helper/pull/26))
+
 ## 0.7.0
 
 #### 🚀 Enhancement

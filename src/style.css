@@ -1653,6 +1653,12 @@ table.data.matrix-table th.matrix-group-head {
   flex-wrap: wrap;
   gap: 4px 14px;
 }
+/* The resolution tick list: two columns so the four options sit as a 2×2 grid, aligned down the
+   columns instead of wrapping wherever their pixel-dimension labels happen to break. */
+.axis-list.axis-list-grid {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+}
 .axis-option {
   display: inline-flex;
   align-items: center;

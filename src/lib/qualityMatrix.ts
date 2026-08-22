@@ -24,6 +24,15 @@ import type { CliState, EncodeSettings, MatrixCell, MatrixCombo, MatrixQuality, 
  * it is not part of a sweep of the typical settings. */
 export const MATRIX_QUALITIES: MatrixQuality[] = ["lossless", "high", "medium", "low"];
 
+/**
+ * Ticked when the tab first opens: the middle of the quality range.
+ *
+ * The ends earn their exclusion differently. `lossless` output runs to tens of megabytes over a few
+ * seconds of video and mostly answers a question nobody sweeps for, and `low` sits at a CRF high
+ * enough that its artifacts rarely survive the A/B eye anyway. Both remain one tick away.
+ */
+export const DEFAULT_MATRIX_QUALITIES: MatrixQuality[] = ["high", "medium"];
+
 /** The preset dropdown, in x264's own order: fastest (and largest) first. */
 export const MATRIX_PRESETS: X264Preset[] = [
   "ultrafast",
@@ -38,14 +47,14 @@ export const MATRIX_PRESETS: X264Preset[] = [
 ];
 
 /**
- * Ticked when the tab first opens: every quality, and every preset up to `medium`.
+ * Ticked when the tab first opens: every preset up to `fast`.
  *
  * The slow end is left for the user to ask for rather than run by default. In-browser ffmpeg is a
- * single-threaded WebAssembly build, where `veryslow` can take minutes over a few seconds of video
- * or exhaust the encoder outright (see X264_PRESET_INFO), and a sweep multiplies that by the number
- * of quality levels beside it. They remain one tick away.
+ * single-threaded WebAssembly build, where `medium` onwards can take minutes over a few seconds of
+ * video or exhaust the encoder outright (see X264_PRESET_INFO), and a sweep multiplies that by the
+ * number of quality levels beside it. They remain one tick away.
  */
-export const DEFAULT_MATRIX_PRESETS: X264Preset[] = MATRIX_PRESETS.slice(0, 6);
+export const DEFAULT_MATRIX_PRESETS: X264Preset[] = MATRIX_PRESETS.slice(0, 5);
 
 /** The resolution axis, source first. Same fractions the dropdown offers. */
 export const MATRIX_SCALES: number[] = [...SCALE_OPTIONS];
@@ -54,13 +63,15 @@ export const MATRIX_SCALES: number[] = [...SCALE_OPTIONS];
 export const MATRIX_SCALERS: Scaler[] = [...SCALER_OPTIONS];
 
 /**
- * Ticked to begin with: the source resolution alone, resampled with the default kernel.
+ * Ticked to begin with: the source resolution and the first step down from it, resampled with the
+ * default kernel.
  *
- * The two new axes multiply the sweep rather than adding to it, and unlike quality and preset they
- * are not questions every run has. Left at one value each, a sweep is exactly the grid it was
- * before they existed; ticking a second resolution doubles it, knowingly.
+ * The two outer axes multiply the sweep rather than adding to it, so their defaults stay short.
+ * Resolution gets two values because it is the largest lever on file size in the whole tool (see
+ * RESOLUTION_INFO), and a sweep that never shows what 75% buys hides its best answer; the deeper
+ * drops, which double the sweep again each, stay one tick away.
  */
-export const DEFAULT_MATRIX_SCALES: number[] = [1];
+export const DEFAULT_MATRIX_SCALES: number[] = [1, 0.75];
 
 export const DEFAULT_MATRIX_SCALERS: Scaler[] = [DEFAULT_SCALER];
 
@@ -124,8 +135,10 @@ export function cliSettings(cliState: CliState): EncodeSettings {
 export function buildMatrixCombos(
   qualities: MatrixQuality[],
   presets: X264Preset[],
-  scales: number[] = DEFAULT_MATRIX_SCALES,
-  scalers: Scaler[] = DEFAULT_MATRIX_SCALERS,
+  // Omitted outer axes mean the plain two-axis grid at the source resolution, not whatever the
+  // checkboxes happen to start ticked to.
+  scales: number[] = [1],
+  scalers: Scaler[] = [DEFAULT_SCALER],
 ): MatrixCombo[] {
   const rows = MATRIX_QUALITIES.filter((q) => qualities.includes(q));
   const cols = MATRIX_PRESETS.filter((p) => presets.includes(p));

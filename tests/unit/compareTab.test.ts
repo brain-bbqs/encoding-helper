@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildMatrixCombos,
   DEFAULT_MATRIX_PRESETS,
+  DEFAULT_MATRIX_QUALITIES,
+  DEFAULT_MATRIX_SCALES,
   makeMatrixCells,
   MATRIX_PRESETS,
   MATRIX_QUALITIES,
@@ -55,8 +57,6 @@ beforeEach(() => {
   cli.scale = 1;
   cli.scaler = "lanczos";
   encodeTest.segments = 5;
-  encodeTest.matrix.scales = [1];
-  encodeTest.matrix.scalers = ["lanczos"];
 });
 
 describe("renderCompareTab", () => {
@@ -86,16 +86,16 @@ describe("renderCompareTab", () => {
     expect(axisBoxes(panel, "Resolutions")[0].closest(".matrix-settings")).not.toBeNull();
   });
 
-  it("sweeps the source resolution with one kernel until told otherwise", () => {
+  it("sweeps the first two resolutions with one kernel until told otherwise", () => {
     const panel = renderTab();
     const ticked = (label: string): string[] =>
       axisBoxes(panel, label)
         .filter((b) => b.checked)
         .map((b) => b.value);
-    expect(ticked("Resolutions")).toEqual(["1"]);
+    expect(ticked("Resolutions")).toEqual(["1", "0.75"]);
     expect(ticked("Scalers")).toEqual(["lanczos"]);
-    // One value each multiplies the sweep by one, so the bar keeps naming the two axes it always did.
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6");
+    // One kernel multiplies the sweep by one, so the bar counts the resolutions but not it.
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2");
   });
 
   it("records ticked resolutions as the next sweep's coverage, and counts them in the bar", () => {
@@ -103,24 +103,27 @@ describe("renderCompareTab", () => {
     const half = axisBoxes(panel, "Resolutions").find((b) => b.value === "0.5")!;
     half.checked = true;
     half.dispatchEvent(new Event("change"));
-    expect(encodeTest.matrix.scales).toEqual([1, 0.5]);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6 × 2");
+    expect(encodeTest.matrix.scales).toEqual([1, 0.75, 0.5]);
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3");
 
     const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
     bicubic.checked = true;
     bicubic.dispatchEvent(new Event("change"));
     expect(encodeTest.matrix.scalers).toEqual(["lanczos", "bicubic"]);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6 × 2 × 2");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3 × 2");
   });
 
   // A second kernel resamples nothing while every ticked resolution is the source's, so it does not
   // multiply the sweep and the bar does not claim it does.
   it("leaves the kernel axis out of the count when no downscale is ticked", () => {
     const panel = renderTab();
+    const threeQuarters = axisBoxes(panel, "Resolutions").find((b) => b.value === "0.75")!;
+    threeQuarters.checked = false;
+    threeQuarters.dispatchEvent(new Event("change"));
     const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
     bicubic.checked = true;
     bicubic.dispatchEvent(new Event("change"));
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5");
   });
 
   // Where a stretch lands is the sampler's call, so there is no start field to offer at all.
@@ -186,15 +189,17 @@ describe("renderCompareTab", () => {
     expect((panel.querySelector(".matrix-section") as HTMLElement).style.display).toBe("none");
   });
 
-  it("ticks every quality and the faster presets to begin with", () => {
+  it("ticks the middle qualities, the faster presets, and the first resolution drop to begin with", () => {
     const panel = renderTab();
     const ticked = (label: string): string[] =>
       axisBoxes(panel, label)
         .filter((b) => b.checked)
         .map((b) => b.value);
-    expect(ticked("Quality levels")).toEqual(MATRIX_QUALITIES);
+    expect(ticked("Quality levels")).toEqual(DEFAULT_MATRIX_QUALITIES);
     expect(ticked("x264 presets")).toEqual(DEFAULT_MATRIX_PRESETS);
-    // The slow end is offered, just not run unasked.
+    expect(ticked("Resolutions")).toEqual(DEFAULT_MATRIX_SCALES.map(String));
+    // The extremes are offered, just not run unasked.
+    expect(axisBoxes(panel, "Quality levels")).toHaveLength(MATRIX_QUALITIES.length);
     expect(axisBoxes(panel, "x264 presets")).toHaveLength(MATRIX_PRESETS.length);
   });
 
@@ -203,7 +208,7 @@ describe("renderCompareTab", () => {
     const settings = panel.querySelector<HTMLDetailsElement>(".matrix-settings")!;
     expect(settings.open).toBe(false);
     expect(settings.querySelector("summary")!.textContent).toContain("Settings to sweep");
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 6");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2");
     // The lists themselves are inside it, not beside it.
     expect(axisBoxes(panel, "Quality levels")[0].closest(".matrix-settings")).toBe(settings);
   });
@@ -226,7 +231,7 @@ describe("renderCompareTab", () => {
       box.dispatchEvent(new Event("change"));
     }
     expect(encodeTest.matrix.qualities).toEqual([]);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2 × 2");
   });
 });
 

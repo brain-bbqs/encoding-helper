@@ -125,6 +125,8 @@ export function renderCompareTab(panel: HTMLElement): void {
   );
   const outerRow = h("div", "row");
   outerRow.append(
+    // The four resolutions as a 2×2 grid rather than a wrapped line: their labels carry pixel
+    // dimensions of uneven width, and columns keep them from ragging.
     axisCheckboxes(
       "Resolutions",
       MATRIX_SCALES.map((s) => ({ value: String(s), label: describeScale(s, currentVideoInfo()) })),
@@ -134,6 +136,7 @@ export function renderCompareTab(panel: HTMLElement): void {
         onAxisChange();
       },
       RESOLUTION_INFO,
+      "axis-list-grid",
     ),
   );
   outerRow.append(
@@ -210,6 +213,7 @@ function axisCheckboxes(
   selected: string[],
   onChange: (values: string[]) => void,
   info?: string | null,
+  listClass?: string,
 ): HTMLDivElement {
   const field = h("div", "field");
   const head = h("div", "field-head");
@@ -217,7 +221,7 @@ function axisCheckboxes(
   // The same ⓘ the dropdown carries, since the sweep is over exactly what the dropdown sets.
   if (info) head.append(infoIcon(info, `About ${label}`));
   field.append(head);
-  const list = h("div", "axis-list");
+  const list = h("div", listClass ? `axis-list ${listClass}` : "axis-list");
   const boxes: HTMLInputElement[] = [];
   for (const opt of options) {
     const wrap = h("label", "axis-option");
