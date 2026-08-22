@@ -7,6 +7,8 @@ import {
   makeMatrixCells,
   MATRIX_PRESETS,
   MATRIX_QUALITIES,
+  MATRIX_SCALERS,
+  MATRIX_SCALES,
 } from "../../src/lib/qualityMatrix";
 import { cli, encodeTest, resetState, state } from "../../src/lib/state";
 import type { TrackInfo } from "../../src/lib/types";
@@ -234,17 +236,15 @@ describe("renderCompareTab", () => {
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2 × 2");
   });
 
-  it("ticks a whole axis at once from its select-all button", () => {
+  it("ticks every value on every axis from the one select-all button", () => {
     const panel = renderTab();
-    const field = Array.from(panel.querySelectorAll<HTMLElement>(".field")).find(
-      (f) => f.querySelector(".field-label")?.textContent === "x264 presets",
-    )!;
-    field.querySelector<HTMLButtonElement>(".axis-select-all")!.click();
+    panel.querySelector<HTMLButtonElement>(".axis-select-all")!.click();
+    expect(encodeTest.matrix.qualities).toEqual(MATRIX_QUALITIES);
     expect(encodeTest.matrix.presets).toEqual(MATRIX_PRESETS);
-    expect(axisBoxes(panel, "x264 presets").every((b) => b.checked)).toBe(true);
-    // The other axes keep their own ticks: each list's button covers that list alone.
-    expect(encodeTest.matrix.qualities).toEqual(DEFAULT_MATRIX_QUALITIES);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 9 × 2");
+    expect(encodeTest.matrix.scales).toEqual(MATRIX_SCALES);
+    expect(encodeTest.matrix.scalers).toEqual(MATRIX_SCALERS);
+    expect(axisBoxes(panel, "Quality levels").every((b) => b.checked)).toBe(true);
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 9 × 4 × 2");
   });
 });
 

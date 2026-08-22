@@ -1678,13 +1678,12 @@ table.data.matrix-table th.matrix-group-head {
   flex-wrap: wrap;
   gap: 4px 14px;
 }
-/* The "select all" beside each tick list's label: styled as a quiet link rather than a button, so
-   the label row stays a label row. */
+/* The sweep's one "select all", above the tick lists: styled as a quiet link rather than a button,
+   so the panel keeps reading as a settings sheet. */
 .axis-select-all {
   background: none;
   border: none;
   padding: 0;
-  margin-left: 4px;
   font-size: 11px;
   color: var(--muted-2);
   text-decoration: underline;
@@ -1692,6 +1691,10 @@ table.data.matrix-table th.matrix-group-head {
 }
 .axis-select-all:hover {
   color: var(--text);
+}
+.axis-select-all-row {
+  justify-content: flex-end;
+  margin-bottom: 4px;
 }
 /* The resolution tick list: two columns so the four options sit as a 2×2 grid, aligned down the
    columns instead of wrapping wherever their pixel-dimension labels happen to break. */
