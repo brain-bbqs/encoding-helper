@@ -1,30 +1,15 @@
 name: Upload demos to EMBER
 
-# Generates the demo set (scripts/generate-demos.sh) and
-# uploads it to a dandiset on the EMBER archive with the dandi CLI
-# (scripts/upload-demos.sh). Manual only: run it from the Actions tab
-# when the demo set or its source video changes.
+# Generates the demo set (scripts/generate-demos.sh) and uploads it to EMBER
+# dandiset 000527 with the dandi CLI (scripts/upload-demos.sh). Manual only:
+# run it from the Actions tab when the demo set or its source video changes.
 #
 # Needs an `EMBER_DANDI_API_KEY` repository secret holding an API key for the
-# target EMBER instance (from the account menu at dandi.emberarchive.org); the
-# account must have write access to the target dandiset.
+# EMBER archive (from the account menu at dandi.emberarchive.org); the account
+# must have write access to the dandiset.
 
 on:
   workflow_dispatch:
-    inputs:
-      dandiset:
-        description: Dandiset ID to upload into
-        default: "000527"
-      instance:
-        description: DANDI instance (name the dandi CLI knows, or its URL)
-        default: ember-dandi
-      prefix:
-        description: Asset path prefix inside the dandiset
-        default: demos
-      dry_run:
-        description: Generate and lay out only, skip the actual upload
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -43,7 +28,7 @@ jobs:
         run: scripts/generate-demos.sh -o demo-out
 
       - name: Show manifest
-        run: cat demo-out/manifest.json
+        run: cat demo-out/sub-01/video/manifest.json
 
       - name: Keep the demo set as a run artifact
         uses: actions/upload-artifact@v4
@@ -58,14 +43,4 @@ jobs:
       - name: Upload to EMBER
         env:
           DANDI_API_KEY: ${{ secrets.EMBER_DANDI_API_KEY }}
-          DANDISET: ${{ inputs.dandiset }}
-          INSTANCE: ${{ inputs.instance }}
-          PREFIX: ${{ inputs.prefix }}
-          DRY_RUN_FLAG: ${{ inputs.dry_run && '-n' || '' }}
-        run: >
-          scripts/upload-demos.sh
-          -o demo-out
-          -d "$DANDISET"
-          -i "$INSTANCE"
-          -p "$PREFIX"
-          $DRY_RUN_FLAG
+        run: scripts/upload-demos.sh -o demo-out
