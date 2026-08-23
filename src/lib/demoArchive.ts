@@ -1,0 +1,306 @@
+// The demo set: a couple of dozen short videos, each varying exactly one thing this app surfaces
+// (atom layout, container, codec and profile, GOP structure, bitrate behaviour, track properties,
+// metadata tags), generated and published by scripts/generate-demos.sh.
+//
+// They live on the EMBER archive rather than in this repository, because a video blob committed
+// once sits in the git history forever — the same reason the generator fetches its source recording
+// from there instead of carrying it. So the app reads them over the network, from the BEP047
+// dataset the generator writes:
+//
+//   dataset_description.json                                 <- the index, under "encoding-helper"
+//   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.<ext>     <- the demo file
+//   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.json      <- its BEP047 sidecar
+//
+// Two requests draw the whole list: one asset listing (paths, sizes and the ids the download URLs
+// are built from) and one fetch of dataset_description.json, whose "encoding-helper" key names
+// every session's title, group and ffmpeg arguments. The per-file prose and technical figures live
+// in the sidecars, one small file each, so those are left until a card is actually opened.
+
+/** The EMBER archive's DANDI API, and the dandiset scripts/upload-demos.sh publishes into. */
+export const EMBER_API = "https://api-dandi.emberarchive.org/api";
+export const EMBER_DANDISET = "000527";
+export const EMBER_VERSION = "draft";
+/** The dandiset's page on the archive's own web interface, for a "see it at the source" link. */
+export const EMBER_DANDISET_URL = `https://dandi.emberarchive.org/dandiset/${EMBER_DANDISET}/${EMBER_VERSION}`;
+
+/** One demo file, as the demos page shows it before anyone opens its card. */
+export interface DemoFile {
+  /** The BIDS session label, unique across the set: "reference", "goplong", … */
+  session: string;
+  title: string;
+  group: string;
+  /** Whether mp4box.js can parse it at all — false for the Matroska/WebM/AVI files. */
+  loadsInApp: boolean;
+  /** The ffmpeg invocation that produced it, or null for the unmodified original. */
+  ffmpegArgs: string | null;
+  /** Path within the dataset, which is also the file name the app loads it under. */
+  path: string;
+  fileName: string;
+  ext: string;
+  size: number;
+  videoUrl: string;
+  /** The BEP047 sidecar beside it, absent only if the upload lost it. */
+  sidecarUrl: string | null;
+}
+
+/** A demo's sidecar: the prose and the technical figures, read when its card is first opened. */
+export interface DemoDetails {
+  description: string | null;
+  duration: number | null;
+  frameRate: number | null;
+  frameCount: number | null;
+  width: number | null;
+  height: number | null;
+  pixelFormat: string | null;
+  bitDepth: number | null;
+  codec: string | null;
+  codecString: string | null;
+}
+
+/** Where the demo set came from, as dataset_description.json records it. */
+export interface DemoSetSource {
+  name: string | null;
+  url: string | null;
+  license: string | null;
+}
+
+export interface DemoSet {
+  name: string;
+  description: string | null;
+  license: string | null;
+  source: DemoSetSource | null;
+  demos: DemoFile[];
+}
+
+/**
+ * The groups the generator sorts its files into, in the order the page shows them, each with the
+ * one thing its files vary. Reference first because it is the file to open before any other, and
+ * the untouched original last because it is where the set came from rather than a demo of anything.
+ * A group the generator adds later still appears, at the end, under its own raw name.
+ */
+export interface DemoGroup {
+  id: string;
+  title: string;
+  blurb: string;
+}
+
+export const DEMO_GROUPS: readonly DemoGroup[] = [
+  {
+    id: "reference",
+    title: "Reference",
+    blurb: "The baseline of the set. Every other file changes exactly one thing from this one, so open it first.",
+  },
+  {
+    id: "layout",
+    title: "Atom layout",
+    blurb: "Same stream, rearranged: where the moov atom sits, and whether the file is one mdat or a run of fragments.",
+  },
+  {
+    id: "container",
+    title: "Containers",
+    blurb:
+      "The same H.264 stream in different boxes. The non-ISO ones are here to fail the MP4 parse on purpose: mp4box.js reads MP4 and MOV only.",
+  },
+  {
+    id: "codec",
+    title: "Codecs and profiles",
+    blurb: "One codec or profile swapped in, from Constrained Baseline to AV1, with the decode support that follows.",
+  },
+  {
+    id: "gop",
+    title: "GOP and keyframe structure",
+    blurb: "How often a keyframe lands and what sits between the anchors. This is the axis the seeking test measures.",
+  },
+  {
+    id: "bitrate",
+    title: "Bitrate behaviour",
+    blurb: "What the encoder is told to spend, rather than how it spends it. Watch the bitrate-over-time plot flatten.",
+  },
+  {
+    id: "track",
+    title: "Track properties",
+    blurb: "Things declared about the track rather than encoded into it: rotation, frame-rate regularity, resolution.",
+  },
+  {
+    id: "metadata",
+    title: "Metadata tags",
+    blurb: "The container's own tags, in full and stripped to nothing.",
+  },
+  {
+    id: "original",
+    title: "The original recording",
+    blurb: "The source every demo above was encoded from, unmodified, exactly as it was published.",
+  },
+];
+
+/** A session's line in dataset_description.json's own index. */
+interface SessionEntry {
+  title?: string;
+  group?: string;
+  loads_in_app?: boolean;
+  ffmpeg_args?: string;
+}
+
+interface DatasetDescription {
+  Name?: string;
+  Description?: string;
+  License?: string;
+  SourceDatasets?: { Name?: string; URL?: string; License?: string }[];
+  "encoding-helper"?: { sessions?: Record<string, SessionEntry> };
+}
+
+interface ArchiveAsset {
+  asset_id?: string;
+  path?: string;
+  size?: number;
+}
+
+interface AssetPage {
+  results?: ArchiveAsset[];
+  next?: string | null;
+}
+
+/** The asset listing is paginated; this many pages covers a demo set an order of magnitude larger. */
+const MAX_ASSET_PAGES = 20;
+const ASSET_PAGE_SIZE = 200;
+
+/** The dataset path of a BEP047 media file, capturing the session label and the extension. */
+const VIDEO_PATH_RE = /(?:^|\/)ses-([A-Za-z0-9]+)\/[^/]+\/[^/]*_video\.([A-Za-z0-9]+)$/;
+
+const DESCRIPTION_PATH = "dataset_description.json";
+
+/** Where the archive serves one asset's bytes. Redirects to storage, so it is fetchable directly. */
+export function assetDownloadUrl(assetId: string): string {
+  return `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/${assetId}/download/`;
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+  return (await resp.json()) as T;
+}
+
+async function listAssets(): Promise<ArchiveAsset[]> {
+  const first =
+    `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/` +
+    `?metadata=false&page_size=${ASSET_PAGE_SIZE}`;
+  const out: ArchiveAsset[] = [];
+  let next: string | null = first;
+  for (let page = 0; next && page < MAX_ASSET_PAGES; page++) {
+    const body: AssetPage = await fetchJson<AssetPage>(next);
+    out.push(...(body.results ?? []));
+    next = body.next ?? null;
+  }
+  return out;
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && isFinite(value) ? value : null;
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+/** Where a group sorts, with anything the generator has grown since sorted to the end, in order. */
+function groupRank(id: string): number {
+  const i = DEMO_GROUPS.findIndex((g) => g.id === id);
+  return i === -1 ? DEMO_GROUPS.length : i;
+}
+
+/**
+ * Joins the archive's asset listing to dataset_description.json's index.
+ *
+ * The listing is the authority on what is actually published — a session named in the index whose
+ * video never made it up is dropped — and the index is the authority on what each file is. A video
+ * the index says nothing about is still listed, under its own file name, so a demo added by a newer
+ * generator run than the one that wrote the index does not simply vanish from the page.
+ */
+export function buildDemoSet(desc: DatasetDescription, assets: ArchiveAsset[]): DemoSet {
+  const sessions = desc["encoding-helper"]?.sessions ?? {};
+  const order = Object.keys(sessions);
+  const sidecars = new Map<string, string>();
+  const videos: { session: string; path: string; ext: string; size: number; assetId: string }[] = [];
+
+  for (const asset of assets) {
+    const path = asset.path;
+    const assetId = asset.asset_id;
+    if (!path || !assetId) continue;
+    const match = VIDEO_PATH_RE.exec(path);
+    if (!match) continue;
+    // The sidecar matches the same shape as the video it sits beside, so it is separated by
+    // extension rather than by a pattern of its own.
+    if (match[2] === "json") sidecars.set(match[1], assetDownloadUrl(assetId));
+    else videos.push({ session: match[1], path, ext: match[2], size: asset.size ?? 0, assetId });
+  }
+
+  const demos: DemoFile[] = videos.map((video) => {
+    const entry: SessionEntry = sessions[video.session] ?? {};
+    const fileName = video.path.split("/").pop() ?? video.path;
+    return {
+      session: video.session,
+      title: entry.title ?? fileName,
+      group: entry.group ?? "other",
+      // Nothing said means nothing known, and the app should offer to try rather than refuse.
+      loadsInApp: entry.loads_in_app ?? true,
+      ffmpegArgs: stringOrNull(entry.ffmpeg_args),
+      path: video.path,
+      fileName,
+      ext: video.ext,
+      size: video.size,
+      videoUrl: assetDownloadUrl(video.assetId),
+      sidecarUrl: sidecars.get(video.session) ?? null,
+    };
+  });
+
+  demos.sort((a, b) => {
+    const byGroup = groupRank(a.group) - groupRank(b.group);
+    if (byGroup !== 0) return byGroup;
+    // Within a group, the order the generator wrote them in; anything unindexed trails it.
+    const ai = order.indexOf(a.session);
+    const bi = order.indexOf(b.session);
+    return (ai === -1 ? order.length : ai) - (bi === -1 ? order.length : bi);
+  });
+
+  const source = desc.SourceDatasets?.[0];
+  return {
+    name: desc.Name ?? "encoding-helper demos",
+    description: stringOrNull(desc.Description),
+    license: stringOrNull(desc.License),
+    source: source
+      ? { name: stringOrNull(source.Name), url: stringOrNull(source.URL), license: stringOrNull(source.License) }
+      : null,
+    demos,
+  };
+}
+
+/** Reads the published demo set off the archive. Throws with the reason the page should show. */
+export async function fetchDemoSet(): Promise<DemoSet> {
+  const assets = await listAssets();
+  const description = assets.find((a) => a.path === DESCRIPTION_PATH);
+  if (!description?.asset_id) {
+    throw new Error(`Dandiset ${EMBER_DANDISET} carries no ${DESCRIPTION_PATH}, so there is no demo set to list.`);
+  }
+  const desc = await fetchJson<DatasetDescription>(assetDownloadUrl(description.asset_id));
+  const set = buildDemoSet(desc, assets);
+  if (set.demos.length === 0) throw new Error(`No demo files have been published to dandiset ${EMBER_DANDISET} yet.`);
+  return set;
+}
+
+/** Reads one demo's BEP047 sidecar: the prose and the figures ffprobe read back out of the file. */
+export async function fetchDemoDetails(demo: DemoFile): Promise<DemoDetails> {
+  if (!demo.sidecarUrl) throw new Error("This demo file was published without its sidecar.");
+  const json = await fetchJson<Record<string, unknown>>(demo.sidecarUrl);
+  return {
+    description: stringOrNull(json.Description),
+    duration: numberOrNull(json.RecordingDuration),
+    frameRate: numberOrNull(json.VideoFrameRate),
+    frameCount: numberOrNull(json.VideoFrameCount),
+    width: numberOrNull(json.ImageWidth),
+    height: numberOrNull(json.ImageHeight),
+    pixelFormat: stringOrNull(json.ImagePixelFormat),
+    bitDepth: numberOrNull(json.ImageBitDepth),
+    codec: stringOrNull(json.VideoCodec),
+    codecString: stringOrNull(json.VideoCodecRFC6381),
+  };
+}

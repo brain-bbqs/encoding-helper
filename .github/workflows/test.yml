@@ -27,6 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install ffmpeg
+        # Builds the video the tests load in place of the sample file this app used to
+        # ship with; see tests/fixtures/demoVideo.ts.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Get installed Playwright version
         id: playwright-version
         run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"

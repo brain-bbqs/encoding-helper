@@ -8,6 +8,9 @@ const rootDir = fileURLToPath(new URL("..", import.meta.url));
 export const sharedConfig: PlaywrightTestConfig = {
   fullyParallel: true,
   reporter: "list",
+  // Builds the video both runs load in place of the sample file this app used to ship with; see
+  // tests/fixtures/demoVideo.ts. Once per run, before any worker starts.
+  globalSetup: fileURLToPath(new URL("../tests/fixtures/globalSetup.ts", import.meta.url)),
   use: {
     baseURL: "http://localhost:4173",
     trace: "on-first-retry",

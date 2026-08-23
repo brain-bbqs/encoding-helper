@@ -1,10 +1,11 @@
 // Shareable app state in the address bar.
 //
-// Three things live in the query string: `tab`, so a link points at the panel the sender was
-// looking at; `src`, the remote video URL when the file was loaded from one; and `edu`, whether the
-// Educational switch is on, so a link can point someone at the app with its explainers already
-// hidden (or shown). Local files can never be shared this way (the browser gives no readable path,
-// and the recipient would not have the file), so loading one clears `src`.
+// Four things live in the query string: `tab`, so a link points at the panel the sender was looking
+// at; `src`, the remote video URL when the file was loaded from one; `edu`, whether the Educational
+// switch is on, so a link can point someone at the app with its explainers already hidden (or
+// shown); and `demos`, a bare flag standing for the demo-file page in place of the file picker.
+// Local files can never be shared this way (the browser gives no readable path, and the recipient
+// would not have the file), so loading one clears `src`.
 
 // "analysis" is the Full Analysis document, reached from the button beside the tab row rather than
 // from a tab, but it is a place the app can be in and so is linkable like the rest.
@@ -30,6 +31,7 @@ const LEGACY_TAB_IDS: Record<string, TabId> = {
 const TAB_PARAM = "tab";
 const SRC_PARAM = "src";
 const EDU_PARAM = "edu";
+const DEMOS_PARAM = "demos";
 
 export function isTabId(value: string | null | undefined): value is TabId {
   return !!value && (TAB_IDS as readonly string[]).includes(value);
@@ -94,4 +96,32 @@ export function writeSrcToUrl(src: string | null): void {
 /** Records the Educational switch's state. Never adds a history entry (see writeSrcToUrl). */
 export function writeEducationalToUrl(on: boolean): void {
   writeParam(EDU_PARAM, on ? "1" : "0", false);
+}
+
+/**
+ * Whether the URL asks for the demos page.
+ *
+ * It is a flag rather than a value, so its presence is what counts and a hand-typed `?demos` reads
+ * the same as the `?demos` the toggle writes. `?demos=0` is honoured as an off switch so a link can
+ * say "the app, not the demos" even when something else appended the parameter.
+ */
+export function readDemosFromUrl(): boolean {
+  const params = new URL(window.location.href).searchParams;
+  return params.has(DEMOS_PARAM) && params.get(DEMOS_PARAM) !== "0";
+}
+
+/**
+ * Records whether the demos page is up, written bare (`?demos`) and first in the query string,
+ * since that is the address someone would type. `push` adds a history entry, so back leaves the
+ * demos page the way it arrived — use it for a click on the toggle, not for restoring from a link.
+ */
+export function writeDemosToUrl(on: boolean, push: boolean): void {
+  const url = new URL(window.location.href);
+  url.searchParams.delete(DEMOS_PARAM);
+  const rest = url.searchParams.toString();
+  const search = on ? (rest ? `?${DEMOS_PARAM}&${rest}` : `?${DEMOS_PARAM}`) : rest ? `?${rest}` : "";
+  const next = url.pathname + search + url.hash;
+  if (next === window.location.pathname + window.location.search + window.location.hash) return;
+  if (push) window.history.pushState({}, "", next);
+  else window.history.replaceState({}, "", next);
 }

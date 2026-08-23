@@ -20,11 +20,19 @@ export class ChunkedSource {
     return s;
   }
 
-  static async fromUrl(url: string): Promise<ChunkedSource> {
+  /**
+   * A remote video, read with range requests where the server allows them.
+   *
+   * `name` overrides what the file is called in the app. The URL's last segment is the natural
+   * source for that, but an archive's download endpoint ends in something like `/download/` rather
+   * than a file name, so a caller that knows the real one passes it here.
+   */
+  static async fromUrl(url: string, name?: string): Promise<ChunkedSource> {
     const s = new ChunkedSource();
     s.kind = "url";
     s.url = url;
-    s.name = url.split("/").pop()?.split("?")[0] || "video";
+    const fromPath = url.split("?")[0].split("/").filter(Boolean).pop();
+    s.name = name || (fromPath && fromPath !== "download" ? fromPath : "video");
     const head = await fetch(url, { method: "HEAD" });
     if (!head.ok) throw new Error(`Failed to fetch URL: ${head.status} ${head.statusText}`);
     s.size = parseInt(head.headers.get("Content-Length") || "", 10) || 0;

@@ -10,7 +10,7 @@ import {
 import type { AnalysisSection } from "../../src/lib/types";
 
 const META: DocumentMeta = {
-  fileName: "mice.mp4",
+  fileName: "sub-01_ses-reference_video.mp4",
   generated: "1 Jan 2026, 09:00",
   version: "1.2.3",
   appUrl: "https://encoding-helper.example",
@@ -116,7 +116,7 @@ describe("buildAnalysisDocument", () => {
   });
 
   it("titles itself after the analyzed file and stamps how it was made", () => {
-    expect(html).toContain("<title>Encoding Helper analysis: mice.mp4</title>");
+    expect(html).toContain("<title>Encoding Helper analysis: sub-01_ses-reference_video.mp4</title>");
     expect(html).toContain("1 Jan 2026, 09:00");
     expect(html).toContain("v1.2.3");
   });
@@ -137,7 +137,7 @@ describe("renderSectionsToMarkdown", () => {
   const md = renderSectionsToMarkdown(SECTIONS, META);
 
   it("heads the document with the file and how it was made", () => {
-    expect(md.startsWith("# Encoding Helper analysis: mice.mp4")).toBe(true);
+    expect(md.startsWith("# Encoding Helper analysis: sub-01_ses-reference_video.mp4")).toBe(true);
     expect(md).toContain("**Container:** MP4");
   });
 

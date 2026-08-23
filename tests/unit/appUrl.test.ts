@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { isTabId, readSrcFromUrl, readTabFromUrl, writeSrcToUrl, writeTabToUrl } from "../../src/lib/appUrl";
+import {
+  isTabId,
+  readDemosFromUrl,
+  readSrcFromUrl,
+  readTabFromUrl,
+  writeDemosToUrl,
+  writeSrcToUrl,
+  writeTabToUrl,
+} from "../../src/lib/appUrl";
 
 function setUrl(search: string): void {
   window.history.replaceState({}, "", "/encoding-helper/" + search);
@@ -79,5 +87,53 @@ describe("appUrl", () => {
     writeSrcToUrl(null);
     expect(readSrcFromUrl()).toBeNull();
     expect(window.location.search).toBe("");
+  });
+  // `demos` is a flag rather than a value: the demos page is somewhere the app is, not something it
+  // is set to, and `?demos` is what someone would type.
+  it("reads the demos flag bare, alongside the other parameters, in either order", () => {
+    expect(readDemosFromUrl()).toBe(false);
+    setUrl("?demos");
+    expect(readDemosFromUrl()).toBe(true);
+    setUrl("?tab=encode&demos");
+    expect(readDemosFromUrl()).toBe(true);
+    setUrl("?demos&tab=encode");
+    expect(readDemosFromUrl()).toBe(true);
+  });
+
+  it("honours an explicit ?demos=0 as an off switch", () => {
+    setUrl("?demos=0");
+    expect(readDemosFromUrl()).toBe(false);
+  });
+
+  it("writes the demos flag bare and first, keeping the rest of the query string", () => {
+    setUrl("?tab=encode&edu=0");
+    writeDemosToUrl(true, false);
+    expect(window.location.search).toBe("?demos&tab=encode&edu=0");
+    expect(readTabFromUrl()).toBe("encode");
+  });
+
+  it("takes the demos flag back out without leaving a stray question mark", () => {
+    setUrl("?demos");
+    writeDemosToUrl(false, false);
+    expect(window.location.search).toBe("");
+    setUrl("?demos&tab=encode");
+    writeDemosToUrl(false, false);
+    expect(window.location.search).toBe("?tab=encode");
+  });
+
+  it("pushes a history entry for the demos flag only when asked", () => {
+    const before = window.history.length;
+    writeDemosToUrl(true, false);
+    expect(window.history.length).toBe(before);
+    writeDemosToUrl(false, true);
+    expect(window.history.length).toBeGreaterThan(before);
+  });
+
+  it("skips the write when the address already says what it would say", () => {
+    setUrl("?demos");
+    const before = window.history.length;
+    writeDemosToUrl(true, true);
+    expect(window.location.search).toBe("?demos");
+    expect(window.history.length).toBe(before);
   });
 });

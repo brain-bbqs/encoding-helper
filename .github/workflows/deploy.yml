@@ -32,9 +32,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Copy sample video into build output
-        run: cp public/mice.mp4 dist/mice.mp4
-
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:

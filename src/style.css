@@ -2154,3 +2154,197 @@ table.data.matrix-table th.matrix-row-head {
   background: #fff;
   box-shadow: 0 6px 20px var(--shadow);
 }
+
+/* The demos page (?demos): the drop zone's alternative rather than a panel beside it, so it owns
+   the whole content column while it is up. One card per group of demo files, and inside it one fold
+   per file — the same recessed-bar-and-caret treatment the sweep settings and the output console
+   use, so a shut row reads as something that opens. */
+.demos-page {
+  margin-bottom: 16px;
+}
+.demos-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+/* The page heading, not the site's: left-aligned against the back button opposite it, rather than
+   centred the way the page-level h1 above the tabs is. */
+.demos-heading {
+  flex: 1 1 320px;
+}
+.demos-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  text-align: left;
+}
+.demos-sub {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 14px;
+}
+.demos-back {
+  flex-shrink: 0;
+}
+/* Where the set came from, filled in once it has been read: the dandiset, the recording it was
+   encoded from, the licence that rides along with it. */
+.demos-provenance {
+  margin: 0 0 14px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.demos-link {
+  color: var(--accent);
+}
+.demos-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.demos-search {
+  flex: 1 1 240px;
+  min-width: 180px;
+  margin-bottom: 0;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.demos-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+/* Pushes expand/collapse to the right edge, away from the controls that narrow the list. */
+.demos-spacer {
+  flex: 1 1 0;
+}
+.demos-group-blurb {
+  margin: -4px 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.demo-list {
+  display: grid;
+  gap: 8px;
+}
+.demo-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+}
+.demo-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead — and it has
+     to say which way the row will move, not just that it is a row. */
+  list-style: none;
+}
+.demo-head::-webkit-details-marker {
+  display: none;
+}
+.demo-head::before {
+  content: "▸";
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--faint);
+}
+.demo-card[open] > .demo-head::before {
+  content: "▾";
+}
+.demo-card[open] > .demo-head {
+  border-bottom: 1px solid var(--border-soft);
+}
+.demo-title {
+  font-weight: 600;
+}
+.demo-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.demo-ext {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-family: Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+.demo-size {
+  color: var(--faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.demo-badge {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.demo-body {
+  padding: 12px;
+  border-radius: 0 0 6px 6px;
+  background: var(--card);
+}
+.demo-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.demo-facts {
+  margin-bottom: 12px;
+}
+.demo-args-label {
+  margin-bottom: 4px;
+  color: var(--faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+/* The command that made the file, as the generator recorded it — long enough to wrap, so it does. */
+.demo-args {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--sunken);
+  color: var(--code-text);
+  font-family: Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.demo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.demo-download {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.demo-loading,
+.demos-loading,
+.demos-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.demos-error-why {
+  color: var(--err);
+}
+.demos-error-hint {
+  color: var(--muted);
+  font-size: 13px;
+}

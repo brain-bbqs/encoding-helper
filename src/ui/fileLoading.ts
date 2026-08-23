@@ -1,6 +1,9 @@
-// File loading orchestration: drag/drop, file picker, sample video, remote URL — parses the file
-// with both mp4box.js (box tree + sample table) and mediabunny (metadata), then hands off to the
-// per-tab renderers.
+// File loading orchestration: drag/drop, file picker, remote URL — parses the file with both
+// mp4box.js (box tree + sample table) and mediabunny (metadata), then hands off to the per-tab
+// renderers.
+//
+// The demos page (ui/demosPage.ts) is a fourth way in and has no controls of its own here: it hands
+// a demo's URL to the FileLoader this module returns, which is the same path the URL box takes.
 
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
 import { resetIcon } from "../lib/dom";
@@ -20,6 +23,13 @@ import type { AppElements } from "./elements";
 
 export interface FileLoadingCallbacks {
   onLoaded: () => void;
+}
+
+/** The two ways in, for anything outside this module that has a file or a URL to open. */
+export interface FileLoader {
+  loadFile(file: File): Promise<void>;
+  /** `name` is what the file is called in the app, for a URL whose last segment is not a file name. */
+  loadUrl(url: string, name?: string): Promise<void>;
 }
 
 function showError(els: AppElements, msg: string): void {
@@ -52,6 +62,7 @@ async function loadSource(
   callbacks: FileLoadingCallbacks,
   kind: "file" | "url",
   payload: File | string,
+  name?: string,
 ): Promise<void> {
   hideError(els);
   resetState();
@@ -64,7 +75,7 @@ async function loadSource(
       source = ChunkedSource.fromFile(payload as File);
       fileForMediabunny = payload as File;
     } else {
-      source = await ChunkedSource.fromUrl(payload as string);
+      source = await ChunkedSource.fromUrl(payload as string, name);
       if (source.kind === "file" && source.file instanceof File) fileForMediabunny = source.file;
       else urlForMediabunny = payload as string;
     }
@@ -158,7 +169,7 @@ async function pickFile(els: AppElements): Promise<File | null> {
   });
 }
 
-export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallbacks): void {
+export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallbacks): FileLoader {
   // Drawn rather than written: the button is the width of its mark in the loaded file's bar, and
   // the mark is the one bbqs-uploader uses for the same "start again" gesture.
   els.resetBtn.append(resetIcon(15));
@@ -173,20 +184,6 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     // re-open the picker the reset just backed out of.
     e.stopPropagation();
     resetToDropZone(els);
-  });
-  els.loadSampleBtn.addEventListener("click", () => {
-    void (async () => {
-      try {
-        setLoadingUi(els, "Downloading sample…");
-        const resp = await fetch(`${import.meta.env.BASE_URL}mice.mp4`);
-        if (!resp.ok) throw new Error("Could not fetch sample video");
-        const blob = await resp.blob();
-        const file = new File([blob], "mice.mp4", { type: "video/mp4" });
-        await loadSource(els, callbacks, "file", file);
-      } catch (err) {
-        showError(els, err instanceof Error ? err.message : String(err));
-      }
-    })();
   });
   els.showUrlBtn.addEventListener("click", () => {
     els.urlRow.style.display = els.urlRow.style.display === "none" ? "flex" : "none";
@@ -219,4 +216,9 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     els.urlInput.value = sharedSrc;
     void loadSource(els, callbacks, "url", sharedSrc);
   }
+
+  return {
+    loadFile: (file) => loadSource(els, callbacks, "file", file),
+    loadUrl: (url, name) => loadSource(els, callbacks, "url", url, name),
+  };
 }

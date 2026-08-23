@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+
+#### 🚀 Enhancement
+
+- **Browse Demo Files** replaces **Load Sample** with a page of its own (`?demos`), listing the demo set published on EMBER dandiset 000527, grouped by what each file varies ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+- Each demo folds open to its description, its technical figures and the `ffmpeg` command that made it, with buttons to open it in the app or download it ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+- The list can be filtered by name, group or extension, expanded or collapsed all at once, and narrowed to the files the app's MP4 parser can open ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+
+#### 🏠 Internal
+
+- Dropped the bundled `mice.mp4` sample; `scripts/purge-sample-blob.sh` takes it out of the git history too, and the browser tests now generate their own video with ffmpeg ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+
 ## 0.8.0
 
 #### 🚀 Enhancement
