@@ -2164,7 +2164,7 @@ table.data.matrix-table th.matrix-row-head {
 }
 .demos-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
@@ -2172,19 +2172,11 @@ table.data.matrix-table th.matrix-row-head {
 }
 /* The page heading, not the site's: left-aligned against the back button opposite it, rather than
    centred the way the page-level h1 above the tabs is. */
-.demos-heading {
-  flex: 1 1 320px;
-}
 .demos-title {
-  margin: 0 0 4px;
+  flex: 1 1 auto;
+  margin: 0;
   font-size: 22px;
   text-align: left;
-}
-.demos-sub {
-  margin: 0;
-  max-width: 62ch;
-  color: var(--muted);
-  font-size: 14px;
 }
 .demos-back {
   flex-shrink: 0;
@@ -2199,31 +2191,10 @@ table.data.matrix-table th.matrix-row-head {
 .demos-link {
   color: var(--accent);
 }
-.demos-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
 .demos-search {
-  flex: 1 1 240px;
-  min-width: 180px;
-  margin-bottom: 0;
+  margin-bottom: 14px;
   padding: 8px 10px;
   font-size: 14px;
-}
-.demos-only {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  cursor: pointer;
-}
-/* Pushes expand/collapse to the right edge, away from the controls that narrow the list. */
-.demos-spacer {
-  flex: 1 1 0;
 }
 .demos-group-blurb {
   margin: -4px 0 12px;
@@ -2235,6 +2206,7 @@ table.data.matrix-table th.matrix-row-head {
   gap: 8px;
 }
 .demo-card {
+  padding: 10px 12px;
   border: 1px solid var(--border-soft);
   border-radius: 6px;
   background: var(--sunken);
@@ -2243,27 +2215,7 @@ table.data.matrix-table th.matrix-row-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
   font-size: 14px;
-  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead — and it has
-     to say which way the row will move, not just that it is a row. */
-  list-style: none;
-}
-.demo-head::-webkit-details-marker {
-  display: none;
-}
-.demo-head::before {
-  content: "▸";
-  flex-shrink: 0;
-  font-size: 10px;
-  color: var(--faint);
-}
-.demo-card[open] > .demo-head::before {
-  content: "▾";
-}
-.demo-card[open] > .demo-head {
-  border-bottom: 1px solid var(--border-soft);
 }
 .demo-title {
   font-weight: 600;
@@ -2292,37 +2244,12 @@ table.data.matrix-table th.matrix-row-head {
   padding: 2px 8px;
   font-size: 11px;
 }
-.demo-body {
-  padding: 12px;
-  border-radius: 0 0 6px 6px;
-  background: var(--card);
-}
+/* The sentence saying what this file demonstrates, which is the whole of what the card is for. */
 .demo-desc {
-  margin: 0 0 12px;
+  margin: 6px 0 10px;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.55;
-}
-.demo-facts {
-  margin-bottom: 12px;
-}
-.demo-args-label {
-  margin-bottom: 4px;
-  color: var(--faint);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-/* The command that made the file, as the generator recorded it — long enough to wrap, so it does. */
-.demo-args {
-  margin: 0 0 12px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--sunken);
-  color: var(--code-text);
-  font-family: Monaco, Consolas, monospace;
-  font-size: 11.5px;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 .demo-actions {
   display: flex;
@@ -2334,7 +2261,6 @@ table.data.matrix-table th.matrix-row-head {
   align-items: center;
   text-decoration: none;
 }
-.demo-loading,
 .demos-loading,
 .demos-empty {
   margin: 0;

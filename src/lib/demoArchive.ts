@@ -13,8 +13,9 @@
 //
 // Two requests draw the whole list: one asset listing (paths, sizes and the ids the download URLs
 // are built from) and one fetch of dataset_description.json, whose "encoding-helper" key names
-// every session's title, group and ffmpeg arguments. The per-file prose and technical figures live
-// in the sidecars, one small file each, so those are left until a card is actually opened.
+// every session's title, group and description. A dataset written by a generator older than that
+// index carried no descriptions, so a demo without one falls back to its own BEP047 sidecar, which
+// costs a request per file — the reason the generator writes them into the index at all.
 
 /** The EMBER archive's DANDI API, and the dandiset scripts/upload-demos.sh publishes into. */
 export const EMBER_API = "https://api-dandi.emberarchive.org/api";
@@ -31,8 +32,8 @@ export interface DemoFile {
   group: string;
   /** Whether mp4box.js can parse it at all — false for the Matroska/WebM/AVI files. */
   loadsInApp: boolean;
-  /** The ffmpeg invocation that produced it, or null for the unmodified original. */
-  ffmpegArgs: string | null;
+  /** What the file demonstrates. Null when the index predates carrying it; see fetchDemoDescription. */
+  description: string | null;
   /** Path within the dataset, which is also the file name the app loads it under. */
   path: string;
   fileName: string;
@@ -41,20 +42,6 @@ export interface DemoFile {
   videoUrl: string;
   /** The BEP047 sidecar beside it, absent only if the upload lost it. */
   sidecarUrl: string | null;
-}
-
-/** A demo's sidecar: the prose and the technical figures, read when its card is first opened. */
-export interface DemoDetails {
-  description: string | null;
-  duration: number | null;
-  frameRate: number | null;
-  frameCount: number | null;
-  width: number | null;
-  height: number | null;
-  pixelFormat: string | null;
-  bitDepth: number | null;
-  codec: string | null;
-  codecString: string | null;
 }
 
 /** Where the demo set came from, as dataset_description.json records it. */
@@ -138,7 +125,7 @@ interface SessionEntry {
   title?: string;
   group?: string;
   loads_in_app?: boolean;
-  ffmpeg_args?: string;
+  description?: string;
 }
 
 interface DatasetDescription {
@@ -194,10 +181,6 @@ async function listAssets(): Promise<ArchiveAsset[]> {
   return out;
 }
 
-function numberOrNull(value: unknown): number | null {
-  return typeof value === "number" && isFinite(value) ? value : null;
-}
-
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
 }
@@ -243,7 +226,7 @@ export function buildDemoSet(desc: DatasetDescription, assets: ArchiveAsset[]): 
       group: entry.group ?? "other",
       // Nothing said means nothing known, and the app should offer to try rather than refuse.
       loadsInApp: entry.loads_in_app ?? true,
-      ffmpegArgs: stringOrNull(entry.ffmpeg_args),
+      description: stringOrNull(entry.description),
       path: video.path,
       fileName,
       ext: video.ext,
@@ -287,20 +270,15 @@ export async function fetchDemoSet(): Promise<DemoSet> {
   return set;
 }
 
-/** Reads one demo's BEP047 sidecar: the prose and the figures ffprobe read back out of the file. */
-export async function fetchDemoDetails(demo: DemoFile): Promise<DemoDetails> {
-  if (!demo.sidecarUrl) throw new Error("This demo file was published without its sidecar.");
+/**
+ * What a demo file shows, from its own BEP047 sidecar.
+ *
+ * Only for the files whose index entry carries no description: a dataset generated before the index
+ * held them needs one request per file to say anything about them, which is worth it for the prose
+ * the page is built around, but is not the path a current dataset takes.
+ */
+export async function fetchDemoDescription(demo: DemoFile): Promise<string | null> {
+  if (!demo.sidecarUrl) return null;
   const json = await fetchJson<Record<string, unknown>>(demo.sidecarUrl);
-  return {
-    description: stringOrNull(json.Description),
-    duration: numberOrNull(json.RecordingDuration),
-    frameRate: numberOrNull(json.VideoFrameRate),
-    frameCount: numberOrNull(json.VideoFrameCount),
-    width: numberOrNull(json.ImageWidth),
-    height: numberOrNull(json.ImageHeight),
-    pixelFormat: stringOrNull(json.ImagePixelFormat),
-    bitDepth: numberOrNull(json.ImageBitDepth),
-    codec: stringOrNull(json.VideoCodec),
-    codecString: stringOrNull(json.VideoCodecRFC6381),
-  };
+  return stringOrNull(json.Description);
 }

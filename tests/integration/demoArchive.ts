@@ -23,7 +23,6 @@ interface FakeDemo {
   title: string;
   loadsInApp: boolean;
   description: string;
-  ffmpegArgs?: string;
   /** Left off for one file, so the "published without a sidecar" path is exercised too. */
   sidecar?: boolean;
 }
@@ -36,7 +35,6 @@ export const FAKE_DEMOS: FakeDemo[] = [
     title: "Reference: H.264 High in MP4, faststart",
     loadsInApp: true,
     description: "The baseline of the demo set. Every other demo file changes one thing from this.",
-    ffmpegArgs: "-i Video_S1.m4v -c:v libx264 -crf 23 -g 90 -movflags +faststart out.mp4",
     sidecar: true,
   },
   {
@@ -97,7 +95,9 @@ function datasetDescription(): unknown {
       title: demo.title,
       group: demo.group,
       loads_in_app: demo.loadsInApp,
-      ...(demo.ffmpegArgs ? { ffmpeg_args: demo.ffmpegArgs } : {}),
+      // The matroska demo is left out of the index's descriptions as well as its sidecar, so the
+      // "nothing to say about this one" path is on screen too.
+      ...(demo.sidecar ? { description: demo.description } : {}),
     };
   }
   return {
@@ -162,8 +162,6 @@ export async function gotoDemos(page: Page, query = ""): Promise<void> {
 /** Opens one demo's fold and loads it, leaving the app showing that file. */
 export async function loadDemo(page: Page, session = REFERENCE_SESSION, query = ""): Promise<void> {
   await gotoDemos(page, query);
-  const card = page.locator(`details.demo-card[data-session="${session}"]`);
-  await card.locator("summary").click();
-  await card.locator(".demo-open").click();
+  await page.locator(`div.demo-card[data-session="${session}"] .demo-open`).click();
   await expect(page.locator("#app")).toBeVisible();
 }

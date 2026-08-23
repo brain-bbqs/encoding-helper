@@ -26,8 +26,9 @@
 # codec, RFC 6381 codec string where one can be determined) and the
 # Description of what the file demonstrates. The per-session demo detail — the
 # group, whether the app can currently load it (mp4box.js parses MP4/MOV
-# only), and the ffmpeg arguments that made it — lives in
-# dataset_description.json, namespaced under an "encoding-helper" key.
+# only), that same Description, and the ffmpeg arguments that made it — lives
+# in dataset_description.json, namespaced under an "encoding-helper" key, so
+# one fetch of that file says what every demo in the set is.
 #
 # Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir]
 #   -s  source video (default: scripts/data/Video_S1.m4v, fetched from the
@@ -125,14 +126,18 @@ json_escape() {
   printf '%s' "$s"
 }
 
-# One session's line in dataset_description.json's own index. `args` is the
-# ffmpeg invocation that produced it, omitted entirely for a session no ffmpeg
-# call made (the original) rather than recorded as an empty string.
+# One session's line in dataset_description.json's own index. The description
+# rides here as well as in the file's own sidecar, so a reader of the set
+# (encoding-helper's demos page among them) can say what every file is from this
+# one file rather than a request per session. `args` is the ffmpeg invocation
+# that produced it, omitted entirely for a session no ffmpeg call made (the
+# original) rather than recorded as an empty string.
 session_entry() {
-  local label=$1 title=$2 group=$3 loads=$4 args=$5 entry
+  local label=$1 title=$2 group=$3 loads=$4 args=$5 desc=$6 entry
   entry=$(printf '"%s": {"title": "%s", "group": "%s", "loads_in_app": %s' \
     "$(json_escape "$label")" "$(json_escape "$title")" "$(json_escape "$group")" \
     "$([ "$loads" = yes ] && echo true || echo false)")
+  if [ -n "$desc" ]; then entry+=$(printf ', "description": "%s"' "$(json_escape "$desc")"); fi
   if [ -n "$args" ]; then entry+=$(printf ', "ffmpeg_args": "%s"' "$(json_escape "$args")"); fi
   SESSION_ENTRIES+=("$entry}")
   SESSION_COUNT=$((SESSION_COUNT + 1))
@@ -229,7 +234,7 @@ demo() {
   local args=$*
   args=${args//"$SRC"/"$(basename "$SRC")"}
   args=${args//"$OUT"\//}
-  session_entry "$label" "$title" "$group" "$loads" "$args"
+  session_entry "$label" "$title" "$group" "$loads" "$args" "$desc"
 }
 
 # --- The original ------------------------------------------------------------
@@ -241,9 +246,9 @@ ORIGINAL_VIDEO=$(session_video "$ORIGINAL_SESSION" "$ORIGINAL_EXT")
 echo "==> ${ORIGINAL_VIDEO#"$OUT"/}"
 mkdir -p "$(dirname "$ORIGINAL_VIDEO")"
 cp "$SRC" "$ORIGINAL_VIDEO"
-write_sidecar "$ORIGINAL_VIDEO" \
-  "The unmodified source recording, exactly as it was published: H.264 Constrained Baseline in an .m4v container. Every other session is an encode of this."
-session_entry "$ORIGINAL_SESSION" "The original recording, unmodified" original yes ""
+ORIGINAL_DESC="The unmodified source recording, exactly as it was published: H.264 Constrained Baseline in an .m4v container. Every other session is an encode of this."
+write_sidecar "$ORIGINAL_VIDEO" "$ORIGINAL_DESC"
+session_entry "$ORIGINAL_SESSION" "The original recording, unmodified" original yes "" "$ORIGINAL_DESC"
 
 # --- Reference ---------------------------------------------------------------
 # The baseline every other file varies one thing from.

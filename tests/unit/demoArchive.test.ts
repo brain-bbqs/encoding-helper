@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assetDownloadUrl,
   buildDemoSet,
-  fetchDemoDetails,
+  fetchDemoDescription,
   fetchDemoSet,
   type DemoFile,
 } from "../../src/lib/demoArchive";
@@ -24,12 +24,7 @@ const DESCRIPTION = {
   "encoding-helper": {
     sessions: {
       original: { title: "The original recording, unmodified", group: "original", loads_in_app: true },
-      reference: {
-        title: "Reference",
-        group: "reference",
-        loads_in_app: true,
-        ffmpeg_args: "-i src.m4v -g 90 out.mp4",
-      },
+      reference: { title: "Reference", group: "reference", loads_in_app: true, description: "The baseline." },
       matroska: { title: "Matroska container", group: "container", loads_in_app: false },
       gopshort: { title: "Short GOP", group: "gop", loads_in_app: true },
       goplong: { title: "Long GOP", group: "gop", loads_in_app: true },
@@ -70,7 +65,7 @@ describe("buildDemoSet", () => {
     expect(reference.fileName).toBe("sub-01_ses-reference_video.mp4");
     expect(reference.videoUrl).toBe(assetDownloadUrl("reference-id"));
     expect(reference.sidecarUrl).toBe(assetDownloadUrl("reference-json"));
-    expect(reference.ffmpegArgs).toBe("-i src.m4v -g 90 out.mp4");
+    expect(reference.description).toBe("The baseline.");
   });
 
   it("keeps the files the index says the MP4 parser cannot open", () => {
@@ -150,50 +145,32 @@ describe("fetchDemoSet", () => {
   });
 });
 
-describe("fetchDemoDetails", () => {
+describe("fetchDemoDescription", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
   const demo = { sidecarUrl: "https://archive.test/sidecar" } as DemoFile;
 
-  it("reads the BEP047 keys the fold shows", async () => {
+  it("reads the Description out of the BEP047 sidecar", async () => {
     vi.stubGlobal("fetch", () =>
       Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({
-            Description: "The baseline of the demo set.",
-            RecordingDuration: 30.04,
-            VideoFrameRate: 29.97,
-            VideoFrameCount: 900,
-            ImageWidth: 640,
-            ImageHeight: 480,
-            ImagePixelFormat: "yuv420p",
-            ImageBitDepth: 8,
-            VideoCodec: "h264",
-            VideoCodecRFC6381: "avc1.640028",
-          }),
+        json: () => Promise.resolve({ Description: "The baseline of the demo set.", ImageWidth: 640 }),
       }),
     );
-    const details = await fetchDemoDetails(demo);
-    expect(details.description).toBe("The baseline of the demo set.");
-    expect(details.duration).toBe(30.04);
-    expect(details.frameCount).toBe(900);
-    expect(details.codecString).toBe("avc1.640028");
+    expect(await fetchDemoDescription(demo)).toBe("The baseline of the demo set.");
   });
 
-  it("leaves out anything the sidecar does not carry", async () => {
-    vi.stubGlobal("fetch", () =>
-      Promise.resolve({ ok: true, json: () => Promise.resolve({ VideoCodec: "ffv1", ImageWidth: "wide" }) }),
-    );
-    const details = await fetchDemoDetails(demo);
-    expect(details.codec).toBe("ffv1");
-    expect(details.width).toBeNull();
-    expect(details.description).toBeNull();
+  it("gives null when the sidecar carries no usable Description", async () => {
+    vi.stubGlobal("fetch", () => Promise.resolve({ ok: true, json: () => Promise.resolve({ VideoCodec: "ffv1" }) }));
+    expect(await fetchDemoDescription(demo)).toBeNull();
   });
 
-  it("refuses a demo published without a sidecar rather than fetching nothing", async () => {
-    await expect(fetchDemoDetails({ sidecarUrl: null } as DemoFile)).rejects.toThrow(/without its sidecar/);
+  it("gives null, rather than fetching, for a demo published without a sidecar", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await fetchDemoDescription({ sidecarUrl: null } as DemoFile)).toBeNull();
+    expect(fetchMock.mock.calls.length).toBe(0);
   });
 });

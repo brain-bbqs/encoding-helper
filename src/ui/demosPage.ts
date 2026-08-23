@@ -1,10 +1,10 @@
 // The demos page: an alternative to the drop zone, at ?demos, listing the published demo set.
 //
 // The set (see lib/demoArchive.ts) is a couple of dozen files that each vary exactly one thing, so
-// the page is a browsing surface rather than a picker: grouped by the thing being varied, one fold
-// per file, and a filter across the lot. A fold's prose and figures come from that file's own
-// sidecar, fetched the first time it is opened, so arriving on the page costs two requests however
-// many demos there are.
+// the page is a browsing surface rather than a picker: grouped by the thing being varied, one card
+// per file, and a filter across the lot. What each card carries is the sentence saying what that
+// file demonstrates — not its ffprobe figures or the command that made it, which are what the app
+// itself is for once the file is open.
 //
 // It replaces the drop zone rather than sitting beside it, which is what makes it a page and not a
 // panel: while it is up, the file picker, the URL box and any loaded file's tabs are all out of the
@@ -14,13 +14,13 @@ import {
   DEMO_GROUPS,
   EMBER_DANDISET,
   EMBER_DANDISET_URL,
-  fetchDemoDetails,
+  fetchDemoDescription,
   fetchDemoSet,
   type DemoFile,
   type DemoSet,
 } from "../lib/demoArchive";
 import { h } from "../lib/dom";
-import { fmtBytes, fmtDur, fmtRate } from "../lib/format";
+import { fmtBytes } from "../lib/format";
 import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
 import type { AppElements } from "./elements";
 
@@ -32,8 +32,6 @@ export interface DemoLoader {
 /** How the list is narrowed, and what happens when a card's open button is pressed. */
 export interface DemoListOptions {
   search: string;
-  /** Hides the Matroska/WebM/AVI files, which are in the set to fail the MP4 parse on purpose. */
-  loadableOnly: boolean;
   onOpen: (demo: DemoFile) => void;
 }
 
@@ -42,70 +40,16 @@ function groupOf(id: string): { title: string; blurb: string } {
 }
 
 function matchesFilter(demo: DemoFile, opts: DemoListOptions): boolean {
-  if (opts.loadableOnly && !demo.loadsInApp) return false;
   if (!opts.search) return true;
   const needle = opts.search.toLowerCase();
   return [demo.title, demo.session, demo.group, demo.ext].some((s) => s.toLowerCase().includes(needle));
 }
 
-function factsGrid(facts: { label: string; value: string }[]): HTMLDivElement {
-  const grid = h("div", "grid demo-facts");
-  for (const { label, value } of facts) {
-    const item = h("div", "item");
-    item.append(h("label", null, label), h("div", "val sm", value));
-    grid.append(item);
-  }
-  return grid;
-}
-
-/** The figures a sidecar carries, each left out when it does not carry that one. */
-async function readFacts(
-  demo: DemoFile,
-): Promise<{ description: string | null; facts: { label: string; value: string }[] }> {
-  const facts = [{ label: "Session", value: demo.session }];
-  const details = await fetchDemoDetails(demo);
-  if (details.duration != null) facts.push({ label: "Duration", value: fmtDur(details.duration) });
-  if (details.width != null && details.height != null) {
-    facts.push({ label: "Resolution", value: `${details.width} × ${details.height}` });
-  }
-  if (details.frameRate != null) facts.push({ label: "Frame rate", value: `${fmtRate(details.frameRate)} fps` });
-  if (details.frameCount != null) facts.push({ label: "Frames", value: String(details.frameCount) });
-  if (details.codec != null) facts.push({ label: "Codec", value: details.codec });
-  if (details.codecString != null) facts.push({ label: "Codec string", value: details.codecString });
-  if (details.pixelFormat != null) facts.push({ label: "Pixel format", value: details.pixelFormat });
-  if (details.bitDepth != null) facts.push({ label: "Bit depth", value: `${details.bitDepth} bit` });
-  return { description: details.description, facts };
-}
-
-/** Fills a fold's detail block, once, the first time it is opened. */
-async function fillDetail(demo: DemoFile, detail: HTMLElement): Promise<void> {
-  let description: string | null = null;
-  let facts = [{ label: "Session", value: demo.session }];
-  try {
-    const read = await readFacts(demo);
-    description = read.description;
-    facts = read.facts;
-  } catch (err) {
-    // A missing or unreadable sidecar costs the prose and the figures, not the file: the buttons
-    // that open and download it sit outside this block and are on screen from the moment the fold
-    // opens, whether or not the sidecar ever answers.
-    console.warn("[encoding-helper] could not read a demo sidecar:", err);
-  }
-  detail.replaceChildren();
-  if (description) detail.append(h("p", "demo-desc", description));
-  detail.append(factsGrid(facts));
-  if (demo.ffmpegArgs) {
-    detail.append(h("div", "demo-args-label", "Made with"));
-    detail.append(h("pre", "demo-args", `ffmpeg ${demo.ffmpegArgs}`));
-  }
-}
-
-function demoCard(demo: DemoFile, onOpen: (demo: DemoFile) => void): HTMLDetailsElement {
-  const card = h("details", "demo-card");
+function demoCard(demo: DemoFile, onOpen: (demo: DemoFile) => void): HTMLDivElement {
+  const card = h("div", "demo-card");
   card.dataset.session = demo.session;
 
-  const head = document.createElement("summary");
-  head.className = "demo-head";
+  const head = h("div", "demo-head");
   head.append(h("span", "demo-title", demo.title));
   const meta = h("span", "demo-meta");
   meta.append(h("span", "demo-ext", demo.ext.toUpperCase()));
@@ -117,11 +61,16 @@ function demoCard(demo: DemoFile, onOpen: (demo: DemoFile) => void): HTMLDetails
   }
   head.append(meta);
 
-  const body = h("div", "demo-body");
-  // The prose and the figures are read from the archive on first open; the buttons are on screen
-  // from that same moment, so picking a file never waits on a sidecar.
-  const detail = h("div", "demo-detail");
-  detail.append(h("p", "demo-loading", "Reading this file's sidecar…"));
+  const desc = h("p", "demo-desc", demo.description ?? "");
+  // Only a dataset whose index predates carrying descriptions leaves one to fetch; the card is
+  // complete without it either way, so nothing on screen waits on the request.
+  if (!demo.description) {
+    fetchDemoDescription(demo)
+      .then((text) => {
+        if (text) desc.textContent = text;
+      })
+      .catch((err: unknown) => console.warn("[encoding-helper] could not read a demo sidecar:", err));
+  }
 
   const actions = h("div", "demo-actions");
   const open = h("button", "btn sm demo-open", demo.loadsInApp ? "Open in the app" : "Open it anyway");
@@ -133,16 +82,7 @@ function demoCard(demo: DemoFile, onOpen: (demo: DemoFile) => void): HTMLDetails
   download.rel = "noopener";
   actions.append(open, download);
 
-  body.append(detail, actions);
-
-  let filled = false;
-  card.addEventListener("toggle", () => {
-    if (!card.open || filled) return;
-    filled = true;
-    void fillDetail(demo, detail);
-  });
-
-  card.append(head, body);
+  card.append(head, desc, actions);
   return card;
 }
 
@@ -222,7 +162,6 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
   let groups: HTMLElement | null = null;
   let provenance: HTMLElement | null = null;
   let search = "";
-  let loadableOnly = false;
   // #app is shown by the file loader once a file has been parsed; the demos page hides it while it
   // is up and puts back whatever it found rather than deciding for itself.
   let appDisplay: string | null = null;
@@ -244,7 +183,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
   };
 
   const rerender = (): void => {
-    if (groups && set) renderDemoList(groups, set, { search, loadableOnly, onOpen });
+    if (groups && set) renderDemoList(groups, set, { search, onOpen });
   };
 
   const load = (): void => {
@@ -262,8 +201,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
       });
   };
 
-  const controls = (): HTMLDivElement => {
-    const row = h("div", "demos-controls");
+  const searchBox = (): HTMLInputElement => {
     const box = h("input", "demos-search");
     box.type = "search";
     box.id = "demoSearch";
@@ -273,53 +211,22 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
       search = box.value.trim();
       rerender();
     });
-
-    const onlyLabel = h("label", "demos-only");
-    const only = h("input", "switch");
-    only.type = "checkbox";
-    only.id = "demoLoadableOnly";
-    only.addEventListener("change", () => {
-      loadableOnly = only.checked;
-      rerender();
-    });
-    onlyLabel.append(only, h("span", null, "Only files this app can open"));
-
-    const setAllOpen = (open: boolean): void => {
-      groups?.querySelectorAll<HTMLDetailsElement>("details.demo-card").forEach((d) => (d.open = open));
-    };
-    const expand = h("button", "btn sm sec", "Expand all");
-    expand.type = "button";
-    expand.addEventListener("click", () => setAllOpen(true));
-    const collapse = h("button", "btn sm sec", "Collapse all");
-    collapse.type = "button";
-    collapse.addEventListener("click", () => setAllOpen(false));
-
-    row.append(box, onlyLabel, h("span", "demos-spacer"), expand, collapse);
-    return row;
+    return box;
   };
 
   const build = (): void => {
     if (built) return;
     built = true;
     const head = h("div", "demos-head");
-    const heading = h("div", "demos-heading");
-    heading.append(h("h1", "demos-title", "Demo files"));
-    heading.append(
-      h(
-        "p",
-        "demos-sub",
-        "One file per idea this app can show you, each changing exactly one thing from the reference encode.",
-      ),
-    );
     const back = h("button", "btn sec demos-back", "← Back to the file picker");
     back.type = "button";
     back.id = "demosBackBtn";
     back.addEventListener("click", () => close(true));
-    head.append(heading, back);
+    head.append(h("h1", "demos-title", "Demo files"), back);
 
     groups = h("div", "demos-groups");
     provenance = h("div", "demos-provenance-slot");
-    page.replaceChildren(head, provenance, controls(), groups);
+    page.replaceChildren(head, provenance, searchBox(), groups);
     load();
   };
 

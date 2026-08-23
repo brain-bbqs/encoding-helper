@@ -41,26 +41,22 @@ test.describe("Demo files page", () => {
     await expect(page.locator(".demos-provenance a").first()).toHaveAttribute("href", /dandiset\/000527/);
   });
 
-  test("folds a file open to its description, its figures and the command that made it", async ({ page }) => {
+  test("shows each file's description and its buttons, with nothing to expand", async ({ page }) => {
     await gotoDemos(page);
-    const card = page.locator('details.demo-card[data-session="reference"]');
-    await expect(card.locator(".demo-desc")).toHaveCount(0);
-
-    await card.locator("summary").click();
+    const card = page.locator('div.demo-card[data-session="reference"]');
     await expect(card.locator(".demo-desc")).toContainText("The baseline of the demo set");
-    await expect(card.locator(".demo-facts")).toContainText("320 × 240");
-    await expect(card.locator(".demo-args")).toContainText("ffmpeg -i Video_S1.m4v");
+    await expect(card.locator(".demo-open")).toBeVisible();
     await expect(card.locator(".demo-download")).toHaveAttribute("download", REFERENCE_FILE_NAME);
+    // The ffprobe figures and the command that made it are the app's job, not the card's.
+    await expect(page.locator("details")).toHaveCount(0);
+    await expect(page.locator(".demo-facts, .demo-args")).toHaveCount(0);
   });
 
-  test("marks, and can hide, the files the MP4 parser cannot open", async ({ page }) => {
+  test("marks the files the MP4 parser cannot open, and still offers to try", async ({ page }) => {
     await gotoDemos(page);
-    const mkv = page.locator('details.demo-card[data-session="matroska"]');
+    const mkv = page.locator('div.demo-card[data-session="matroska"]');
     await expect(mkv.locator(".demo-badge")).toHaveText("MP4 parser can't open this");
-
-    await page.locator("#demoLoadableOnly").check();
-    await expect(mkv).toHaveCount(0);
-    await expect(page.locator(".demo-card")).toHaveCount(3);
+    await expect(mkv.locator(".demo-open")).toHaveText("Open it anyway");
   });
 
   test("filters the list as you type, and says so when nothing matches", async ({ page }) => {
@@ -72,14 +68,6 @@ test.describe("Demo files page", () => {
     await page.locator("#demoSearch").fill("prores");
     await expect(page.locator(".demo-card")).toHaveCount(0);
     await expect(page.locator(".demos-empty")).toBeVisible();
-  });
-
-  test("expands and collapses every fold at once", async ({ page }) => {
-    await gotoDemos(page);
-    await page.getByRole("button", { name: "Expand all" }).click();
-    await expect(page.locator("details.demo-card[open]")).toHaveCount(4);
-    await page.getByRole("button", { name: "Collapse all" }).click();
-    await expect(page.locator("details.demo-card[open]")).toHaveCount(0);
   });
 
   test("opens the picked file in the app, under its own name and as a shareable link", async ({ page }) => {
