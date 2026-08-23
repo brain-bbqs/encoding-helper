@@ -1,30 +1,15 @@
 name: Upload demos to EMBER
 
-# Generates the demo set (scripts/generate-demos.sh) and
-# uploads it to a dandiset on the EMBER archive with the dandi CLI
-# (scripts/upload-demos.sh). Manual only: run it from the Actions tab
-# when the demo set or its source video changes.
+# Generates the demo set (scripts/generate-demos.sh) and uploads it to EMBER
+# dandiset 000527 with the dandi CLI (scripts/upload-demos.sh). Manual only:
+# run it from the Actions tab when the demo set or its source video changes.
 #
 # Needs an `EMBER_DANDI_API_KEY` repository secret holding an API key for the
-# target EMBER instance (from the account menu at dandi.emberarchive.org); the
-# account must have write access to the target dandiset.
+# EMBER archive (from the account menu at dandi.emberarchive.org); the account
+# must have write access to the dandiset.
 
 on:
   workflow_dispatch:
-    inputs:
-      dandiset:
-        description: Dandiset ID to upload into
-        default: "000527"
-      instance:
-        description: DANDI instance (name the dandi CLI knows, or its URL)
-        default: ember-dandi
-      prefix:
-        description: Asset path prefix inside the dandiset
-        default: demos
-      dry_run:
-        description: Generate and lay out only, skip the actual upload
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -35,3 +20,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Generate demo files
+        # The source recording is not in the repository; the script fetches it
+        # from the dandiset, which needs the key when that dandiset is not public.
+        env:
+          EMBER_DANDI_API_KEY: ${{ secrets.EMBER_DANDI_API_KEY }}
+        run: scripts/generate-demos.sh -o demo-out
+
+      - name: Show dataset description and layout
+        run: cat demo-out/dataset_description.json && find demo-out -type f | sort
+
+      - name: Keep the demo set as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: demos
+          path: demo-out/
+          retention-days: 14
+
+      - name: Install the dandi CLI
+        run: pipx install dandi
+
+      - name: Upload to EMBER
+        env:
+          # The name the dandi CLI derives for the ember-dandi instance:
+          # {INSTANCE_NAME}_API_KEY, uppercased, hyphens to underscores.
+          EMBER_DANDI_API_KEY: ${{ secrets.EMBER_DANDI_API_KEY }}
+        run: scripts/upload-demos.sh -o demo-out

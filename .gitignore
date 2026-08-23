@@ -6,3 +6,6 @@ reports/
 storybook-static/
 test-results/
 playwright-report/
+
+# The demo source recording, fetched from the archive by scripts/generate-demos.sh
+scripts/data/
