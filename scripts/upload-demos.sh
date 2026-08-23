@@ -2,8 +2,9 @@
 #
 # Upload the generated demo set (see generate-demos.sh) to EMBER dandiset
 # 000527, using the dandi CLI. The target dandiset and instance are fixed;
-# the demo directory already holds the BEP047 dataset (sub-01/ session tree
-# plus dataset_description.json), which is copied into the dandiset as-is.
+# the demo directory already holds the BEP047 dataset (sub-01/ session tree,
+# the source recording under sourcedata/rawbids/, and dataset_description.json),
+# which is copied into the dandiset as-is.
 #
 # The dandi CLI wants files laid out inside a local dandiset directory, with a
 # dandiset.yaml next to them naming the target. Only its identifier is read
@@ -43,8 +44,8 @@ command -v dandi >/dev/null 2>&1 || {
   echo "error: the dandi CLI is required (pip install dandi)" >&2
   exit 1
 }
-if [ ! -d "$DEMODIR/sub-01" ] || [ ! -f "$DEMODIR/dataset_description.json" ]; then
-  echo "error: no sub-01/ tree with dataset_description.json under $DEMODIR (run generate-demos.sh first)" >&2
+if [ ! -d "$DEMODIR/sub-01" ] || [ ! -f "$DEMODIR/dataset_description.json" ] || [ ! -d "$DEMODIR/sourcedata" ]; then
+  echo "error: $DEMODIR does not hold a generated dataset (run generate-demos.sh first)" >&2
   exit 1
 fi
 if [ "$DRY_RUN" = 0 ] && [ -z "${EMBER_DANDI_API_KEY:-}" ]; then
@@ -60,6 +61,9 @@ mkdir -p "$DEST"
 printf "identifier: '%s'\n" "$DANDISET" >"$DEST/dandiset.yaml"
 cp "$DEMODIR/dataset_description.json" "$DEST/"
 cp -R "$DEMODIR/sub-01" "$DEST/"
+# The source recording travels with the demos, so the archived copy stays the
+# one the generator reads when no local one exists.
+cp -R "$DEMODIR/sourcedata" "$DEST/"
 
 echo
 echo "==> Layout to upload:"

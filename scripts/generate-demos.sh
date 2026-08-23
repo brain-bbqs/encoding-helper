@@ -17,6 +17,11 @@
 #   dataset_description.json
 #   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.<ext>
 #   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.json
+#   sourcedata/rawbids/sub-01/beh/sub-01_video.m4v
+# The source recording travels with the demos under sourcedata/rawbids/, the
+# way clip-extractor keeps the raw original its output was derived from; that
+# archived copy is also where this script fetches the recording from when
+# there is no local one, so the repository carries no video blob.
 # Each video's sidecar carries BEP047's technical keys as ffprobe extracts
 # them (duration, frame rate/count, dimensions, pixel format, bit depth,
 # codec, RFC 6381 codec string where one can be determined) and the
@@ -26,21 +31,33 @@
 # dataset_description.json, namespaced under an "encoding-helper" key.
 #
 # Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir]
-#   -s  source video (default: scripts/data/Video_S1.m4v)
+#   -s  source video (default: scripts/data/Video_S1.m4v, fetched from the
+#       archive when absent)
 #   -o  output directory (default: demo-out)
 
 set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-SRC="$SCRIPT_DIR/data/Video_S1.m4v"
+DEFAULT_SRC="$SCRIPT_DIR/data/Video_S1.m4v"
+SRC="$DEFAULT_SRC"
 OUT="demo-out"
+
+# Where the source recording lives on the archive: this dataset's own
+# sourcedata/rawbids/ copy (clip-extractor's convention for the raw original a
+# derived tree came from), which upload-demos.sh publishes alongside the
+# demos. The recording is deliberately not in this repository — a video blob
+# would sit in the git history forever — so a missing local copy is fetched
+# from here.
+EMBER_API="https://api-dandi.emberarchive.org/api"
+EMBER_DANDISET="000527"
+SOURCEDATA_PATH="sourcedata/rawbids/sub-01/beh/sub-01_video.m4v"
 
 while getopts "s:o:h" opt; do
   case $opt in
     s) SRC=$OPTARG ;;
     o) OUT=$OPTARG ;;
     h)
-      sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) exit 2 ;;
@@ -51,15 +68,52 @@ command -v ffmpeg >/dev/null 2>&1 || {
   echo "error: ffmpeg is required" >&2
   exit 1
 }
-[ -f "$SRC" ] || {
-  echo "error: source video not found: $SRC" >&2
-  exit 1
-}
 command -v ffprobe >/dev/null 2>&1 || {
   echo "error: ffprobe is required" >&2
   exit 1
 }
+
+# Only the default source is fetched on absence; a path given with -s that
+# does not exist is a mistake worth stopping on.
+if [ ! -f "$SRC" ] && [ "$SRC" = "$DEFAULT_SRC" ]; then
+  echo "==> Fetching the source recording from EMBER dandiset $EMBER_DANDISET"
+  command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 || {
+    echo "error: curl and python3 are required to fetch the source recording" >&2
+    exit 1
+  }
+  auth=()
+  if [ -n "${EMBER_DANDI_API_KEY:-}" ]; then auth=(-H "Authorization: token $EMBER_DANDI_API_KEY"); fi
+  asset_id=$(curl -fsSL "${auth[@]}" "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/?path=$SOURCEDATA_PATH&metadata=false" |
+    python3 -c 'import json, sys; r = json.load(sys.stdin)["results"]; print(r[0]["asset_id"] if r else "")')
+  [ -n "$asset_id" ] || {
+    echo "error: source recording not found on the archive at $SOURCEDATA_PATH" >&2
+    exit 1
+  }
+  mkdir -p "$(dirname "$SRC")"
+  curl -fsSL "${auth[@]}" -o "$SRC" "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/$asset_id/download/"
+fi
+[ -f "$SRC" ] || {
+  echo "error: source video not found: $SRC" >&2
+  exit 1
+}
 mkdir -p "$OUT"
+
+# The raw original the demos are derived from, in the place BIDS keeps such a
+# thing. Its own dataset_description.json makes the subtree independently
+# valid, as clip-extractor's rawbids copy is.
+SOURCEDATA_DIR="$OUT/$(dirname "$SOURCEDATA_PATH")"
+SOURCEDATA_ROOT="$OUT/${SOURCEDATA_PATH%%/sub-01/*}"
+mkdir -p "$SOURCEDATA_DIR"
+cp "$SRC" "$OUT/$SOURCEDATA_PATH"
+{
+  printf '{\n'
+  printf '  "Name": "encoding-helper demos (Original)",\n'
+  printf '  "BIDSVersion": "1.10.0",\n'
+  printf '  "DatasetType": "raw",\n'
+  printf '  "License": "CC-BY-4.0",\n'
+  printf '  "Description": "The unmodified source recording every demo is derived from."\n'
+  printf '}\n'
+} >"$SOURCEDATA_ROOT/dataset_description.json"
 
 # Shared argument fragments. Deliberately unquoted at the call sites so they
 # expand into separate words; none of them contain spaces.
@@ -393,6 +447,6 @@ VERSION=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$SCRIPT_DIR/../package.jso
 
 echo
 echo "Wrote $DEMO_COUNT demo sessions (video + sidecar each) and dataset_description.json to $OUT/:"
-find "$OUT" -name '*_video.*' ! -name '*_video.json' | sort | while read -r f; do
+find "$OUT/sub-01" -name '*_video.*' ! -name '*_video.json' | sort | while read -r f; do
   printf '  %8.1f MB  %s\n' "$(awk -v b="$(wc -c <"$f")" 'BEGIN{printf "%.1f", b/1048576}')" "${f#"$OUT"/}"
 done
