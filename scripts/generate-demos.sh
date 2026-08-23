@@ -83,14 +83,26 @@ if [ ! -f "$SRC" ] && [ "$SRC" = "$DEFAULT_SRC" ]; then
   }
   auth=()
   if [ -n "${EMBER_DANDI_API_KEY:-}" ]; then auth=(-H "Authorization: token $EMBER_DANDI_API_KEY"); fi
-  asset_id=$(curl -fsSL "${auth[@]}" "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/?path=$SOURCEDATA_PATH&metadata=false" |
-    python3 -c 'import json, sys; r = json.load(sys.stdin)["results"]; print(r[0]["asset_id"] if r else "")')
+  # The listing and the download are separate failures worth telling apart: an
+  # unreachable archive is not the same as a dandiset that has no such asset.
+  listing=$(curl -fsSL "${auth[@]}" \
+    "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/?path=$SOURCEDATA_PATH&metadata=false") || {
+    echo "error: could not reach the archive at $EMBER_API" >&2
+    exit 1
+  }
+  asset_id=$(printf '%s' "$listing" |
+    python3 -c 'import json, sys; r = json.load(sys.stdin).get("results") or []; print(r[0]["asset_id"] if r else "")')
   [ -n "$asset_id" ] || {
-    echo "error: source recording not found on the archive at $SOURCEDATA_PATH" >&2
+    echo "error: no source recording on dandiset $EMBER_DANDISET at $SOURCEDATA_PATH" >&2
     exit 1
   }
   mkdir -p "$(dirname "$SRC")"
-  curl -fsSL "${auth[@]}" -o "$SRC" "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/$asset_id/download/"
+  curl -fsSL "${auth[@]}" -o "$SRC" \
+    "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/$asset_id/download/" || {
+    rm -f "$SRC"
+    echo "error: could not download the source recording (asset $asset_id)" >&2
+    exit 1
+  }
 fi
 [ -f "$SRC" ] || {
   echo "error: source video not found: $SRC" >&2

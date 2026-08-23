@@ -25,6 +25,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Generate demo files
+        # The source recording is not in the repository; the script fetches it
+        # from the dandiset, which needs the key when that dandiset is not public.
+        env:
+          EMBER_DANDI_API_KEY: ${{ secrets.EMBER_DANDI_API_KEY }}
         run: scripts/generate-demos.sh -o demo-out
 
       - name: Show dataset description and layout
