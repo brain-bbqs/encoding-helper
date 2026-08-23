@@ -5,10 +5,12 @@
 # the demo directory already holds the BEP047-style sub-01/ tree, which is
 # copied into the dandiset as-is.
 #
-# The dandi CLI wants files laid out inside a local dandiset directory (the
-# dandiset.yaml next to them names the target), so this script downloads the
-# dandiset's metadata record, copies the demo tree beside it, and uploads from
-# there. Validation is skipped: these are plain videos, not NWB/BIDS.
+# The dandi CLI wants files laid out inside a local dandiset directory, with a
+# dandiset.yaml next to them naming the target. Only its identifier is read
+# and the file itself is never uploaded, so this script writes that one line
+# rather than fetching the full record, copies the demo tree beside it, and
+# uploads from there. Validation is skipped: these are plain videos, not
+# NWB/BIDS.
 #
 # Usage: scripts/upload-demos.sh [-o demo-dir] [-n]
 #   -o DIR  directory holding the generated demo tree (default: demo-out)
@@ -29,7 +31,7 @@ while getopts "o:nh" opt; do
     o) DEMODIR=$OPTARG ;;
     n) DRY_RUN=1 ;;
     h)
-      sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) exit 2 ;;
@@ -52,14 +54,14 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-echo "==> Fetching dandiset record: dandi://$INSTANCE/$DANDISET/draft"
-dandi download --output-dir "$WORK" --download dandiset.yaml "dandi://$INSTANCE/$DANDISET/draft"
-
-cp -R "$DEMODIR/sub-01" "$WORK/$DANDISET/"
+DEST="$WORK/$DANDISET"
+mkdir -p "$DEST"
+printf "identifier: '%s'\n" "$DANDISET" >"$DEST/dandiset.yaml"
+cp -R "$DEMODIR/sub-01" "$DEST/"
 
 echo
 echo "==> Layout to upload:"
-find "$WORK/$DANDISET" -type f | sort
+find "$DEST" -type f | sort
 
 if [ "$DRY_RUN" = 1 ]; then
   echo
@@ -69,6 +71,6 @@ fi
 
 echo
 echo "==> Uploading to $INSTANCE, dandiset $DANDISET"
-cd "$WORK/$DANDISET"
+cd "$DEST"
 dandi upload --dandi-instance "$INSTANCE" --validation skip --existing overwrite
 echo "Done."
