@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.0
+## 1.0.0
 
 #### 🚀 Enhancement
 
