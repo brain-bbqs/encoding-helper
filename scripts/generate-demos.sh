@@ -50,6 +50,7 @@ EMBER_DANDISET="000527"
 ORIGINAL_SESSION="original"
 ORIGINAL_EXT="m4v"
 ORIGINAL_PATH="sub-01/ses-$ORIGINAL_SESSION/beh/sub-01_ses-${ORIGINAL_SESSION}_video.$ORIGINAL_EXT"
+LEGACY_PATH="sourcedata/rawbids/sub-01/beh/sub-01_video.m4v"
 
 while getopts "s:o:h" opt; do
   case $opt in
@@ -84,13 +85,23 @@ if [ ! -f "$SRC" ] && [ "$SRC" = "$DEFAULT_SRC" ]; then
   if [ -n "${EMBER_DANDI_API_KEY:-}" ]; then auth=(-H "Authorization: token $EMBER_DANDI_API_KEY"); fi
   # The listing and the download are separate failures worth telling apart: an
   # unreachable archive is not the same as a dandiset that has no such asset.
-  listing=$(curl -fsSL "${auth[@]}" \
-    "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/?path=$ORIGINAL_PATH&metadata=false") || {
-    echo "error: could not reach the archive at $EMBER_API" >&2
-    exit 1
-  }
-  asset_id=$(printf '%s' "$listing" |
-    python3 -c 'import json, sys; r = json.load(sys.stdin).get("results") or []; print(r[0]["asset_id"] if r else "")')
+  # LEGACY_PATH is where the recording sat before it became a session of its
+  # own; it is tried second so the first run after that move can still find it,
+  # and can go once that run has published ses-original.
+  asset_id=""
+  for candidate in "$ORIGINAL_PATH" "$LEGACY_PATH"; do
+    listing=$(curl -fsSL "${auth[@]}" \
+      "$EMBER_API/dandisets/$EMBER_DANDISET/versions/draft/assets/?path=$candidate&metadata=false") || {
+      echo "error: could not reach the archive at $EMBER_API" >&2
+      exit 1
+    }
+    asset_id=$(printf '%s' "$listing" |
+      python3 -c 'import json, sys; r = json.load(sys.stdin).get("results") or []; print(r[0]["asset_id"] if r else "")')
+    if [ -n "$asset_id" ]; then
+      echo "    found it at $candidate"
+      break
+    fi
+  done
   [ -n "$asset_id" ] || {
     echo "error: no source recording on dandiset $EMBER_DANDISET at $ORIGINAL_PATH" >&2
     exit 1
