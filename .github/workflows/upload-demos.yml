@@ -1,0 +1,37 @@
+name: Upload demos to EMBER
+
+# Generates the demo set (scripts/generate-demos.sh) and
+# uploads it to a dandiset on the EMBER archive with the dandi CLI
+# (scripts/upload-demos.sh). Manual only: run it from the Actions tab
+# when the demo set or its source video changes.
+#
+# Needs an `EMBER_DANDI_API_KEY` repository secret holding an API key for the
+# target EMBER instance (from the account menu at dandi.emberarchive.org); the
+# account must have write access to the target dandiset.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dandiset:
+        description: Dandiset ID to upload into
+        default: "000527"
+      instance:
+        description: DANDI instance (name the dandi CLI knows, or its URL)
+        default: ember-dandi
+      prefix:
+        description: Asset path prefix inside the dandiset
+        default: demos
+      dry_run:
+        description: Generate and lay out only, skip the actual upload
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
