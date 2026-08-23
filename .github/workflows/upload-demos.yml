@@ -1,8 +1,8 @@
-name: Inspect demos to EMBER
+name: Upload demos to EMBER
 
-# Generates the Inspect-tab demo set (scripts/generate-inspect-demos.sh) and
+# Generates the demo set (scripts/generate-demos.sh) and
 # uploads it to a dandiset on the EMBER archive with the dandi CLI
-# (scripts/upload-inspect-demos.sh). Manual only: run it from the Actions tab
+# (scripts/upload-demos.sh). Manual only: run it from the Actions tab
 # when the demo set or its source video changes.
 #
 # Needs an `EMBER_DANDI_API_KEY` repository secret holding an API key for the
@@ -20,7 +20,7 @@ on:
         default: ember-dandi
       prefix:
         description: Asset path prefix inside the dandiset
-        default: inspect-demos
+        default: demos
       dry_run:
         description: Generate and lay out only, skip the actual upload
         type: boolean
@@ -40,7 +40,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Generate demo files
-        run: scripts/generate-inspect-demos.sh -o demo-out
+        run: scripts/generate-demos.sh -o demo-out
 
       - name: Show manifest
         run: cat demo-out/manifest.json
@@ -48,7 +48,7 @@ jobs:
       - name: Keep the demo set as a run artifact
         uses: actions/upload-artifact@v4
         with:
-          name: inspect-demos
+          name: demos
           path: demo-out/
           retention-days: 14
 
@@ -63,7 +63,7 @@ jobs:
           PREFIX: ${{ inputs.prefix }}
           DRY_RUN_FLAG: ${{ inputs.dry_run && '-n' || '' }}
         run: >
-          scripts/upload-inspect-demos.sh
+          scripts/upload-demos.sh
           -o demo-out
           -d "$DANDISET"
           -i "$INSTANCE"

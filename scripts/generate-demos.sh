@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Generate the Inspect-tab demo set: a family of short videos derived from one
-# source recording, each varying exactly one thing the Inspect tab surfaces —
+# Generate the demo set: a family of short videos derived from one
+# source recording, each varying exactly one thing the app surfaces —
 # container and atom layout (faststart, fragmentation), codec and profile,
 # GOP/keyframe structure, B-frames, bitrate behaviour, track properties
 # (rotation, VFR, resolution, audio) and metadata tags. The non-MP4 containers
@@ -9,13 +9,13 @@
 #
 # Every file (except the deliberately stripped one) carries its own explanation
 # in its `title`/`comment` metadata tags, so loading it in encoding-helper
-# shows what to look at, in the Metadata Tags section of the Inspect tab.
+# shows what to look at, in the app's Metadata Tags section.
 #
 # Alongside the videos it writes manifest.json describing each file: name,
 # group, what it demonstrates, whether encoding-helper can currently load it
 # (mp4box.js parses MP4/MOV only), and the ffmpeg arguments that made it.
 #
-# Usage: scripts/generate-inspect-demos.sh [-s source-video] [-o output-dir]
+# Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir]
 #   -s  source video (default: scripts/data/Video_S1.m4v)
 #   -o  output directory (default: demo-out)
 
@@ -242,7 +242,7 @@ demo metadata yes 27-metadata-rich.mp4 \
   "The reference carrying a full set of container tags. Every one of them shows up in the Metadata Tags section with its own explainer popover." \
   -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k $FS \
   -metadata artist="Encoding Helper demo set" \
-  -metadata album="Inspect tab demos" \
+  -metadata album="encoding-helper demos" \
   -metadata date="2026" \
   -metadata genre="Documentation" \
   -metadata copyright="MIT" \
@@ -258,7 +258,7 @@ NO_META=1 demo metadata yes 28-metadata-stripped.mp4 \
 
 {
   printf '{\n'
-  printf '  "description": "Demo videos for the encoding-helper Inspect tab, each varying one aspect from the reference file. loads_in_app reflects that the app currently parses MP4/MOV only.",\n'
+  printf '  "description": "Demo videos for encoding-helper, each varying one aspect from the reference file. loads_in_app reflects that the app currently parses MP4/MOV only.",\n'
   printf '  "source": "%s",\n' "$(json_escape "$(basename "$SRC")")"
   printf '  "ffmpeg": "%s",\n' "$(json_escape "$(ffmpeg -version | head -1)")"
   printf '  "files": [\n'

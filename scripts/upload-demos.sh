@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Upload a directory of Inspect-tab demo files (see generate-inspect-demos.sh)
+# Upload a directory of demo files (see generate-demos.sh)
 # to a dandiset on an EMBER/DANDI archive, using the dandi CLI.
 #
 # The dandi CLI wants files laid out inside a local dandiset directory (the
@@ -9,12 +9,12 @@
 # prefix, and uploads from there. Validation is skipped: these are plain
 # videos, not NWB/BIDS.
 #
-# Usage: scripts/upload-inspect-demos.sh [options]
+# Usage: scripts/upload-demos.sh [options]
 #   -o DIR       directory holding the demo files (default: demo-out)
 #   -d ID        dandiset ID (default: 000527)
 #   -i INSTANCE  DANDI instance, as a name the CLI knows or a URL
 #                (default: ember-dandi, the EMBER archive)
-#   -p PREFIX    asset path prefix inside the dandiset (default: inspect-demos)
+#   -p PREFIX    asset path prefix inside the dandiset (default: demos)
 #   -n           dry run: lay everything out and stop before uploading
 #
 # Requires the dandi CLI (pip install dandi) and DANDI_API_KEY in the
@@ -25,7 +25,7 @@ set -euo pipefail
 DEMODIR="demo-out"
 DANDISET="000527"
 INSTANCE="ember-dandi"
-PREFIX="inspect-demos"
+PREFIX="demos"
 DRY_RUN=0
 
 while getopts "o:d:i:p:nh" opt; do
@@ -48,7 +48,7 @@ command -v dandi >/dev/null 2>&1 || {
   exit 1
 }
 [ -d "$DEMODIR" ] || {
-  echo "error: demo directory not found: $DEMODIR (run generate-inspect-demos.sh first)" >&2
+  echo "error: demo directory not found: $DEMODIR (run generate-demos.sh first)" >&2
   exit 1
 }
 if [ "$DRY_RUN" = 0 ] && [ -z "${DANDI_API_KEY:-}" ]; then
