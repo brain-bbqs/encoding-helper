@@ -27,8 +27,8 @@ jobs:
       - name: Generate demo files
         run: scripts/generate-demos.sh -o demo-out
 
-      - name: Show manifest
-        run: cat demo-out/sub-01/video/manifest.json
+      - name: Show dataset description and layout
+        run: cat demo-out/dataset_description.json && find demo-out -type f | sort
 
       - name: Keep the demo set as a run artifact
         uses: actions/upload-artifact@v4

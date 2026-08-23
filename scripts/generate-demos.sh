@@ -11,11 +11,16 @@
 # in its `title`/`comment` metadata tags, so loading it in encoding-helper
 # shows what to look at, in the app's Metadata Tags section.
 #
-# Files are laid out BEP047-style, the way clip-extractor names its output:
-# one subject, a BIDS entity per variant, the `_video` suffix —
-#   sub-01/video/sub-01_desc-<label>_video.<ext>
-# Alongside them, sub-01/video/manifest.json describes each file: path, group,
-# what it demonstrates, whether encoding-helper can currently load it
+# The output is a BEP047 dataset (bids-standard/bids-specification#2231, the
+# convention clip-extractor writes): one subject, each variant its own session,
+# media under the beh/ datatype directory with the `_video` suffix —
+#   dataset_description.json
+#   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.<ext>
+#   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.json
+# Each video's sidecar carries BEP047's technical keys as ffprobe extracts
+# them (duration, frame rate/count, dimensions, pixel format, codec), the
+# Description of what the file demonstrates, and, namespaced under an
+# "encoding-helper" key, the demo group, whether the app can currently load it
 # (mp4box.js parses MP4/MOV only), and the ffmpeg arguments that made it.
 #
 # Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir]
@@ -33,7 +38,7 @@ while getopts "s:o:h" opt; do
     s) SRC=$OPTARG ;;
     o) OUT=$OPTARG ;;
     h)
-      sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) exit 2 ;;
@@ -48,9 +53,11 @@ command -v ffmpeg >/dev/null 2>&1 || {
   echo "error: source video not found: $SRC" >&2
   exit 1
 }
-# The BEP047-style home of every file this script writes; $OUT is only its root.
-VIDEODIR="$OUT/sub-01/video"
-mkdir -p "$VIDEODIR"
+command -v ffprobe >/dev/null 2>&1 || {
+  echo "error: ffprobe is required" >&2
+  exit 1
+}
+mkdir -p "$OUT"
 
 # Shared argument fragments. Deliberately unquoted at the call sites so they
 # expand into separate words; none of them contain spaces.
@@ -58,7 +65,7 @@ X264="-c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p"
 FS="-movflags +faststart"
 STRIP="-map_metadata -1" # do not inherit the source's own tags
 
-MANIFEST_ENTRIES=()
+DEMO_COUNT=0
 
 json_escape() {
   local s=${1//\\/\\\\}
@@ -66,29 +73,71 @@ json_escape() {
   printf '%s' "$s"
 }
 
-# demo <group> <loads-in-app: yes|no> <desc-label> <extension> <title> <description> -- <ffmpeg args...>
+# The path a session's video lands at, so the rotation demo can remux the
+# reference file after it exists.
+session_video() {
+  printf '%s/sub-01/ses-%s/beh/sub-01_ses-%s_video.%s' "$OUT" "$1" "$1" "$2"
+}
+
+# Writes the BEP047 JSON sidecar next to one finished video: the technical
+# keys as ffprobe reads them back out of the file, the Description of what the
+# demo shows, and this script's own detail under an "encoding-helper" key.
+write_sidecar() {
+  local video=$1 group=$2 loads=$3 title=$4 desc=$5 args=$6
+  local codec width height pixfmt rate frames duration
+  IFS=, read -r codec width height pixfmt rate frames < <(
+    ffprobe -v error -select_streams v:0 -count_packets \
+      -show_entries stream=codec_name,width,height,pix_fmt,avg_frame_rate,nb_read_packets \
+      -of csv=p=0 "$video"
+  )
+  duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$video")
+  rate=$(awk -F/ '{ if ($2 > 0) printf "%.3f", $1 / $2; else printf "%s", $1 }' <<<"$rate")
+  {
+    printf '{\n'
+    printf '  "Description": "%s",\n' "$(json_escape "$desc")"
+    printf '  "RecordingDuration": %s,\n' "$duration"
+    printf '  "VideoFrameRate": %s,\n' "$rate"
+    printf '  "VideoFrameCount": %s,\n' "$frames"
+    printf '  "ImageWidth": %s,\n' "$width"
+    printf '  "ImageHeight": %s,\n' "$height"
+    printf '  "ImagePixelFormat": "%s",\n' "$(json_escape "$pixfmt")"
+    printf '  "VideoCodec": "%s",\n' "$(json_escape "$codec")"
+    printf '  "encoding-helper": {\n'
+    printf '    "title": "%s",\n' "$(json_escape "$title")"
+    printf '    "group": "%s",\n' "$(json_escape "$group")"
+    printf '    "loads_in_app": %s,\n' "$([ "$loads" = yes ] && echo true || echo false)"
+    printf '    "source": "%s",\n' "$(json_escape "$(basename "$SRC")")"
+    printf '    "ffmpeg_args": "%s"\n' "$(json_escape "$args")"
+    printf '  }\n'
+    printf '}\n'
+  } >"${video%.*}.json"
+}
+
+# demo <group> <loads-in-app: yes|no> <session-label> <extension> <title> <description> -- <ffmpeg args...>
 #
 # Runs ffmpeg with the given args (everything between `ffmpeg` and the output
 # path, so input options like -t belong before their -i), writing
-# sub-01/video/sub-01_desc-<label>_video.<ext>, stamps the title and
+# sub-01/ses-<label>/beh/sub-01_ses-<label>_video.<ext>, stamps the title and
 # description into the file's metadata tags (unless NO_META=1, for the
-# stripped-metadata demo), and records a manifest entry. Labels are BIDS
-# entity values: alphanumeric only.
+# stripped-metadata demo), and writes the file's sidecar beside it. Labels are
+# BIDS entity values: alphanumeric only.
 demo() {
   local group=$1 loads=$2 label=$3 ext=$4 title=$5 desc=$6
   shift 6
   if [ "${1:-}" = "--" ]; then shift; fi
-  local file="sub-01_desc-${label}_video.$ext"
-  echo "==> $file"
+  local video
+  video=$(session_video "$label" "$ext")
+  echo "==> ${video#"$OUT"/}"
+  mkdir -p "$(dirname "$video")"
   local meta=(-metadata "title=$title" -metadata "comment=$desc")
   if [ "${NO_META:-0}" = 1 ]; then meta=(); fi
-  ffmpeg -hide_banner -loglevel error -y "$@" "${meta[@]}" "$VIDEODIR/$file"
-  local bytes
-  bytes=$(wc -c <"$VIDEODIR/$file")
-  MANIFEST_ENTRIES+=("$(printf '{"file": "sub-01/video/%s", "group": "%s", "title": "%s", "shows": "%s", "loads_in_app": %s, "bytes": %s, "ffmpeg_args": "%s"}' \
-    "$(json_escape "$file")" "$(json_escape "$group")" "$(json_escape "$title")" \
-    "$(json_escape "$desc")" "$([ "$loads" = yes ] && echo true || echo false)" \
-    "$bytes" "$(json_escape "$*")")")
+  ffmpeg -hide_banner -loglevel error -y "$@" "${meta[@]}" "$video"
+  # Recorded args name files relative to the dataset, not this machine's paths.
+  local args=$*
+  args=${args//"$SRC"/"$(basename "$SRC")"}
+  args=${args//"$OUT"\//}
+  write_sidecar "$video" "$group" "$loads" "$title" "$desc" "$args"
+  DEMO_COUNT=$((DEMO_COUNT + 1))
 }
 
 # --- Reference ---------------------------------------------------------------
@@ -226,7 +275,7 @@ demo bitrate yes starved150k mp4 \
 demo track yes rotated90 mp4 \
   "Rotated 90 degrees in the display matrix" \
   "Byte-identical video bitstream to the reference, remuxed with a 90-degree display matrix. Players rotate at display time; the Video Track card shows the rotation the pixels do not have." \
-  -- -display_rotation 90 -i "$VIDEODIR/sub-01_desc-reference_video.mp4" -c copy
+  -- -display_rotation 90 -i "$(session_video reference mp4)" -c copy
 
 demo track yes videoonly mp4 \
   "Video only: no audio track" \
@@ -262,23 +311,31 @@ NO_META=1 demo metadata yes notags mp4 \
   "The same encode with every tag stripped and the muxer's own fingerprints suppressed. The Metadata Tags section has nothing to show; compare against the rich-metadata file." \
   -- -i "$SRC" $STRIP -fflags +bitexact $X264 -g 90 -c:a aac -b:a 96k $FS
 
-# --- Manifest ----------------------------------------------------------------
+# --- dataset_description.json ------------------------------------------------
+# The BIDS dataset root file, in the shape clip-extractor writes its own:
+# BIDSVersion 1.10.0 and a GeneratedBy entry naming this tool and version.
 
+VERSION=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$SCRIPT_DIR/../package.json" | head -1)
 {
   printf '{\n'
-  printf '  "description": "Demo videos for encoding-helper, each varying one aspect from the reference file. loads_in_app reflects that the app currently parses MP4/MOV only.",\n'
-  printf '  "source": "%s",\n' "$(json_escape "$(basename "$SRC")")"
-  printf '  "ffmpeg": "%s",\n' "$(json_escape "$(ffmpeg -version | head -1)")"
-  printf '  "files": [\n'
-  for i in "${!MANIFEST_ENTRIES[@]}"; do
-    sep=,
-    if [ "$i" = "$((${#MANIFEST_ENTRIES[@]} - 1))" ]; then sep=; fi
-    printf '    %s%s\n' "${MANIFEST_ENTRIES[$i]}" "$sep"
-  done
+  printf '  "Name": "encoding-helper demos",\n'
+  printf '  "BIDSVersion": "1.10.0",\n'
+  printf '  "DatasetType": "raw",\n'
+  printf '  "License": "MIT",\n'
+  printf '  "Description": "Demo videos for encoding-helper, one session per variant, each varying one aspect of encoding or container structure from the ses-reference recording.",\n'
+  printf '  "GeneratedBy": [\n'
+  printf '    {\n'
+  printf '      "Name": "encoding-helper",\n'
+  printf '      "Version": "%s",\n' "$(json_escape "${VERSION:-unknown}")"
+  printf '      "Description": "scripts/generate-demos.sh, using %s",\n' "$(json_escape "$(ffmpeg -version | head -1 | cut -d' ' -f1-3)")"
+  printf '      "CodeURL": "https://github.com/brain-bbqs/encoding-helper"\n'
+  printf '    }\n'
   printf '  ]\n'
   printf '}\n'
-} >"$VIDEODIR/manifest.json"
+} >"$OUT/dataset_description.json"
 
 echo
-echo "Wrote $((${#MANIFEST_ENTRIES[@]})) demo files and manifest.json to $VIDEODIR/:"
-ls -l "$VIDEODIR" | tail -n +2 | awk '{printf "  %8.1f MB  %s\n", $5/1048576, $NF}'
+echo "Wrote $DEMO_COUNT demo sessions (video + sidecar each) and dataset_description.json to $OUT/:"
+find "$OUT" -name '*_video.*' ! -name '*_video.json' | sort | while read -r f; do
+  printf '  %8.1f MB  %s\n' "$(awk -v b="$(wc -c <"$f")" 'BEGIN{printf "%.1f", b/1048576}')" "${f#"$OUT"/}"
+done
