@@ -42,5 +42,7 @@ jobs:
 
       - name: Upload to EMBER
         env:
-          DANDI_API_KEY: ${{ secrets.EMBER_DANDI_API_KEY }}
+          # The name the dandi CLI derives for the ember-dandi instance:
+          # {INSTANCE_NAME}_API_KEY, uppercased, hyphens to underscores.
+          EMBER_DANDI_API_KEY: ${{ secrets.EMBER_DANDI_API_KEY }}
         run: scripts/upload-demos.sh -o demo-out

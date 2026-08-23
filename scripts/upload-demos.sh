@@ -16,8 +16,9 @@
 #   -o DIR  directory holding the generated demo tree (default: demo-out)
 #   -n      dry run: lay everything out and stop before uploading
 #
-# Requires the dandi CLI (pip install dandi) and DANDI_API_KEY in the
-# environment, holding an API key for the EMBER archive.
+# Requires the dandi CLI (pip install dandi) and EMBER_DANDI_API_KEY in the
+# environment, holding an API key for the EMBER archive: the dandi CLI reads
+# the key for a given instance from {INSTANCE_NAME}_API_KEY.
 
 set -euo pipefail
 
@@ -31,7 +32,7 @@ while getopts "o:nh" opt; do
     o) DEMODIR=$OPTARG ;;
     n) DRY_RUN=1 ;;
     h)
-      sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) exit 2 ;;
@@ -46,8 +47,8 @@ command -v dandi >/dev/null 2>&1 || {
   echo "error: no sub-01/ tree under $DEMODIR (run generate-demos.sh first)" >&2
   exit 1
 }
-if [ "$DRY_RUN" = 0 ] && [ -z "${DANDI_API_KEY:-}" ]; then
-  echo "error: DANDI_API_KEY is not set" >&2
+if [ "$DRY_RUN" = 0 ] && [ -z "${EMBER_DANDI_API_KEY:-}" ]; then
+  echo "error: EMBER_DANDI_API_KEY is not set" >&2
   exit 1
 fi
 
