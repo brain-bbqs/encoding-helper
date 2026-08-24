@@ -2191,13 +2191,10 @@ table.data.matrix-table th.matrix-row-head {
   color: var(--muted);
   font-size: 13px;
 }
-/* The one card, above the grid: whichever tile is pressed, shown in full. */
-.demo-card {
-  padding: 16px 20px;
-  margin-bottom: 16px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  background: var(--card);
+/* The one card, under the grid: whichever tile is pressed, shown in full. Both it and the grid
+   above it take the page's ordinary card shape from .section. */
+.demos-grid > .demos-group + .demos-group {
+  margin-top: 18px;
 }
 .demo-head {
   display: flex;

@@ -42,8 +42,11 @@ test.describe("Demo files page", () => {
       "The original recording, unmodified",
       "Reference: H.264 High in MP4, faststart",
     ]);
-    // One card, not one per file.
+    // One card, not one per file, and it sits under the grid rather than above it.
     await expect(page.locator(".demo-card")).toHaveCount(1);
+    const gridBox = (await page.locator(".demos-grid").boundingBox())!;
+    const cardBox = (await page.locator(".demo-card").boundingBox())!;
+    expect(cardBox.y).toBeGreaterThan(gridBox.y + gridBox.height - 1);
   });
 
   test("fills the card from whichever tile is pressed", async ({ page }) => {
@@ -87,6 +90,7 @@ test.describe("Demo files page", () => {
     await page.locator("#demoSearch").fill("prores");
     await expect(page.locator(".demo-tile")).toHaveCount(0);
     await expect(page.locator(".demos-empty")).toBeVisible();
+    await expect(page.locator(".demo-card")).toHaveCount(0);
   });
 
   test("opens the picked file in the app, under its own name and as a shareable link", async ({ page }) => {

@@ -1,10 +1,10 @@
 // The demos page: an alternative to the drop zone, at ?demos, listing the published demo set.
 //
 // The set (see lib/demoArchive.ts) is a couple of dozen files that each vary exactly one thing, so
-// the page is laid out as a map of the set rather than a list of it: a grid of tiles, grouped by
-// the thing being varied, with one card above them showing whichever tile is pressed. The whole set
-// is then visible at once, and comparing two files — a short GOP against a long one, say, which is
-// what the set is built around — is a click rather than a scroll.
+// the page is laid out as a map of the set rather than a list of it: one card holding a grid of
+// tiles, grouped by the thing being varied, and a second card under it showing whichever tile is
+// pressed. The whole set is then visible at once, and comparing two files — a short GOP against a
+// long one, say, which is what the set is built around — is a click rather than a scroll.
 //
 // It replaces the drop zone rather than sitting beside it, which is what makes it a page and not a
 // panel: while it is up, the file picker, the URL box and any loaded file's tabs are all out of the
@@ -65,9 +65,11 @@ function metaFor(demo: DemoFile, withBadge: boolean): HTMLSpanElement {
  */
 export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: DemoBrowserOptions): void {
   const shown = set.demos.filter((d) => matchesFilter(d, opts.search));
-  const card = h("div", "demo-card");
-  const grid = h("div", "demo-groups");
-  container.replaceChildren(card, grid);
+  // The grid is what the page is; the card under it is what the grid was pressed for, so it reads
+  // as the answer to the tile above rather than as a header the grid explains.
+  const grid = h("div", "section demos-grid");
+  const card = h("div", "section demo-card");
+  container.replaceChildren(grid, card);
 
   // Descriptions normally ride in the set's index. Only a dataset generated before that carried
   // them leaves one to fetch, and then only for the file actually being looked at — kept here so
@@ -108,7 +110,8 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
   };
 
   if (shown.length === 0) {
-    card.replaceChildren(h("p", "demos-empty", "No demo file matches that filter."));
+    grid.replaceChildren(h("p", "demos-empty", "No demo file matches that filter."));
+    card.remove();
     return;
   }
 
@@ -118,12 +121,12 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     const heading = headingOf(demo.group);
     if (heading.title !== current) {
       current = heading.title;
-      const section = h("section", "section demos-group");
-      section.append(h("h2", null, heading.title));
-      if (heading.blurb) section.append(h("p", "demos-group-blurb", heading.blurb));
+      const group = h("div", "demos-group");
+      group.append(h("h2", null, heading.title));
+      if (heading.blurb) group.append(h("p", "demos-group-blurb", heading.blurb));
       row = h("div", "demo-tiles");
-      section.append(row);
-      grid.append(section);
+      group.append(row);
+      grid.append(group);
     }
     const tile = h("button", "demo-tile");
     tile.type = "button";
@@ -141,8 +144,8 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     row.append(tile);
   }
 
-  // The card always has something in it, so the page never opens on an empty frame. The first tile
-  // is the source recording, which is where the set starts.
+  // The card always has something in it, so the page never opens on an empty frame under the grid.
+  // The first tile is the source recording, which is where the set starts.
   show(shown[0]);
 }
 

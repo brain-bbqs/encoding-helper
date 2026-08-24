@@ -104,6 +104,15 @@ describe("renderDemoBrowser", () => {
     renderDemoBrowser(container, SET, { ...OPTS, search: "prores" });
     expect(container.querySelectorAll(".demo-tile").length).toBe(0);
     expect(container.querySelector(".demos-empty")?.textContent).toBe("No demo file matches that filter.");
+    // Nothing is selected, so there is no card under the grid to show.
+    expect(container.querySelector(".demo-card")).toBeNull();
+  });
+
+  it("puts the card under the grid, not above it", () => {
+    renderDemoBrowser(container, SET, OPTS);
+    const children = [...container.children].map((c) => c.className);
+    expect(children[0]).toContain("demos-grid");
+    expect(children[1]).toContain("demo-card");
   });
 
   it("hands the file the card is showing to onOpen", () => {
