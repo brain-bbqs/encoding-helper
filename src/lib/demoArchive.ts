@@ -21,8 +21,6 @@
 export const EMBER_API = "https://api-dandi.emberarchive.org/api";
 export const EMBER_DANDISET = "000527";
 export const EMBER_VERSION = "draft";
-/** The dandiset's page on the archive's own web interface, for a "see it at the source" link. */
-export const EMBER_DANDISET_URL = `https://dandi.emberarchive.org/dandiset/${EMBER_DANDISET}/${EMBER_VERSION}`;
 
 /** One demo file, as the demos page shows it before anyone opens its card. */
 export interface DemoFile {
@@ -44,82 +42,69 @@ export interface DemoFile {
   sidecarUrl: string | null;
 }
 
-/** Where the demo set came from, as dataset_description.json records it. */
-export interface DemoSetSource {
-  name: string | null;
-  url: string | null;
-  license: string | null;
-}
-
 export interface DemoSet {
-  name: string;
-  description: string | null;
-  license: string | null;
-  source: DemoSetSource | null;
   demos: DemoFile[];
 }
 
 /**
- * The groups the generator sorts its files into, in the order the page shows them, each with the
- * one thing its files vary. Reference first because it is the file to open before any other, and
- * the untouched original last because it is where the set came from rather than a demo of anything.
- * A group the generator adds later still appears, at the end, under its own raw name.
+ * The headings the page sorts the demo files under, in the order it shows them.
+ *
+ * A heading can cover more than one of the generator's group names: the source recording and the
+ * baseline encode are one thing to a reader — where the set starts — so they share a row, the
+ * recording first and the encode made from it second. Anything the generator grows later still
+ * appears, at the end, under its own raw name.
  */
 export interface DemoGroup {
-  id: string;
+  /** The generator's group names this heading covers, in the order their files should appear. */
+  ids: readonly string[];
   title: string;
   blurb: string;
 }
 
 export const DEMO_GROUPS: readonly DemoGroup[] = [
   {
-    id: "reference",
-    title: "Reference",
-    blurb: "The baseline of the set. Every other file changes exactly one thing from this one, so open it first.",
+    ids: ["original", "reference"],
+    title: "Start here",
+    blurb:
+      "The recording the whole set came from, and the baseline encode of it that every other file changes exactly one thing from.",
   },
   {
-    id: "layout",
+    ids: ["layout"],
     title: "Atom layout",
     blurb: "Same stream, rearranged: where the moov atom sits, and whether the file is one mdat or a run of fragments.",
   },
   {
-    id: "container",
+    ids: ["container"],
     title: "Containers",
     blurb:
       "The same H.264 stream in different boxes. The non-ISO ones are here to fail the MP4 parse on purpose: mp4box.js reads MP4 and MOV only.",
   },
   {
-    id: "codec",
+    ids: ["codec"],
     title: "Codecs and profiles",
     blurb: "One codec or profile swapped in, from Constrained Baseline to AV1, with the decode support that follows.",
   },
   {
-    id: "gop",
+    ids: ["gop"],
     title: "GOP and keyframe structure",
     blurb: "How often a keyframe lands and what sits between the anchors. This is the axis the seeking test measures.",
   },
   {
-    id: "bitrate",
+    ids: ["bitrate"],
     title: "Bitrate behaviour",
     blurb: "What the encoder is told to spend, rather than how it spends it. Watch the bitrate-over-time plot flatten.",
   },
   {
-    id: "track",
+    ids: ["track"],
     title: "Track properties",
     blurb: "Things declared about the track rather than encoded into it: rotation, frame-rate regularity, resolution.",
   },
   {
-    id: "metadata",
+    ids: ["metadata"],
     title: "Metadata tags",
     blurb: "The container's own tags, in full and stripped to nothing.",
   },
-  {
-    id: "original",
-    title: "The original recording",
-    blurb: "The source every demo above was encoded from, unmodified, exactly as it was published.",
-  },
 ];
-
 /** A session's line in dataset_description.json's own index. */
 interface SessionEntry {
   title?: string;
@@ -129,10 +114,6 @@ interface SessionEntry {
 }
 
 interface DatasetDescription {
-  Name?: string;
-  Description?: string;
-  License?: string;
-  SourceDatasets?: { Name?: string; URL?: string; License?: string }[];
   "encoding-helper"?: { sessions?: Record<string, SessionEntry> };
 }
 
@@ -185,10 +166,14 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
 }
 
-/** Where a group sorts, with anything the generator has grown since sorted to the end, in order. */
-function groupRank(id: string): number {
-  const i = DEMO_GROUPS.findIndex((g) => g.id === id);
-  return i === -1 ? DEMO_GROUPS.length : i;
+/**
+ * Where a group sorts: which heading it falls under, then where it sits among the group names that
+ * heading covers. A group no heading names sorts to the end, after everything the page knows.
+ */
+function groupRank(id: string): [number, number] {
+  const heading = DEMO_GROUPS.findIndex((g) => g.ids.includes(id));
+  if (heading === -1) return [DEMO_GROUPS.length, 0];
+  return [heading, DEMO_GROUPS[heading].ids.indexOf(id)];
 }
 
 /**
@@ -237,24 +222,17 @@ export function buildDemoSet(desc: DatasetDescription, assets: ArchiveAsset[]): 
   });
 
   demos.sort((a, b) => {
-    const byGroup = groupRank(a.group) - groupRank(b.group);
-    if (byGroup !== 0) return byGroup;
+    const [aHeading, aWithin] = groupRank(a.group);
+    const [bHeading, bWithin] = groupRank(b.group);
+    if (aHeading !== bHeading) return aHeading - bHeading;
+    if (aWithin !== bWithin) return aWithin - bWithin;
     // Within a group, the order the generator wrote them in; anything unindexed trails it.
     const ai = order.indexOf(a.session);
     const bi = order.indexOf(b.session);
     return (ai === -1 ? order.length : ai) - (bi === -1 ? order.length : bi);
   });
 
-  const source = desc.SourceDatasets?.[0];
-  return {
-    name: desc.Name ?? "encoding-helper demos",
-    description: stringOrNull(desc.Description),
-    license: stringOrNull(desc.License),
-    source: source
-      ? { name: stringOrNull(source.Name), url: stringOrNull(source.URL), license: stringOrNull(source.License) }
-      : null,
-    demos,
-  };
+  return { demos };
 }
 
 /** Reads the published demo set off the archive. Throws with the reason the page should show. */

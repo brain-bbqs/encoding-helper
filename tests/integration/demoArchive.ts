@@ -29,6 +29,15 @@ interface FakeDemo {
 
 export const FAKE_DEMOS: FakeDemo[] = [
   {
+    session: "original",
+    ext: "m4v",
+    group: "original",
+    title: "The original recording, unmodified",
+    loadsInApp: true,
+    description: "The unmodified source recording. Every other session is a transcoding of this.",
+    sidecar: true,
+  },
+  {
     session: REFERENCE_SESSION,
     ext: "mp4",
     group: "reference",
@@ -156,12 +165,13 @@ export async function mockDemoArchive(page: Page): Promise<void> {
 export async function gotoDemos(page: Page, query = ""): Promise<void> {
   await mockDemoArchive(page);
   await page.goto(`/?demos${query}`);
-  await expect(page.locator(".demo-card").first()).toBeVisible();
+  await expect(page.locator(".demo-tile").first()).toBeVisible();
 }
 
 /** Opens one demo's fold and loads it, leaving the app showing that file. */
 export async function loadDemo(page: Page, session = REFERENCE_SESSION, query = ""): Promise<void> {
   await gotoDemos(page, query);
-  await page.locator(`div.demo-card[data-session="${session}"] .demo-open`).click();
+  await page.locator(`.demo-tile[data-session="${session}"]`).click();
+  await page.locator(`.demo-card[data-session="${session}"] .demo-open`).click();
   await expect(page.locator("#app")).toBeVisible();
 }

@@ -46,13 +46,10 @@ const ASSETS = [
 ];
 
 describe("buildDemoSet", () => {
-  it("joins the archive listing to the index and orders the files by group", () => {
+  it("joins the archive listing to the index and orders the files by heading", () => {
     const set = buildDemoSet(DESCRIPTION, ASSETS);
-    expect(set.demos.map((d) => d.session)).toEqual(["reference", "matroska", "gopshort", "goplong", "original"]);
-    expect(set.name).toBe("encoding-helper demos");
-    expect(set.license).toBe("CC-BY-4.0");
-    expect(set.source?.name).toBe("Peacock spider courtship");
-    expect(set.source?.url).toBe("https://example.org/article");
+    // The recording and the encode made from it share the leading heading, recording first.
+    expect(set.demos.map((d) => d.session)).toEqual(["original", "reference", "matroska", "gopshort", "goplong"]);
   });
 
   it("carries each file's title, extension, size and download URL", () => {

@@ -246,7 +246,7 @@ ORIGINAL_VIDEO=$(session_video "$ORIGINAL_SESSION" "$ORIGINAL_EXT")
 echo "==> ${ORIGINAL_VIDEO#"$OUT"/}"
 mkdir -p "$(dirname "$ORIGINAL_VIDEO")"
 cp "$SRC" "$ORIGINAL_VIDEO"
-ORIGINAL_DESC="The unmodified source recording, exactly as it was published: H.264 Constrained Baseline in an .m4v container. Every other session is an encode of this."
+ORIGINAL_DESC="The unmodified source recording, exactly as it was published: H.264 Constrained Baseline in an .m4v container. Every other session is a transcoding of this."
 write_sidecar "$ORIGINAL_VIDEO" "$ORIGINAL_DESC"
 session_entry "$ORIGINAL_SESSION" "The original recording, unmodified" original yes "" "$ORIGINAL_DESC"
 

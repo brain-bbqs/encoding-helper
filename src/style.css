@@ -2181,16 +2181,6 @@ table.data.matrix-table th.matrix-row-head {
 .demos-back {
   flex-shrink: 0;
 }
-/* Where the set came from, filled in once it has been read: the dandiset, the recording it was
-   encoded from, the licence that rides along with it. */
-.demos-provenance {
-  margin: 0 0 14px;
-  color: var(--faint);
-  font-size: 12px;
-}
-.demos-link {
-  color: var(--accent);
-}
 .demos-search {
   margin-bottom: 14px;
   padding: 8px 10px;
@@ -2201,24 +2191,23 @@ table.data.matrix-table th.matrix-row-head {
   color: var(--muted);
   font-size: 13px;
 }
-.demo-list {
-  display: grid;
-  gap: 8px;
-}
+/* The one card, above the grid: whichever tile is pressed, shown in full. */
 .demo-card {
-  padding: 10px 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  background: var(--sunken);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card);
 }
 .demo-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  flex-wrap: wrap;
 }
 .demo-title {
-  font-weight: 600;
+  margin: 0;
+  font-size: 17px;
 }
 .demo-meta {
   display: inline-flex;
@@ -2244,11 +2233,11 @@ table.data.matrix-table th.matrix-row-head {
   padding: 2px 8px;
   font-size: 11px;
 }
-/* The sentence saying what this file demonstrates, which is the whole of what the card is for. */
+/* The sentence saying what this file demonstrates, which is what the card is for. */
 .demo-desc {
-  margin: 6px 0 10px;
+  margin: 8px 0 14px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
 }
 .demo-actions {
@@ -2260,6 +2249,59 @@ table.data.matrix-table th.matrix-row-head {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
+}
+
+/* The grid: the whole set at once, so which files exist is visible without scrolling and moving
+   between two of them is a click. */
+.demo-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 8px;
+}
+.demo-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.demo-tile:hover {
+  border-color: var(--accent);
+}
+.demo-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.demo-tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+.demo-tile-name {
+  font-weight: 600;
+  line-height: 1.35;
+}
+/* A tile is too small for the card's badge, so the same warning is a dot in the corner. */
+.demo-tile .demo-meta {
+  margin-left: 0;
+  font-size: 11px;
+}
+.demo-tile-mark {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
 }
 .demos-loading,
 .demos-empty {

@@ -28,45 +28,64 @@ test.describe("Demo files page", () => {
     await expect(page.locator("#dropZone")).toBeVisible();
   });
 
-  test("groups the files by what they vary, and names where the set came from", async ({ page }) => {
+  test("lays the whole set out as one grid, grouped by what the files vary", async ({ page }) => {
     await gotoDemos(page);
     await expect(page.locator(".demos-group h2")).toHaveText([
-      "Reference",
+      "Start here",
       "Atom layout",
       "Containers",
       "GOP and keyframe structure",
     ]);
-    await expect(page.locator(".demo-card")).toHaveCount(4);
-    await expect(page.locator(".demos-provenance")).toContainText("EMBER dandiset 000527");
-    await expect(page.locator(".demos-provenance a").first()).toHaveAttribute("href", /dandiset\/000527/);
+    await expect(page.locator(".demo-tile")).toHaveCount(5);
+    // The recording and the baseline encode share the leading row, the recording first.
+    await expect(page.locator(".demos-group").first().locator(".demo-tile-name")).toHaveText([
+      "The original recording, unmodified",
+      "Reference: H.264 High in MP4, faststart",
+    ]);
+    // One card, not one per file.
+    await expect(page.locator(".demo-card")).toHaveCount(1);
   });
 
-  test("shows each file's description and its buttons, with nothing to expand", async ({ page }) => {
+  test("fills the card from whichever tile is pressed", async ({ page }) => {
     await gotoDemos(page);
-    const card = page.locator('div.demo-card[data-session="reference"]');
+    const card = page.locator(".demo-card");
+    // It opens on the first tile rather than on an empty frame.
+    await expect(card).toHaveAttribute("data-session", "original");
+
+    await page.locator('.demo-tile[data-session="reference"]').click();
+    await expect(card).toHaveAttribute("data-session", "reference");
+    await expect(card.locator(".demo-title")).toHaveText("Reference: H.264 High in MP4, faststart");
     await expect(card.locator(".demo-desc")).toContainText("The baseline of the demo set");
-    await expect(card.locator(".demo-open")).toBeVisible();
     await expect(card.locator(".demo-download")).toHaveAttribute("download", REFERENCE_FILE_NAME);
+    await expect(page.locator('.demo-tile[data-session="reference"]')).toHaveAttribute("aria-pressed", "true");
+
+    await page.locator('.demo-tile[data-session="goplong"]').click();
+    await expect(card.locator(".demo-title")).toHaveText("Long GOP: keyframe every ten seconds");
+    await expect(page.locator('.demo-tile[data-session="reference"]')).toHaveAttribute("aria-pressed", "false");
     // The ffprobe figures and the command that made it are the app's job, not the card's.
-    await expect(page.locator("details")).toHaveCount(0);
     await expect(page.locator(".demo-facts, .demo-args")).toHaveCount(0);
   });
 
   test("marks the files the MP4 parser cannot open, and still offers to try", async ({ page }) => {
     await gotoDemos(page);
-    const mkv = page.locator('div.demo-card[data-session="matroska"]');
-    await expect(mkv.locator(".demo-badge")).toHaveText("MP4 parser can't open this");
-    await expect(mkv.locator(".demo-open")).toHaveText("Open it anyway");
+    const tile = page.locator('.demo-tile[data-session="matroska"]');
+    await expect(tile.locator(".demo-tile-mark")).toBeVisible();
+    await tile.click();
+    const card = page.locator(".demo-card");
+    await expect(card.locator(".demo-badge")).toHaveText("MP4 parser can't open this");
+    await expect(card.locator(".demo-open")).toHaveText("Open it anyway");
   });
 
   test("filters the list as you type, and says so when nothing matches", async ({ page }) => {
     await gotoDemos(page);
     await page.locator("#demoSearch").fill("gop");
-    await expect(page.locator(".demo-card")).toHaveCount(1);
+    await expect(page.locator(".demo-tile")).toHaveCount(1);
+    await expect(page.locator(".demo-tile")).toHaveAttribute("data-session", "goplong");
+    // The card follows the filter down to what is left.
     await expect(page.locator(".demo-card")).toHaveAttribute("data-session", "goplong");
 
     await page.locator("#demoSearch").fill("prores");
-    await expect(page.locator(".demo-card")).toHaveCount(0);
+    await expect(page.locator(".demo-tile")).toHaveCount(0);
     await expect(page.locator(".demos-empty")).toBeVisible();
   });
 
