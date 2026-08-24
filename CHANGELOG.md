@@ -5,7 +5,7 @@
 #### 🚀 Enhancement
 
 - **Browse Demo Files** replaces **Load Sample** with a page of its own (`?demos`), listing the demo set published on EMBER dandiset 000527, grouped by what each file varies ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
-- The set is laid out as a card of tiles per theme, in the order Inspect reads a file, with one detail card that moves under whichever theme was pressed: what that file demonstrates, and buttons to open it in the app or download it ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+- The set is laid out as a card of tiles per theme, in the order Inspect reads a file, with one detail card that moves under whichever theme was pressed and points a notch at the tile it is describing ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
 - The demo set carries a recommended encode alongside the demonstrations: H.264 High, a slow preset, a keyframe every second and faststart, for video that has to seek well and stream ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
 - The grid can be filtered by name, group or extension ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
 

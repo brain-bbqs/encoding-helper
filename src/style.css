@@ -2195,7 +2195,29 @@ table.data.matrix-table th.matrix-row-head {
    so it is always beside the thing that opened it. It and the themed cards both take the page's
    ordinary card shape from .section. */
 .demo-card {
+  position: relative;
   border-color: var(--accent);
+}
+/* A notch on the top edge, aimed by ui/demosPage.ts at the tile that opened the card. The themed
+   card above carries prose of its own, so without it the description below reads as more of the
+   same; with it, what the description is about is the thing the point touches. Two triangles: the
+   outer one is the card's border, the inner one covers its middle with the card's own fill. */
+.demo-card::before,
+.demo-card::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: var(--notch-x, 50%);
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border: 9px solid transparent;
+  border-bottom-color: var(--accent);
+}
+.demo-card::after {
+  margin-bottom: -1px;
+  border-width: 8px;
+  border-bottom-color: var(--card);
 }
 .demo-head {
   display: flex;
@@ -2231,12 +2253,15 @@ table.data.matrix-table th.matrix-row-head {
   padding: 2px 8px;
   font-size: 11px;
 }
-/* The sentence saying what this file demonstrates, which is what the card is for. */
+/* What this one file demonstrates. Set in the page's own ink at full size, against the themed
+   card's blurb above it, which is muted and small because it describes a group rather than a file:
+   the two are both prose, and which one is about the video in hand should not need working out. */
 .demo-desc {
-  margin: 8px 0 14px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
+  margin: 10px 0 14px;
+  max-width: 68ch;
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.6;
 }
 .demo-actions {
   display: flex;

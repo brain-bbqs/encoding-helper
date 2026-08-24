@@ -1,5 +1,9 @@
 // The demos page: an alternative to the drop zone, at ?demos, listing the published demo set.
 //
+// A themed card's blurb and a file's own description are both prose, so the card carries a notch on
+// its top edge lined up with the tile that opened it: what the description is about is then the
+// thing the notch points at, not the theme the card happens to sit under.
+//
 // The set (see lib/demoArchive.ts) is a couple of dozen files that each vary exactly one thing, so
 // the page is laid out as a map of the set rather than a list of it: a card per theme holding that
 // theme's tiles, and one detail card that moves to sit directly under whichever theme was pressed.
@@ -33,6 +37,21 @@ export interface DemoLoader {
 export interface DemoBrowserOptions {
   search: string;
   onOpen: (demo: DemoFile) => void;
+}
+
+/**
+ * Re-aims the open card's notch after a resize.
+ *
+ * One window listener for the page rather than one per render: renderDemoBrowser runs on every
+ * keystroke in the filter box, and a listener added there would pile up a copy per keystroke.
+ */
+let aimNotch: (() => void) | null = null;
+let notchListenerBound = false;
+
+function bindNotchListener(): void {
+  if (notchListenerBound) return;
+  notchListenerBound = true;
+  window.addEventListener("resize", () => aimNotch?.());
 }
 
 function headingOf(groupId: string): { title: string; blurb: string } {
@@ -82,10 +101,32 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
   /** The themed card each session's tile sits in, so the detail card can follow the selection. */
   const groupOfSession = new Map<string, HTMLElement>();
 
+  /**
+   * Points the card's notch at a tile, in pixels from the card's left edge.
+   *
+   * Kept a whole notch-width clear of either corner, since a tile in the first or last column would
+   * otherwise put the point past the rounded edge it is meant to grow out of. In a layout engine
+   * that has not measured anything (jsdom, and the moment before first paint) every rectangle is
+   * zero-width, and the notch keeps whatever position it already had.
+   */
+  const aimAt = (tile: HTMLElement): void => {
+    const tileBox = tile.getBoundingClientRect();
+    const cardBox = card.getBoundingClientRect();
+    if (cardBox.width <= 0) return;
+    const centre = tileBox.left + tileBox.width / 2 - cardBox.left;
+    card.style.setProperty("--notch-x", `${Math.min(Math.max(centre, 20), cardBox.width - 20)}px`);
+  };
+
   const show = (demo: DemoFile): void => {
     for (const tile of tiles) tile.setAttribute("aria-pressed", String(tile.dataset.session === demo.session));
     groupOfSession.get(demo.session)?.after(card);
     card.dataset.session = demo.session;
+    const pressed = tiles.find((t) => t.dataset.session === demo.session);
+    if (pressed) {
+      aimAt(pressed);
+      aimNotch = () => aimAt(pressed);
+      bindNotchListener();
+    }
     const head = h("div", "demo-head");
     head.append(h("h3", "demo-title", demo.title), metaFor(demo, true));
 

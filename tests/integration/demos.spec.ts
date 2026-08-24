@@ -64,6 +64,22 @@ test.describe("Demo files page", () => {
     expect(cardBox.y - (groupBox.y + groupBox.height)).toBeLessThan(40);
   });
 
+  test("points the card's notch at the tile that opened it", async ({ page }) => {
+    await gotoDemos(page);
+    const card = page.locator(".demo-card");
+    const notchOf = async (): Promise<number> =>
+      parseFloat(await card.evaluate((el) => getComputedStyle(el).getPropertyValue("--notch-x")));
+
+    for (const session of ["reference", "original", "goplong"]) {
+      const tile = page.locator(`.demo-tile[data-session="${session}"]`);
+      await tile.click();
+      const tileBox = (await tile.boundingBox())!;
+      const cardBox = (await card.boundingBox())!;
+      // The notch is measured from the card's left edge; it should land on the tile's centre.
+      expect(await notchOf()).toBeCloseTo(tileBox.x + tileBox.width / 2 - cardBox.x, 0);
+    }
+  });
+
   test("fills the card from whichever tile is pressed", async ({ page }) => {
     await gotoDemos(page);
     const card = page.locator(".demo-card");
