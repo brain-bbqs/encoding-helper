@@ -166,7 +166,11 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     download.rel = "noopener";
     actions.append(open, download);
 
-    card.replaceChildren(head, desc, actions);
+    // The description and the buttons share a row, so a card as wide as the grid above it has
+    // content at both edges rather than a column of text against a lot of empty right-hand side.
+    const body = h("div", "demo-body");
+    body.append(desc, actions);
+    card.replaceChildren(head, body);
   };
 
   if (shown.length === 0) {

@@ -2338,17 +2338,31 @@ table.data.matrix-table th.matrix-row-head {
 }
 /* What this one file demonstrates — the only prose on the page, so it is set in the page's own ink
    at full size rather than as another caption among the headings. */
+/* The description and the buttons, side by side: the card is as wide as the grid above it, so a
+   text column alone would leave most of the box empty. The measure is still capped — a sentence
+   running the full width of a wide monitor is no easier to read for filling the space — but the
+   buttons hold the far edge, so what is between them reads as a laid-out row rather than a gap. */
+.demo-body {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
 .demo-desc {
-  margin: 10px 0 14px;
-  max-width: 68ch;
+  flex: 1 1 32ch;
+  max-width: 96ch;
+  margin: 0;
   color: var(--text);
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.6;
 }
 .demo-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 .demo-download {
   display: inline-flex;

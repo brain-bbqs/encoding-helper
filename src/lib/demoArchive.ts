@@ -64,16 +64,17 @@ export interface DemoGroup {
 export const DEMO_GROUPS: readonly DemoGroup[] = [
   { ids: ["original", "reference"], title: "Start here" },
   { ids: ["recommended"], title: "A recommended encode" },
-  // The themes from here down run in the order Inspect reads the file: the container and its tags,
-  // then the video track, then the atom map, then bitrate, then GOP structure. Opening a demo and
-  // scrolling Inspect then walks the same ground in the same sequence.
+  // The themes from here down run outermost-in and most-consequential-first: the box the stream
+  // sits in, how that box is laid out, the stream itself, and the structure inside the stream that
+  // decides how it seeks. What only describes a file rather than changing how it behaves — its
+  // track properties, its tags, the rate it was told to hit — comes after all of that.
   { ids: ["container"], title: "Containers" },
-  { ids: ["metadata"], title: "Metadata tags" },
-  { ids: ["codec"], title: "Codecs and profiles" },
-  { ids: ["track"], title: "Track properties" },
   { ids: ["layout"], title: "Atom layout" },
-  { ids: ["bitrate"], title: "Bitrate behaviour" },
+  { ids: ["codec"], title: "Codecs and profiles" },
   { ids: ["gop"], title: "GOP and keyframe structure" },
+  { ids: ["track"], title: "Track properties" },
+  { ids: ["metadata"], title: "Metadata tags" },
+  { ids: ["bitrate"], title: "Bitrate behaviour" },
 ];
 /** A session's line in dataset_description.json's own index. */
 interface SessionEntry {

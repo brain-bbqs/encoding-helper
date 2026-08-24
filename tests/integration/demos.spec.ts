@@ -30,8 +30,8 @@ test.describe("Demo files page", () => {
 
   test("lays the whole set out as one grid, grouped by what the files vary", async ({ page }) => {
     await gotoDemos(page);
-    // The themes run in the order Inspect reads the file: container, then track, then atom layout,
-    // then bitrate, then GOP structure.
+    // The themes run outermost-in: the container, then its layout, then the stream, then the
+    // structure inside the stream. What only describes a file comes after all of that.
     await expect(page.locator(".demos-group h2")).toHaveText([
       "Start here",
       "A recommended encode",
