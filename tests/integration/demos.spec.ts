@@ -37,7 +37,7 @@ test.describe("Demo files page", () => {
       "A recommended encode",
       "Containers",
       "Atom layout",
-      "GOP and keyframe structure",
+      "Group of Pictures (GOP) and keyframe structure",
     ]);
     await expect(page.locator(".demo-tile")).toHaveCount(6);
     // The recording and the baseline encode share the leading row, the recording first.
@@ -56,7 +56,7 @@ test.describe("Demo files page", () => {
     await gotoDemos(page);
     const card = page.locator(".demo-card");
     await page.locator('.demo-tile[data-session="goplong"]').click();
-    const gopGroup = page.locator(".demos-group").filter({ hasText: "GOP and keyframe structure" });
+    const gopGroup = page.locator(".demos-group").filter({ hasText: "Group of Pictures (GOP) and keyframe structure" });
     const groupBox = (await gopGroup.boundingBox())!;
     const cardBox = (await card.boundingBox())!;
     // Directly under it: below its bottom edge, and above where the next theme would have started.

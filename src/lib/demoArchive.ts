@@ -71,7 +71,7 @@ export const DEMO_GROUPS: readonly DemoGroup[] = [
   { ids: ["container"], title: "Containers" },
   { ids: ["layout"], title: "Atom layout" },
   { ids: ["codec"], title: "Codecs and profiles" },
-  { ids: ["gop"], title: "GOP and keyframe structure" },
+  { ids: ["gop"], title: "Group of Pictures (GOP) and keyframe structure" },
   { ids: ["track"], title: "Track properties" },
   { ids: ["metadata"], title: "Metadata tags" },
   { ids: ["bitrate"], title: "Bitrate behaviour" },

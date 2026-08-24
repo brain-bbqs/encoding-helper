@@ -52,7 +52,12 @@ describe("renderDemoBrowser", () => {
     renderDemoBrowser(container, SET, OPTS);
     expect(container.querySelectorAll(".demo-tile").length).toBe(6);
     const headings = [...container.querySelectorAll(".demos-group h2")].map((h) => h.textContent);
-    expect(headings).toEqual(["Start here", "A recommended encode", "Containers", "GOP and keyframe structure"]);
+    expect(headings).toEqual([
+      "Start here",
+      "A recommended encode",
+      "Containers",
+      "Group of Pictures (GOP) and keyframe structure",
+    ]);
   });
 
   it("puts the recording and the baseline encode on the same row, the recording first", () => {
