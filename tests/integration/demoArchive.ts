@@ -47,6 +47,15 @@ export const FAKE_DEMOS: FakeDemo[] = [
     sidecar: true,
   },
   {
+    session: "recommended",
+    ext: "mp4",
+    group: "recommended",
+    title: "Recommended: seekable, streamable and small",
+    loadsInApp: true,
+    description: "The one file here that is a recommendation rather than a demonstration.",
+    sidecar: true,
+  },
+  {
     session: "nofaststart",
     ext: "mp4",
     group: "layout",
@@ -151,12 +160,14 @@ export async function mockDemoArchive(page: Page): Promise<void> {
     const demo = FAKE_DEMOS.find((d) => id === assetId(d.session, "video") || id === assetId(d.session, "sidecar"));
     if (!demo) return route.fulfill({ status: 404, headers: CORS, body: "no such asset" });
     if (id.endsWith("-sidecar")) return fulfillJson(route, sidecar(demo));
-    // No Accept-Ranges, so the app downloads the file whole rather than asking for byte ranges the
-    // route would have to serve itself.
+    // The real archive signs its storage URLs for GET alone, so a HEAD comes back 403 on a file
+    // that is public; refused here too, so the app's fallback is what these tests actually run.
     if (route.request().method() === "HEAD") {
-      await route.fulfill({ status: 200, headers: CORS, contentType: "video/mp4", body: "" });
+      await route.fulfill({ status: 403, headers: CORS, body: "" });
       return;
     }
+    // No Accept-Ranges and no 206, so the app keeps the whole body it is given rather than asking
+    // for byte ranges the route would have to serve itself.
     await route.fulfill({ status: 200, headers: CORS, contentType: "video/mp4", body: video });
   });
 }

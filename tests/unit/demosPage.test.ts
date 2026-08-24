@@ -24,6 +24,7 @@ const SET: DemoSet = {
   demos: [
     demo("original", "original", { title: "The original recording", ext: "m4v" }),
     demo("reference", "reference", { title: "Reference: H.264 High in MP4" }),
+    demo("recommended", "recommended", { title: "Recommended: seekable, streamable and small" }),
     demo("matroska", "container", { title: "Matroska container", loadsInApp: false, ext: "mkv" }),
     demo("gopshort", "gop", { title: "Short GOP" }),
     demo("goplong", "gop", { title: "Long GOP" }),
@@ -49,9 +50,9 @@ afterEach(() => {
 describe("renderDemoBrowser", () => {
   it("draws one tile per file, under a heading per group", () => {
     renderDemoBrowser(container, SET, OPTS);
-    expect(container.querySelectorAll(".demo-tile").length).toBe(5);
+    expect(container.querySelectorAll(".demo-tile").length).toBe(6);
     const headings = [...container.querySelectorAll(".demos-group h2")].map((h) => h.textContent);
-    expect(headings).toEqual(["Start here", "Containers", "GOP and keyframe structure"]);
+    expect(headings).toEqual(["Start here", "A recommended encode", "Containers", "GOP and keyframe structure"]);
   });
 
   it("puts the recording and the baseline encode on the same row, the recording first", () => {
@@ -108,11 +109,22 @@ describe("renderDemoBrowser", () => {
     expect(container.querySelector(".demo-card")).toBeNull();
   });
 
-  it("puts the card under the grid, not above it", () => {
+  it("moves the card to sit directly under the themed card whose tile was pressed", () => {
     renderDemoBrowser(container, SET, OPTS);
-    const children = [...container.children].map((c) => c.className);
-    expect(children[0]).toContain("demos-grid");
-    expect(children[1]).toContain("demo-card");
+    const card = container.querySelector(".demo-card") as HTMLElement;
+    const groupOf = (session: string): Element =>
+      (container.querySelector(`.demo-tile[data-session="${session}"]`) as HTMLElement).closest(".demos-group")!;
+
+    // It opens under the group holding the first tile.
+    expect(card.previousElementSibling).toBe(groupOf("original"));
+
+    container.querySelector<HTMLButtonElement>('.demo-tile[data-session="goplong"]')?.click();
+    expect(card.previousElementSibling).toBe(groupOf("goplong"));
+
+    container.querySelector<HTMLButtonElement>('.demo-tile[data-session="matroska"]')?.click();
+    expect(card.previousElementSibling).toBe(groupOf("matroska"));
+    // Still exactly one card, moved rather than duplicated.
+    expect(container.querySelectorAll(".demo-card").length).toBe(1);
   });
 
   it("hands the file the card is showing to onOpen", () => {

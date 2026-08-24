@@ -69,10 +69,14 @@ export const DEMO_GROUPS: readonly DemoGroup[] = [
       "The recording the whole set came from, and the baseline encode of it that every other file changes exactly one thing from.",
   },
   {
-    ids: ["layout"],
-    title: "Atom layout",
-    blurb: "Same stream, rearranged: where the moov atom sits, and whether the file is one mdat or a run of fragments.",
+    ids: ["recommended"],
+    title: "A recommended encode",
+    blurb:
+      "The one file in the set that is a recommendation rather than a demonstration: what this tool would suggest for video that has to seek well, stream from a URL, and not cost more storage than it has to.",
   },
+  // The themes from here down run in the order Inspect reads the file: the container and its tags,
+  // then the video track, then the atom map, then bitrate, then GOP structure. Opening a demo and
+  // scrolling Inspect then walks the same ground in the same sequence.
   {
     ids: ["container"],
     title: "Containers",
@@ -80,19 +84,14 @@ export const DEMO_GROUPS: readonly DemoGroup[] = [
       "The same H.264 stream in different boxes. The non-ISO ones are here to fail the MP4 parse on purpose: mp4box.js reads MP4 and MOV only.",
   },
   {
+    ids: ["metadata"],
+    title: "Metadata tags",
+    blurb: "The container's own tags, in full and stripped to nothing.",
+  },
+  {
     ids: ["codec"],
     title: "Codecs and profiles",
     blurb: "One codec or profile swapped in, from Constrained Baseline to AV1, with the decode support that follows.",
-  },
-  {
-    ids: ["gop"],
-    title: "GOP and keyframe structure",
-    blurb: "How often a keyframe lands and what sits between the anchors. This is the axis the seeking test measures.",
-  },
-  {
-    ids: ["bitrate"],
-    title: "Bitrate behaviour",
-    blurb: "What the encoder is told to spend, rather than how it spends it. Watch the bitrate-over-time plot flatten.",
   },
   {
     ids: ["track"],
@@ -100,9 +99,19 @@ export const DEMO_GROUPS: readonly DemoGroup[] = [
     blurb: "Things declared about the track rather than encoded into it: rotation, frame-rate regularity, resolution.",
   },
   {
-    ids: ["metadata"],
-    title: "Metadata tags",
-    blurb: "The container's own tags, in full and stripped to nothing.",
+    ids: ["layout"],
+    title: "Atom layout",
+    blurb: "Same stream, rearranged: where the moov atom sits, and whether the file is one mdat or a run of fragments.",
+  },
+  {
+    ids: ["bitrate"],
+    title: "Bitrate behaviour",
+    blurb: "What the encoder is told to spend, rather than how it spends it. Watch the bitrate-over-time plot flatten.",
+  },
+  {
+    ids: ["gop"],
+    title: "GOP and keyframe structure",
+    blurb: "How often a keyframe lands and what sits between the anchors. This is the axis the seeking test measures.",
   },
 ];
 /** A session's line in dataset_description.json's own index. */

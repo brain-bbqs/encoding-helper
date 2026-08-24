@@ -1,10 +1,11 @@
 // The demos page: an alternative to the drop zone, at ?demos, listing the published demo set.
 //
 // The set (see lib/demoArchive.ts) is a couple of dozen files that each vary exactly one thing, so
-// the page is laid out as a map of the set rather than a list of it: one card holding a grid of
-// tiles, grouped by the thing being varied, and a second card under it showing whichever tile is
-// pressed. The whole set is then visible at once, and comparing two files — a short GOP against a
-// long one, say, which is what the set is built around — is a click rather than a scroll.
+// the page is laid out as a map of the set rather than a list of it: a card per theme holding that
+// theme's tiles, and one detail card that moves to sit directly under whichever theme was pressed.
+// The whole set is then visible at once, comparing two files — a short GOP against a long one, say,
+// which is what the set is built around — is a click rather than a scroll, and what the click did
+// is always next to the tile that did it rather than at the far end of the page.
 //
 // It replaces the drop zone rather than sitting beside it, which is what makes it a page and not a
 // panel: while it is up, the file picker, the URL box and any loaded file's tabs are all out of the
@@ -65,11 +66,12 @@ function metaFor(demo: DemoFile, withBadge: boolean): HTMLSpanElement {
  */
 export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: DemoBrowserOptions): void {
   const shown = set.demos.filter((d) => matchesFilter(d, opts.search));
-  // The grid is what the page is; the card under it is what the grid was pressed for, so it reads
-  // as the answer to the tile above rather than as a header the grid explains.
-  const grid = h("div", "section demos-grid");
+  const grid = h("div", "demos-grid");
+  // One card, moved under the theme whose tile was pressed rather than parked at either end of the
+  // page: with a themed card per group the grid is tall, and a detail panel the reader has to go
+  // looking for is a detail panel they do not see change.
   const card = h("div", "section demo-card");
-  container.replaceChildren(grid, card);
+  container.replaceChildren(grid);
 
   // Descriptions normally ride in the set's index. Only a dataset generated before that carried
   // them leaves one to fetch, and then only for the file actually being looked at — kept here so
@@ -77,8 +79,12 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
   const fetched = new Map<string, string>();
   const tiles: HTMLButtonElement[] = [];
 
+  /** The themed card each session's tile sits in, so the detail card can follow the selection. */
+  const groupOfSession = new Map<string, HTMLElement>();
+
   const show = (demo: DemoFile): void => {
     for (const tile of tiles) tile.setAttribute("aria-pressed", String(tile.dataset.session === demo.session));
+    groupOfSession.get(demo.session)?.after(card);
     card.dataset.session = demo.session;
     const head = h("div", "demo-head");
     head.append(h("h3", "demo-title", demo.title), metaFor(demo, true));
@@ -110,24 +116,26 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
   };
 
   if (shown.length === 0) {
-    grid.replaceChildren(h("p", "demos-empty", "No demo file matches that filter."));
+    grid.replaceChildren(h("p", "section demos-empty", "No demo file matches that filter."));
     card.remove();
     return;
   }
 
   let current: string | null = null;
   let row = h("div", "demo-tiles");
+  let group = h("section", "section demos-group");
   for (const demo of shown) {
     const heading = headingOf(demo.group);
     if (heading.title !== current) {
       current = heading.title;
-      const group = h("div", "demos-group");
+      group = h("section", "section demos-group");
       group.append(h("h2", null, heading.title));
       if (heading.blurb) group.append(h("p", "demos-group-blurb", heading.blurb));
       row = h("div", "demo-tiles");
       group.append(row);
       grid.append(group);
     }
+    groupOfSession.set(demo.session, group);
     const tile = h("button", "demo-tile");
     tile.type = "button";
     tile.dataset.session = demo.session;
@@ -144,8 +152,8 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     row.append(tile);
   }
 
-  // The card always has something in it, so the page never opens on an empty frame under the grid.
-  // The first tile is the source recording, which is where the set starts.
+  // The card always has something in it, so the page never opens with nothing selected. The first
+  // tile is the source recording, which is where the set starts.
   show(shown[0]);
 }
 

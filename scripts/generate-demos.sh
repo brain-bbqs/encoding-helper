@@ -258,6 +258,29 @@ demo reference yes reference mp4 \
   "The baseline of the demo set: H.264 High profile, CRF 23, 3-second GOP, AAC audio, moov before mdat. Every other demo file changes one thing from this." \
   -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k $FS
 
+# --- A recommended encode ----------------------------------------------------
+# The one file in the set that is a recommendation rather than a demonstration:
+# what this tool would suggest for archiving behaviour video that has to seek
+# well, stream from a URL, and not cost more storage than it has to.
+#
+#   -preset slow    spends encode time instead of bits: perhaps a fifth smaller
+#                   than veryfast at the same CRF, paid once at write time.
+#   High profile    CABAC and B-frames, both of which the compatibility-first
+#                   Baseline profile gives up; every browser still decodes it.
+#   keyint 30       a keyframe every second (the set assumes ~30 fps, as the
+#                   reference's 3-second -g 90 does), so a seek lands within
+#                   half a second of anywhere. This is the one setting here that
+#                   costs size rather than saving it, and it is worth it.
+#   scenecut on     extra keyframes at cuts, which only helps seeking further.
+#   +faststart      moov before mdat, so a player can start on the first bytes
+#                   instead of waiting for the whole file to arrive.
+
+demo recommended yes recommended mp4 \
+  "Recommended: seekable, streamable and small" \
+  "The one file here that is a recommendation rather than a demonstration: H.264 High so every browser decodes it, a slow preset that spends encode time instead of bits, a keyframe every second so seeking lands close to anywhere, and faststart so a player can begin before the whole file has arrived. The one-second keyframes cost some size; everything else buys it back." \
+  -- -i "$SRC" $STRIP -c:v libx264 -preset slow -crf 23 -profile:v high -pix_fmt yuv420p \
+  -x264-params keyint=30:min-keyint=30 -c:a aac -b:a 128k $FS
+
 # --- Atom layout -------------------------------------------------------------
 
 demo layout yes nofaststart mp4 \

@@ -2191,10 +2191,11 @@ table.data.matrix-table th.matrix-row-head {
   color: var(--muted);
   font-size: 13px;
 }
-/* The one card, under the grid: whichever tile is pressed, shown in full. Both it and the grid
-   above it take the page's ordinary card shape from .section. */
-.demos-grid > .demos-group + .demos-group {
-  margin-top: 18px;
+/* The one detail card, which moves to sit directly under the themed card whose tile was pressed —
+   so it is always beside the thing that opened it. It and the themed cards both take the page's
+   ordinary card shape from .section. */
+.demo-card {
+  border-color: var(--accent);
 }
 .demo-head {
   display: flex;

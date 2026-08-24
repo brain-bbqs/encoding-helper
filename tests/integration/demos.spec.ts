@@ -30,23 +30,38 @@ test.describe("Demo files page", () => {
 
   test("lays the whole set out as one grid, grouped by what the files vary", async ({ page }) => {
     await gotoDemos(page);
+    // The themes run in the order Inspect reads the file: container, then track, then atom layout,
+    // then bitrate, then GOP structure.
     await expect(page.locator(".demos-group h2")).toHaveText([
       "Start here",
-      "Atom layout",
+      "A recommended encode",
       "Containers",
+      "Atom layout",
       "GOP and keyframe structure",
     ]);
-    await expect(page.locator(".demo-tile")).toHaveCount(5);
+    await expect(page.locator(".demo-tile")).toHaveCount(6);
     // The recording and the baseline encode share the leading row, the recording first.
     await expect(page.locator(".demos-group").first().locator(".demo-tile-name")).toHaveText([
       "The original recording, unmodified",
       "Reference: H.264 High in MP4, faststart",
     ]);
-    // One card, not one per file, and it sits under the grid rather than above it.
+    // One detail card, not one per file, and it sits under the theme it was opened from.
     await expect(page.locator(".demo-card")).toHaveCount(1);
-    const gridBox = (await page.locator(".demos-grid").boundingBox())!;
+    const startHere = (await page.locator(".demos-group").first().boundingBox())!;
     const cardBox = (await page.locator(".demo-card").boundingBox())!;
-    expect(cardBox.y).toBeGreaterThan(gridBox.y + gridBox.height - 1);
+    expect(cardBox.y).toBeGreaterThan(startHere.y + startHere.height - 1);
+  });
+
+  test("moves the card to the theme whose tile was pressed", async ({ page }) => {
+    await gotoDemos(page);
+    const card = page.locator(".demo-card");
+    await page.locator('.demo-tile[data-session="goplong"]').click();
+    const gopGroup = page.locator(".demos-group").filter({ hasText: "GOP and keyframe structure" });
+    const groupBox = (await gopGroup.boundingBox())!;
+    const cardBox = (await card.boundingBox())!;
+    // Directly under it: below its bottom edge, and above where the next theme would have started.
+    expect(cardBox.y).toBeGreaterThan(groupBox.y + groupBox.height - 1);
+    expect(cardBox.y - (groupBox.y + groupBox.height)).toBeLessThan(40);
   });
 
   test("fills the card from whichever tile is pressed", async ({ page }) => {

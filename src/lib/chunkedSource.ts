@@ -33,18 +33,40 @@ export class ChunkedSource {
     s.url = url;
     const fromPath = url.split("?")[0].split("/").filter(Boolean).pop();
     s.name = name || (fromPath && fromPath !== "download" ? fromPath : "video");
-    const head = await fetch(url, { method: "HEAD" });
-    if (!head.ok) throw new Error(`Failed to fetch URL: ${head.status} ${head.statusText}`);
-    s.size = parseInt(head.headers.get("Content-Length") || "", 10) || 0;
-    s.supportsRange = head.headers.get("Accept-Ranges") === "bytes" && s.size > 0;
-    if (!s.supportsRange) {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`Failed to fetch URL: ${resp.status} ${resp.statusText}`);
-      const blob = await resp.blob();
-      s.kind = "file";
-      s.file = new File([blob], s.name, { type: blob.type || "video/mp4" });
-      s.size = blob.size;
+
+    // How big is it, and can it be read in pieces? A HEAD is the polite way to ask, but not a
+    // reliable one: an archive that hands out pre-signed storage URLs signs them for GET alone, so
+    // HEAD comes back 403 on a file that is perfectly public (EMBER's DANDI download endpoint does
+    // exactly this). A failed HEAD therefore means "no answer", not "no file".
+    try {
+      const head = await fetch(url, { method: "HEAD" });
+      if (head.ok) {
+        s.size = parseInt(head.headers.get("Content-Length") || "", 10) || 0;
+        s.supportsRange = head.headers.get("Accept-Ranges") === "bytes" && s.size > 0;
+      }
+    } catch {
+      // A network or CORS failure on the HEAD is one more way of not answering; the GET below is
+      // what decides whether the file can be read at all.
     }
+    if (s.supportsRange) return s;
+
+    // Ask again with the method the signature covers. One byte is enough: a 206 both proves ranges
+    // work and carries the full length in Content-Range, which is more than Accept-Ranges promised.
+    const probe = await fetch(url, { headers: { Range: "bytes=0-0" } });
+    if (!probe.ok) throw new Error(`Failed to fetch URL: ${probe.status} ${probe.statusText}`);
+    const total = /\/\s*(\d+)\s*$/.exec(probe.headers.get("Content-Range") ?? "")?.[1];
+    if (probe.status === 206 && total) {
+      s.size = parseInt(total, 10);
+      s.supportsRange = s.size > 0;
+      if (s.supportsRange) return s;
+    }
+
+    // The server ignored the range and sent the whole file, so keep what already arrived rather
+    // than asking for it a second time.
+    const blob = await probe.blob();
+    s.kind = "file";
+    s.file = new File([blob], s.name, { type: blob.type || "video/mp4" });
+    s.size = blob.size;
     return s;
   }
 
