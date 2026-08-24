@@ -49,70 +49,31 @@ export interface DemoSet {
 /**
  * The headings the page sorts the demo files under, in the order it shows them.
  *
- * A heading can cover more than one of the generator's group names: the source recording and the
- * baseline encode are one thing to a reader — where the set starts — so they share a row, the
- * recording first and the encode made from it second. Anything the generator grows later still
- * appears, at the end, under its own raw name.
+ * A heading names its theme and nothing more: what a file is is the file's own business, and the
+ * card that opens on a tile says it. A heading can cover more than one of the generator's group
+ * names: the source recording and the baseline encode are one thing to a reader — where the set
+ * starts — so they share a row, the recording first and the encode made from it second. Anything
+ * the generator grows later still appears, at the end, under its own raw name.
  */
 export interface DemoGroup {
   /** The generator's group names this heading covers, in the order their files should appear. */
   ids: readonly string[];
   title: string;
-  blurb: string;
 }
 
 export const DEMO_GROUPS: readonly DemoGroup[] = [
-  {
-    ids: ["original", "reference"],
-    title: "Start here",
-    blurb:
-      "The recording the whole set came from, and the baseline encode of it that every other file changes exactly one thing from.",
-  },
-  {
-    ids: ["recommended"],
-    title: "A recommended encode",
-    blurb:
-      "The one file in the set that is a recommendation rather than a demonstration: what this tool would suggest for video that has to seek well, stream from a URL, and not cost more storage than it has to.",
-  },
+  { ids: ["original", "reference"], title: "Start here" },
+  { ids: ["recommended"], title: "A recommended encode" },
   // The themes from here down run in the order Inspect reads the file: the container and its tags,
   // then the video track, then the atom map, then bitrate, then GOP structure. Opening a demo and
   // scrolling Inspect then walks the same ground in the same sequence.
-  {
-    ids: ["container"],
-    title: "Containers",
-    blurb:
-      "The same H.264 stream in different boxes. The non-ISO ones are here to fail the MP4 parse on purpose: mp4box.js reads MP4 and MOV only.",
-  },
-  {
-    ids: ["metadata"],
-    title: "Metadata tags",
-    blurb: "The container's own tags, in full and stripped to nothing.",
-  },
-  {
-    ids: ["codec"],
-    title: "Codecs and profiles",
-    blurb: "One codec or profile swapped in, from Constrained Baseline to AV1, with the decode support that follows.",
-  },
-  {
-    ids: ["track"],
-    title: "Track properties",
-    blurb: "Things declared about the track rather than encoded into it: rotation, frame-rate regularity, resolution.",
-  },
-  {
-    ids: ["layout"],
-    title: "Atom layout",
-    blurb: "Same stream, rearranged: where the moov atom sits, and whether the file is one mdat or a run of fragments.",
-  },
-  {
-    ids: ["bitrate"],
-    title: "Bitrate behaviour",
-    blurb: "What the encoder is told to spend, rather than how it spends it. Watch the bitrate-over-time plot flatten.",
-  },
-  {
-    ids: ["gop"],
-    title: "GOP and keyframe structure",
-    blurb: "How often a keyframe lands and what sits between the anchors. This is the axis the seeking test measures.",
-  },
+  { ids: ["container"], title: "Containers" },
+  { ids: ["metadata"], title: "Metadata tags" },
+  { ids: ["codec"], title: "Codecs and profiles" },
+  { ids: ["track"], title: "Track properties" },
+  { ids: ["layout"], title: "Atom layout" },
+  { ids: ["bitrate"], title: "Bitrate behaviour" },
+  { ids: ["gop"], title: "GOP and keyframe structure" },
 ];
 /** A session's line in dataset_description.json's own index. */
 interface SessionEntry {

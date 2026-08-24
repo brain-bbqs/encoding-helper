@@ -50,20 +50,15 @@ export class ChunkedSource {
     }
     if (s.supportsRange) return s;
 
-    // Ask again with the method the signature covers. One byte is enough: a 206 both proves ranges
-    // work and carries the full length in Content-Range, which is more than Accept-Ranges promised.
-    const probe = await fetch(url, { headers: { Range: "bytes=0-0" } });
-    if (!probe.ok) throw new Error(`Failed to fetch URL: ${probe.status} ${probe.statusText}`);
-    const total = /\/\s*(\d+)\s*$/.exec(probe.headers.get("Content-Range") ?? "")?.[1];
-    if (probe.status === 206 && total) {
-      s.size = parseInt(total, 10);
-      s.supportsRange = s.size > 0;
-      if (s.supportsRange) return s;
-    }
-
-    // The server ignored the range and sent the whole file, so keep what already arrived rather
-    // than asking for it a second time.
-    const blob = await probe.blob();
+    // No answer, or an answer that did not promise ranges: fetch the whole thing. Ranges are only
+    // taken on a server that advertised them, never on a guess — a single byte range succeeding
+    // says nothing about the parser's real reads, which go back through the archive's redirect to a
+    // freshly signed URL every time, and mediabunny reads a URL source over ranges of its own that
+    // this class never sees. A file that half-loads over ranges reaches the parser as rubble, which
+    // is a far worse failure than downloading a few megabytes.
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Failed to fetch URL: ${resp.status} ${resp.statusText}`);
+    const blob = await resp.blob();
     s.kind = "file";
     s.file = new File([blob], s.name, { type: blob.type || "video/mp4" });
     s.size = blob.size;
@@ -75,6 +70,9 @@ export class ChunkedSource {
     if (end <= offset) return new ArrayBuffer(0);
     if (this.kind === "url" && this.url) {
       const resp = await fetch(this.url, { headers: { Range: `bytes=${offset}-${end - 1}` } });
+      // Unchecked, a refused range hands the parser an error page to read as video, which it
+      // reports as a file whose moov box is missing rather than as the fetch that failed.
+      if (!resp.ok) throw new Error(`Failed to read bytes ${offset}-${end - 1}: ${resp.status} ${resp.statusText}`);
       return await resp.arrayBuffer();
     }
     if (!this.file) return new ArrayBuffer(0);

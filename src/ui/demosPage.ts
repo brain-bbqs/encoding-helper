@@ -1,8 +1,9 @@
 // The demos page: an alternative to the drop zone, at ?demos, listing the published demo set.
 //
-// A themed card's blurb and a file's own description are both prose, so the card carries a notch on
-// its top edge lined up with the tile that opened it: what the description is about is then the
-// thing the notch points at, not the theme the card happens to sit under.
+// The themed cards carry a heading and their tiles, nothing else: the only prose on the page is the
+// description of one file, in the card that opens on a tile, and that card carries a notch on its
+// top edge lined up with the tile it came from, so what the description is about is the thing the
+// notch points at.
 //
 // The set (see lib/demoArchive.ts) is a couple of dozen files that each vary exactly one thing, so
 // the page is laid out as a map of the set rather than a list of it: a card per theme holding that
@@ -54,8 +55,16 @@ function bindNotchListener(): void {
   window.addEventListener("resize", () => aimNotch?.());
 }
 
-function headingOf(groupId: string): { title: string; blurb: string } {
-  return DEMO_GROUPS.find((g) => g.ids.includes(groupId)) ?? { title: groupId, blurb: "" };
+/**
+ * The heading a group's files appear under, and the key that colours it.
+ *
+ * The key is the heading's first group name, which is stable and unique across the table, so the
+ * stylesheet can give every theme a hue of its own without the two lists having to agree on
+ * anything but that name. A group no heading covers falls back to its own name for both.
+ */
+function headingOf(groupId: string): { title: string; key: string } {
+  const heading = DEMO_GROUPS.find((g) => g.ids.includes(groupId));
+  return heading ? { title: heading.title, key: heading.ids[0] } : { title: groupId, key: groupId };
 }
 
 function matchesFilter(demo: DemoFile, search: string): boolean {
@@ -119,8 +128,12 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
 
   const show = (demo: DemoFile): void => {
     for (const tile of tiles) tile.setAttribute("aria-pressed", String(tile.dataset.session === demo.session));
-    groupOfSession.get(demo.session)?.after(card);
+    const group = groupOfSession.get(demo.session);
+    group?.after(card);
     card.dataset.session = demo.session;
+    // The card takes the colour of the theme it has moved under, so it reads as part of that block
+    // rather than as a panel that happens to be parked there.
+    card.dataset.hue = group?.dataset.hue ?? "";
     const pressed = tiles.find((t) => t.dataset.session === demo.session);
     if (pressed) {
       aimAt(pressed);
@@ -170,13 +183,17 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     if (heading.title !== current) {
       current = heading.title;
       group = h("section", "section demos-group");
+      group.dataset.hue = heading.key;
       group.append(h("h2", null, heading.title));
-      if (heading.blurb) group.append(h("p", "demos-group-blurb", heading.blurb));
       row = h("div", "demo-tiles");
       group.append(row);
       grid.append(group);
     }
     groupOfSession.set(demo.session, group);
+    // What the theme asks for on its row: room for its own files, side by side. Flexbox then
+    // shrinks the greedy ones until the row fits, wrapping their tiles rather than pushing a small
+    // theme onto a line of its own — which is what packs the set into a screen rather than a scroll.
+    group.style.setProperty("--tiles", String(row.childElementCount + 1));
     const tile = h("button", "demo-tile");
     tile.type = "button";
     tile.dataset.session = demo.session;
