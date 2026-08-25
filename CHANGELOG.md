@@ -16,10 +16,6 @@
 - A remote video whose host refuses `HEAD` — as EMBER's download endpoint does, signing its storage URLs for `GET` alone — is downloaded whole instead of failing with its status ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
 - A refused byte-range read is now reported as the failed fetch it is, rather than reaching the parser as a file whose moov box is missing ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
 
-#### 🏠 Internal
-
-- Dropped the bundled `mice.mp4` sample; `scripts/purge-sample-blob.sh` takes it out of the git history too, and the browser tests now generate their own video with ffmpeg ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
-
 ## 0.8.0
 
 #### 🚀 Enhancement
