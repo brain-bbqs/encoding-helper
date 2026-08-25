@@ -2177,19 +2177,24 @@ table.data.matrix-table th.matrix-row-head {
 }
 
 /* Themed cards pack rather than stack: a theme with one file is as wide as one file needs, so the
-   themes tile across the row instead of each taking a line of its own. */
+   themes tile across the row instead of each taking a line of its own. Cards on a row share a
+   height, so a theme whose titles wrap onto a second line doesn't stand taller than its neighbours. */
 .demos-grid {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
   gap: 10px;
 }
 .demos-group {
   /* --tiles is set per card by ui/demosPage.ts: how many files the theme holds, and so how much
-     room it asks for. Shrinkable, so a row of themes fits by wrapping the busiest one's tiles
-     rather than by dropping a quiet theme onto a line of its own. */
-  flex: 1 1 calc(var(--tiles, 1) * 158px);
+     room it asks for — its tiles side by side (152px each, 6px apart) plus the card's own padding
+     and border. It does not grow past that, so a card is the width of its files rather than of
+     whatever share of the row was going spare. Shrinkable, so a row of themes fits by wrapping the
+     busiest one's tiles rather than by dropping a quiet theme onto a line of its own. */
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 calc(var(--tiles, 1) * 158px + 24px);
   min-width: 176px;
+  max-width: 100%;
   margin-bottom: 0;
   padding: 12px 14px;
   border-top: 3px solid hsl(var(--theme-h) var(--theme-s) var(--theme-l));
@@ -2339,9 +2344,9 @@ table.data.matrix-table th.matrix-row-head {
 /* What this one file demonstrates — the only prose on the page, so it is set in the page's own ink
    at full size rather than as another caption among the headings. */
 /* The description and the buttons, side by side: the card is as wide as the grid above it, so a
-   text column alone would leave most of the box empty. The measure is still capped — a sentence
-   running the full width of a wide monitor is no easier to read for filling the space — but the
-   buttons hold the far edge, so what is between them reads as a laid-out row rather than a gap. */
+   text column alone would leave most of the box empty. The sentence takes everything up to the
+   buttons holding the far edge, so it wraps where the card ends rather than mid-thought against
+   blank space. */
 .demo-body {
   display: flex;
   align-items: flex-end;
@@ -2351,7 +2356,6 @@ table.data.matrix-table th.matrix-row-head {
 }
 .demo-desc {
   flex: 1 1 32ch;
-  max-width: 96ch;
   margin: 0;
   color: var(--text);
   font-size: 15px;
@@ -2371,9 +2375,11 @@ table.data.matrix-table th.matrix-row-head {
 }
 
 /* The grid: the whole set at once, so which files exist is visible without scrolling and moving
-   between two of them is a click. */
+   between two of them is a click. Takes whatever height its card was stretched to, so the tiles of
+   a short theme meet the bottom of the taller card beside it rather than leaving a bare strip. */
 .demo-tiles {
   display: flex;
+  flex: 1;
   flex-wrap: wrap;
   gap: 6px;
 }
