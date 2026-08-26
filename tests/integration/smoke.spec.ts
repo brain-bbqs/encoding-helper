@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { FIXTURE_SECONDS } from "../fixtures/demoVideo";
+import { loadDemo, REFERENCE_FILE_NAME } from "./demoArchive";
 
 test.describe("Encoding Helper shell", () => {
   test("renders the drop zone and hides the tabbed app until a file is loaded", async ({ page }) => {
@@ -8,9 +10,8 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator("#app")).toBeHidden();
   });
 
-  test("loading the sample video reveals the tabbed app", async ({ page }) => {
-    await page.goto("/");
-    await page.locator("#loadSampleBtn").click();
+  test("loading a demo file reveals the tabbed app", async ({ page }) => {
+    await loadDemo(page);
     await expect(page.locator("#app")).toBeVisible();
     await expect(page.locator(".tab.on")).toContainText("Inspect");
     await expect(page.locator("#panel-inspect")).not.toBeEmpty();
@@ -60,17 +61,16 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator(".talmo-brand-logo.on-light")).toBeHidden();
   });
 
-  test("plots the sample video's bitrate over time, one step per window", async ({ page }) => {
-    await page.goto("/");
-    await page.locator("#loadSampleBtn").click();
+  test("plots the loaded file's bitrate over time, one step per window", async ({ page }) => {
+    await loadDemo(page);
     const card = page
       .locator("#panel-inspect .section")
       .filter({ has: page.locator('h2:text-is("Video Bitrate Over Time")') });
     await expect(card.locator("svg.bitrate-chart")).toBeVisible();
-    // 30 s of video, so ~one window per second, each with its own hover band.
-    await expect(card.locator("svg.bitrate-chart .bin")).toHaveCount(30);
+    // ~One window per second of video, each with its own hover band.
+    await expect(card.locator("svg.bitrate-chart .bin")).toHaveCount(FIXTURE_SECONDS);
 
-    // The sample is a CRF encode, so its peak window sits above its average rather than on it.
+    // The demo is a CRF encode, so its peak window sits above its average rather than on it.
     const peak = await card.locator(".item", { hasText: "Peak Window" }).locator(".val").textContent();
     const average = await card.locator(".item", { hasText: "Average" }).first().locator(".val").textContent();
     expect(peak).not.toBe(average);
@@ -85,8 +85,7 @@ test.describe("Encoding Helper shell", () => {
   test("draws every box in the file, in the tab and in the document, none summarised away", async ({ page }) => {
     // ?tab=atoms is the map's old address, from when it was a tab of its own; it lands on Inspect,
     // where the map is now a section.
-    await page.goto("/?tab=atoms");
-    await page.locator("#loadSampleBtn").click();
+    await loadDemo(page, "reference", "&tab=atoms");
     await expect(page).toHaveURL(/tab=inspect/);
     const panel = page.locator("#panel-inspect");
     await expect(panel.locator(".atom-map")).toBeVisible();
@@ -112,8 +111,7 @@ test.describe("Encoding Helper shell", () => {
   });
 
   test("bundles the whole analysis into one document behind the Full Analysis button", async ({ page }) => {
-    await page.goto("/");
-    await page.locator("#loadSampleBtn").click();
+    await loadDemo(page);
 
     // The button is not one of the tabs, and sits against the right edge of the content column.
     // The bar is inside #app, which is display:none until a file loads, and an unrendered element
@@ -134,7 +132,7 @@ test.describe("Encoding Helper shell", () => {
     await expect(page).toHaveURL(/tab=analysis/);
 
     const doc = page.frameLocator("#analysisDoc");
-    await expect(doc.locator(".doc-head h1")).toHaveText("mice.mp4");
+    await expect(doc.locator(".doc-head h1")).toHaveText(REFERENCE_FILE_NAME);
     // One document, gathering what the separate tabs each know a piece of.
     for (const title of [
       "Video Container Overview",
@@ -158,8 +156,7 @@ test.describe("Encoding Helper shell", () => {
 
   test("adds the seeking test to the document once it has been run", async ({ page }) => {
     // The seeking test is the last section of Inspect; its old tab name still points at it.
-    await page.goto("/?tab=seek");
-    await page.locator("#loadSampleBtn").click();
+    await loadDemo(page, "reference", "&tab=seek");
     await page.locator("#seekN").fill("5");
     await page.locator("#runSeekBtn").click();
 
@@ -180,8 +177,7 @@ test.describe("Encoding Helper shell", () => {
   });
 
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {
-    await page.goto("/");
-    await page.locator("#loadSampleBtn").click();
+    await loadDemo(page);
     const panel = page.locator("#panel-inspect");
     await expect(panel.locator(".atom-map")).toBeVisible();
     await expect(panel.locator(".crumb")).toHaveText(["Whole file"]);

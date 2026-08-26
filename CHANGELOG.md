@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0
+
+#### 🚀 Enhancement
+
+- **Browse Demo Files** replaces **Load Sample** with a page of its own (`?demos`), listing the demo set published on EMBER dandiset 000527, grouped by what each file varies ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+- The set is laid out as a card of tiles per theme, each in its own colour and packed to the width its files need, ordered outermost-in from the container to the structure inside the stream ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+- Pressing a tile opens one detail card under that theme, in the theme's colour and pointing a notch at the tile it describes, carrying the only prose on the page ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+- The demo set carries a recommended encode alongside the demonstrations: H.264 High, a slow preset, a keyframe every second and faststart, for video that has to seek well and stream ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+
+#### 🐛 Bug Fix
+
+- A refused byte-range read is now reported as the failed fetch it is, rather than reaching the parser as a file whose moov box is missing ([#28](https://github.com/brain-bbqs/encoding-helper/pull/28))
+
 ## 0.8.0
 
 #### 🚀 Enhancement

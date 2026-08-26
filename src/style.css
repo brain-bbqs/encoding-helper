@@ -2154,3 +2154,293 @@ table.data.matrix-table th.matrix-row-head {
   background: #fff;
   box-shadow: 0 6px 20px var(--shadow);
 }
+
+/* The demos page (?demos): the drop zone's alternative rather than a panel beside it, so it owns
+   the whole content column while it is up. One card per group of demo files, and inside it one fold
+   per file — the same recessed-bar-and-caret treatment the sweep settings and the output console
+   use, so a shut row reads as something that opens. */
+/* The demos page is a map of a couple of dozen files, so it takes more width than the 980px column
+   the rest of the app reads in — but not all of it: above 1420px the corner watermarks are fixed in
+   the margins (see the media query at the end of this file), and 220px a side is what they need to
+   keep framing the page rather than sitting on top of it. Below that threshold they drop into
+   normal flow and the page can have everything but its own padding. */
+.demos-page {
+  --demos-w: min(1500px, calc(100vw - 440px));
+  width: max(100%, var(--demos-w));
+  margin-left: min(0px, calc((100% - var(--demos-w)) / 2));
+  margin-bottom: 16px;
+}
+@media (max-width: 1420px) {
+  .demos-page {
+    --demos-w: calc(100vw - 40px);
+  }
+}
+
+/* Themed cards pack rather than stack: a theme with one file is as wide as one file needs, so the
+   themes tile across the row instead of each taking a line of its own. Cards on a row share a
+   height, so a theme whose titles wrap onto a second line doesn't stand taller than its neighbours. */
+.demos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.demos-group {
+  /* --tiles is set per card by ui/demosPage.ts: how many files the theme holds, and so how much
+     room it asks for — its tiles side by side (152px each, 6px apart) plus the card's own padding
+     and border. It does not grow past that, so a card is the width of its files rather than of
+     whatever share of the row was going spare. Shrinkable, so a row of themes fits by wrapping the
+     busiest one's tiles rather than by dropping a quiet theme onto a line of its own. */
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 calc(var(--tiles, 1) * 158px + 24px);
+  min-width: 176px;
+  max-width: 100%;
+  margin-bottom: 0;
+  padding: 12px 14px;
+  border-top: 3px solid hsl(var(--theme-h) var(--theme-s) var(--theme-l));
+}
+.demos-group h2 {
+  margin-bottom: 9px;
+  color: hsl(var(--theme-h) var(--theme-s) var(--theme-l));
+}
+
+/* One hue per theme, keyed off the heading's first group name. Only the hue changes: saturation and
+   lightness are set once here and re-set once for the dark palette, so every theme stays at the
+   same weight against the card behind it rather than nine colours each drifting on their own. */
+.demos-group,
+.demo-card {
+  --theme-h: 245;
+  --theme-s: 62%;
+  --theme-l: 46%;
+}
+[data-hue="original"] {
+  --theme-h: 245;
+}
+[data-hue="recommended"] {
+  --theme-h: 152;
+}
+[data-hue="container"] {
+  --theme-h: 22;
+}
+[data-hue="metadata"] {
+  --theme-h: 322;
+}
+[data-hue="codec"] {
+  --theme-h: 192;
+}
+[data-hue="track"] {
+  --theme-h: 272;
+}
+[data-hue="layout"] {
+  --theme-h: 210;
+}
+[data-hue="bitrate"] {
+  --theme-h: 42;
+}
+[data-hue="gop"] {
+  --theme-h: 355;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .demos-group,
+  :root:not([data-theme="light"]) .demo-card {
+    --theme-s: 70%;
+    --theme-l: 70%;
+  }
+}
+:root[data-theme="dark"] .demos-group,
+:root[data-theme="dark"] .demo-card {
+  --theme-s: 70%;
+  --theme-l: 70%;
+}
+.demos-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+/* The page heading, not the site's: left-aligned against the back button opposite it, rather than
+   centred the way the page-level h1 above the tabs is. */
+.demos-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 22px;
+  text-align: left;
+}
+.demos-back {
+  flex-shrink: 0;
+}
+.demos-search {
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+/* The one detail card, which moves to sit directly under the themed card whose tile was pressed —
+   so it is always beside the thing that opened it. It and the themed cards both take the page's
+   ordinary card shape from .section. */
+.demo-card {
+  position: relative;
+  flex: 1 1 100%;
+  margin-bottom: 0;
+  padding: 14px 16px;
+  border-color: hsl(var(--theme-h) var(--theme-s) var(--theme-l));
+}
+/* A notch on the top edge, aimed by ui/demosPage.ts at the tile that opened the card. The themed
+   card above carries prose of its own, so without it the description below reads as more of the
+   same; with it, what the description is about is the thing the point touches. Two triangles: the
+   outer one is the card's border, the inner one covers its middle with the card's own fill. */
+.demo-card::before,
+.demo-card::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: var(--notch-x, 50%);
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border: 9px solid transparent;
+  border-bottom-color: hsl(var(--theme-h) var(--theme-s) var(--theme-l));
+}
+.demo-card::after {
+  margin-bottom: -1px;
+  border-width: 8px;
+  border-bottom-color: var(--card);
+}
+.demo-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.demo-title {
+  margin: 0;
+  font-size: 17px;
+}
+.demo-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.demo-ext {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-family: Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+.demo-size {
+  color: var(--faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.demo-badge {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+/* What this one file demonstrates — the only prose on the page, so it is set in the page's own ink
+   at full size rather than as another caption among the headings. */
+/* The description and the buttons, side by side: the card is as wide as the grid above it, so a
+   text column alone would leave most of the box empty. The sentence takes everything up to the
+   buttons holding the far edge, so it wraps where the card ends rather than mid-thought against
+   blank space. */
+.demo-body {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.demo-desc {
+  flex: 1 1 32ch;
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.demo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.demo-download {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* The grid: the whole set at once, so which files exist is visible without scrolling and moving
+   between two of them is a click. Takes whatever height its card was stretched to, so the tiles of
+   a short theme meet the bottom of the taller card beside it rather than leaving a bare strip. */
+.demo-tiles {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.demo-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px;
+  width: 152px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.demo-tile:hover {
+  border-color: hsl(var(--theme-h) var(--theme-s) var(--theme-l));
+}
+.demo-tile:focus-visible {
+  outline: 2px solid hsl(var(--theme-h) var(--theme-s) var(--theme-l));
+  outline-offset: 1px;
+}
+.demo-tile[aria-pressed="true"] {
+  border-color: hsl(var(--theme-h) var(--theme-s) var(--theme-l));
+  background: hsl(var(--theme-h) var(--theme-s) var(--theme-l) / 0.14);
+}
+.demo-tile-name {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.3;
+}
+/* A tile is too small for the card's badge, so the same warning is a dot in the corner. */
+.demo-tile .demo-meta {
+  margin-left: 0;
+  font-size: 11px;
+}
+.demo-tile-mark {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.demos-loading,
+.demos-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.demos-error-why {
+  color: var(--err);
+}
+.demos-error-hint {
+  color: var(--muted);
+  font-size: 13px;
+}

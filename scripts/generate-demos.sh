@@ -26,8 +26,9 @@
 # codec, RFC 6381 codec string where one can be determined) and the
 # Description of what the file demonstrates. The per-session demo detail — the
 # group, whether the app can currently load it (mp4box.js parses MP4/MOV
-# only), and the ffmpeg arguments that made it — lives in
-# dataset_description.json, namespaced under an "encoding-helper" key.
+# only), that same Description, and the ffmpeg arguments that made it — lives
+# in dataset_description.json, namespaced under an "encoding-helper" key, so
+# one fetch of that file says what every demo in the set is.
 #
 # Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir]
 #   -s  source video (default: scripts/data/Video_S1.m4v, fetched from the
@@ -125,14 +126,18 @@ json_escape() {
   printf '%s' "$s"
 }
 
-# One session's line in dataset_description.json's own index. `args` is the
-# ffmpeg invocation that produced it, omitted entirely for a session no ffmpeg
-# call made (the original) rather than recorded as an empty string.
+# One session's line in dataset_description.json's own index. The description
+# rides here as well as in the file's own sidecar, so a reader of the set
+# (encoding-helper's demos page among them) can say what every file is from this
+# one file rather than a request per session. `args` is the ffmpeg invocation
+# that produced it, omitted entirely for a session no ffmpeg call made (the
+# original) rather than recorded as an empty string.
 session_entry() {
-  local label=$1 title=$2 group=$3 loads=$4 args=$5 entry
+  local label=$1 title=$2 group=$3 loads=$4 args=$5 desc=$6 entry
   entry=$(printf '"%s": {"title": "%s", "group": "%s", "loads_in_app": %s' \
     "$(json_escape "$label")" "$(json_escape "$title")" "$(json_escape "$group")" \
     "$([ "$loads" = yes ] && echo true || echo false)")
+  if [ -n "$desc" ]; then entry+=$(printf ', "description": "%s"' "$(json_escape "$desc")"); fi
   if [ -n "$args" ]; then entry+=$(printf ', "ffmpeg_args": "%s"' "$(json_escape "$args")"); fi
   SESSION_ENTRIES+=("$entry}")
   SESSION_COUNT=$((SESSION_COUNT + 1))
@@ -229,7 +234,7 @@ demo() {
   local args=$*
   args=${args//"$SRC"/"$(basename "$SRC")"}
   args=${args//"$OUT"\//}
-  session_entry "$label" "$title" "$group" "$loads" "$args"
+  session_entry "$label" "$title" "$group" "$loads" "$args" "$desc"
 }
 
 # --- The original ------------------------------------------------------------
@@ -241,9 +246,9 @@ ORIGINAL_VIDEO=$(session_video "$ORIGINAL_SESSION" "$ORIGINAL_EXT")
 echo "==> ${ORIGINAL_VIDEO#"$OUT"/}"
 mkdir -p "$(dirname "$ORIGINAL_VIDEO")"
 cp "$SRC" "$ORIGINAL_VIDEO"
-write_sidecar "$ORIGINAL_VIDEO" \
-  "The unmodified source recording, exactly as it was published: H.264 Constrained Baseline in an .m4v container. Every other session is an encode of this."
-session_entry "$ORIGINAL_SESSION" "The original recording, unmodified" original yes ""
+ORIGINAL_DESC="The unmodified source recording, exactly as it was published: H.264 Constrained Baseline in an .m4v container. Every other session is a transcoding of this."
+write_sidecar "$ORIGINAL_VIDEO" "$ORIGINAL_DESC"
+session_entry "$ORIGINAL_SESSION" "The original recording, unmodified" original yes "" "$ORIGINAL_DESC"
 
 # --- Reference ---------------------------------------------------------------
 # The baseline every other file varies one thing from.
@@ -252,6 +257,29 @@ demo reference yes reference mp4 \
   "Reference: H.264 High in MP4, faststart" \
   "The baseline of the demo set: H.264 High profile, CRF 23, 3-second GOP, AAC audio, moov before mdat. Every other demo file changes one thing from this." \
   -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k $FS
+
+# --- A recommended encode ----------------------------------------------------
+# The one file in the set that is a recommendation rather than a demonstration:
+# what this tool would suggest for archiving behaviour video that has to seek
+# well, stream from a URL, and not cost more storage than it has to.
+#
+#   -preset slow    spends encode time instead of bits: perhaps a fifth smaller
+#                   than veryfast at the same CRF, paid once at write time.
+#   High profile    CABAC and B-frames, both of which the compatibility-first
+#                   Baseline profile gives up; every browser still decodes it.
+#   keyint 30       a keyframe every second (the set assumes ~30 fps, as the
+#                   reference's 3-second -g 90 does), so a seek lands within
+#                   half a second of anywhere. This is the one setting here that
+#                   costs size rather than saving it, and it is worth it.
+#   scenecut on     extra keyframes at cuts, which only helps seeking further.
+#   +faststart      moov before mdat, so a player can start on the first bytes
+#                   instead of waiting for the whole file to arrive.
+
+demo recommended yes recommended mp4 \
+  "Recommended: seekable, streamable and small" \
+  "The one file here that is a recommendation rather than a demonstration: H.264 High so every browser decodes it, a slow preset that spends encode time instead of bits, a keyframe every second so seeking lands close to anywhere, and faststart so a player can begin before the whole file has arrived. The one-second keyframes cost some size; everything else buys it back." \
+  -- -i "$SRC" $STRIP -c:v libx264 -preset slow -crf 23 -profile:v high -pix_fmt yuv420p \
+  -x264-params keyint=30:min-keyint=30 -c:a aac -b:a 128k $FS
 
 # --- Atom layout -------------------------------------------------------------
 

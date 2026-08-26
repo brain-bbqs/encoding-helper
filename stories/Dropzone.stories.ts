@@ -12,7 +12,7 @@ function buildDropzone(mode: Mode): HTMLElement {
       <div><strong>Drop a video file here</strong>, or choose an option below</div>
       <div class="load-actions">
         <button class="btn" type="button">Choose File</button>
-        <button class="btn sec" type="button">Load Sample</button>
+        <button class="btn sec" type="button">Browse Demo Files</button>
         <button class="btn sec" type="button">Load from URL</button>
       </div>
     </div>

@@ -162,7 +162,7 @@
         <div><strong>Drop a video file here</strong>, or choose an option below</div>
         <div class="load-actions">
           <button class="btn" id="pickFileBtn" type="button">Choose File</button>
-          <button class="btn sec" id="loadSampleBtn" type="button">Load Sample</button>
+          <button class="btn sec" id="browseDemosBtn" type="button">Browse Demo Files</button>
           <button class="btn sec" id="showUrlBtn" type="button">Load from URL</button>
         </div>
         <div class="url-row" id="urlRow" style="display: none">
@@ -184,6 +184,11 @@
          card on Inspect and Reencode with FFmpeg (src/ui/educationalToggle.ts), the two tabs that
          carry teaching material worth silencing, and left off Compare Quality. -->
     <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />
+
+    <!-- The demo-file page, at ?demos: an alternative to the drop zone above rather than a panel
+         beside it, so while it is up neither the file picker nor a loaded file's tabs are on screen.
+         Built on first visit by src/ui/demosPage.ts from the set published on the EMBER archive. -->
+    <div id="demosPage" class="demos-page" style="display: none"></div>
 
     <div id="app" style="display: none">
       <!-- The tabs are the file's views; Full Analysis is the one action among them (it bundles every

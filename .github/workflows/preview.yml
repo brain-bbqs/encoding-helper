@@ -27,9 +27,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Copy sample video into build output
-        run: cp public/mice.mp4 dist/mice.mp4
-
       - name: Deploy preview
         uses: rossjrw/pr-preview-action@v1
         with:

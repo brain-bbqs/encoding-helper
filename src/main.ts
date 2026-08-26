@@ -6,6 +6,7 @@ import { renderAtomMap } from "./ui/atomsTab";
 import { renderCompareTab } from "./ui/compareTab";
 import { getElements } from "./ui/elements";
 import { renderEncodeTab } from "./ui/encodeTab";
+import { initDemosPage } from "./ui/demosPage";
 import { initFileLoadingUi } from "./ui/fileLoading";
 import { mountInspectToc } from "./ui/inspectToc";
 import { renderInspectHead, renderInspectTail } from "./ui/inspectTab";
@@ -62,7 +63,11 @@ onEducationalChange(() => {
   if (els.app.style.display !== "none") renderAll();
 });
 
-initFileLoadingUi(els, { onLoaded: renderAll });
+const loader = initFileLoadingUi(els, { onLoaded: renderAll });
+// The demo set replaces the bundled sample the app used to ship with: it lives on the EMBER archive
+// (see lib/demoArchive.ts) rather than in this repository, and the page that browses it opens a
+// chosen file through the same loader the URL box uses.
+initDemosPage(els, loader);
 initTabs(() => renderAnalysisTab(els.panels.analysis));
 
 // Preloaded (not deferred to first file drop) so the metadata read and the A/B window's decoding
