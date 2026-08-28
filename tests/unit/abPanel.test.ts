@@ -77,8 +77,17 @@ async function loadSampled(host: HTMLDivElement, count: number): Promise<void> {
   await loadEncodedIntoAB(encodedStretches(count), SETTINGS, VIDEO_TRACK, host, { bytes: 4096, windows });
 }
 
-function segmentLine(host: HTMLDivElement): string {
-  return host.querySelector(".compare-segment-label")?.textContent ?? "";
+/** The stretch the ruler has lit, i.e. the one the playhead is in. */
+function currentBand(host: HTMLDivElement): number {
+  return [...host.querySelectorAll(".compare-reel-seg")].findIndex((b) => b.classList.contains("current"));
+}
+
+function reelLabels(host: HTMLDivElement): string[] {
+  return [...host.querySelectorAll(".compare-reel-label")].map((l) => l.textContent ?? "");
+}
+
+function scrubBar(host: HTMLDivElement): HTMLInputElement {
+  return host.querySelector<HTMLInputElement>('.compare-scrub input[type="range"]')!;
 }
 
 beforeEach(() => {
@@ -141,36 +150,66 @@ describe("loadEncodedIntoAB", () => {
     expect(encodeTest.encodedSize).toBe(4096);
   });
 
-  it("names the stretch on screen and steps between them, wrapping either way", async () => {
+  // The stretches are drawn on the bar that plays them: one band apiece, and a boundary between
+  // each pair carrying the time in the source it was cut from.
+  it("divides the scrub bar into the stretches it plays", async () => {
+    const host = hostSection();
+    await loadSampled(host, 3);
+    const bands = host.querySelectorAll<HTMLElement>(".compare-reel-seg");
+    expect(bands).toHaveLength(3);
+    expect([...bands].map((b) => b.style.left)).toEqual(["0%", "33.333%", "66.667%"]);
+    // A hairline short of a third apiece, which is what leaves a gap at each boundary.
+    expect([...bands].map((b) => b.style.width)).toEqual(Array(3).fill("calc(33.333% - 2px)"));
+    expect(bands[1].title).toBe("Segment 2 of 3 · 4.0s–5.0s in the source");
+    // One boundary more than there are stretches, the last closing the bar off at 9.0s.
+    expect(host.querySelectorAll(".compare-reel-tick")).toHaveLength(4);
+    expect(reelLabels(host)).toEqual(["0:00", "0:04", "0:08", "0:09"]);
+  });
+
+  // Past about six the times stop being read and start being a smear, so the boundaries between
+  // the labelled ones are ticks alone.
+  it("labels about six of the boundaries however many stretches a run sampled", async () => {
+    const host = hostSection();
+    await loadSampled(host, 10);
+    expect(host.querySelectorAll(".compare-reel-seg")).toHaveLength(10);
+    expect(host.querySelectorAll(".compare-reel-tick")).toHaveLength(11);
+    expect(reelLabels(host)).toHaveLength(6);
+  });
+
+  it("lights the band the playhead is in and steps between them, wrapping either way", async () => {
     const host = hostSection();
     await loadSampled(host, 3);
     const [prev, next] = Array.from(host.querySelectorAll<HTMLButtonElement>(".compare-segment-buttons button"));
-    expect(segmentLine(host)).toBe("Segment 1 of 3 · 0.0s–1.0s in the source");
+    expect(currentBand(host)).toBe(0);
     next.click();
-    expect(segmentLine(host)).toBe("Segment 2 of 3 · 4.0s–5.0s in the source");
+    expect(currentBand(host)).toBe(1);
     // Round the cycle rather than off the end of it: the reel loops, so the buttons do too.
     next.click();
     next.click();
-    expect(segmentLine(host)).toBe("Segment 1 of 3 · 0.0s–1.0s in the source");
+    expect(currentBand(host)).toBe(0);
     prev.click();
-    expect(segmentLine(host)).toBe("Segment 3 of 3 · 8.0s–9.0s in the source");
+    expect(currentBand(host)).toBe(2);
   });
 
   it("scrubs across the whole reel rather than one stretch of it", async () => {
     const host = hostSection();
     await loadSampled(host, 3);
-    const scrub = host.querySelector<HTMLInputElement>('.compare-controls input[type="range"]')!;
+    const scrub = scrubBar(host);
     // Half way along a three-second reel is a second and a half in, which is the second stretch.
     scrub.value = "500";
     scrub.dispatchEvent(new Event("input"));
     expect(host.querySelector(".progress-label")!.textContent).toBe("1.50s");
-    expect(segmentLine(host)).toBe("Segment 2 of 3 · 4.0s–5.0s in the source");
+    expect(currentBand(host)).toBe(1);
+    // What the bands say, said for a listener: the slider's own value is a thousandth of a reel.
+    expect(scrub.getAttribute("aria-valuetext")).toBe("1.50s · Segment 2 of 3 · 4.0s–5.0s in the source");
   });
 
-  it("leaves the segment line out when a run sampled a single stretch", async () => {
+  it("leaves the ruler and the step buttons out when a run sampled a single stretch", async () => {
     const host = hostSection();
     await loadSampled(host, 1);
-    expect(host.querySelector(".compare-segments")).toBeNull();
+    expect(host.querySelector(".compare-reel")).toBeNull();
+    expect(host.querySelector(".compare-segment-buttons")).toBeNull();
+    expect(scrubBar(host)).not.toBeNull();
   });
 
   it("lets go of the stretches it was showing when the next encode takes over", async () => {

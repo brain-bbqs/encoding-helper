@@ -4,7 +4,7 @@
 
 #### 🚀 Enhancement
 
-- The Side-by-Side window now plays every sampled stretch in turn and loops, naming the one on screen and offering buttons to step between them ([#29](https://github.com/brain-bbqs/encoding-helper/pull/29))
+- The Side-by-Side window now plays every sampled stretch in turn and loops, with the scrub bar divided into the stretches and the one on screen lit ([#29](https://github.com/brain-bbqs/encoding-helper/pull/29))
 
 ## 1.0.0
 

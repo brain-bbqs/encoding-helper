@@ -1510,25 +1510,74 @@ table.data th {
 .compare-pane .pixel-grid.visible {
   opacity: 1;
 }
-/* Which of a run's sampled stretches the panes are on, and the buttons that step between them.
-   Sits directly under the panes rather than in the control row below: it says what is being looked
-   at, which is a caption for the picture, not another thing to drive it with. Only in the page when
-   a run sampled more than one stretch. */
-.compare-segments {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-.compare-segment-label {
-  font-size: 12px;
-  color: var(--muted);
-}
+/* The ◀ / ▶ pair that steps between sampled stretches, given the same square footprint as the
+   zoom pair beside it, since both are one control in two halves. */
 .compare-segment-buttons {
   display: flex;
   gap: 6px;
+}
+.compare-segment-buttons .seg-step {
+  min-width: 32px;
+  padding: 6px 0;
+  line-height: 1;
+}
+
+/* A run's sampled stretches, drawn on the scrub bar that plays them: which stretch the playhead is
+   in is a thing to see on the bar, not a line of prose beside it. Modelled on the sample picker's
+   ruler (and so on clip-extractor's), a band per stretch with a ticked, labelled boundary between
+   them saying where in the source each was cut from. Only present when a run sampled more than one. */
+.compare-scrub {
+  position: relative;
+  margin-top: 8px;
+}
+.compare-scrub input[type="range"] {
+  width: 100%;
+  margin-bottom: 0;
+}
+.compare-reel {
+  position: relative;
+  height: 19px;
+}
+/* Neutral until played, so that the accent on the bar means one thing: the stretch on screen. The
+   two shades alternate, which keeps two stretches meeting at a boundary reading as two blocks even
+   where the tick between them lands under the playhead. */
+.compare-reel-seg {
+  position: absolute;
+  top: 0;
+  height: 5px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.compare-reel-seg.alt {
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+.compare-reel-seg.current {
+  background: var(--accent);
+}
+/* Drawn past the bands so a boundary is legible where two of them meet. */
+.compare-reel-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 9px;
+  background: var(--text);
+}
+.compare-reel-label {
+  position: absolute;
+  top: 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--muted);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+/* The end labels would hang off the bar, so they align inwards instead of centring. */
+.compare-reel-label.at-start {
+  transform: none;
+}
+.compare-reel-label.at-end {
+  transform: translateX(-100%);
 }
 
 .compare-controls {
@@ -1538,11 +1587,7 @@ table.data th {
   margin-top: 8px;
   flex-wrap: wrap;
 }
-.compare-controls input[type="range"] {
-  flex: 1;
-  min-width: 150px;
-  margin-bottom: 0;
-}
+
 .zoom-buttons {
   display: flex;
   gap: 6px;

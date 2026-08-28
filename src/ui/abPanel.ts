@@ -17,6 +17,7 @@ import { gridItem, h, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
+import { fmtClock } from "../lib/sampleTimeline";
 import { ensureMediabunny } from "../lib/mediabunny";
 import type { Input } from "mediabunny";
 import { currentSizeEstimate } from "../lib/sizeEstimate";
@@ -190,31 +191,81 @@ function reelStartOfSegment(index: number): number {
   return encodeTest.abSegments.slice(0, index).reduce((sum, seg) => sum + seg.seconds, 0);
 }
 
+/** Which stretch of the run a reel position is in, for the scrub bar's `aria-valuetext` and the
+ * band's tooltip: what the ruler shows, said in words for whoever cannot see it. */
+function describeReelPosition(index: number, segments: AbSegment[]): string {
+  return `Segment ${index + 1} of ${segments.length} · ${describeWindow(segments[index].window)} in the source`;
+}
+
 /**
- * The line under the panes naming the sampled stretch on screen, and the buttons that step between
- * them, put in `host`.
+ * How many of the boundaries on the reel ruler carry a time.
  *
- * Only in the page when a run sampled more than one stretch: a single stretch is already named in
- * the summary above the panes, and buttons that cycle a cycle of one say nothing. The pieces come
- * back either way, so the caller drives them without asking which case it is in.
+ * The same figure the file-wide ruler in lib/sampleTimeline aims for: past about six, the labels
+ * stop being read and start being a smear, so the boundaries between are ticks alone.
  */
-function appendSegmentNav(
-  host: HTMLElement,
-  count: number,
-): { label: HTMLSpanElement; prev: HTMLButtonElement; next: HTMLButtonElement } {
-  const row = h("div", "compare-segments");
-  const label = h("span", "compare-segment-label");
-  const prev = h("button", "btn sm sec", "◀ Previous");
+const LABELLED_BOUNDARIES = 6;
+
+/**
+ * The sampled stretches drawn under the scrub bar, in the ruler idiom the sample picker borrowed
+ * from clip-extractor: a band per stretch, alternating so they read as separate blocks, and a
+ * ticked, labelled boundary between them saying where in the source each one was cut from.
+ *
+ * Only in the page when a run sampled more than one stretch, since a bar divided into one says
+ * nothing. The bands come back either way, so the caller highlights the one being played without
+ * asking which case it is in.
+ */
+function appendReelRuler(wrap: HTMLElement, segments: AbSegment[], reelSpan: number): HTMLElement[] {
+  const ruler = h("div", "compare-reel");
+  ruler.setAttribute("aria-hidden", "true");
+  const at = (seconds: number): number => (reelSpan > 0 ? (seconds / reelSpan) * 100 : 0);
+  const bands = segments.map((segment, i) => {
+    const band = h("div", "compare-reel-seg" + (i % 2 ? " alt" : ""));
+    band.style.left = at(reelStartOfSegment(i)).toFixed(3) + "%";
+    // Held a hairline short of its share and nudged off its boundary, so neighbouring stretches
+    // read as separate blocks rather than as one bar the ticks happen to be drawn over.
+    band.style.width = `calc(${at(segment.seconds).toFixed(3)}% - 2px)`;
+    band.style.marginLeft = "1px";
+    band.title = describeReelPosition(i, segments);
+    ruler.append(band);
+    return band;
+  });
+  // One more boundary than there are stretches: the end of the last one closes the bar off.
+  const labelEvery = Math.ceil(segments.length / LABELLED_BOUNDARIES);
+  for (let i = 0; i <= segments.length; i++) {
+    const last = i === segments.length;
+    const window = segments[last ? i - 1 : i].window;
+    const left = at(last ? reelSpan : reelStartOfSegment(i));
+    const tick = h("div", "compare-reel-tick");
+    tick.style.left = left.toFixed(3) + "%";
+    ruler.append(tick);
+    if (i % labelEvery !== 0 && !last) continue;
+    // The end labels would hang off the bar, so they align inwards instead of centring, the way the
+    // sample picker's ruler handles its own ends.
+    const align = left < 2 ? " at-start" : left > 98 ? " at-end" : "";
+    const seconds = last ? window.startSeconds + window.seconds : window.startSeconds;
+    const label = h("div", "compare-reel-label" + align, fmtClock(seconds, state.duration ?? seconds));
+    label.style.left = left.toFixed(3) + "%";
+    ruler.append(label);
+  }
+  if (segments.length > 1) wrap.append(ruler);
+  return bands;
+}
+
+/** The buttons that step between sampled stretches, put in the control row. Only there when a run
+ * sampled more than one: buttons that cycle a cycle of one say nothing. */
+function appendSegmentNav(controls: HTMLElement, count: number): { prev: HTMLButtonElement; next: HTMLButtonElement } {
+  const prev = h("button", "btn sm sec seg-step", "◀");
   prev.type = "button";
   prev.title = "Jump to the previous sampled stretch";
-  const next = h("button", "btn sm sec", "Next ▶");
+  prev.setAttribute("aria-label", "Jump to the previous sampled stretch");
+  const next = h("button", "btn sm sec seg-step", "▶");
   next.type = "button";
   next.title = "Jump to the next sampled stretch";
+  next.setAttribute("aria-label", "Jump to the next sampled stretch");
   const buttons = h("div", "compare-segment-buttons");
   buttons.append(prev, next);
-  row.append(label, buttons);
-  if (count > 1) host.append(row);
-  return { label, prev, next };
+  if (count > 1) controls.append(buttons);
+  return { prev, next };
 }
 
 function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettings): void {
@@ -287,14 +338,22 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   host.append(stage);
 
   const segments = encodeTest.abSegments;
-  const { label: segmentLabel, prev: prevSegBtn, next: nextSegBtn } = appendSegmentNav(host, segments.length);
 
   const controls = h("div", "compare-controls");
+  // The bar gets a row of its own above the buttons. The ruler under it has to line up with the bar
+  // it divides, which means sharing a wrapper, and a wrapper two elements tall in among the buttons
+  // would leave the bar itself sitting off the row's centre line — besides which the labels want
+  // the width.
+  const scrubWrap = h("div", "compare-scrub");
   const scrub = h("input");
   scrub.type = "range";
   scrub.min = "0";
   scrub.max = "1000";
   scrub.value = "0";
+  scrub.setAttribute("aria-label", "Playback position across the sampled stretches");
+  scrubWrap.append(scrub);
+  const segmentBands = appendReelRuler(scrubWrap, segments, shownSeconds);
+  host.append(scrubWrap);
   const scrubLabel = h("span", "progress-label", "0.00s");
   const playBtn = h("button", "btn sm sec", "Play");
   playBtn.type = "button";
@@ -314,7 +373,9 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const actualBtn = h("button", "btn sm sec", "Actual Size (100%)");
   actualBtn.type = "button";
   zoomBtns.append(zoomOutBtn, zoomInBtn, fitBtn, actualBtn);
-  controls.append(playBtn, scrub, scrubLabel, zoomBtns);
+  controls.append(playBtn);
+  const { prev: prevSegBtn, next: nextSegBtn } = appendSegmentNav(controls, segments.length);
+  controls.append(scrubLabel, zoomBtns);
   // How the downscaled side is drawn back up is a genuine choice, not a default worth hiding:
   // blocks show exactly which pixels survived, smoothing shows what a player would put on screen.
   // Only offered when something is actually being drawn back up.
@@ -406,13 +467,16 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   };
 
   /** Puts every readout on the same second of the reel: the slider (unless it is the thing being
-   * dragged), the time beside it, and the line naming the stretch that second falls in. */
+   * dragged), the time beside it, and the band under it that the second falls in. */
   const showTime = (relT: number, moveScrub = true): void => {
     if (moveScrub) scrub.value = String((relT / shownSeconds) * 1000);
     scrubLabel.textContent = relT.toFixed(2) + "s";
     const { index } = locateInReel(relT);
-    // Written whether or not the line is in the page, which spares every caller the question.
-    segmentLabel.textContent = `Segment ${index + 1} of ${segments.length} · ${describeWindow(segments[index].window)} in the source`;
+    // The lit band is what says which stretch is on screen. Said in words on the slider too, since
+    // a screen reader gets nothing from the drawing, and the raw slider value is a thousandth of a
+    // reel rather than anything a listener could place.
+    scrub.setAttribute("aria-valuetext", `${relT.toFixed(2)}s · ${describeReelPosition(index, segments)}`);
+    segmentBands.forEach((band, i) => band.classList.toggle("current", i === index));
   };
 
   // Playback decodes both panes per frame, so it is paced off the wall clock and asks for whichever
