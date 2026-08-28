@@ -349,7 +349,7 @@ function cliCommandSection(): AnalysisSection | null {
 }
 
 function compareSection(): AnalysisSection | null {
-  if (!encodeTest.originalSink || !encodeTest.encodedSink) return null;
+  if (!encodeTest.originalSink || !encodeTest.abSegments.length) return null;
   // The settings the loaded encode was made with: after a matrix sweep that is the winning square's,
   // which is not what the command builder says.
   const settings = encodeTest.activeCombo ?? cliSettings(cli);

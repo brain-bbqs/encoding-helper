@@ -1510,6 +1510,160 @@ table.data th {
 .compare-pane .pixel-grid.visible {
   opacity: 1;
 }
+/* The ◀ / ▶ pair that steps between sampled stretches, given the same square footprint as the
+   zoom pair beside it, since both are one control in two halves. */
+.compare-segment-buttons {
+  display: flex;
+  gap: 6px;
+}
+.compare-segment-buttons .seg-step {
+  min-width: 32px;
+  padding: 6px 0;
+  line-height: 1;
+}
+
+/* A run's sampled stretches, drawn on the scrub bar that plays them: which stretch the playhead is
+   in is a thing to see on the bar, not a line of prose beside it. Modelled on the sample picker's
+   ruler (and so on clip-extractor's), a band per stretch with a ticked, labelled boundary between
+   them saying where in the source each was cut from. Only present when a run sampled more than one. */
+.compare-scrub {
+  position: relative;
+  margin-top: 8px;
+}
+/* Margin zeroed on every side, not just the bottom: a range input carries 2px of it from the UA
+   sheet, which would leave the bands and their times a couple of pixels out from the thumb they
+   are drawn for. */
+.compare-scrub input[type="range"] {
+  width: 100%;
+  margin: 0;
+}
+/* With stretches to draw, the slider gives up its own track and keeps only its thumb: the bands
+   behind it are the track, so the playhead runs along the run rather than alongside a picture of
+   it. Everything inside the bar is inset by half a thumb at each end, which is the only span the
+   thumb's centre can actually reach — without that the bands and their times would each be a few
+   pixels out from the playhead that is meant to be pointing at them. */
+.compare-scrub.has-reel input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  z-index: 1;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+.compare-scrub.has-reel input[type="range"]::-webkit-slider-runnable-track {
+  height: 20px;
+  background: transparent;
+}
+.compare-scrub.has-reel input[type="range"]::-moz-range-track {
+  height: 20px;
+  background: transparent;
+}
+/*
+ * The playhead is clip-extractor's: a 2px line in the same --ok green, crossing the track it runs
+ * along rather than a knob sitting on it, and in its own colour so that it is never confused with
+ * the accent the stretch under it is lit in.
+ *
+ * It stands proud of the track at both ends, the way that stem crosses clip-extractor's, and is
+ * rimmed a pixel either side in the card's own colour so it stays legible over an accent band as
+ * well as over a grey one — the job the drop-shadow does on their marker.
+ *
+ * The thumb stays 14px wide so there is something to grab, but only the middle four pixels are
+ * painted. Nothing is added to that width — no border, which is what a slider thumb takes outside
+ * its box, since `box-sizing` does not reach a pseudo-element — so half of it is exactly the inset
+ * the bands and their times are drawn at, and the line falls on the boundary tick it is over.
+ */
+.compare-scrub.has-reel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 20px;
+  border: none;
+  background: linear-gradient(
+    90deg,
+    transparent 5px,
+    var(--card) 5px 6px,
+    var(--ok) 6px 8px,
+    var(--card) 8px 9px,
+    transparent 9px
+  );
+  cursor: ew-resize;
+}
+.compare-scrub.has-reel input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 20px;
+  border: none;
+  border-radius: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 5px,
+    var(--card) 5px 6px,
+    var(--ok) 6px 8px,
+    var(--card) 8px 9px,
+    transparent 9px
+  );
+  cursor: ew-resize;
+}
+.compare-scrub.has-reel input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Where the slider's track would have been: centred in its 20px box, inset by half a thumb, so the
+   playhead crosses the bands rather than stopping at them. */
+.compare-reel-track {
+  position: absolute;
+  top: 6px;
+  left: 7px;
+  right: 7px;
+  height: 8px;
+  pointer-events: none;
+}
+.compare-reel {
+  position: relative;
+  height: 19px;
+  margin: 2px 7px 0;
+}
+/* Neutral until played, so that the accent on the bar means one thing: the stretch on screen. The
+   two shades alternate, which keeps two stretches meeting at a boundary reading as two blocks even
+   where the gap between them lands under the thumb. */
+.compare-reel-seg {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.compare-reel-seg.alt {
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+.compare-reel-seg.current {
+  background: var(--accent);
+}
+.compare-reel-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 9px;
+  background: var(--text);
+}
+.compare-reel-label {
+  position: absolute;
+  top: 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--muted);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+/* The end labels would hang off the bar, so they align inwards instead of centring. */
+.compare-reel-label.at-start {
+  transform: none;
+}
+.compare-reel-label.at-end {
+  transform: translateX(-100%);
+}
+
 .compare-controls {
   display: flex;
   align-items: center;
@@ -1517,11 +1671,7 @@ table.data th {
   margin-top: 8px;
   flex-wrap: wrap;
 }
-.compare-controls input[type="range"] {
-  flex: 1;
-  min-width: 150px;
-  margin-bottom: 0;
-}
+
 .zoom-buttons {
   display: flex;
   gap: 6px;

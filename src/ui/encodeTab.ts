@@ -294,7 +294,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     // The A/B window draws the original from startTime, so it follows the stretch actually shown.
     encodeTest.startTime = windows[0]?.startSeconds ?? encodeTest.startTime;
     ui.note.textContent = "Encoding test segment…";
-    const { first, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
+    const { blobs, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;
       if (fill) fill.style.width = pct.toFixed(0) + "%";
       ui.note.textContent =
@@ -304,7 +304,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     });
 
     ui.note.textContent = "Decoding frames…";
-    await loadEncodedIntoAB(first, cliSettings(cli), vt, resultSec, { bytes, windows: measured });
+    await loadEncodedIntoAB(blobs, cliSettings(cli), vt, resultSec, { bytes, windows: measured });
     // A full bar, in the colour the app uses for a good outcome, rather than the word "Done." under
     // an empty one: the run either filled the bar or it did not.
     if (fill) {

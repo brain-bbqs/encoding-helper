@@ -232,8 +232,8 @@ export const SEGMENTS_INFO =
   "point: three seconds of a calm scene predicts a talking-heads file well and a wildlife file badly, and the " +
   "only fix is to look in more than one place.</p>" +
   "<p>Each one is a real encode, so the run costs that many times as long, and in matrix mode it multiplies " +
-  "the sweep. The A/B window below still shows the first stretch: the eye wants one continuous piece of " +
-  "video to judge, while the byte count wants a fair sample of the file.</p>" +
+  "the sweep. The A/B window below plays all of them in turn, looping back to the first, so the eye judges " +
+  "the same spread of the file the byte count was taken over.</p>" +
   "<p>The stretches are cut out of the source once and kept, so every setting after the first encodes them " +
   "without touching the video again — and a re-run at another CRF measures the same seconds, which is what " +
   "makes two runs comparable at all.</p>";

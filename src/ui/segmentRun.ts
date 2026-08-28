@@ -365,9 +365,10 @@ export interface RunInputs {
 /**
  * Encodes every sampled stretch at `cliState` and reports what they came to together.
  *
- * The A/B window can only show one of them, so the first is kept whole; the rest are measured and
- * dropped. That is the trade sampling several places makes: the size question gets a fair share of
- * the file, while the eye still gets one continuous stretch to judge rather than a cut-up reel.
+ * All of them are kept, in the order they were sampled: the size question is answered by the bytes
+ * added up, and the A/B window plays the stretches one after another, so the eye judges the same
+ * spread of the file the projection was taken over rather than whichever stretch happened to be
+ * first.
  *
  * Given more than one core, the stretches encode side by side on them. A sweep hands one core in,
  * since its cores are already busy with the other squares.
@@ -378,10 +379,10 @@ export async function encodeWindows(
   workers: FfmpegWorker[],
   ui: RunUi,
   onProgress: (fraction: number) => void,
-): Promise<{ first: Blob; bytes: number; measured: SampleWindow[] }> {
+): Promise<{ blobs: Blob[]; bytes: number; measured: SampleWindow[] }> {
   const windows = inputs.windows;
   // Indexed rather than pushed, since the cores finish in whatever order they finish: the A/B
-  // window wants the *first* stretch, not the first one to come back.
+  // window plays the stretches in the order they were sampled, not the order they came back in.
   const blobs = new Array<Blob | null>(windows.length).fill(null);
   const measured = new Array<SampleWindow | null>(windows.length).fill(null);
   const fractions = new Array<number>(windows.length).fill(0);
@@ -417,12 +418,11 @@ export async function encodeWindows(
   );
 
   if (stopRequested()) throw new RunStopped();
-  const first = blobs[0];
-  if (!first) throw new Error("No stretch of video to encode");
+  if (!blobs.length || blobs.some((b) => b == null)) throw new Error("No stretch of video to encode");
   return {
-    first,
+    blobs: blobs as Blob[],
     bytes: blobs.reduce((sum, b) => sum + (b?.size ?? 0), 0),
-    measured: measured.filter((w): w is SampleWindow => w != null),
+    measured: measured as SampleWindow[],
   };
 }
 

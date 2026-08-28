@@ -78,10 +78,11 @@ export const DEFAULT_MATRIX_SCALERS: Scaler[] = [DEFAULT_SCALER];
 /**
  * How many bytes of encoded segments to keep in memory across a sweep.
  *
- * Every finished cell holds its output so clicking it can load the A/B window without re-encoding,
- * but a lossless segment of a large video runs to tens of megabytes and there can be dozens of
- * cells. Past this the largest are dropped (see `evictBeyondBudget`); their measurements stay in the
- * table, and selecting one re-encodes just that combination.
+ * Every finished cell holds every stretch it was measured over, so clicking it can load the A/B
+ * window without re-encoding, but a lossless segment of a large video runs to tens of megabytes,
+ * a run samples several of them and there can be dozens of cells. Past this the largest are dropped
+ * (see `evictBeyondBudget`); their measurements stay in the table, and selecting one re-encodes just
+ * that combination.
  */
 export const MATRIX_RETAINED_BYTES = 192 * 1024 * 1024;
 
@@ -174,7 +175,7 @@ export function makeMatrixCells(combos: MatrixCombo[]): MatrixCell[] {
     bytes: null,
     segmentSeconds: null,
     elapsedMs: null,
-    blob: null,
+    blobs: null,
     error: null,
   }));
 }
@@ -233,9 +234,14 @@ function beatsForReduction(cell: MatrixCell, best: MatrixCell): boolean {
   return MATRIX_PRESETS.indexOf(cell.combo.preset) < MATRIX_PRESETS.indexOf(best.combo.preset);
 }
 
+/** What one cell's held stretches come to, when the sweep's own figure for them has been lost. */
+function heldBytes(blobs: Blob[]): number {
+  return blobs.reduce((sum, blob) => sum + blob.size, 0);
+}
+
 /** Bytes of encoded segments currently held in memory. */
 export function retainedBytes(cells: MatrixCell[]): number {
-  return cells.reduce((sum, c) => sum + (c.blob ? (c.bytes ?? c.blob.size) : 0), 0);
+  return cells.reduce((sum, c) => sum + (c.blobs ? (c.bytes ?? heldBytes(c.blobs)) : 0), 0);
 }
 
 /**
@@ -251,13 +257,13 @@ export function evictBeyondBudget(cells: MatrixCell[], budgetBytes: number, keep
   let total = retainedBytes(cells);
   if (total <= budgetBytes) return [];
   const held = cells
-    .filter((c) => c.blob != null && c.combo.key !== keepKey)
+    .filter((c) => c.blobs != null && c.combo.key !== keepKey)
     .sort((a, b) => (b.bytes ?? 0) - (a.bytes ?? 0));
   const evicted: string[] = [];
   for (const cell of held) {
     if (total <= budgetBytes) break;
-    total -= cell.bytes ?? cell.blob?.size ?? 0;
-    cell.blob = null;
+    total -= cell.bytes ?? (cell.blobs ? heldBytes(cell.blobs) : 0);
+    cell.blobs = null;
     evicted.push(cell.combo.key);
   }
   return evicted;

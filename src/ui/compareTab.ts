@@ -404,7 +404,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
           });
           cell.elapsedMs = performance.now() - startedAt;
           cell.bytes = encoded.bytes;
-          cell.blob = encoded.first;
+          cell.blobs = encoded.blobs;
           cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
           cell.status = "done";
         } catch (err) {
@@ -477,30 +477,32 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
   }
 }
 
-/** Puts one square of the grid in the A/B window, re-encoding it if its output has been released. */
+/** Puts one square of the grid in the A/B window, re-encoding it if its outputs have been released. */
 async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
   const matrix = encodeTest.matrix;
-  let blob = cell.blob;
-  if (!blob) {
-    // Its output was dropped to stay inside the memory budget, so the square is encoded again —
-    // over the same stretches the sweep measured, which are usually still cut and waiting.
+  let blobs = cell.blobs;
+  if (!blobs) {
+    // Its outputs were dropped to stay inside the memory budget, so the square is encoded again —
+    // over the same stretches the sweep measured, which are usually still cut and waiting. All of
+    // them, not just one: the window plays every stretch the square was measured over.
     ui.note.textContent = `Re-encoding ${describeSettings(cell.combo)} for the A/B window…`;
-    const workers = acquireWorkers(1);
+    const workers = acquireWorkers(matrixWindows().length);
     const inputs = await prepareRun(matrixWindows(), workers, ui);
     try {
-      blob = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {})).first;
+      blobs = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {})).blobs;
     } finally {
       await dropWholeFileInput(inputs);
     }
-    cell.blob = blob;
-    cell.bytes = blob.size;
+    cell.blobs = blobs;
+    cell.bytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
   }
+  const heldBytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
   // The A/B window compares against the seconds the grid was measured over, which the start and
   // duration fields may have been moved off since.
   syncSegmentToMatrix();
   matrix.selectedKey = cell.combo.key;
-  await loadEncodedIntoAB(blob, cell.combo, vt, ui.resultSec, {
-    bytes: cell.bytes ?? blob.size,
+  await loadEncodedIntoAB(blobs, cell.combo, vt, ui.resultSec, {
+    bytes: cell.bytes ?? heldBytes,
     windows: matrixCellWindows(cell),
   });
   renderMatrixSection(ui.matrixSec, vt, ui);

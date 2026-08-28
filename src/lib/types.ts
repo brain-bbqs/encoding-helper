@@ -165,19 +165,36 @@ export interface MatrixCell {
   combo: MatrixCombo;
   /** "skipped" is a combination the sweep never reached, because the run was stopped. */
   status: "pending" | "running" | "done" | "failed" | "skipped";
-  /** Bytes ffmpeg produced for the segment, kept after the output itself has been dropped. */
+  /** Bytes ffmpeg produced for every sampled stretch, kept after the outputs have been dropped. */
   bytes: number | null;
   /** The output's measured playback length, which the projection is taken over. */
   segmentSeconds: number | null;
   elapsedMs: number | null;
-  /** The encoded segment, held so the cell can be shown in the A/B window without re-encoding. */
-  blob: Blob | null;
+  /** The encoded stretches, one per sampled window, held so the cell can be shown in the A/B window
+   * without re-encoding. Dropped as a set, since the window cycles through all of them. */
+  blobs: Blob[] | null;
   error: string | null;
 }
 
 /** One stretch of the source that an encode covered. */
 export interface SampleWindow {
   startSeconds: number;
+  seconds: number;
+}
+
+/**
+ * One sampled stretch as the A/B window plays it: where it sits in the source, and the decoder for
+ * the encoded copy of it.
+ *
+ * A run samples several stretches and the window cycles through all of them, so the loaded
+ * comparison is a list of these rather than one segment and one start time.
+ */
+export interface AbSegment {
+  /** Where the stretch sits in the source, which is what the original side is drawn from. */
+  window: SampleWindow;
+  /** The encoded copy, whose own timeline starts at zero however far into the source it came from. */
+  sink: import("mediabunny").CanvasSink;
+  /** That copy's measured length, which is the stretch of it there is anything to draw over. */
   seconds: number;
 }
 
@@ -225,8 +242,11 @@ export interface EncodeTestState {
   /** Set by the Stop button; a run checks it between (and inside) encodes. */
   cancelRequested: boolean;
   originalSink: import("mediabunny").CanvasSink | null;
-  encodedSink: import("mediabunny").CanvasSink | null;
-  encodedInput: Input | null;
+  /** Every stretch the loaded comparison covers, in the order the window plays them. */
+  abSegments: AbSegment[];
+  /** The Inputs behind those sinks, held so they can be disposed when the next encode takes over. */
+  encodedInputs: Input[];
+  /** The encoded stretches' lengths added together, i.e. how long the window's reel runs. */
   segDuration: number;
   encodedSize: number | null;
   /** The settings the encode currently in the A/B window was made with — which in matrix mode is

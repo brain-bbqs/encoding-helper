@@ -64,8 +64,8 @@ export const encodeTest: EncodeTestState = {
   running: false,
   cancelRequested: false,
   originalSink: null,
-  encodedSink: null,
-  encodedInput: null,
+  abSegments: [],
+  encodedInputs: [],
   segDuration: 0,
   encodedSize: null,
   activeCombo: null,
@@ -89,7 +89,7 @@ export function resetState(): void {
   // Disposed before the references go: an Input holds a decoder and whatever it was reading from,
   // and a page that loads one file after another would otherwise keep every one of them.
   state.input?.dispose();
-  encodeTest.encodedInput?.dispose();
+  for (const input of encodeTest.encodedInputs) input.dispose();
   state.source = null;
   state.file = null;
   state.input = null;
@@ -123,8 +123,8 @@ export function resetState(): void {
   encodeTest.running = false;
   encodeTest.cancelRequested = false;
   encodeTest.originalSink = null;
-  encodeTest.encodedSink = null;
-  encodeTest.encodedInput = null;
+  encodeTest.abSegments = [];
+  encodeTest.encodedInputs = [];
   encodeTest.segDuration = 0;
   encodeTest.encodedSize = null;
   encodeTest.activeCombo = null;
