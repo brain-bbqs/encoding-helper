@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+#### 🐛 Bug Fix
+
+- The Compare Quality sweep no longer prints a progress line above the results grid; the bar and the squares themselves show what is encoding ([#32](https://github.com/brain-bbqs/encoding-helper/pull/32))
+
 ## 1.2.0
 
 #### 🚀 Enhancement
