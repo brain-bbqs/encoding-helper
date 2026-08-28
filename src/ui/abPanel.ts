@@ -1,5 +1,11 @@
-// The A/B window: one encoded stretch against the same seconds of the original, with synchronized
+// The A/B window: the encoded stretches against the same seconds of the original, with synchronized
 // pixel-level zoom & pan, and the size figures that go with it.
+//
+// A run samples several stretches from across the file and measures all of them, so the window
+// plays all of them: the stretches run one after another as a single reel that loops back to the
+// first, and the line under the panes says which one is on screen. Judging the encode off whichever
+// stretch happened to be first told you about one place in the video while the size figures beside
+// it were about several.
 //
 // Both encoding tabs put their result here — a single run under Reencode with FFmpeg, a chosen
 // square under Compare Quality — so the comparison reads the same whichever produced it. Only one
@@ -12,9 +18,10 @@ import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
+import type { Input } from "mediabunny";
 import { currentSizeEstimate } from "../lib/sizeEstimate";
 import { encodeTest, state } from "../lib/state";
-import type { EncodeSettings, SampleWindow, TrackInfo } from "../lib/types";
+import type { AbSegment, EncodeSettings, SampleWindow, TrackInfo } from "../lib/types";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
 import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
 
@@ -34,35 +41,64 @@ export function onAbDisplaced(host: HTMLElement, handler: () => void): void {
   displacedHandlers.set(host, handler);
 }
 
-/** Puts an encoded segment in the A/B window, against the original, and redraws the comparison. */
+/**
+ * Puts a run's encoded stretches in the A/B window, against the original, and redraws the
+ * comparison.
+ *
+ * `blobs` is every stretch the run encoded, in the order it sampled them, and `totals.windows` says
+ * where in the source each one came from — the two are read together, so the original side of the
+ * pane at any moment is the same seconds as the encoded side.
+ */
 export async function loadEncodedIntoAB(
-  blob: Blob,
+  blobs: Blob[],
   settings: EncodeSettings,
   vt: TrackInfo,
   host: HTMLElement,
   totals?: { bytes: number; windows: SampleWindow[] },
 ): Promise<void> {
-  const mb = await ensureMediabunny();
-  const encodedInput = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
-  const encodedTrack = await encodedInput.getPrimaryVideoTrack();
-  if (!encodedTrack) throw new Error("Encoded segment has no video track");
-  // Asked rather than assumed: mediabunny throws out of the frame reads otherwise, which land in a
-  // playback loop nothing is awaiting and surface as an unhandled rejection with no clue attached.
-  if (!(await encodedTrack.canDecode())) {
-    throw new Error("This browser will not decode the encode that was just made, so it cannot be shown side by side.");
-  }
-  const encodedDuration = await encodedInput.computeDuration();
+  if (!blobs.length) throw new Error("No encoded segment to compare");
   if (!state.videoTrack) throw new Error("No video track loaded");
-  // The window is about to point at a new input; the one it was pointing at goes.
-  encodeTest.encodedInput?.dispose();
+  const mb = await ensureMediabunny();
+  const inputs: Input[] = [];
+  const segments: AbSegment[] = [];
+  try {
+    for (let i = 0; i < blobs.length; i++) {
+      const encodedInput = new mb.Input({ source: new mb.BlobSource(blobs[i]), formats: mb.ALL_FORMATS });
+      // Pushed before anything can throw, so a stretch that fails half-way still leaves the ones
+      // opened before it to be disposed rather than leaked.
+      inputs.push(encodedInput);
+      const encodedTrack = await encodedInput.getPrimaryVideoTrack();
+      if (!encodedTrack) throw new Error("Encoded segment has no video track");
+      // Asked rather than assumed: mediabunny throws out of the frame reads otherwise, which land in
+      // a playback loop nothing is awaiting and surface as an unhandled rejection with no clue
+      // attached.
+      if (!(await encodedTrack.canDecode())) {
+        throw new Error(
+          "This browser will not decode the encode that was just made, so it cannot be shown side by side.",
+        );
+      }
+      const seconds = await encodedInput.computeDuration();
+      segments.push({
+        window: totals?.windows[i] ?? { startSeconds: encodeTest.startTime, seconds },
+        sink: new mb.CanvasSink(encodedTrack, { poolSize: 2 }),
+        seconds,
+      });
+    }
+  } catch (err) {
+    for (const input of inputs) input.dispose();
+    throw err;
+  }
+  // Swapped in only once every stretch has opened: a load that failed part-way used to leave the
+  // window pointing at half a run, with the panes still showing the comparison before it.
+  for (const input of encodeTest.encodedInputs) input.dispose();
+  encodeTest.encodedInputs = inputs;
   encodeTest.originalSink = new mb.CanvasSink(state.videoTrack, { poolSize: 2 });
-  encodeTest.encodedSink = new mb.CanvasSink(encodedTrack, { poolSize: 2 });
-  encodeTest.encodedInput = encodedInput;
-  encodeTest.segDuration = encodedDuration;
-  // The bytes and the stretches are the run's, not this blob's: with several sampled stretches the
-  // window below shows the first while the size figures cover them all.
-  encodeTest.encodedSize = totals?.bytes ?? blob.size;
-  encodeTest.windows = totals?.windows ?? [{ startSeconds: encodeTest.startTime, seconds: encodedDuration }];
+  encodeTest.abSegments = segments;
+  encodeTest.segDuration = segments.reduce((sum, seg) => sum + seg.seconds, 0);
+  // The bytes are the run's rather than these blobs' added up, so a square whose output was dropped
+  // and re-encoded still reports what the sweep measured.
+  encodeTest.encodedSize = totals?.bytes ?? blobs.reduce((sum, blob) => sum + blob.size, 0);
+  encodeTest.windows = totals?.windows ?? segments.map((seg) => seg.window);
   encodeTest.activeCombo = settings;
   renderAbResult(host, vt, settings);
 }
@@ -77,15 +113,22 @@ function displaceActiveHost(): void {
   displacedHandlers.get(previous)?.();
 }
 
+/** Where one sampled stretch sits in the source, e.g. "12.3s–17.3s". */
+function describeWindow(window: SampleWindow): string {
+  return `${window.startSeconds.toFixed(1)}s–${(window.startSeconds + window.seconds).toFixed(1)}s`;
+}
+
 /** What a run covered: the one stretch it encoded, or how many it sampled and where the first was.
  * Shared with the Full Analysis document, so the page and the document say it the same way. */
 export function describeSampledStretches(): string {
   const windows = encodeTest.windows;
   const first = windows[0] ?? { startSeconds: encodeTest.startTime, seconds: encodeTest.duration };
-  const span = `${first.startSeconds.toFixed(1)}s–${(first.startSeconds + first.seconds).toFixed(1)}s`;
-  if (windows.length <= 1) return span;
+  if (windows.length <= 1) return describeWindow(first);
   const sampled = windows.reduce((sum, w) => sum + w.seconds, 0);
-  return `${windows.length} × ${first.seconds.toFixed(1)}s at random (${sampled.toFixed(1)}s total), showing ${span}`;
+  return (
+    `${windows.length} × ${first.seconds.toFixed(1)}s at random ` +
+    `(${sampled.toFixed(1)}s total), first at ${describeWindow(first)}`
+  );
 }
 
 /** The facts above the panes: which seconds were encoded, at what settings, and what they came to.
@@ -115,10 +158,63 @@ function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeigh
   return g;
 }
 
-/** How long the stretch on screen runs, taken from the stretch itself: the two tabs ask for
- * different lengths, and the scrub bar belongs to whichever encode is loaded here. */
-function shownStretchSeconds(): number {
-  return encodeTest.windows[0]?.seconds || encodeTest.segDuration || 1;
+/** Kept off the very end of a stretch, which decodes to nothing: a sink asked for its own duration
+ * has no frame at that timestamp to give back. */
+const STRETCH_END_MARGIN = 0.001;
+
+/** How long the loaded reel runs: every sampled stretch's encoded copy, added together. Falls back
+ * to a second so the scrub bar has a range to be a fraction of before anything has loaded. */
+function reelSeconds(): number {
+  const total = encodeTest.abSegments.reduce((sum, seg) => sum + seg.seconds, 0);
+  return total > 0 ? total : 1;
+}
+
+/** Where a second of the reel lands: which sampled stretch it is in, and how far into that stretch.
+ * Past the end it clamps to the last stretch rather than falling off, since the reel's length is
+ * measured from the same durations and floating-point addition need not agree with itself. */
+function locateInReel(relT: number): { index: number; offset: number } {
+  const segments = encodeTest.abSegments;
+  let left = Math.max(0, relT);
+  for (let i = 0; i < segments.length; i++) {
+    const seconds = segments[i].seconds;
+    if (left < seconds || i === segments.length - 1) {
+      return { index: i, offset: Math.min(left, Math.max(0, seconds - STRETCH_END_MARGIN)) };
+    }
+    left -= seconds;
+  }
+  return { index: 0, offset: 0 };
+}
+
+/** The second of the reel a sampled stretch starts at, which is what the segment buttons jump to. */
+function reelStartOfSegment(index: number): number {
+  return encodeTest.abSegments.slice(0, index).reduce((sum, seg) => sum + seg.seconds, 0);
+}
+
+/**
+ * The line under the panes naming the sampled stretch on screen, and the buttons that step between
+ * them, put in `host`.
+ *
+ * Only in the page when a run sampled more than one stretch: a single stretch is already named in
+ * the summary above the panes, and buttons that cycle a cycle of one say nothing. The pieces come
+ * back either way, so the caller drives them without asking which case it is in.
+ */
+function appendSegmentNav(
+  host: HTMLElement,
+  count: number,
+): { label: HTMLSpanElement; prev: HTMLButtonElement; next: HTMLButtonElement } {
+  const row = h("div", "compare-segments");
+  const label = h("span", "compare-segment-label");
+  const prev = h("button", "btn sm sec", "◀ Previous");
+  prev.type = "button";
+  prev.title = "Jump to the previous sampled stretch";
+  const next = h("button", "btn sm sec", "Next ▶");
+  next.type = "button";
+  next.title = "Jump to the next sampled stretch";
+  const buttons = h("div", "compare-segment-buttons");
+  buttons.append(prev, next);
+  row.append(label, buttons);
+  if (count > 1) host.append(row);
+  return { label, prev, next };
 }
 
 function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettings): void {
@@ -146,7 +242,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const estimate = currentSizeEstimate();
   if (estimate) host.append(h("h3", null, "Estimated Data Savings"), renderSavingsStrip(estimate));
 
-  const shownSeconds = shownStretchSeconds();
+  const shownSeconds = reelSeconds();
 
   const stage = h("div", "compare-stage");
   const origPane = h("div", "compare-pane");
@@ -189,6 +285,9 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   encPane.style.aspectRatio = ar;
   stage.append(origPane, encPane);
   host.append(stage);
+
+  const segments = encodeTest.abSegments;
+  const { label: segmentLabel, prev: prevSegBtn, next: nextSegBtn } = appendSegmentNav(host, segments.length);
 
   const controls = h("div", "compare-controls");
   const scrub = h("input");
@@ -276,11 +375,17 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   drawError.style.display = "none";
   host.append(drawError);
 
+  // `relT` is a second of the reel, not of the source: it is turned into a stretch and an offset
+  // into it, and the original is read at that offset from where that stretch was cut. That is what
+  // keeps the two panes on the same content once the reel has run past the first stretch.
   const drawAt = async (relT: number): Promise<void> => {
-    if (!encodeTest.originalSink || !encodeTest.encodedSink) return;
+    if (!encodeTest.originalSink) return;
+    // Never out of range: nothing is drawn until a load has put at least one stretch in the window.
+    const { index, offset } = locateInReel(relT);
+    const segment = segments[index];
     const [originalFrame, encodedFrame] = await Promise.all([
-      encodeTest.originalSink.getCanvas(encodeTest.startTime + relT),
-      encodeTest.encodedSink.getCanvas(Math.min(relT, Math.max(0, encodeTest.segDuration - 0.001))),
+      encodeTest.originalSink.getCanvas(segment.window.startSeconds + offset),
+      segment.sink.getCanvas(offset),
     ]);
     drawFrame(origCanvas, originalFrame);
     drawFrame(encCanvas, encodedFrame, downscaled ? { width: srcWidth, height: srcHeight } : null);
@@ -300,9 +405,14 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     });
   };
 
-  const showTime = (relT: number): void => {
-    scrub.value = String((relT / shownSeconds) * 1000);
+  /** Puts every readout on the same second of the reel: the slider (unless it is the thing being
+   * dragged), the time beside it, and the line naming the stretch that second falls in. */
+  const showTime = (relT: number, moveScrub = true): void => {
+    if (moveScrub) scrub.value = String((relT / shownSeconds) * 1000);
     scrubLabel.textContent = relT.toFixed(2) + "s";
+    const { index } = locateInReel(relT);
+    // Written whether or not the line is in the page, which spares every caller the question.
+    segmentLabel.textContent = `Segment ${index + 1} of ${segments.length} · ${describeWindow(segments[index].window)} in the source`;
   };
 
   // Playback decodes both panes per frame, so it is paced off the wall clock and asks for whichever
@@ -328,8 +438,9 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     try {
       while (playing && run === playRun) {
         let relT = baseT + (performance.now() - baseWall) / 1000;
-        // Loops rather than stopping at the end, the way a player set to repeat would: rebasing to 0
-        // keeps the same wall-clock pacing loop running instead of restarting it from Play.
+        // The reel is every sampled stretch end to end, so this runs through all of them and then
+        // back to the first, the way a player set to repeat would: rebasing to 0 keeps the same
+        // wall-clock pacing loop running instead of restarting it from Play.
         if (relT >= shownSeconds) {
           rebase(0);
           relT = 0;
@@ -353,12 +464,25 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
       return;
     }
     const at = (parseFloat(scrub.value) / 1000) * shownSeconds;
-    // Pressing Play with the playhead parked at the end starts the segment over.
+    // Pressing Play with the playhead parked at the end starts the reel over.
     rebase(at >= shownSeconds - frameStep ? 0 : at);
     playing = true;
     playBtn.textContent = "Pause";
     void runPlayback(++playRun);
   });
+
+  /** Moves the playhead to the start of a sampled stretch, wrapping either way so the buttons walk
+   * the same cycle playback does. Mid-playback it moves the playhead rather than stopping. */
+  const jumpToSegment = (index: number): void => {
+    const wrapped = ((index % segments.length) + segments.length) % segments.length;
+    const at = reelStartOfSegment(wrapped);
+    if (playing) rebase(at);
+    showTime(at);
+    drawFrom(at);
+  };
+  const currentSegment = (): number => locateInReel((parseFloat(scrub.value) / 1000) * shownSeconds).index;
+  prevSegBtn.addEventListener("click", () => jumpToSegment(currentSegment() - 1));
+  nextSegBtn.addEventListener("click", () => jumpToSegment(currentSegment() + 1));
 
   viewSelect.addEventListener("change", () => {
     encodeTest.upscaleSmoothing = viewSelect.value === "smooth";
@@ -370,10 +494,12 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
 
   scrub.addEventListener("input", () => {
     const relT = (parseFloat(scrub.value) / 1000) * shownSeconds;
-    scrubLabel.textContent = relT.toFixed(2) + "s";
+    // Everything but the slider, which is the thing being dragged.
+    showTime(relT, false);
     // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.
     if (playing) rebase(relT);
     void drawAt(relT);
   });
+  showTime(0);
   drawFrom(0);
 }

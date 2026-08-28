@@ -1510,6 +1510,27 @@ table.data th {
 .compare-pane .pixel-grid.visible {
   opacity: 1;
 }
+/* Which of a run's sampled stretches the panes are on, and the buttons that step between them.
+   Sits directly under the panes rather than in the control row below: it says what is being looked
+   at, which is a caption for the picture, not another thing to drive it with. Only in the page when
+   a run sampled more than one stretch. */
+.compare-segments {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.compare-segment-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.compare-segment-buttons {
+  display: flex;
+  gap: 6px;
+}
+
 .compare-controls {
   display: flex;
   align-items: center;

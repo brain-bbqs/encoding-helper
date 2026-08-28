@@ -31,12 +31,12 @@ const CLI: CliState = {
   scaler: "lanczos",
 };
 
-/** A finished square of `bytes`, optionally still holding its output. */
+/** A finished square of `bytes`, optionally still holding the stretches it was measured over. */
 function done(quality: MatrixQuality, preset: X264Preset, bytes: number, held = true, scale = 1): MatrixCell {
   const [cell] = makeMatrixCells(buildMatrixCombos([quality], [preset], [scale]));
   cell.status = "done";
   cell.bytes = bytes;
-  cell.blob = held ? new Blob([new Uint8Array(1)]) : null;
+  cell.blobs = held ? [new Blob([new Uint8Array(1)]), new Blob([new Uint8Array(1)])] : null;
   return cell;
 }
 
@@ -197,8 +197,8 @@ describe("evictBeyondBudget", () => {
   it("drops the largest outputs first, and only as many as it must", () => {
     const cells = [done("lossless", "fast", 900), done("high", "fast", 300), done("low", "fast", 100)];
     expect(evictBeyondBudget(cells, 500)).toEqual([comboKey("lossless", "fast")]);
-    expect(cells[0].blob).toBeNull();
-    expect(cells[1].blob).not.toBeNull();
+    expect(cells[0].blobs).toBeNull();
+    expect(cells[1].blobs).not.toBeNull();
     // The measurement survives the output being released, so the table still reports it.
     expect(cells[0].bytes).toBe(900);
     expect(retainedBytes(cells)).toBe(400);
@@ -207,7 +207,7 @@ describe("evictBeyondBudget", () => {
   it("spares the square showing in the A/B window", () => {
     const cells = [done("lossless", "fast", 900), done("high", "fast", 300)];
     expect(evictBeyondBudget(cells, 500, comboKey("lossless", "fast"))).toEqual([comboKey("high", "fast")]);
-    expect(cells[0].blob).not.toBeNull();
+    expect(cells[0].blobs).not.toBeNull();
   });
 });
 

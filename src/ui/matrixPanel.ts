@@ -69,7 +69,7 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
       `${describeSettings(cell.combo)} — segment ${fmtBytes(bytes)}` +
       (est ? ` (${fmtChangeFactor(est.ratio)}), whole file projected at ${fmtBytes(est.projectedTotalBytes)}` : "") +
       (cell.elapsedMs != null ? `, encoded in ${fmtElapsed(cell.elapsedMs)}` : "") +
-      (cell.blob ? "" : " (output released; selecting it re-encodes this square)"),
+      (cell.blobs ? "" : " (output released; selecting it re-encodes this square)"),
     pending: false,
     grew: est != null && est.savedFraction < 0,
   };
