@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildMatrixCombos,
   DEFAULT_MATRIX_PRESETS,
   DEFAULT_MATRIX_QUALITIES,
   DEFAULT_MATRIX_SCALES,
+  describeSettings,
   makeMatrixCells,
   MATRIX_PRESETS,
   MATRIX_QUALITIES,
@@ -11,8 +12,23 @@ import {
   MATRIX_SCALES,
 } from "../../src/lib/qualityMatrix";
 import { cli, encodeTest, resetState, state } from "../../src/lib/state";
-import type { TrackInfo } from "../../src/lib/types";
-import { renderCompareTab } from "../../src/ui/compareTab";
+import type { MatrixCell, TrackInfo } from "../../src/lib/types";
+
+/** Settles the A/B window's load, so a test can hold a chosen square half-way into the window and
+ * look at the grid while it is there. */
+let settleAbLoad: { resolve: () => void; reject: (err: Error) => void } | null = null;
+
+// The A/B window decodes with mediabunny, which is not the part of choosing a square under test
+// here: what matters is what the grid does before and after the window has the square.
+vi.mock("../../src/ui/abPanel", () => ({
+  onAbDisplaced: () => {},
+  loadEncodedIntoAB: () =>
+    new Promise<void>((resolve, reject) => {
+      settleAbLoad = { resolve, reject };
+    }),
+}));
+
+const { renderCompareTab } = await import("../../src/ui/compareTab");
 
 const VIDEO_TRACK: TrackInfo = {
   kind: "video",
@@ -50,6 +66,7 @@ function runButton(panel: HTMLElement): HTMLButtonElement {
 
 beforeEach(() => {
   document.body.innerHTML = "";
+  settleAbLoad = null;
   resetState();
   // The CLI settings deliberately survive resetState (they are the user's, not the file's), so the
   // ones this file edits are put back by hand rather than leaking into the tests after it.
@@ -59,6 +76,14 @@ beforeEach(() => {
   cli.scale = 1;
   cli.scaler = "lanczos";
   encodeTest.segments = 5;
+});
+
+// A square left half-way into the A/B window holds the tab's one encoder, which the next test would
+// then find already busy.
+afterEach(async () => {
+  settleAbLoad?.resolve();
+  settleAbLoad = null;
+  await new Promise((resolve) => setTimeout(resolve, 0));
 });
 
 describe("renderCompareTab", () => {
@@ -245,6 +270,77 @@ describe("renderCompareTab", () => {
     expect(encodeTest.matrix.scalers).toEqual(MATRIX_SCALERS);
     expect(axisBoxes(panel, "Quality levels").every((b) => b.checked)).toBe(true);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 9 × 4 × 2");
+  });
+});
+
+// A square is chosen by clicking it, and choosing one usually means encoding it again: only the few
+// most recent outputs are held. What the grid does during that wait is the point of these.
+describe("choosing a square", () => {
+  /** A finished two-square grid with the first square in the A/B window. */
+  function sweptGrid(): MatrixCell[] {
+    const cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1], ["lanczos"]));
+    for (const cell of cells) {
+      cell.status = "done";
+      cell.bytes = 1024;
+      cell.blobs = [new Blob(["x"])];
+    }
+    encodeTest.matrix.cells = cells;
+    encodeTest.matrix.selectedKey = cells[0].combo.key;
+    return cells;
+  }
+
+  function cellButton(panel: HTMLElement, cell: MatrixCell): HTMLButtonElement {
+    return Array.from(panel.querySelectorAll<HTMLButtonElement>("button.matrix-cell")).find((b) =>
+      b.title.startsWith(describeSettings(cell.combo)),
+    )!;
+  }
+
+  const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  // The ring says which square was picked, not which video has finished decoding: waiting for the
+  // load to move it left a click on a released square looking like a click that missed.
+  it("moves the ring to the clicked square before the A/B window has it", () => {
+    const cells = sweptGrid();
+    const panel = renderTab();
+    expect(cellButton(panel, cells[0]).classList.contains("selected")).toBe(true);
+
+    cellButton(panel, cells[1]).click();
+
+    expect(settleAbLoad).not.toBeNull();
+    expect(encodeTest.matrix.selectedKey).toBe(cells[1].combo.key);
+    expect(cellButton(panel, cells[0]).classList.contains("selected")).toBe(false);
+    expect(cellButton(panel, cells[1]).classList.contains("selected")).toBe(true);
+    expect(cellButton(panel, cells[1]).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  // There is one encoder, and getting a released square into the window uses it.
+  it("takes no second click while a square is on its way into the window", async () => {
+    const cells = sweptGrid();
+    const panel = renderTab();
+    cellButton(panel, cells[1]).click();
+    expect(cellButton(panel, cells[0]).disabled).toBe(true);
+    expect(runButton(panel).disabled).toBe(true);
+
+    settleAbLoad!.resolve();
+    await flush();
+    expect(cellButton(panel, cells[0]).disabled).toBe(false);
+    expect(runButton(panel).disabled).toBe(false);
+  });
+
+  // Only when the square never gets there is the old one still what the window holds.
+  it("puts the ring back on the square still showing when the chosen one cannot be loaded", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cells = sweptGrid();
+    const panel = renderTab();
+    cellButton(panel, cells[1]).click();
+
+    settleAbLoad!.reject(new Error("this browser will not decode it"));
+    await flush();
+
+    expect(encodeTest.matrix.selectedKey).toBe(cells[0].combo.key);
+    expect(cellButton(panel, cells[0]).classList.contains("selected")).toBe(true);
+    expect(cellButton(panel, cells[1]).classList.contains("selected")).toBe(false);
+    error.mockRestore();
   });
 });
 
