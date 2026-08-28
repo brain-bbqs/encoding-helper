@@ -1945,16 +1945,12 @@ table.data.matrix-table th.matrix-row-head {
 .matrix-cell:disabled {
   cursor: default;
 }
-/* The fill belongs to the square in the A/B window, not to the winner.
+/* Every mark on the square's frame — fill, border, ring — belongs to the square in the A/B window.
 
-   A fill is the loudest thing a square can do, and while ★ best carried it, clicking any other
-   square left the eye on the winner: the ring that moved was quieter than the colour that did not,
-   so the grid read as though the click had not landed. Best is a label on the sweep's answer and
-   says so with its border, its accent figure and the ★ itself; the fill follows the click. After a
-   sweep nobody clicks away from they are the same square and the marks simply stack. */
-.matrix-cell.best {
-  border-color: var(--accent);
-}
+   A framed square is the loudest thing the grid can do, and ★ best used to be framed too: clicking
+   any other square left a second outlined card on the page, so the eye stayed on the winner and the
+   grid read as though the click had not landed. Best says what it is in words instead — the ★ and
+   its accent figure — which reads at a glance without competing for the one frame that moves. */
 .matrix-cell.selected {
   border-color: var(--accent-bright);
   /* Mixed off the accent rather than taken from --accent-soft, which sits a hair off --sunken in
