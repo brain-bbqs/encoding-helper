@@ -160,7 +160,9 @@ describe("loadEncodedIntoAB", () => {
     expect([...bands].map((b) => b.style.left)).toEqual(["0%", "33.333%", "66.667%"]);
     // A hairline short of a third apiece, which is what leaves a gap at each boundary.
     expect([...bands].map((b) => b.style.width)).toEqual(Array(3).fill("calc(33.333% - 2px)"));
-    expect(bands[1].title).toBe("Segment 2 of 3 · 4.0s–5.0s in the source");
+    // Drawn where the bar's own track would be, which is what the stripped-down slider needs.
+    expect(bands[0].parentElement!.className).toBe("compare-reel-track");
+    expect(host.querySelector(".compare-scrub")!.classList.contains("has-reel")).toBe(true);
     // One boundary more than there are stretches, the last closing the bar off at 9.0s.
     expect(host.querySelectorAll(".compare-reel-tick")).toHaveLength(4);
     expect(reelLabels(host)).toEqual(["0:00", "0:04", "0:08", "0:09"]);
@@ -200,14 +202,20 @@ describe("loadEncodedIntoAB", () => {
     scrub.dispatchEvent(new Event("input"));
     expect(host.querySelector(".progress-label")!.textContent).toBe("1.50s");
     expect(currentBand(host)).toBe(1);
-    // What the bands say, said for a listener: the slider's own value is a thousandth of a reel.
-    expect(scrub.getAttribute("aria-valuetext")).toBe("1.50s · Segment 2 of 3 · 4.0s–5.0s in the source");
+    // What the bands say, said in words: they sit under the slider and can carry no tooltip of
+    // their own, and the slider's own value is a thousandth of a reel.
+    const where = "1.50s · Segment 2 of 3 · 4.0s–5.0s in the source";
+    expect(scrub.getAttribute("aria-valuetext")).toBe(where);
+    expect(scrub.title).toBe(where);
   });
 
+  // Nothing to divide a bar into, so the slider keeps the track it came with.
   it("leaves the ruler and the step buttons out when a run sampled a single stretch", async () => {
     const host = hostSection();
     await loadSampled(host, 1);
     expect(host.querySelector(".compare-reel")).toBeNull();
+    expect(host.querySelector(".compare-reel-track")).toBeNull();
+    expect(host.querySelector(".compare-scrub")!.classList.contains("has-reel")).toBe(false);
     expect(host.querySelector(".compare-segment-buttons")).toBeNull();
     expect(scrubBar(host)).not.toBeNull();
   });

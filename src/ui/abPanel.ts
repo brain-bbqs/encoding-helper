@@ -206,27 +206,30 @@ function describeReelPosition(index: number, segments: AbSegment[]): string {
 const LABELLED_BOUNDARIES = 6;
 
 /**
- * The sampled stretches drawn under the scrub bar, in the ruler idiom the sample picker borrowed
- * from clip-extractor: a band per stretch, alternating so they read as separate blocks, and a
- * ticked, labelled boundary between them saying where in the source each one was cut from.
+ * The sampled stretches drawn as the scrub bar itself, in the ruler idiom the sample picker borrowed
+ * from clip-extractor.
+ *
+ * A band per stretch, alternating and held a hairline apart, laid where the bar's own track would
+ * be — the slider is stripped down to its thumb (see `.has-reel` in the stylesheet), so what the
+ * playhead runs along is the run. Under it, a ticked boundary between each pair saying where in the
+ * source that stretch was cut from.
  *
  * Only in the page when a run sampled more than one stretch, since a bar divided into one says
- * nothing. The bands come back either way, so the caller highlights the one being played without
- * asking which case it is in.
+ * nothing, and a plain slider is what a single stretch wants. The bands come back either way, so the
+ * caller highlights the one being played without asking which case it is in.
  */
 function appendReelRuler(wrap: HTMLElement, segments: AbSegment[], reelSpan: number): HTMLElement[] {
+  const track = h("div", "compare-reel-track");
   const ruler = h("div", "compare-reel");
-  ruler.setAttribute("aria-hidden", "true");
   const at = (seconds: number): number => (reelSpan > 0 ? (seconds / reelSpan) * 100 : 0);
   const bands = segments.map((segment, i) => {
     const band = h("div", "compare-reel-seg" + (i % 2 ? " alt" : ""));
     band.style.left = at(reelStartOfSegment(i)).toFixed(3) + "%";
     // Held a hairline short of its share and nudged off its boundary, so neighbouring stretches
-    // read as separate blocks rather than as one bar the ticks happen to be drawn over.
+    // read as separate blocks rather than as one track with ticks drawn under it.
     band.style.width = `calc(${at(segment.seconds).toFixed(3)}% - 2px)`;
     band.style.marginLeft = "1px";
-    band.title = describeReelPosition(i, segments);
-    ruler.append(band);
+    track.append(band);
     return band;
   });
   // One more boundary than there are stretches: the end of the last one closes the bar off.
@@ -247,7 +250,11 @@ function appendReelRuler(wrap: HTMLElement, segments: AbSegment[], reelSpan: num
     label.style.left = left.toFixed(3) + "%";
     ruler.append(label);
   }
-  if (segments.length > 1) wrap.append(ruler);
+  if (segments.length > 1) {
+    // What tells the stylesheet to take the slider's own track away and let these show through.
+    wrap.classList.add("has-reel");
+    wrap.append(track, ruler);
+  }
   return bands;
 }
 
@@ -472,10 +479,12 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     if (moveScrub) scrub.value = String((relT / shownSeconds) * 1000);
     scrubLabel.textContent = relT.toFixed(2) + "s";
     const { index } = locateInReel(relT);
-    // The lit band is what says which stretch is on screen. Said in words on the slider too, since
-    // a screen reader gets nothing from the drawing, and the raw slider value is a thousandth of a
-    // reel rather than anything a listener could place.
-    scrub.setAttribute("aria-valuetext", `${relT.toFixed(2)}s · ${describeReelPosition(index, segments)}`);
+    // The lit band on the bar is what says which stretch is on screen. Said in words on the slider
+    // too, since a screen reader gets nothing from the drawing, the bands themselves sit under it
+    // and so can carry no tooltip of their own, and its raw value is a thousandth of a reel.
+    const where = `${relT.toFixed(2)}s · ${describeReelPosition(index, segments)}`;
+    scrub.setAttribute("aria-valuetext", where);
+    scrub.title = where;
     segmentBands.forEach((band, i) => band.classList.toggle("current", i === index));
   };
 

@@ -1530,22 +1530,82 @@ table.data th {
   position: relative;
   margin-top: 8px;
 }
+/* Margin zeroed on every side, not just the bottom: a range input carries 2px of it from the UA
+   sheet, which would leave the bands and their times a couple of pixels out from the thumb they
+   are drawn for. */
 .compare-scrub input[type="range"] {
   width: 100%;
-  margin-bottom: 0;
+  margin: 0;
+}
+/* With stretches to draw, the slider gives up its own track and keeps only its thumb: the bands
+   behind it are the track, so the playhead runs along the run rather than alongside a picture of
+   it. Everything inside the bar is inset by half a thumb at each end, which is the only span the
+   thumb's centre can actually reach — without that the bands and their times would each be a few
+   pixels out from the playhead that is meant to be pointing at them. */
+.compare-scrub.has-reel input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  z-index: 1;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+.compare-scrub.has-reel input[type="range"]::-webkit-slider-runnable-track {
+  height: 14px;
+  background: transparent;
+}
+.compare-scrub.has-reel input[type="range"]::-moz-range-track {
+  height: 14px;
+  background: transparent;
+}
+/* Ringed rather than tinted: it has to stay findable over an accent band and over a grey one. */
+.compare-scrub.has-reel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+.compare-scrub.has-reel input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+.compare-scrub.has-reel input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Where the slider's track would have been: centred in its 14px box, inset by half a thumb. */
+.compare-reel-track {
+  position: absolute;
+  top: 3px;
+  left: 7px;
+  right: 7px;
+  height: 8px;
+  pointer-events: none;
 }
 .compare-reel {
   position: relative;
   height: 19px;
+  margin: 2px 7px 0;
 }
 /* Neutral until played, so that the accent on the bar means one thing: the stretch on screen. The
    two shades alternate, which keeps two stretches meeting at a boundary reading as two blocks even
-   where the tick between them lands under the playhead. */
+   where the gap between them lands under the thumb. */
 .compare-reel-seg {
   position: absolute;
   top: 0;
-  height: 5px;
-  border-radius: 2px;
+  height: 100%;
+  border-radius: 4px;
   background: color-mix(in srgb, var(--muted) 70%, transparent);
 }
 .compare-reel-seg.alt {
@@ -1554,7 +1614,6 @@ table.data th {
 .compare-reel-seg.current {
   background: var(--accent);
 }
-/* Drawn past the bands so a boundary is legible where two of them meet. */
 .compare-reel-tick {
   position: absolute;
   top: 0;
