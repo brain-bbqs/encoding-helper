@@ -173,6 +173,9 @@ export interface MatrixCell {
   /** The encoded stretches, one per sampled window, held so the cell can be shown in the A/B window
    * without re-encoding. Dropped as a set, since the window cycles through all of them. */
   blobs: Blob[] | null;
+  /** Whether the figures above were read back from an earlier run rather than encoded just now (see
+   * lib/matrixCache). Such a square never holds outputs, so showing it re-encodes it. */
+  fromCache?: boolean;
   error: string | null;
 }
 
@@ -217,6 +220,10 @@ export interface MatrixState {
   /** Every stretch each square covered, which is the one above unless the run sampled several. */
   windows: SampleWindow[];
   running: boolean;
+  /** Whether a sweep may read squares back from earlier runs of this file instead of encoding them
+   * (see lib/matrixCache). Off, every square is encoded again; measurements are written either way,
+   * so switching it back on picks up whatever the re-run measured. */
+  reuseCached: boolean;
   /** The combination showing in the A/B window. */
   selectedKey: string | null;
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+#### 🚀 Enhancement
+
+- Compare Quality now reads back what earlier sweeps of the same file measured instead of encoding those squares again, with a tick box to turn the reuse off ([#31](https://github.com/brain-bbqs/encoding-helper/pull/31))
+
 ## 1.1.1
 
 #### 🐛 Bug Fix

@@ -8,7 +8,16 @@
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, infoIcon, teachBox } from "../lib/dom";
-import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { MATRIX_CACHE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import {
+  flushMatrixCache,
+  measurementKey,
+  readMeasurement,
+  recallWindows,
+  rememberWindows,
+  videoChecksum,
+  writeMeasurement,
+} from "../lib/matrixCache";
 import {
   bestReductionCell,
   buildMatrixCombos,
@@ -166,7 +175,7 @@ export function renderCompareTab(panel: HTMLElement): void {
     }
   });
   const selectAllRow = h("div", "row axis-select-all-row");
-  selectAllRow.append(selectAll);
+  selectAllRow.append(reuseCachedToggle(), selectAll);
   axisSettings.append(selectAllRow, axisRow, outerRow);
   sec.append(axisSettings);
 
@@ -253,6 +262,28 @@ function axisCheckboxes(
   return field;
 }
 
+/**
+ * Whether a sweep may read squares back from earlier runs of this file rather than encoding them.
+ *
+ * Ticked, since a measurement that has already been made is a measurement, and the whole cost of
+ * this tab is making them. It is a tick box rather than nothing at all because "encode it again"
+ * is a real request: encoding times are the one figure in the grid that is about this machine on
+ * this day rather than about the video, and a file edited under the same name is a file this
+ * cannot tell apart on a checksum of a few megabytes.
+ */
+function reuseCachedToggle(): HTMLLabelElement {
+  const wrap = h("label", "axis-option matrix-reuse");
+  const box = h("input");
+  box.type = "checkbox";
+  box.checked = encodeTest.matrix.reuseCached;
+  box.addEventListener("change", () => {
+    encodeTest.matrix.reuseCached = box.checked;
+  });
+  wrap.append(box, document.createTextNode(" Reuse earlier measurements"));
+  wrap.append(infoIcon(MATRIX_CACHE_INFO, "About reusing earlier measurements"));
+  return wrap;
+}
+
 /** The squares a sweep left without a size: the ones that failed, and the ones Stop never reached. */
 function unmeasuredCells(): MatrixCell[] {
   return encodeTest.matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
@@ -311,12 +342,106 @@ async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
   // still covers the seconds the rest of the grid was measured over. Sampled once for the whole
   // sweep for the same reason squared: two squares measured over different stretches of video are
   // not comparable, which is the only thing the grid is for.
-  matrix.windows = runWindows();
+  matrix.windows = await sweepWindows();
   encodeTest.sampled = matrix.windows;
   matrix.segmentStart = matrix.windows[0]?.startSeconds ?? encodeTest.startTime;
   matrix.segmentLength = encodeTest.duration;
   matrix.selectedKey = null;
   await encodeCells(matrix.cells, vt, ui);
+}
+
+/**
+ * The stretches this sweep will cover.
+ *
+ * Where the fields still describe the stretches already in hand, those are what a run covers, as
+ * they always have been. Where they do not — nothing sampled yet this session, or a duration or a
+ * count that has moved — an earlier run of this same file at these same fields gets its stretches
+ * taken up again instead of a fresh random draw, because its measurements were made over them and
+ * two squares measured over different seconds are not comparable. Without this, a reloaded page
+ * would sample somewhere else and every cached measurement of the file would be unreachable.
+ */
+async function sweepWindows(): Promise<SampleWindow[]> {
+  const checksum = await fileChecksum();
+  const fresh = runWindows();
+  // windowsForRun hands the stretches already in hand straight back when they still fit what the
+  // fields ask for, so anything else is a fresh random draw — which is exactly when an earlier
+  // run's stretches are worth taking up instead.
+  const remembered =
+    fresh !== encodeTest.sampled && encodeTest.matrix.reuseCached && checksum
+      ? recallWindows(checksum, encodeTest.duration, encodeTest.segments)
+      : null;
+  const windows = remembered ?? fresh;
+  if (checksum) rememberWindows(checksum, encodeTest.duration, encodeTest.segments, windows);
+  return windows;
+}
+
+/**
+ * The loaded file's checksum, or null when there is none to take.
+ *
+ * A file that cannot be checksummed is a file with no cache: nothing is read back for it and
+ * nothing is written under it, which costs the encoding a sweep would have cost anyway.
+ */
+async function fileChecksum(): Promise<string | null> {
+  if (!state.source) return null;
+  try {
+    return await videoChecksum(state.source);
+  } catch (err) {
+    console.warn("[encoding-helper] could not identify the video for the measurement cache:", err);
+    return null;
+  }
+}
+
+/** What one square is remembered under: this file, this command, these stretches. */
+function cellCacheKey(checksum: string, cell: MatrixCell): string | null {
+  const info = currentVideoInfo();
+  if (!info) return null;
+  return measurementKey(checksum, buildFfmpegArgs(matrixCliState(cli, cell.combo), info), matrixWindows());
+}
+
+/**
+ * Fills in every square this file has already been measured at, and hands back the rest.
+ *
+ * A square read back holds no output — only the numbers were kept — so it behaves exactly like one
+ * whose output was evicted mid-run: it is in the table, and clicking it encodes that combination to
+ * fill the A/B window.
+ */
+function applyCachedMeasurements(queue: MatrixCell[], checksum: string, ui: MatrixUi): MatrixCell[] {
+  const remaining: MatrixCell[] = [];
+  for (const cell of queue) {
+    const key = cellCacheKey(checksum, cell);
+    const held = key ? readMeasurement(key) : null;
+    if (!held) {
+      remaining.push(cell);
+      continue;
+    }
+    cell.status = "done";
+    cell.bytes = held.bytes;
+    cell.segmentSeconds = held.segmentSeconds;
+    cell.elapsedMs = held.elapsedMs;
+    cell.blobs = null;
+    cell.fromCache = true;
+    cell.error = null;
+  }
+  const reused = queue.length - remaining.length;
+  if (reused) {
+    logLine(ui.log, `Read ${reused} of ${queue.length} squares back from earlier runs of this file`, "info");
+  }
+  return remaining;
+}
+
+/** Remembers what a square just measured, so a later sweep of this file need not measure it again.
+ * Written whatever the tick box says, so switching the reuse back on finds what the runs it was off
+ * for measured. */
+function rememberMeasurement(checksum: string | null, cell: MatrixCell): void {
+  if (!checksum || cell.bytes == null) return;
+  const key = cellCacheKey(checksum, cell);
+  if (key) {
+    writeMeasurement(key, {
+      bytes: cell.bytes,
+      segmentSeconds: cell.segmentSeconds,
+      elapsedMs: cell.elapsedMs,
+    });
+  }
 }
 
 /**
@@ -365,11 +490,13 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
 
   let inputs: RunInputs | null = null;
   try {
-    ui.note.textContent = "Loading ffmpeg.wasm…";
-    const workers = acquireWorkers(queue.length);
-    await workers[0].load();
-    inputs = await prepareRun(matrixWindows(), workers, ui);
-    if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
+    // Read back before anything is loaded: a grid the cache can answer in full is a run that never
+    // starts an encoder, which is the difference between a sweep and a table appearing.
+    const checksum = await fileChecksum();
+    const pending = checksum && matrix.reuseCached ? applyCachedMeasurements(queue, checksum, ui) : queue;
+    // A retry queued mid-run joins what is actually being encoded, not what was asked for.
+    activeQueue = pending;
+    repaint();
 
     // One bar and one line for the whole run, however many cores are filling it: the bar counts
     // finished squares and the in-flight fractions between them, and the line counts them in words.
@@ -392,39 +519,51 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
         : `Encoded ${finished}/${queue.length}`;
     };
 
-    await drainWithPool(
-      queue,
-      workers,
-      async (cell, worker) => {
-        cell.status = "running";
-        inFlight.set(cell.combo.key, 0);
-        repaint();
-        showProgress();
-        const startedAt = performance.now();
-        try {
-          const encoded = await encodeWindows(matrixCliState(cli, cell.combo), inputs!, [worker], ui, (fraction) => {
-            inFlight.set(cell.combo.key, fraction);
-            showProgress();
-          });
-          cell.elapsedMs = performance.now() - startedAt;
-          cell.bytes = encoded.bytes;
-          cell.blobs = encoded.blobs;
-          cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
-          cell.status = "done";
-        } catch (err) {
-          // A core terminated by Stop rejects whatever it was running; the square it was on was
-          // never measured, which is what "skipped" already means for the ones never reached.
-          cell.status = stopRequested() ? "skipped" : "failed";
-          cell.error = cell.status === "failed" ? (err instanceof Error ? err.message : String(err)) : null;
-          if (cell.error) logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
-        }
-        inFlight.delete(cell.combo.key);
-        evictBeyondBudget(matrix.cells, MATRIX_RETAINED_BYTES, matrix.selectedKey);
-        repaint();
-        showProgress();
-      },
-      stopRequested,
-    );
+    // Squares read back are squares finished, so the bar starts wherever the cache got it to.
+    showProgress();
+
+    if (pending.length) {
+      ui.note.textContent = "Loading ffmpeg.wasm…";
+      const workers = acquireWorkers(pending.length);
+      await workers[0].load();
+      inputs = await prepareRun(matrixWindows(), workers, ui);
+      if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
+      await drainWithPool(
+        pending,
+        workers,
+        async (cell, worker) => {
+          cell.status = "running";
+          inFlight.set(cell.combo.key, 0);
+          repaint();
+          showProgress();
+          const startedAt = performance.now();
+          try {
+            const encoded = await encodeWindows(matrixCliState(cli, cell.combo), inputs!, [worker], ui, (fraction) => {
+              inFlight.set(cell.combo.key, fraction);
+              showProgress();
+            });
+            cell.elapsedMs = performance.now() - startedAt;
+            cell.bytes = encoded.bytes;
+            cell.blobs = encoded.blobs;
+            cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
+            cell.status = "done";
+            cell.fromCache = false;
+            rememberMeasurement(checksum, cell);
+          } catch (err) {
+            // A core terminated by Stop rejects whatever it was running; the square it was on was
+            // never measured, which is what "skipped" already means for the ones never reached.
+            cell.status = stopRequested() ? "skipped" : "failed";
+            cell.error = cell.status === "failed" ? (err instanceof Error ? err.message : String(err)) : null;
+            if (cell.error) logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
+          }
+          inFlight.delete(cell.combo.key);
+          evictBeyondBudget(matrix.cells, MATRIX_RETAINED_BYTES, matrix.selectedKey);
+          repaint();
+          showProgress();
+        },
+        stopRequested,
+      );
+    }
     // Whatever Stop left unreached is not pending, it is not going to run.
     for (const cell of queue) {
       if (cell.status === "pending") cell.status = "skipped";
@@ -473,6 +612,9 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
+    // Written out at the end rather than after every square: the store is one JSON blob, and a
+    // sweep finishing a square every few seconds would otherwise re-serialize the lot each time.
+    flushMatrixCache();
     await dropWholeFileInput(inputs);
     activeQueue = null;
     matrix.running = false;

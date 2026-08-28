@@ -1843,8 +1843,15 @@ table.data.matrix-table th.matrix-group-head {
   color: var(--text);
 }
 .axis-select-all-row {
-  justify-content: flex-end;
+  /* The reuse tick at one end, "select all" at the other: both are about the sweep as a whole
+     rather than about any one axis, which is what puts them above the tick lists together. */
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 4px;
+}
+.matrix-reuse {
+  font-size: 11px;
+  color: var(--muted-2);
 }
 /* The resolution tick list: two columns so the four options sit as a 2×2 grid, aligned down the
    columns instead of wrapping wherever their pixel-dimension labels happen to break. */
