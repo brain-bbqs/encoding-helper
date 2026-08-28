@@ -5,7 +5,7 @@
 #### 🐛 Bug Fix
 
 - The Compare Quality progress line now counts the squares being encoded instead of naming them, so it no longer runs to a paragraph that shifts the grid down the page ([#30](https://github.com/brain-bbqs/encoding-helper/pull/30))
-- Clicking a square in the results grid now moves the ring to it straight away, rather than leaving it on the previous square until the re-encode behind it finishes ([#30](https://github.com/brain-bbqs/encoding-helper/pull/30))
+- The results grid now highlights the clicked square immediately, moving the fill off ★ best instead of waiting on the re-encode behind it ([#30](https://github.com/brain-bbqs/encoding-helper/pull/30))
 
 ## 1.1.0
 

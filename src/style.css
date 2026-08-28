@@ -1945,13 +1945,21 @@ table.data.matrix-table th.matrix-row-head {
 .matrix-cell:disabled {
   cursor: default;
 }
+/* The fill belongs to the square in the A/B window, not to the winner.
+
+   A fill is the loudest thing a square can do, and while ★ best carried it, clicking any other
+   square left the eye on the winner: the ring that moved was quieter than the colour that did not,
+   so the grid read as though the click had not landed. Best is a label on the sweep's answer and
+   says so with its border, its accent figure and the ★ itself; the fill follows the click. After a
+   sweep nobody clicks away from they are the same square and the marks simply stack. */
 .matrix-cell.best {
   border-color: var(--accent);
-  background: var(--accent-soft);
 }
-/* The square in the A/B window is called out by a ring rather than a fill, so it can sit on top of
-   the best square's colour without either mark being lost. */
 .matrix-cell.selected {
+  border-color: var(--accent-bright);
+  /* Mixed off the accent rather than taken from --accent-soft, which sits a hair off --sunken in
+     the light theme and left the fill invisible in exactly the theme this has to work in too. */
+  background: color-mix(in srgb, var(--accent) 22%, var(--sunken));
   outline: 2px solid var(--accent-bright);
   outline-offset: 1px;
 }
