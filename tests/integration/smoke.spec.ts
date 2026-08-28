@@ -162,12 +162,14 @@ test.describe("Encoding Helper shell", () => {
 
     // The test decodes frames, which a Chromium built without proprietary codecs cannot do for
     // H.264 at all. That is a fact about the browser, not about the document, so skip there rather
-    // than fail: either the run produced rows or the app said why it could not.
-    const rows = page.locator("#seekResultsWrap table.data tbody tr");
+    // than fail: either the run produced results or the app said why it could not.
+    const tableFold = page.locator("#seekResultsWrap .fold");
     const failure = page.locator("#errorMsg", { hasText: "Seeking test failed" });
-    await expect(rows.first().or(failure)).toBeVisible();
+    await expect(tableFold.or(failure)).toBeVisible();
     test.skip(await failure.isVisible(), "this browser build cannot decode H.264");
-    await expect(rows).toHaveCount(5);
+    // The per-sample rows start folded away behind their bar, so open it to count them.
+    await tableFold.locator("summary").click();
+    await expect(page.locator("#seekResultsWrap table.data tbody tr")).toHaveCount(5);
 
     await page.locator(".tab-action").click();
     const doc = page.frameLocator("#analysisDoc");

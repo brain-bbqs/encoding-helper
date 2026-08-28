@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+#### 🚀 Enhancement
+
+- The seeking test now samples 100 timestamps by default, and its per-sample table folds away behind a bar that carries the row count ([#33](https://github.com/brain-bbqs/encoding-helper/pull/33))
+
 ## 1.2.1
 
 #### 🐛 Bug Fix

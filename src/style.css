@@ -1339,6 +1339,55 @@ details.teach-more summary {
   transform: translateX(-100%);
 }
 
+/* A generic disclosure fold, sharing the recessed bar and caret the output console and the sweep
+   settings carry, so anything folded away on the page reads as the same kind of thing to open. */
+.fold {
+  margin-top: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+}
+.fold-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead — and it has
+     to say which way the bar will move, not just that it is a bar. */
+  list-style: none;
+}
+.fold-summary::-webkit-details-marker {
+  display: none;
+}
+.fold-summary::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--faint);
+}
+.fold[open] > .fold-summary::before {
+  content: "▾";
+}
+.fold[open] > .fold-summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+.fold-summary:hover {
+  color: var(--text);
+}
+/* What is in there, so the bar says something while it is shut. */
+.fold-note {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--faint);
+}
+.fold-body {
+  padding: 12px;
+}
+
 /* The output console lives in a fold that starts closed, so a finished run's result is what is on
    screen rather than the transcript that produced it. The bar gets the sweep-settings treatment —
    recessed background and a caret — so a shut console reads as something that opens. */
