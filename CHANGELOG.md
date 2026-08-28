@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+
+#### 🐛 Bug Fix
+
+- The Compare Quality progress line now counts the squares being encoded instead of naming them, so it no longer runs to a paragraph that shifts the grid down the page ([#30](https://github.com/brain-bbqs/encoding-helper/pull/30))
+- The results grid now highlights the clicked square immediately and it alone; ★ best keeps its star and accent figure instead of a competing outline ([#30](https://github.com/brain-bbqs/encoding-helper/pull/30))
+
 ## 1.1.0
 
 #### 🚀 Enhancement

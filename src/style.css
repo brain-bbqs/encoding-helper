@@ -1945,13 +1945,17 @@ table.data.matrix-table th.matrix-row-head {
 .matrix-cell:disabled {
   cursor: default;
 }
-.matrix-cell.best {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-/* The square in the A/B window is called out by a ring rather than a fill, so it can sit on top of
-   the best square's colour without either mark being lost. */
+/* Every mark on the square's frame — fill, border, ring — belongs to the square in the A/B window.
+
+   A framed square is the loudest thing the grid can do, and ★ best used to be framed too: clicking
+   any other square left a second outlined card on the page, so the eye stayed on the winner and the
+   grid read as though the click had not landed. Best says what it is in words instead — the ★ and
+   its accent figure — which reads at a glance without competing for the one frame that moves. */
 .matrix-cell.selected {
+  border-color: var(--accent-bright);
+  /* Mixed off the accent rather than taken from --accent-soft, which sits a hair off --sunken in
+     the light theme and left the fill invisible in exactly the theme this has to work in too. */
+  background: color-mix(in srgb, var(--accent) 22%, var(--sunken));
   outline: 2px solid var(--accent-bright);
   outline-offset: 1px;
 }
