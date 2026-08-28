@@ -101,6 +101,22 @@ export function infoIcon(html: string, label = "More information"): HTMLSpanElem
   return wrap;
 }
 
+/**
+ * A closed disclosure fold with a summary bar, for detail that belongs with a result without
+ * standing between the reader and it. <details> for the same reasons the output console and the
+ * sweep settings use one: it opens on click, on Enter, and for a page search hitting text inside
+ * it. `note` is the aside the bar carries while it is shut, so a closed fold still says what is in
+ * there.
+ */
+export function fold(label: string, note?: string): { wrap: HTMLDetailsElement; body: HTMLDivElement } {
+  const wrap = h("details", "fold");
+  const summary = h("summary", "fold-summary");
+  summary.append(h("span", null, label), h("span", "fold-note", note ?? ""));
+  const body = h("div", "fold-body");
+  wrap.append(summary, body);
+  return { wrap, body };
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function svgEl<K extends keyof SVGElementTagNameMap>(

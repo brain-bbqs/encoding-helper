@@ -3,7 +3,7 @@
 // since how a file seeks is a consequence of its GOP structure rather than a separate thing to
 // go and look at.
 
-import { gridItem, h, svgEl, teachBox } from "../lib/dom";
+import { fold, gridItem, h, svgEl, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -13,6 +13,12 @@ import type { SeekResult } from "../lib/types";
 
 /** Caption for the GOP histogram, shared with the Full Analysis document. */
 export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a bar for its frame count)";
+
+/**
+ * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
+ * scatter a distribution rather than a handful of points, and still a run of a few seconds.
+ */
+const DEFAULT_SEEK_SAMPLES = 100;
 
 /** Caption for the seeking scatter plot, shared with the Full Analysis document. */
 export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
@@ -63,7 +69,7 @@ export function renderSeekTab(panel: HTMLElement): void {
   nInput.type = "number";
   nInput.min = "5";
   nInput.max = "200";
-  nInput.value = "20";
+  nInput.value = String(DEFAULT_SEEK_SAMPLES);
   nInput.id = "seekN";
   nField.append(nInput);
   controls.append(nField);
@@ -83,7 +89,7 @@ export function renderSeekTab(panel: HTMLElement): void {
   panel.append(sec);
 
   runBtn.addEventListener("click", () => {
-    void runSeekingTest(runBtn, seekProgress, seekResultsWrap, parseInt(nInput.value, 10) || 20);
+    void runSeekingTest(runBtn, seekProgress, seekResultsWrap, parseInt(nInput.value, 10) || DEFAULT_SEEK_SAMPLES);
   });
 }
 
@@ -166,6 +172,13 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
     wrap.append(scatter);
   }
 
+  // The summary figures and the scatter above are what a run is read for; a hundred sampled
+  // timestamps of raw rows underneath them would bury the next section, so the table folds away
+  // behind a bar carrying its row count, like the output console and the sweep settings.
+  const { wrap: tableFold, body: tableBody } = fold(
+    "Sampled timestamps",
+    `${results.length} row${results.length === 1 ? "" : "s"}`,
+  );
   const scroll = h("div", "scroll-x");
   const table = h("table", "data");
   const thead = h("thead");
@@ -189,7 +202,8 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   });
   table.append(tbody);
   scroll.append(table);
-  wrap.append(scroll);
+  tableBody.append(scroll);
+  wrap.append(tableFold);
 }
 
 // Scatter plot: keyframe distance (x) vs. decode time (y), one point per sampled timestamp. A

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { closeInfoPopovers, escapeHtml, gridItem, infoIcon } from "../../src/lib/dom";
+import { closeInfoPopovers, escapeHtml, fold, gridItem, infoIcon } from "../../src/lib/dom";
 
 describe("escapeHtml", () => {
   it("escapes every character that could break out of an attribute or element", () => {
@@ -85,5 +85,20 @@ describe("infoIcon", () => {
     closeInfoPopovers();
     expect(second.classList.contains("open")).toBe(false);
     expect(second.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+describe("fold", () => {
+  it("starts closed, with the bar carrying the label and its note", () => {
+    const { wrap, body } = fold("Sampled timestamps", "100 rows");
+    body.append(document.createElement("table"));
+    expect(wrap.open).toBe(false);
+    expect(wrap.querySelector("summary")?.textContent).toBe("Sampled timestamps100 rows");
+    expect(wrap.querySelector(".fold-note")?.textContent).toBe("100 rows");
+    expect(wrap.querySelector(".fold-body")?.firstElementChild?.tagName).toBe("TABLE");
+  });
+
+  it("leaves the note empty when there is nothing to say about what is inside", () => {
+    expect(fold("Details").wrap.querySelector(".fold-note")?.textContent).toBe("");
   });
 });

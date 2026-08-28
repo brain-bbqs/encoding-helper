@@ -138,4 +138,10 @@ describe("the Inspect panel", () => {
       "GOP / Keyframe Structure",
     ]);
   });
+
+  it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
+    const panel = document.createElement("div");
+    renderSeekTab(panel);
+    expect(panel.querySelector<HTMLInputElement>("#seekN")?.value).toBe("100");
+  });
 });
