@@ -2141,6 +2141,29 @@ table.data.matrix-table th.matrix-row-head {
   font-weight: 600;
   text-decoration: underline;
 }
+/* Separates the version stamp from the control beside it, as in bbqs-uploader's footer. */
+.footer-dot {
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+/* A button that reads as one of the footer's links rather than as a control: what it does is rare,
+   undoable only by sweeping again, and not what anyone came to the page for. */
+.footer-button-link {
+  font: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.footer-button-link:disabled {
+  color: var(--muted);
+  cursor: default;
+}
 /* Supporting-institution watermarks, bottom-right: the Talmo Lab logo, then CON (as in
    bbqs-uploader). Fading the whole link rather than just the image keeps the Talmo Lab name below
    at the same weight as the name baked into the CON artwork. */

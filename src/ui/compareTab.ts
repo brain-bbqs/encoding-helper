@@ -9,15 +9,7 @@
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, infoIcon, teachBox } from "../lib/dom";
 import { MATRIX_CACHE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
-import {
-  flushMatrixCache,
-  measurementKey,
-  readMeasurement,
-  recallWindows,
-  rememberWindows,
-  videoChecksum,
-  writeMeasurement,
-} from "../lib/matrixCache";
+import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
   bestReductionCell,
   buildMatrixCombos,
@@ -368,10 +360,10 @@ async function sweepWindows(): Promise<SampleWindow[]> {
   // run's stretches are worth taking up instead.
   const remembered =
     fresh !== encodeTest.sampled && encodeTest.matrix.reuseCached && checksum
-      ? recallWindows(checksum, encodeTest.duration, encodeTest.segments)
+      ? await matrixCache.recallWindows(checksum, encodeTest.duration, encodeTest.segments)
       : null;
   const windows = remembered ?? fresh;
-  if (checksum) rememberWindows(checksum, encodeTest.duration, encodeTest.segments, windows);
+  if (checksum) matrixCache.rememberWindows(checksum, encodeTest.duration, encodeTest.segments, windows);
   return windows;
 }
 
@@ -405,19 +397,21 @@ function cellCacheKey(checksum: string, cell: MatrixCell): string | null {
  * whose output was evicted mid-run: it is in the table, and clicking it encodes that combination to
  * fill the A/B window.
  */
-function applyCachedMeasurements(queue: MatrixCell[], checksum: string, ui: MatrixUi): MatrixCell[] {
+async function applyCachedMeasurements(queue: MatrixCell[], checksum: string, ui: MatrixUi): Promise<MatrixCell[]> {
+  const keys = new Map(queue.map((cell) => [cell, cellCacheKey(checksum, cell)]));
+  const held = await matrixCache.readMeasurements([...keys.values()].filter((key) => key != null));
   const remaining: MatrixCell[] = [];
   for (const cell of queue) {
-    const key = cellCacheKey(checksum, cell);
-    const held = key ? readMeasurement(key) : null;
-    if (!held) {
+    const key = keys.get(cell);
+    const measurement = key ? held.get(key) : undefined;
+    if (!measurement) {
       remaining.push(cell);
       continue;
     }
     cell.status = "done";
-    cell.bytes = held.bytes;
-    cell.segmentSeconds = held.segmentSeconds;
-    cell.elapsedMs = held.elapsedMs;
+    cell.bytes = measurement.bytes;
+    cell.segmentSeconds = measurement.segmentSeconds;
+    cell.elapsedMs = measurement.elapsedMs;
     cell.blobs = null;
     cell.fromCache = true;
     cell.error = null;
@@ -436,7 +430,7 @@ function rememberMeasurement(checksum: string | null, cell: MatrixCell): void {
   if (!checksum || cell.bytes == null) return;
   const key = cellCacheKey(checksum, cell);
   if (key) {
-    writeMeasurement(key, {
+    matrixCache.writeMeasurement(key, {
       bytes: cell.bytes,
       segmentSeconds: cell.segmentSeconds,
       elapsedMs: cell.elapsedMs,
@@ -493,7 +487,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
     // Read back before anything is loaded: a grid the cache can answer in full is a run that never
     // starts an encoder, which is the difference between a sweep and a table appearing.
     const checksum = await fileChecksum();
-    const pending = checksum && matrix.reuseCached ? applyCachedMeasurements(queue, checksum, ui) : queue;
+    const pending = checksum && matrix.reuseCached ? await applyCachedMeasurements(queue, checksum, ui) : queue;
     // A retry queued mid-run joins what is actually being encoded, not what was asked for.
     activeQueue = pending;
     repaint();
@@ -612,9 +606,9 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
-    // Written out at the end rather than after every square: the store is one JSON blob, and a
-    // sweep finishing a square every few seconds would otherwise re-serialize the lot each time.
-    flushMatrixCache();
+    // The writes a sweep issued are settled here rather than left in flight, so a page closed on
+    // the last square still has it next time.
+    void matrixCache.flush();
     await dropWholeFileInput(inputs);
     activeQueue = null;
     matrix.running = false;

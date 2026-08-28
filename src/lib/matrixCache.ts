@@ -17,6 +17,12 @@
 // The file is identified by a checksum of its contents rather than by its name, because a name is
 // not an identity: two files called `video.mp4` are not the same video, and the same video fetched
 // twice is.
+//
+// IndexedDB rather than localStorage, on the same reasoning as bbqs-uploader's checksum cache: a
+// few megabytes is the whole of what localStorage offers, and it is spent synchronously on the main
+// thread. Here that ceiling is what would bind — a measurement is small, but the reader who benefits
+// most from this is the one sweeping many files over many sittings, and evicting their earliest work
+// to stay under five megabytes throws away exactly the runs the cache exists to keep.
 
 import type { ChunkedSource } from "./chunkedSource";
 import type { SampleWindow } from "./types";
@@ -29,165 +35,295 @@ export interface CachedMeasurement {
   elapsedMs: number | null;
 }
 
-/** How many bytes the checksum reads at each of its probes. */
-const PROBE_BYTES = 1 << 20;
+const DB_NAME = "encoding-helper.matrix-cache";
+const DB_VERSION = 1;
+const MEASUREMENTS = "measurements";
+const WINDOWS = "windows";
+const LAST_USED_INDEX = "lastUsed";
 
-/** Where the whole cache lives. The version is in the name so a change of shape is a fresh cache
- * rather than a parse of the old one. */
-const STORE_KEY = "encodingHelper.matrixCache.v1";
-
-/** How many measurements to keep across every file, oldest use dropped first.
+/**
+ * How much of the browser's storage the measurements may take up.
  *
- * A full sweep of every axis is a few hundred squares, so this is several files' worth of complete
- * grids, at roughly a hundred bytes each. localStorage is a handful of megabytes in every browser
- * that has it, and this is the only thing here that grows. */
-const MAX_MEASUREMENTS = 4000;
+ * Hygiene rather than a limit anyone will meet: a measurement is a fifty-character key and four
+ * numbers, so this is millions of squares — more than a lifetime of sweeping — and the reader who
+ * comes back to a file a year later still finds it. IndexedDB is granted a share of free disk
+ * rather than a fixed few megabytes, so the figure costs nothing until it is used.
+ */
+export const MATRIX_CACHE_MAX_BYTES = 500 * 2 ** 20;
 
-/** How many files' sampled stretches to remember. Small: it is one record per file per pair of
- * sample fields, and it is only useful for a file the reader comes back to. */
-const MAX_WINDOW_SETS = 64;
-
-/** How long writes are held back before the store is serialized, so a sweep filling in a square
- * every few seconds is not re-encoding the whole cache as JSON every few seconds. */
-const SAVE_DELAY_MS = 500;
-
-interface StoredMeasurement {
-  b: number;
-  s: number | null;
-  ms: number | null;
-  /** When it was last written or read, which is what pruning drops on. */
-  at: number;
-}
-
-interface StoredWindows {
-  /** `[startSeconds, seconds]` per stretch, which is half the JSON of the named form. */
-  w: [number, number][];
-  at: number;
-}
-
-interface Store {
-  // Optional values because the keys are whatever a previous session left in localStorage, which is
-  // not a promise about what is in there now.
-  measurements: Record<string, StoredMeasurement | undefined>;
-  windows: Record<string, StoredWindows | undefined>;
-}
-
-let store: Store | null = null;
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-
-function emptyStore(): Store {
-  return { measurements: {}, windows: {} };
-}
-
-/** The store, read off localStorage the first time anything asks for it.
+/**
+ * What one stored measurement is taken to cost, for turning the budget above into a number of
+ * records to keep.
  *
- * Anything unreadable — a full or absent localStorage, a privacy mode that throws on it, JSON left
- * by an older shape — is an empty cache rather than an error: nothing here is data the reader
- * cannot make again by pressing Run Matrix. */
-function loaded(): Store {
-  if (store) return store;
-  try {
-    store = readStore(localStorage.getItem(STORE_KEY));
-  } catch {
-    // Same best-effort handling as the Educational toggle: an unusable localStorage costs the
-    // reader a re-run, not the run they are in.
-    store = emptyStore();
-  }
-  return store;
+ * A count rather than a running total of real sizes, because these records are all the same shape —
+ * unlike the variable-length digests bbqs-uploader's cache weighs — and a count is one indexed
+ * lookup where a total is either a scan of every record on open or a second number to keep true.
+ */
+const MEASUREMENT_BYTES = 200;
+
+/** How many stored measurements a byte budget comes to. */
+export function measurementCap(maxBytes: number): number {
+  return Math.max(1, Math.floor(maxBytes / MEASUREMENT_BYTES));
 }
 
 /**
- * The store as it was written out, with anything that is not what it claims to be left behind.
+ * How many files' sampled stretches to remember.
  *
- * Checked here, once, rather than trusted on every read: this is bytes off localStorage, which
- * another tab, another version of the app or a hand-edited devtools session may have been at. A
- * measurement missing its size would reach the grid as a square with no number in it.
+ * One record per file per pair of sample fields, so this is thousands of files: they are negligible
+ * against the budget above, and a file whose stretches are forgotten loses every measurement made
+ * over them, which is the expensive half of the pair.
  */
-function readStore(raw: string | null): Store {
-  const target = emptyStore();
-  const parsed = raw ? (JSON.parse(raw) as { measurements?: unknown; windows?: unknown }) : null;
-  if (!parsed) return target;
-  for (const [key, value] of recordEntries(parsed.measurements)) {
-    const held = value as Partial<StoredMeasurement>;
-    if (typeof held.b !== "number") continue;
-    target.measurements[key] = { b: held.b, s: asNumber(held.s), ms: asNumber(held.ms), at: asNumber(held.at) ?? 0 };
+const MAX_WINDOW_SETS = 4096;
+
+/** How many writes between checks that the store is still inside its budget. Eviction is not
+ * expected to fire at all, so this is a periodic sweep rather than a per-write price. */
+const EVICT_EVERY_WRITES = 500;
+
+interface StoredMeasurement {
+  key: string;
+  b: number;
+  s: number | null;
+  ms: number | null;
+  /** When it was last written or read, which is what eviction drops on. */
+  lastUsed: number;
+}
+
+interface StoredWindows {
+  key: string;
+  /** `[startSeconds, seconds]` per stretch. */
+  w: [number, number][];
+  lastUsed: number;
+}
+
+export interface MatrixCacheOptions {
+  dbName?: string;
+  maxBytes?: number;
+  /** Clock override for tests. */
+  now?: () => number;
+}
+
+export interface MatrixCache {
+  /** Every one of `keys` that has been measured before, touched so eviction leaves them alone. */
+  readMeasurements(keys: string[]): Promise<Map<string, CachedMeasurement>>;
+  /** Records what a square measured. Fire-and-forget: `flush` waits for the writes to land. */
+  writeMeasurement(key: string, measurement: CachedMeasurement): void;
+  /** The stretches an earlier run of this file at these fields used, or null if there was none. */
+  recallWindows(checksum: string, seconds: number, count: number): Promise<SampleWindow[] | null>;
+  /** Records where a run took its stretches from. Fire-and-forget, as above. */
+  rememberWindows(checksum: string, seconds: number, count: number, windows: SampleWindow[]): void;
+  /** Settles every write issued so far. */
+  flush(): Promise<void>;
+  /** Forgets everything, for a reader who wants their sweeps measured again from scratch. */
+  clear(): Promise<void>;
+}
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
+  });
+}
+
+function transactionDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onabort = tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed"));
+  });
+}
+
+/**
+ * Opens the cache.
+ *
+ * Never throws: a browser with no working IndexedDB (a private window that refuses it, storage
+ * turned off) degrades to every read missing and every write going nowhere, which costs the encoding
+ * a sweep would have cost anyway.
+ */
+export function openMatrixCache(options: MatrixCacheOptions = {}): MatrixCache {
+  const dbName = options.dbName ?? DB_NAME;
+  const cap = measurementCap(options.maxBytes ?? MATRIX_CACHE_MAX_BYTES);
+  const now = options.now ?? Date.now;
+
+  let dbPromise: Promise<IDBDatabase> | null = null;
+  // Writes are chained rather than issued in parallel, so two squares finishing together cannot
+  // interleave into one transaction, and `flush` is the end of the chain.
+  let writes: Promise<void> = Promise.resolve();
+  // Starts due, so the first write of a session pays for a pass over a store an earlier session may
+  // have left over the budget — and the periodic checks after it are the rest of that session's.
+  let writesSinceEvict = EVICT_EVERY_WRITES;
+
+  function openDb(): Promise<IDBDatabase> {
+    dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
+      if (typeof indexedDB === "undefined") {
+        reject(new Error("IndexedDB is not available."));
+        return;
+      }
+      const request = indexedDB.open(dbName, DB_VERSION);
+      request.onupgradeneeded = () => {
+        for (const name of [MEASUREMENTS, WINDOWS]) {
+          const store = request.result.createObjectStore(name, { keyPath: "key" });
+          store.createIndex(LAST_USED_INDEX, "lastUsed");
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed"));
+    }).catch((err) => {
+      // Left unset so a browser that refuses once is asked again rather than written off, and so a
+      // failed open cannot be handed out as a resolved database.
+      dbPromise = null;
+      throw err;
+    });
+    return dbPromise;
   }
-  for (const [key, value] of recordEntries(parsed.windows)) {
-    const held = value as { w?: unknown; at?: unknown };
-    const stretches = Array.isArray(held.w) ? (held.w as unknown[]) : [];
-    const pairs = stretches.filter(
-      (pair): pair is [number, number] => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite),
-    );
-    if (!pairs.length || pairs.length !== stretches.length) continue;
-    target.windows[key] = { w: pairs, at: asNumber(held.at) ?? 0 };
+
+  /** Chains `fn` behind every earlier write; a storage error is a write that did not happen. */
+  function enqueue(fn: (db: IDBDatabase) => Promise<void>): Promise<void> {
+    writes = writes.then(async () => {
+      try {
+        await fn(await openDb());
+      } catch {
+        /* degrade to a dropped write */
+      }
+    });
+    return writes;
   }
-  return target;
-}
 
-function recordEntries(value: unknown): [string, unknown][] {
-  return value && typeof value === "object" ? Object.entries(value) : [];
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function scheduleSave(): void {
-  if (saveTimer != null) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    save();
-  }, SAVE_DELAY_MS);
-}
-
-/** Writes the store out now rather than at the end of the debounce, for the end of a run — and for
- * tests, which have no interest in waiting half a second to see what a sweep remembered. */
-export function flushMatrixCache(): void {
-  if (saveTimer != null) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
+  /** Drops the least recently used records of one store until it is back inside `keep`. */
+  async function evictStore(db: IDBDatabase, name: string, keep: number): Promise<void> {
+    const counted = await requestToPromise(db.transaction(name, "readonly").objectStore(name).count());
+    if (counted <= keep) return;
+    let over = counted - keep;
+    const tx = db.transaction(name, "readwrite");
+    const cursorRequest = tx.objectStore(name).index(LAST_USED_INDEX).openCursor();
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result;
+      if (!cursor || over <= 0) return;
+      cursor.delete();
+      over--;
+      cursor.continue();
+    };
+    await transactionDone(tx);
   }
-  save();
-}
 
-function save(): void {
-  if (!store) return;
-  prune(store, MAX_MEASUREMENTS);
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(store));
-  } catch {
-    // Out of room (or refused outright). Dropping to a quarter of the cap and trying once more is
-    // what makes the cache survive a browser whose storage is mostly spoken for; if that fails too
-    // the store stays in memory, where it is still worth having for the rest of the session.
-    prune(store, Math.floor(MAX_MEASUREMENTS / 4));
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(store));
-    } catch {
-      // Nothing further to try.
+  async function evictIfDue(db: IDBDatabase): Promise<void> {
+    if (++writesSinceEvict < EVICT_EVERY_WRITES) return;
+    writesSinceEvict = 0;
+    await evictStore(db, MEASUREMENTS, cap);
+    await evictStore(db, WINDOWS, MAX_WINDOW_SETS);
+  }
+
+  /** Puts records back with a fresh `lastUsed`, so eviction drops what nobody has come back to
+   * rather than what was simply measured longest ago. Issued in one transaction, in one tick. */
+  function touch(db: IDBDatabase, name: string, records: { lastUsed: number }[]): Promise<void> {
+    if (!records.length) return Promise.resolve();
+    const tx = db.transaction(name, "readwrite");
+    const store = tx.objectStore(name);
+    const stamp = now();
+    for (const record of records) {
+      record.lastUsed = stamp;
+      store.put(record);
     }
+    return transactionDone(tx);
   }
+
+  return {
+    async readMeasurements(keys) {
+      const found = new Map<string, CachedMeasurement>();
+      if (!keys.length) return found;
+      try {
+        const db = await openDb();
+        const store = db.transaction(MEASUREMENTS, "readonly").objectStore(MEASUREMENTS);
+        // Every get is issued in this tick, so they run as one transaction rather than as one
+        // round trip per square.
+        const records = await Promise.all(
+          keys.map((key) => requestToPromise(store.get(key) as IDBRequest<StoredMeasurement | undefined>)),
+        );
+        const hits: StoredMeasurement[] = [];
+        for (const record of records) {
+          // Checked rather than trusted: this is a database another version of the app, or a hand
+          // edited devtools session, may have been at. A square with no size in it would reach the
+          // grid as a cell with nothing to say.
+          if (!record || typeof record.b !== "number") continue;
+          found.set(record.key, { bytes: record.b, segmentSeconds: record.s ?? null, elapsedMs: record.ms ?? null });
+          hits.push(record);
+        }
+        await touch(db, MEASUREMENTS, hits);
+      } catch {
+        /* no cache: every square is encoded, as it was before there was one */
+      }
+      return found;
+    },
+
+    writeMeasurement(key, measurement) {
+      void enqueue(async (db) => {
+        const record: StoredMeasurement = {
+          key,
+          b: measurement.bytes,
+          s: measurement.segmentSeconds,
+          ms: measurement.elapsedMs,
+          lastUsed: now(),
+        };
+        await requestToPromise(db.transaction(MEASUREMENTS, "readwrite").objectStore(MEASUREMENTS).put(record));
+        await evictIfDue(db);
+      });
+    },
+
+    async recallWindows(checksum, seconds, count) {
+      try {
+        const db = await openDb();
+        const key = windowsKey(checksum, seconds, count);
+        const record = await requestToPromise(
+          db.transaction(WINDOWS, "readonly").objectStore(WINDOWS).get(key) as IDBRequest<StoredWindows | undefined>,
+        );
+        // Checked rather than trusted, for the same reason a measurement is: this came off a
+        // database, not out of the run that wrote it.
+        const stretches = (record && Array.isArray(record.w) ? (record.w as unknown[]) : []).filter(
+          (pair): pair is [number, number] => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite),
+        );
+        if (!record || !stretches.length || stretches.length !== record.w.length) return null;
+        await touch(db, WINDOWS, [record]);
+        return stretches.map(([startSeconds, length]) => ({ startSeconds, seconds: length }));
+      } catch {
+        return null;
+      }
+    },
+
+    rememberWindows(checksum, seconds, count, windows) {
+      if (!windows.length) return;
+      void enqueue(async (db) => {
+        const record: StoredWindows = {
+          key: windowsKey(checksum, seconds, count),
+          w: windows.map((w) => [w.startSeconds, w.seconds]),
+          lastUsed: now(),
+        };
+        await requestToPromise(db.transaction(WINDOWS, "readwrite").objectStore(WINDOWS).put(record));
+      });
+    },
+
+    flush() {
+      return writes;
+    },
+
+    async clear() {
+      await enqueue(async (db) => {
+        const tx = db.transaction([MEASUREMENTS, WINDOWS], "readwrite");
+        tx.objectStore(MEASUREMENTS).clear();
+        tx.objectStore(WINDOWS).clear();
+        await transactionDone(tx);
+      });
+    },
+  };
 }
 
-/** Drops the least recently used entries until the store is back inside its caps. */
-function prune(target: Store, cap: number): void {
-  dropOldest(target.measurements, cap);
-  dropOldest(target.windows, MAX_WINDOW_SETS);
+/** The app's own cache. Opens on first use, so a page that never sweeps never touches storage. */
+export const matrixCache = openMatrixCache();
+
+/** What a file's sampled stretches are remembered under: the two fields that decide them. */
+function windowsKey(checksum: string, seconds: number, count: number): string {
+  return `${checksum}:${seconds.toFixed(3)}x${count}`;
 }
 
-function dropOldest(entries: Record<string, { at: number } | undefined>, cap: number): void {
-  const keys = Object.keys(entries);
-  if (keys.length <= cap) return;
-  keys
-    .sort((a, b) => (entries[a]?.at ?? 0) - (entries[b]?.at ?? 0))
-    .slice(0, keys.length - cap)
-    .forEach((key) => delete entries[key]);
-}
-
-/** Forgets everything, for a reader who wants a sweep measured again from scratch. */
-export function clearMatrixCache(): void {
-  store = emptyStore();
-  flushMatrixCache();
-}
+/** How many bytes the checksum reads at each of its probes. */
+const PROBE_BYTES = 1 << 20;
 
 const checksums = new WeakMap<ChunkedSource, Promise<string>>();
 
@@ -293,57 +429,4 @@ export function measurementKey(checksum: string, args: string[], windows: Sample
   const stretches = windows.map((w) => `${w.startSeconds.toFixed(3)}+${w.seconds.toFixed(3)}`).join(",");
   const text = `${args.join(" ")}|${stretches}`;
   return `${checksum}:${hashText(text, 0x811c9dc5)}${hashText(text, 0x01000193)}`;
-}
-
-/** A square's measurement from an earlier run, or null if it was never made (or has been pruned). */
-export function readMeasurement(key: string): CachedMeasurement | null {
-  const entry = loaded().measurements[key];
-  if (!entry) return null;
-  // Touched on the way out, so pruning drops what nobody is coming back to rather than what was
-  // simply measured longest ago.
-  entry.at = Date.now();
-  scheduleSave();
-  return { bytes: entry.b, segmentSeconds: entry.s ?? null, elapsedMs: entry.ms ?? null };
-}
-
-export function writeMeasurement(key: string, measurement: CachedMeasurement): void {
-  loaded().measurements[key] = {
-    b: measurement.bytes,
-    s: measurement.segmentSeconds,
-    ms: measurement.elapsedMs,
-    at: Date.now(),
-  };
-  scheduleSave();
-}
-
-/** What a file's sampled stretches are remembered under: the two fields that decide them. */
-function windowsKey(checksum: string, seconds: number, count: number): string {
-  return `${checksum}:${seconds.toFixed(3)}x${count}`;
-}
-
-/**
- * Remembers where a run took its stretches from.
- *
- * The stretches are part of every measurement's key, and they are drawn at random (see
- * pickSampleWindows), so without this a reloaded page would sample somewhere else and hit nothing
- * it had ever measured. Keeping them is what makes the measurements outlive the tab they were made
- * in — and it is the same rule the sweep already follows within a session, where two squares are
- * only comparable if they cover the same seconds.
- */
-export function rememberWindows(checksum: string, seconds: number, count: number, windows: SampleWindow[]): void {
-  if (!windows.length) return;
-  loaded().windows[windowsKey(checksum, seconds, count)] = {
-    w: windows.map((w) => [w.startSeconds, w.seconds]),
-    at: Date.now(),
-  };
-  scheduleSave();
-}
-
-/** The stretches an earlier run of this file at these fields used, or null if there was none. */
-export function recallWindows(checksum: string, seconds: number, count: number): SampleWindow[] | null {
-  const entry = loaded().windows[windowsKey(checksum, seconds, count)];
-  if (!entry) return null;
-  entry.at = Date.now();
-  scheduleSave();
-  return entry.w.map(([startSeconds, length]) => ({ startSeconds, seconds: length }));
 }

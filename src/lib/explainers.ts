@@ -256,7 +256,8 @@ export const MATRIX_CACHE_INFO =
   "measured over different seconds are not comparable.</p>" +
   "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination to fill " +
   "the A/B window. Untick this to measure every square again, which is what to do if you want fresh encoding " +
-  "times or suspect the file changed under the same name.</p>";
+  "times or suspect the file changed under the same name; <b>Clear sweep cache</b>, at the bottom of the page, " +
+  "throws away what every file has measured.</p>";
 
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +

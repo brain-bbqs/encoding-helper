@@ -1,18 +1,20 @@
+import "fake-indexeddb/auto";
+import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import {
-  clearMatrixCache,
-  flushMatrixCache,
+  MATRIX_CACHE_MAX_BYTES,
+  measurementCap,
   measurementKey,
-  readMeasurement,
-  recallWindows,
-  rememberWindows,
+  openMatrixCache,
   videoChecksum,
-  writeMeasurement,
+  type MatrixCache,
+  type MatrixCacheOptions,
 } from "../../src/lib/matrixCache";
 import type { SampleWindow } from "../../src/lib/types";
 
 const MIB = 1024 * 1024;
+const DB_NAME = "test-matrix-cache";
 
 /** A loaded file of exactly these bytes. jsdom's Blob cannot be read as an ArrayBuffer, so the one
  * read the checksum makes is answered here rather than through a File. */
@@ -41,6 +43,43 @@ function bytesOf(...values: number[]): Uint8Array {
   return new Uint8Array(values);
 }
 
+/** A cache on the test database. A second one over the same name is the same store as a reloaded
+ * page sees it. */
+function open(options: MatrixCacheOptions = {}): MatrixCache {
+  return openMatrixCache({ dbName: DB_NAME, ...options });
+}
+
+/** A clock that moves one tick per reading, so "least recently used" is exactly the write order. */
+function ticker(): () => number {
+  let at = 0;
+  return () => ++at;
+}
+
+function measurement(bytes: number) {
+  return { bytes, segmentSeconds: 10.02, elapsedMs: 4200 };
+}
+
+async function readOne(cache: MatrixCache, key: string) {
+  return (await cache.readMeasurements([key])).get(key) ?? null;
+}
+
+/** The keys in the store, read straight out of IndexedDB so the reading does not touch them. */
+function storedKeys(store: string): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const keys = db.transaction(store).objectStore(store).getAllKeys();
+      keys.onerror = () => reject(keys.error);
+      keys.onsuccess = () => {
+        db.close();
+        resolve(keys.result as string[]);
+      };
+    };
+  });
+}
+
 const WINDOWS: SampleWindow[] = [
   { startSeconds: 0, seconds: 5 },
   { startSeconds: 12.5, seconds: 5 },
@@ -48,17 +87,9 @@ const WINDOWS: SampleWindow[] = [
 
 const ARGS = ["-y", "-i", "in.mp4", "-crf", "25", "-preset", "veryfast", "out.mp4"];
 
-/** The module as a freshly loaded page would have it: nothing in memory, everything read back off
- * localStorage. */
-async function reloaded(): Promise<typeof import("../../src/lib/matrixCache")> {
-  vi.resetModules();
-  return await import("../../src/lib/matrixCache");
-}
-
 beforeEach(() => {
-  vi.useRealTimers();
-  clearMatrixCache();
-  localStorage.clear();
+  // A fresh factory per test isolates each test's database contents.
+  globalThis.indexedDB = new IDBFactory();
 });
 
 describe("videoChecksum", () => {
@@ -146,106 +177,134 @@ describe("measurementKey", () => {
   });
 });
 
+describe("measurementCap", () => {
+  // The budget is bytes because that is what storage is spent in; what the store enforces is a
+  // count, so the two have to line up.
+  it("turns the byte budget into millions of squares", () => {
+    expect(measurementCap(MATRIX_CACHE_MAX_BYTES)).toBeGreaterThan(2_000_000);
+    expect(measurementCap(0)).toBe(1);
+  });
+});
+
 describe("remembering what a square measured", () => {
-  it("hands a measurement back under the same key", () => {
-    writeMeasurement("k", { bytes: 4096, segmentSeconds: 10.02, elapsedMs: 4200 });
-    expect(readMeasurement("k")).toEqual({ bytes: 4096, segmentSeconds: 10.02, elapsedMs: 4200 });
+  it("hands back every key it has, and says nothing about the rest", async () => {
+    const cache = open();
+    cache.writeMeasurement("a", measurement(4096));
+    cache.writeMeasurement("b", measurement(8192));
+    await cache.flush();
+    const held = await cache.readMeasurements(["a", "b", "never-run"]);
+    expect(held.get("a")).toEqual({ bytes: 4096, segmentSeconds: 10.02, elapsedMs: 4200 });
+    expect(held.get("b")?.bytes).toBe(8192);
+    expect(held.has("never-run")).toBe(false);
   });
 
-  it("has nothing for a square that was never run", () => {
-    expect(readMeasurement("never")).toBe(null);
+  it("asks for nothing when there is nothing to ask about", async () => {
+    expect((await open().readMeasurements([])).size).toBe(0);
   });
 
   it("still has it after the page is loaded again", async () => {
-    writeMeasurement("k", { bytes: 4096, segmentSeconds: null, elapsedMs: null });
-    flushMatrixCache();
-    const cache = await reloaded();
-    expect(cache.readMeasurement("k")).toEqual({ bytes: 4096, segmentSeconds: null, elapsedMs: null });
+    const before = open();
+    before.writeMeasurement("k", { bytes: 4096, segmentSeconds: null, elapsedMs: null });
+    await before.flush();
+    expect(await readOne(open(), "k")).toEqual({ bytes: 4096, segmentSeconds: null, elapsedMs: null });
   });
 
   it("forgets everything when asked to", async () => {
-    writeMeasurement("k", { bytes: 4096, segmentSeconds: null, elapsedMs: null });
-    clearMatrixCache();
-    expect(readMeasurement("k")).toBe(null);
-    const cache = await reloaded();
-    expect(cache.readMeasurement("k")).toBe(null);
+    const cache = open();
+    cache.writeMeasurement("k", measurement(4096));
+    await cache.flush();
+    await cache.clear();
+    expect(await readOne(cache, "k")).toBe(null);
+    expect(await readOne(open(), "k")).toBe(null);
   });
 
-  // localStorage is finite and this is the only thing here that grows, so the cap is what keeps a
-  // year of sweeps from filling it — and least-recently-used, so what is dropped is what nobody has
-  // come back to rather than what was simply measured first.
-  it("keeps the store to its cap, dropping the squares nothing has looked at", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
-    for (let i = 0; i < 4100; i++) writeMeasurement(`k${i}`, { bytes: i + 1, segmentSeconds: null, elapsedMs: null });
-    vi.setSystemTime(new Date("2026-01-02T00:00:00Z"));
+  // Storage is finite and this is the only thing here that grows, so the budget is what keeps a
+  // decade of sweeps from filling it — least-recently-*used*, so what goes is what nobody has come
+  // back to rather than what was simply measured first.
+  it("keeps the store inside its budget, dropping the squares nothing has looked at", async () => {
+    // Three squares' worth, taken from the module's own per-record estimate rather than restated.
+    const perRecord = MATRIX_CACHE_MAX_BYTES / measurementCap(MATRIX_CACHE_MAX_BYTES);
+    const options = { maxBytes: perRecord * 3, now: ticker() };
+    const filling = open(options);
+    for (const key of ["k1", "k2", "k3", "k4", "k5"]) filling.writeMeasurement(key, measurement(1));
+    await filling.flush();
     // Read, not written: a square only looked at is a square still wanted.
-    readMeasurement("k0");
-    flushMatrixCache();
-    expect(readMeasurement("k0")?.bytes).toBe(1);
-    expect(readMeasurement("k1")).toBe(null);
-    expect(readMeasurement("k4099")?.bytes).toBe(4100);
+    expect(await readOne(filling, "k1")).not.toBe(null);
+
+    const next = open(options);
+    next.writeMeasurement("k6", measurement(1));
+    await next.flush();
+    expect((await storedKeys("measurements")).sort()).toEqual(["k1", "k5", "k6"]);
   });
 });
 
 describe("remembering where a run sampled", () => {
   const checksum = "sabc";
 
-  it("hands the stretches back for the same file and the same fields", () => {
-    rememberWindows(checksum, 5, 2, WINDOWS);
-    expect(recallWindows(checksum, 5, 2)).toEqual(WINDOWS);
+  it("hands the stretches back for the same file and the same fields", async () => {
+    const cache = open();
+    cache.rememberWindows(checksum, 5, 2, WINDOWS);
+    await cache.flush();
+    expect(await cache.recallWindows(checksum, 5, 2)).toEqual(WINDOWS);
   });
 
-  it("has nothing for another file, or for fields that have moved", () => {
-    rememberWindows(checksum, 5, 2, WINDOWS);
-    expect(recallWindows("sother", 5, 2)).toBe(null);
-    expect(recallWindows(checksum, 3, 2)).toBe(null);
-    expect(recallWindows(checksum, 5, 3)).toBe(null);
+  it("has nothing for another file, or for fields that have moved", async () => {
+    const cache = open();
+    cache.rememberWindows(checksum, 5, 2, WINDOWS);
+    await cache.flush();
+    expect(await cache.recallWindows("sother", 5, 2)).toBe(null);
+    expect(await cache.recallWindows(checksum, 3, 2)).toBe(null);
+    expect(await cache.recallWindows(checksum, 5, 3)).toBe(null);
   });
 
   it("still has them after the page is loaded again", async () => {
-    rememberWindows(checksum, 5, 2, WINDOWS);
-    flushMatrixCache();
-    const cache = await reloaded();
-    expect(cache.recallWindows(checksum, 5, 2)).toEqual(WINDOWS);
+    const before = open();
+    before.rememberWindows(checksum, 5, 2, WINDOWS);
+    await before.flush();
+    expect(await open().recallWindows(checksum, 5, 2)).toEqual(WINDOWS);
   });
 });
 
 describe("a store that cannot be trusted", () => {
-  it("starts empty on rubbish rather than throwing", async () => {
-    localStorage.setItem("encodingHelper.matrixCache.v1", "{not json");
-    const cache = await reloaded();
-    expect(cache.readMeasurement("k")).toBe(null);
-  });
-
-  it("leaves behind entries that are not what they claim to be", async () => {
-    localStorage.setItem(
-      "encodingHelper.matrixCache.v1",
-      JSON.stringify({
-        measurements: { good: { b: 10, s: 1, ms: 2, at: 1 }, sizeless: { s: 1, ms: 2, at: 1 } },
-        windows: { good: { w: [[0, 5]], at: 1 }, ragged: { w: [[0]], at: 1 } },
-      }),
-    );
-    const cache = await reloaded();
-    expect(cache.readMeasurement("good")?.bytes).toBe(10);
-    expect(cache.readMeasurement("sizeless")).toBe(null);
-  });
-
-  // A privacy mode that throws on localStorage, or one that is simply full: the sweep in progress
-  // still gets its cache, it just does not outlive the tab.
-  it("keeps working in memory when localStorage cannot be used at all", async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: () => {
-        throw new Error("denied");
-      },
-      setItem: () => {
-        throw new Error("denied");
-      },
+  it("leaves behind a record that is not what it claims to be", async () => {
+    const cache = open();
+    cache.writeMeasurement("good", measurement(10));
+    await cache.flush();
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("measurements", "readwrite");
+        tx.objectStore("measurements").put({ key: "sizeless", s: 1, ms: 2, lastUsed: 1 });
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
     });
-    const cache = await reloaded();
-    cache.writeMeasurement("k", { bytes: 7, segmentSeconds: null, elapsedMs: null });
-    expect(() => cache.flushMatrixCache()).not.toThrow();
-    expect(cache.readMeasurement("k")?.bytes).toBe(7);
-    vi.unstubAllGlobals();
+    const held = await cache.readMeasurements(["good", "sizeless"]);
+    expect(held.get("good")?.bytes).toBe(10);
+    expect(held.has("sizeless")).toBe(false);
+  });
+
+  // A private window that refuses IndexedDB, or storage turned off: the sweep runs, it just has
+  // nothing to read back and nothing to write to.
+  it("misses every read and drops every write where there is no IndexedDB", async () => {
+    const withoutIdb = globalThis as { indexedDB?: IDBFactory };
+    const real = withoutIdb.indexedDB;
+    delete withoutIdb.indexedDB;
+    try {
+      const cache = open();
+      cache.writeMeasurement("k", measurement(4096));
+      cache.rememberWindows("sabc", 5, 2, WINDOWS);
+      await expect(cache.flush()).resolves.toBeUndefined();
+      expect(await readOne(cache, "k")).toBe(null);
+      expect(await cache.recallWindows("sabc", 5, 2)).toBe(null);
+      await expect(cache.clear()).resolves.toBeUndefined();
+    } finally {
+      withoutIdb.indexedDB = real;
+    }
   });
 });

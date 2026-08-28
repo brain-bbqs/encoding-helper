@@ -24,6 +24,7 @@ export function getElements() {
     app: required<HTMLDivElement>("app"),
     themeToggle: required<HTMLButtonElement>("themeToggle"),
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
+    clearCacheBtn: required<HTMLButtonElement>("clear-matrix-cache-btn"),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),
       encode: required<HTMLDivElement>("panel-encode"),

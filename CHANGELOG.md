@@ -5,6 +5,7 @@
 #### 🚀 Enhancement
 
 - Compare Quality now reads back what earlier sweeps of the same file measured instead of encoding those squares again, with a tick box to turn the reuse off ([#31](https://github.com/brain-bbqs/encoding-helper/pull/31))
+- The footer carries a **Clear sweep cache** button that forgets every stored measurement, beside the version stamp ([#31](https://github.com/brain-bbqs/encoding-helper/pull/31))
 
 ## 1.1.1
 

@@ -193,6 +193,59 @@ test.describe("Encoding Helper shell", () => {
     await expect(panel.locator(".atom-block.f-mdat")).toHaveCount(1);
   });
 
+  // The one control in the page that says the sweep cache exists at all, so it is also the one
+  // place its wiring can be checked end to end without running a sweep.
+  test("forgets the stored sweep measurements from the footer", async ({ page }) => {
+    await page.goto("/");
+    const seeded = await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("encoding-helper.matrix-cache", 1);
+        request.onupgradeneeded = () => {
+          for (const name of ["measurements", "windows"]) {
+            request.result.createObjectStore(name, { keyPath: "key" }).createIndex("lastUsed", "lastUsed");
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const tx = db.transaction("measurements", "readwrite");
+      tx.objectStore("measurements").put({ key: "swept", b: 4096, s: 5, ms: 1000, lastUsed: 1 });
+      await new Promise((resolve) => (tx.oncomplete = resolve));
+      const count = db.transaction("measurements").objectStore("measurements").count();
+      const stored = await new Promise<number>((resolve) => (count.onsuccess = () => resolve(count.result)));
+      db.close();
+      return stored;
+    });
+    expect(seeded).toBe(1);
+
+    const clearButton = page.locator("#clear-matrix-cache-btn");
+    await expect(clearButton).toHaveText("Clear sweep cache");
+    await clearButton.click();
+    await expect(clearButton).toHaveText("Sweep cache cleared");
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            new Promise<number>((resolve, reject) => {
+              const request = indexedDB.open("encoding-helper.matrix-cache", 1);
+              request.onsuccess = () => {
+                const db = request.result;
+                const count = db.transaction("measurements").objectStore("measurements").count();
+                count.onsuccess = () => {
+                  db.close();
+                  resolve(count.result);
+                };
+              };
+              request.onerror = () => reject(request.error);
+            }),
+        ),
+      )
+      .toBe(0);
+    // The label goes back to what it was, so the control is there for the next time.
+    await expect(clearButton).toHaveText("Clear sweep cache");
+  });
+
   test("drops the fixed watermarks once the viewport is too narrow to frame the page", async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 900 });
     await page.goto("/");
