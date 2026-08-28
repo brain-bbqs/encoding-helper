@@ -246,6 +246,19 @@ export const MATRIX_BEST_INFO =
   "other axes, so the smallest one takes the ★ outright. Read the grid, not the star, when the sweep spans " +
   "resolutions, and remember the star has no idea what your tracking needs.</p>";
 
+/** What the sweep remembers between runs, and when a square is encoded again anyway. */
+export const MATRIX_CACHE_INFO =
+  "A square's size is a function of the video, the settings and the seconds measured, so a combination this " +
+  "file has already been swept at is read back rather than encoded again \u2014 including after a reload, since " +
+  "the measurements are kept in this browser against a checksum of the file." +
+  "<p>That is what makes widening a sweep cheap: tick another preset onto a finished grid and only the new " +
+  "column encodes. It also means a re-run keeps the stretches the first run sampled, since two squares " +
+  "measured over different seconds are not comparable.</p>" +
+  "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination to fill " +
+  "the A/B window. Untick this to measure every square again, which is what to do if you want fresh encoding " +
+  "times or suspect the file changed under the same name; <b>Clear sweep cache</b>, at the bottom of the page, " +
+  "throws away what every file has measured.</p>";
+
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";

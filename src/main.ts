@@ -1,5 +1,6 @@
 import "./style.css";
 import { onEducationalChange } from "./lib/educational";
+import { matrixCache } from "./lib/matrixCache";
 import { ensureMediabunny } from "./lib/mediabunny";
 import { renderAnalysisTab } from "./ui/analysisTab";
 import { renderAtomMap } from "./ui/atomsTab";
@@ -36,6 +37,22 @@ function renderAll(): void {
 
 // Footer version stamp; the anchor itself already points at the source repository.
 els.versionIndicator.textContent = `v${__APP_VERSION__}`;
+
+// Forgetting every sweep measurement kept for every file (see lib/matrixCache), beside the version
+// stamp as bbqs-uploader keeps its own cache control. The label reports what happened for a moment
+// rather than opening a dialog: there is nothing to lose but encoding time, and the button is the
+// only place in the page that says the cache exists at all.
+els.clearCacheBtn.addEventListener("click", () => {
+  const label = els.clearCacheBtn.textContent;
+  els.clearCacheBtn.disabled = true;
+  els.clearCacheBtn.textContent = "Sweep cache cleared";
+  void matrixCache.clear().finally(() => {
+    window.setTimeout(() => {
+      els.clearCacheBtn.disabled = false;
+      els.clearCacheBtn.textContent = label;
+    }, 1500);
+  });
+});
 
 // Light/dark theme, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: the toggle
 // writes an explicit override to data-theme on <html> (pre-applied before first paint by the

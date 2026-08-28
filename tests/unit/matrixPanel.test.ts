@@ -51,6 +51,18 @@ describe("renderMatrixTable", () => {
     expect(cellButtons(table)).toHaveLength(4);
   });
 
+  // The bytes are the same bytes whenever that encode is run; the time is not, so the mark goes
+  // against the time.
+  it("marks the time on a square whose figures came back from an earlier run", () => {
+    const swept = cells();
+    swept[0].fromCache = true;
+    const table = renderMatrixTable({ cells: swept, estimate: estimateFor });
+    const [cached, encoded] = cellButtons(table);
+    expect(cached.querySelector(".matrix-sub")!.textContent).toContain("↺ 4.2s");
+    expect(cached.title).toContain("measured on an earlier run of this file");
+    expect(encoded.querySelector(".matrix-sub")!.textContent).not.toContain("↺");
+  });
+
   // Stacked, not widened: the kernel names a block of rows, so the table is the same width whatever
   // the sweep covered and the far columns stay on the screen.
   it("stacks each output as its own block of rows, one preset column wide", () => {

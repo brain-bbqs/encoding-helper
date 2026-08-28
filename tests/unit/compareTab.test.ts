@@ -261,6 +261,26 @@ describe("renderCompareTab", () => {
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2 × 2");
   });
 
+  it("offers to reuse what earlier runs of the file measured, ticked", () => {
+    const panel = renderTab();
+    const box = panel.querySelector<HTMLInputElement>(".matrix-reuse input")!;
+    expect(box.checked).toBe(true);
+    box.checked = false;
+    box.dispatchEvent(new Event("change"));
+    expect(encodeTest.matrix.reuseCached).toBe(false);
+  });
+
+  // "select all" is about the axes; the reuse tick is not one of them.
+  it("leaves the reuse tick where it is when every axis is ticked", () => {
+    const panel = renderTab();
+    const box = panel.querySelector<HTMLInputElement>(".matrix-reuse input")!;
+    box.checked = false;
+    box.dispatchEvent(new Event("change"));
+    panel.querySelector<HTMLButtonElement>(".axis-select-all")!.click();
+    expect(panel.querySelector<HTMLInputElement>(".matrix-reuse input")!.checked).toBe(false);
+    expect(encodeTest.matrix.reuseCached).toBe(false);
+  });
+
   it("ticks every value on every axis from the one select-all button", () => {
     const panel = renderTab();
     panel.querySelector<HTMLButtonElement>(".axis-select-all")!.click();

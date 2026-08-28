@@ -60,7 +60,10 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   const bytes = cell.bytes ?? 0;
   const change = est ? (est.ratio - 1 >= 0 ? "+" : "−") + fmtPct(Math.abs(est.ratio - 1)) : fmtBytes(bytes);
   const sub = [est ? fmtBytes(est.projectedTotalBytes) : fmtBytes(bytes)];
-  if (cell.elapsedMs != null) sub.push(fmtElapsed(cell.elapsedMs));
+  // ↺ against the time, since the time is the figure the mark is about: the bytes are the same
+  // bytes this encode produces whenever it is run, and the seconds are of a run that already
+  // happened, on a machine that may not have been this busy.
+  if (cell.elapsedMs != null) sub.push((cell.fromCache ? "↺ " : "") + fmtElapsed(cell.elapsedMs));
   return {
     main: change,
     factor: est ? fmtChangeFactor(est.ratio) : "",
@@ -69,10 +72,17 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
       `${describeSettings(cell.combo)} — segment ${fmtBytes(bytes)}` +
       (est ? ` (${fmtChangeFactor(est.ratio)}), whole file projected at ${fmtBytes(est.projectedTotalBytes)}` : "") +
       (cell.elapsedMs != null ? `, encoded in ${fmtElapsed(cell.elapsedMs)}` : "") +
-      (cell.blobs ? "" : " (output released; selecting it re-encodes this square)"),
+      (cell.blobs ? "" : releasedNote(cell)),
     pending: false,
     grew: est != null && est.savedFraction < 0,
   };
+}
+
+/** Why a finished square holds no video to show, which decides what clicking it will cost. */
+function releasedNote(cell: MatrixCell): string {
+  return cell.fromCache
+    ? " (measured on an earlier run of this file; selecting it encodes this square)"
+    : " (output released; selecting it re-encodes this square)";
 }
 
 function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
