@@ -492,13 +492,15 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
     activeQueue = pending;
     repaint();
 
-    // One bar and one line for the whole run, however many cores are filling it: the bar counts
-    // finished squares and the in-flight fractions between them, and the line counts them in words.
+    // The bar alone for the whole run, however many cores are filling it: it counts finished
+    // squares and the in-flight fractions between them.
     //
-    // A count, not a list of what is being worked on: with several cores the names of the
-    // combinations in flight ran to a paragraph that rewrote itself every few seconds and shifted
-    // the grid below it down the page as it wrapped. The squares themselves already say which ones
-    // are encoding, in the place the eye is already on.
+    // No line of words beside it. Naming the combinations in flight ran to a paragraph that
+    // rewrote itself every few seconds and shifted the grid below it down the page as it wrapped,
+    // and counting them instead still left a line restating what the bar and the squares already
+    // say: the squares themselves mark which ones are encoding, in the place the eye is already
+    // on. The note is kept for what the bar cannot say — loading, stopping, and what a finished
+    // sweep failed or skipped.
     const inFlight = new Map<string, number>();
     const showProgress = (): void => {
       // A stopped run leaves the bar where it got to instead of creeping on as the last cores
@@ -507,10 +509,9 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
       const finished = queue.filter((c) => c.status === "done" || c.status === "failed").length;
       const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
       if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
-      const running = queue.filter((c) => c.status === "running").length;
-      ui.note.textContent = running
-        ? `Encoding ${finished + running}/${queue.length}`
-        : `Encoded ${finished}/${queue.length}`;
+      // Whatever phase wrote there last ("Loading ffmpeg.wasm…") is over once squares are being
+      // encoded, so it goes rather than standing for the rest of the sweep.
+      ui.note.textContent = "";
     };
 
     // Squares read back are squares finished, so the bar starts wherever the cache got it to.
