@@ -184,7 +184,15 @@ export function renderBandwidthSection(): HTMLDivElement | null {
     0.05,
   );
   customField.style.display = isPreset ? "none" : "";
-  const startupField = fieldNumber("bwStartup", "Startup Wait (s)", bandwidth.startupSec, 0, 60, 0.5, STARTUP_WAIT_INFO);
+  const startupField = fieldNumber(
+    "bwStartup",
+    "Startup Wait (s)",
+    bandwidth.startupSec,
+    0,
+    60,
+    0.5,
+    STARTUP_WAIT_INFO,
+  );
   controls.append(linkField, customField, startupField);
   sec.append(controls);
 

@@ -101,7 +101,12 @@ interface FrameNeed {
  * for the containers that have no offsets to read, and the proportional split is within the model's
  * accuracy either way.
  */
-function frameNeeds(samples: SampleInfo[], videoBytes: number, preloadBytes: number, payloadBytes: number): FrameNeed[] {
+function frameNeeds(
+  samples: SampleInfo[],
+  videoBytes: number,
+  preloadBytes: number,
+  payloadBytes: number,
+): FrameNeed[] {
   const frames: FrameNeed[] = [];
   let cum = 0;
   for (const s of samples) {
