@@ -324,11 +324,10 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const syncEncLabel = (): void => {
     if (!downscaled) return;
     encLabel.title =
-      `Encoded at ${encSize.width}×${encSize.height} and drawn back at ${srcWidth}×${srcHeight} ` +
+      `Encoded at ${encSize.width}×${encSize.height}, drawn back at ${srcWidth}×${srcHeight} ` +
       (encodeTest.upscaleSmoothing
-        ? `with smoothing, which is closer to how a player would show it, at the cost of interpolating in ` +
-          `detail the encode does not contain.`
-        : `one block per encoded pixel, so nothing is interpolated in that the encode does not contain.`);
+        ? `with smoothing, closer to how a player would show it.`
+        : `one block per encoded pixel, so nothing is interpolated in.`);
   };
   syncEncLabel();
   encPane.append(encLabel);

@@ -1981,8 +1981,8 @@ table.data.matrix-table th.matrix-row-head {
 .matrix-cell {
   position: relative;
   width: 100%;
-  /* Wide enough for "2.4× reduction" to sit on one line, which is the longest thing a square says. */
-  min-width: 104px;
+  /* Wide enough for "original 2.4× larger" to sit on one line, the longest thing a square says. */
+  min-width: 128px;
   display: flex;
   flex-direction: column;
   align-items: center;

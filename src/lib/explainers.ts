@@ -16,15 +16,11 @@ import type { CodecInfo } from "./types";
 
 /** The Overview's whole-file bitrate, which is not the same as any one track's bitrate. */
 export const OVERALL_BITRATE_INFO =
-  "<b>Bitrate</b> is how many bits of file it takes to store one second of playback, so it is the main lever " +
-  "on both file size and quality. This one is <b>overall</b> because it is measured across the entire file: " +
-  "file size &times; 8 &divide; duration, counting the video track, the audio track, and the container's own " +
-  "overhead (headers, the sample index, metadata) together. The per-track figures below cover only their own " +
-  "packets, so they add up to slightly less than this number: the video track's heads the <b>Video Bitrate " +
-  "Over Time</b> card, and the audio track's is in the Audio Track section. " +
-  "<p>It is also an average. Unless the encoder was told to hold a constant bitrate, the instantaneous rate " +
-  "rises on keyframes and busy scenes and falls on still ones, which is what the <b>Video Bitrate Over " +
-  "Time</b> card plots.</p>";
+  "<b>Bitrate</b> is how many bits it takes to store one second of playback, so it is the main lever on both " +
+  "size and quality. This one is <b>overall</b>: file size &times; 8 &divide; duration, counting video, audio " +
+  "and the container's own overhead together, so it comes out above the per-track figures below. " +
+  "<p>It is also an average, and the <b>Video Bitrate Over Time</b> card plots how far the rate moves around " +
+  "it.</p>";
 
 export const FASTSTART_EXPLAINER =
   "<b>Faststart</b> means the <code>moov</code> atom (the index describing every sample) sits before " +
@@ -32,10 +28,9 @@ export const FASTSTART_EXPLAINER =
   "just the first few KB, instead of the whole file. See the <b>Atom Map</b> for the byte-level layout.";
 
 export const VIDEO_AVERAGE_INFO =
-  "Average bitrate of the video track alone: the total size of its packets &times; 8 &divide; duration. " +
-  "Compare it with <b>Overall Bitrate</b> in the Overview, which also counts the audio track and the " +
-  "container overhead. Lowering it (a higher CRF, in the Reencode with FFmpeg tab) is what shrinks the file, at the " +
-  "cost of visible compression artifacts.";
+  "Average bitrate of the video track alone: its packets &times; 8 &divide; duration. The Overview's " +
+  "<b>Overall Bitrate</b> is higher because it also counts audio and container overhead. Lowering this (a " +
+  "higher CRF) is what shrinks the file, at the cost of visible artifacts.";
 
 export const TOO_FEW_FRAMES_NOTE =
   "There are too few frames here to divide the track into windows of playback, so there is no shape to " +
@@ -55,9 +50,8 @@ export const BITRATE_TIMELINE_TEACH =
   "(<code>-maxrate</code>) as well as a target.</p>";
 
 export const PEAK_RATIO_INFO =
-  "The busiest window's bitrate divided by the track average. <b>1&times;</b> would mean every window " +
-  "carried exactly the same bits; the further above 1, the burstier the encode, and the more bandwidth " +
-  "headroom playback needs beyond the average.";
+  "The busiest window's bitrate divided by the track average. The further above <b>1&times;</b>, the burstier " +
+  "the encode, and the more bandwidth headroom smooth playback needs beyond the average.";
 
 /** Explains why the plot is absent: the container says the rate is constant, and it turned out to be. */
 export function constantBitrateNote(avgBitrate: number): string {
@@ -91,8 +85,7 @@ export function contradictedDeclarationNote(avgBitrate: number, timeline: Bitrat
 
 export const AUDIO_BITRATE_INFO =
   "Average bitrate of the audio track alone. Speech stays clean at low rates, while music needs more; for " +
-  "AAC, roughly 128 kbps stereo is transparent for most listeners. This is separate from the video bitrate, " +
-  "and both are included in the Overview's <b>Overall Bitrate</b>.";
+  "AAC, roughly 128 kbps stereo is transparent for most listeners.";
 
 export const METADATA_TAGS_TEACH =
   "<b>Metadata tags</b> are descriptive labels stored beside the media data. They never affect playback or " +
@@ -179,85 +172,58 @@ export const GOP_TEACH =
 /** What the preset actually trades, shown from the ⓘ beside the field in both tabs that offer it. */
 export const X264_PRESET_INFO =
   "<b>Preset</b> sets how hard x264 works to compress, not how good the picture looks: that is CRF's job. At " +
-  "the same CRF every preset aims at the same quality, and what changes is how long the encode takes and how " +
-  "many bytes it needs to get there. Slower searches harder and reaches that quality in a smaller file." +
-  "<p>The returns fall off sharply, the slow end taking many times longer for a few more percent off the " +
-  "size, which is why <code>superfast</code> is the default here as in sleap-io's <code>reencode</code>. In " +
-  "the browser the gap is wider still, the in-browser ffmpeg being a single-threaded WebAssembly build: the " +
-  "slowest presets can take minutes over a few seconds of video, or exhaust the encoder outright. Run the " +
-  "command natively to use them.</p>";
+  "the same CRF a slower preset reaches the same quality in a smaller file, and takes far longer to do it." +
+  "<p>The returns fall off sharply, and the in-browser encoder is single-threaded, so the slowest presets can " +
+  "take minutes over a few seconds of video. Hence <code>superfast</code> as the default; run the command " +
+  "natively to use the slow end.</p>";
 
 /** Why resolution is its own knob rather than something CRF already covers, from the ⓘ beside the
  * field in both tabs that offer it. */
 export const RESOLUTION_INFO =
-  "<b>Resolution</b> is the biggest lever on file size here, and it is not CRF's job. CRF quantizes more " +
-  "coarsely within the grid of pixels it is given, and however hard it quantizes it still pays the " +
-  "per-block cost of every block in the frame. Halving each dimension deletes three quarters of those " +
-  "blocks outright, which is why the two trade against each other: below some bitrate, half resolution at a " +
-  "moderate CRF looks better than full resolution at a punishing one." +
-  "<p>Downscaling uses <code>flags=lanczos</code>, and <code>-2</code> for the height, which keeps the " +
-  "aspect ratio and lands on the even dimensions <code>yuv420p</code> requires (so the pad is not needed).</p>" +
+  "<b>Resolution</b> is the biggest lever on file size, and not one CRF pulls: however hard CRF quantizes, it " +
+  "still pays for every block in the frame, and halving each dimension deletes three quarters of them. Below " +
+  "some bitrate, half resolution at a moderate CRF beats full resolution at a punishing one." +
   "<p><b>It is not the same kind of loss as CRF.</b> A keypoint stays localizable to sub-pixel precision " +
-  "through a brutal CRF, because those artifacts are texture-level. Resolution puts a hard floor under that " +
-  "precision, and no downstream step recovers it. Judge it against what the tracking needs, not only by how " +
-  "the A/B window looks.</p>";
+  "through a brutal CRF; resolution puts a hard floor under that precision, and nothing downstream recovers " +
+  "it. Judge it against what the tracking needs, not only by how the A/B window looks.</p>";
 
 /** What the two offered kernels trade, from the ⓘ beside the field that picks between them. */
 export const SCALER_INFO =
-  "<b>Scaler</b> is the kernel <code>scale</code> resamples with, and it only matters when the resolution is " +
-  "below 100%. <code>lanczos</code> is the sharper of the two: it weighs a wider neighbourhood of source " +
-  "pixels and keeps fine detail (whiskers, tail tips, grid lines) that a softer kernel averages away. " +
-  "<code>bicubic</code> is swscale's own default, softer, and less prone to the faint ringing lanczos can " +
+  "<b>Scaler</b> is the kernel <code>scale</code> resamples with, and it only matters below 100% resolution. " +
+  "<code>lanczos</code> is the sharper: it keeps fine detail (whiskers, tail tips, grid lines) a softer " +
+  "kernel averages away. <code>bicubic</code> is softer, and less prone to the faint ringing lanczos can " +
   "leave along hard edges." +
-  "<p>Sharper is not automatically better downstream. Lanczos preserves more detail for the encoder to " +
-  "spend bits on, so the same CRF costs slightly more; bicubic's smoothing throws some of that away before " +
-  "x264 ever sees it. Compare them in the A/B window at 100% zoom rather than assuming.</p>";
+  "<p>Sharper is not automatically better downstream, and the detail lanczos keeps costs a few more bits at " +
+  "the same CRF. Compare them in the A/B window at 100% zoom rather than assuming.</p>";
 
 /** Why the A/B window offers two ways of drawing a downscaled encode back up. */
 export const UPSCALE_VIEW_INFO =
-  "A downscaled encode is drawn back at the source's size so both panes share one coordinate system, and " +
-  "there are two honest ways to do that. <b>Blocks</b> repeats each encoded pixel, so what you see is " +
-  "exactly what survived the downscale and nothing else. <b>Smooth</b> interpolates between them, which is " +
-  "closer to what a player or a viewer's screen would actually put up." +
-  "<p>Blocks is the better view for judging what a tracking pipeline has left to work with; smooth is the " +
-  "better view for judging how it looks. Neither changes the encode or its size.</p>";
+  "A downscaled encode is drawn back at the source's size so both panes share one coordinate system. " +
+  "<b>Blocks</b> repeats each encoded pixel, so you see exactly what survived the downscale, which is the " +
+  "better view for judging what a tracking pipeline has left to work with. <b>Smooth</b> interpolates " +
+  "between them, closer to what a player would put up. Neither changes the encode or its size.";
 
 /** Why a run would encode the same settings in several places at once. */
 export const SEGMENTS_INFO =
   "<b>Segments</b> is how many stretches of the length above a run encodes. Where they land is the sampler's " +
-  "to decide, never yours: a stretch picked by hand is picked for a reason, and a size measured over a " +
-  "flattering moment is the one number this tab must not produce. One stretch lands anywhere in the file; " +
-  "several are drawn one per equal band of it, so they cover it end to end instead of clumping." +
-  "<p>The projection is taken over all of them together and its range narrows accordingly, which is the whole " +
-  "point: three seconds of a calm scene predicts a talking-heads file well and a wildlife file badly, and the " +
-  "only fix is to look in more than one place.</p>" +
-  "<p>Each one is a real encode, so the run costs that many times as long, and in matrix mode it multiplies " +
-  "the sweep. The A/B window below plays all of them in turn, looping back to the first, so the eye judges " +
-  "the same spread of the file the byte count was taken over.</p>" +
-  "<p>The stretches are cut out of the source once and kept, so every setting after the first encodes them " +
-  "without touching the video again — and a re-run at another CRF measures the same seconds, which is what " +
-  "makes two runs comparable at all.</p>";
+  "to decide, never yours: one lands anywhere in the file, several are drawn one per equal band of it, so the " +
+  "projection is not taken over whichever flattering moment was picked by hand." +
+  "<p>Each is a real encode, so a run costs that many times as long. The stretches are cut out of the source " +
+  "once and reused, which is what makes two runs comparable, and the A/B window plays all of them in turn.</p>";
 
 /** Why "best" is a size ranking and nothing more. */
 export const MATRIX_BEST_INFO =
   "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
-  "highest CRF offered wins nearly every sweep." +
-  "<p>Tick a second resolution and it stops being close: resolution deletes bits faster than anything on the " +
-  "other axes, so the smallest one takes the ★ outright. Read the grid, not the star, when the sweep spans " +
-  "resolutions, and remember the star has no idea what your tracking needs.</p>";
+  "highest CRF wins nearly every sweep, and the lowest resolution wins outright when one is ticked. Read the " +
+  "grid, not the star, which has no idea what your tracking needs.";
 
 /** What the sweep remembers between runs, and when a square is encoded again anyway. */
 export const MATRIX_CACHE_INFO =
-  "A square's size is a function of the video, the settings and the seconds measured, so a combination this " +
-  "file has already been swept at is read back rather than encoded again \u2014 including after a reload, since " +
-  "the measurements are kept in this browser against a checksum of the file." +
-  "<p>That is what makes widening a sweep cheap: tick another preset onto a finished grid and only the new " +
-  "column encodes. It also means a re-run keeps the stretches the first run sampled, since two squares " +
-  "measured over different seconds are not comparable.</p>" +
-  "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination to fill " +
-  "the A/B window. Untick this to measure every square again, which is what to do if you want fresh encoding " +
-  "times or suspect the file changed under the same name; <b>Clear sweep cache</b>, at the bottom of the page, " +
-  "throws away what every file has measured.</p>";
+  "A combination this file has already been swept at is read back rather than encoded again, including after " +
+  "a reload, so widening a sweep only encodes the new squares." +
+  "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination for " +
+  "the A/B window. Untick to measure everything again, for fresh encoding times or a file changed under the " +
+  "same name.</p>";
 
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
@@ -321,15 +287,13 @@ function windowDifficultySentence(estimate: SizeEstimate): string {
 
 export const ORIGINAL_SEGMENT_INFO =
   "What the <i>source</i> spends on the same seconds the encode covered, counted on the same terms: video " +
-  "frames, plus the stretch's share of the audio track and the container's overhead. This is the number the " +
-  "encoded segment is compared against, since comparing it with the whole file's size would only be " +
-  "comparing three seconds with an hour.";
+  "frames, plus the stretch's share of the audio track and the container's overhead. This is what the " +
+  "encoded segment is compared against.";
 
 export const PROJECTED_SIZE_INFO =
-  "The source's size times the ratio the snippet came to (encoded segment &divide; the same stretch of the " +
-  "source), i.e. what the whole file would come to at these settings if the rest of it compresses like the " +
-  "part that was sampled. It is an extrapolation from a few seconds, not a measurement.";
+  "The source's size times the ratio the snippet came to, i.e. what the whole file would come to at these " +
+  "settings if the rest of it compresses like the sampled part. An extrapolation, not a measurement.";
 
 export const SAMPLED_WINDOW_INFO =
-  "How much of the file this estimate actually saw. The smaller this is, the more the projection is leaning " +
-  "on the sampled seconds being typical of the rest; lengthening the segment above narrows the range.";
+  "How much of the file this estimate actually saw. The smaller it is, the more the projection leans on those " +
+  "seconds being typical of the rest; a longer segment narrows the range.";

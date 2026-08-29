@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1
+
+#### 🏠 Internal
+
+- Tooltips throughout the app are shorter, most of all on Compare Quality, where several ran to three or four paragraphs ([#34](https://github.com/brain-bbqs/encoding-helper/pull/34))
+- Size factors now read "original 2.4× larger" or "encoded 1.3× larger" instead of "2.4× reduction", naming which file the factor belongs to ([#34](https://github.com/brain-bbqs/encoding-helper/pull/34))
+
 ## 1.3.0
 
 #### 🚀 Enhancement

@@ -10,7 +10,7 @@ import { isEducationalEnabled, setEducationalEnabled } from "../lib/educational"
 
 export function renderEducationalToggle(): HTMLLabelElement {
   const label = h("label", "edu-toggle card-toggle");
-  label.title = "Enable educational explanations and ⓘ tooltips throughout the app";
+  label.title = "Show explanations and ⓘ tooltips";
   const icon = h("span", "edu-toggle-icon", "🎓");
   icon.setAttribute("aria-hidden", "true");
   const input = h("input", "switch");

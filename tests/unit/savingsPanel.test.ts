@@ -34,7 +34,7 @@ describe("savingsBar", () => {
     const band = row.querySelector<HTMLElement>(".savings-band")!;
     expect(band.style.left).toBe("20%");
     expect(band.style.width).toBe("20%");
-    expect(band.title).toBe("Could land anywhere from 200 B to 400 B");
+    expect(band.title).toBe("Anywhere from 200 B to 400 B");
   });
 
   it("keeps a value past the top of the scale inside its track", () => {
@@ -57,7 +57,7 @@ describe("renderSavingsStrip", () => {
     expect(strip.querySelector(".savings-headline")!.textContent).toBe("50% smaller");
     expect(strip.querySelector(".savings-headline")!.classList.contains("grew")).toBe(false);
     // The same change stated the other way, for the deep end where percentages crowd together.
-    expect(strip.querySelector(".savings-factor")!.textContent).toBe("2.0× reduction");
+    expect(strip.querySelector(".savings-factor")!.textContent).toBe("original 2.0× larger");
     expect(strip.querySelector(".savings-sub")!.textContent).toBe(
       "Projected across the whole 1m 40.0s: ≈ 488.3 KB saved",
     );
@@ -67,7 +67,7 @@ describe("renderSavingsStrip", () => {
     const strip = renderSavingsStrip(estimate(150_000));
     expect(strip.querySelector(".savings-headline")!.textContent).toBe("50% larger");
     expect(strip.querySelector(".savings-headline")!.classList.contains("grew")).toBe(true);
-    expect(strip.querySelector(".savings-factor")!.textContent).toBe("1.5× inflation");
+    expect(strip.querySelector(".savings-factor")!.textContent).toBe("encoded 1.5× larger");
     expect(strip.querySelector(".savings-sub")!.textContent).toContain("≈ 488.3 KB added");
   });
 

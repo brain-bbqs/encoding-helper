@@ -35,7 +35,7 @@ export function savingsBar(
     const right = Number(pct(band.high, maxBytes));
     bandEl.style.left = left.toFixed(1) + "%";
     bandEl.style.width = Math.max(0, right - left).toFixed(1) + "%";
-    bandEl.title = `Could land anywhere from ${fmtBytes(band.low)} to ${fmtBytes(band.high)}`;
+    bandEl.title = `Anywhere from ${fmtBytes(band.low)} to ${fmtBytes(band.high)}`;
     track.append(bandEl);
   }
   row.append(track, h("span", "savings-value", fmtBytes(bytes)));

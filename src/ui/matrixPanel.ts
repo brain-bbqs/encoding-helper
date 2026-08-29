@@ -44,8 +44,9 @@ export function fmtElapsed(ms: number): string {
 /** What a square says: the headline, the lines under it, and the tooltip spelling them all out. */
 interface CellFace {
   main: string;
-  /** The same change as a factor, on its own line: the percentage crowds together at the deep end,
-   * where the squares worth finding are. Empty for a square with nothing measured yet. */
+  /** The same change as a factor, naming the larger of the two files, on its own line: the
+   * percentage crowds together at the deep end, where the squares worth finding are. Empty for a
+   * square with nothing measured yet. */
   factor: string;
   sub: string;
   title: string;
@@ -70,8 +71,8 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
     sub: sub.join(" · "),
     title:
       `${describeSettings(cell.combo)} — segment ${fmtBytes(bytes)}` +
-      (est ? ` (${fmtChangeFactor(est.ratio)}), whole file projected at ${fmtBytes(est.projectedTotalBytes)}` : "") +
-      (cell.elapsedMs != null ? `, encoded in ${fmtElapsed(cell.elapsedMs)}` : "") +
+      (est ? ` (${fmtChangeFactor(est.ratio)}), file ≈ ${fmtBytes(est.projectedTotalBytes)}` : "") +
+      (cell.elapsedMs != null ? `, ${fmtElapsed(cell.elapsedMs)}` : "") +
       (cell.blobs ? "" : releasedNote(cell)),
     pending: false,
     grew: est != null && est.savedFraction < 0,
@@ -80,9 +81,7 @@ function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
 
 /** Why a finished square holds no video to show, which decides what clicking it will cost. */
 function releasedNote(cell: MatrixCell): string {
-  return cell.fromCache
-    ? " (measured on an earlier run of this file; selecting it encodes this square)"
-    : " (output released; selecting it re-encodes this square)";
+  return cell.fromCache ? " (cached from an earlier run; selecting it encodes it)" : " (selecting it re-encodes it)";
 }
 
 function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
