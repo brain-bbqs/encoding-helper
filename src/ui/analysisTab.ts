@@ -14,22 +14,27 @@
 import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scaledDimensions } from "../lib/cliCommand";
-import { CONTAINER_PREAMBLE, describeContainer } from "../lib/containerKb";
+import { describeContainer } from "../lib/containerKb";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import {
+  ANALYSIS_PANEL_INTRO,
   ATOM_STRUCTURE_TEACH,
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
   chromaSubsamplingExplainer,
   codecExplainer,
   constantBitrateNote,
+  CONTAINER_PREAMBLE,
   containerExplainer,
   contradictedDeclarationNote,
+  ENCODED_SEGMENT_NOTE,
   FASTSTART_EXPLAINER,
+  GOP_HISTOGRAM_CAPTION,
   GOP_TEACH,
   METADATA_TAGS_TEACH,
   OVERALL_BITRATE_INFO,
   PEAK_RATIO_INFO,
+  SEEK_SCATTER_CAPTION,
   SEEK_TEST_INTRO,
   SIZE_SAVINGS_INTRO,
   sizeEstimateTeach,
@@ -48,7 +53,7 @@ import { renderStaticAtomMap } from "./atomsTab";
 import { describeSampledStretches } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
 import { flattenMetadataTags } from "./inspectTab";
-import { GOP_HISTOGRAM_CAPTION, renderGopHistogram, renderSeekScatter, SEEK_SCATTER_CAPTION } from "./seekTab";
+import { renderGopHistogram, renderSeekScatter } from "./seekTab";
 
 /** Printed in the document so a copy saved to disk still says where it came from. */
 const APP_URL = "https://encoding-helper.brain-bbqs.org";
@@ -59,16 +64,6 @@ const APP_URL = "https://encoding-helper.brain-bbqs.org";
  * block labels fit, but the document runs no script, so that has to be settled while it is built.
  */
 const DOCUMENT_WIDTH_PX = 772;
-
-const PANEL_INTRO =
-  "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
-  "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +
-  "and plots only, with the teaching explainers left out. Runs that have to be started by hand — the seeking " +
-  "test, Compare Quality, an in-browser reencode — are added to it once you have run them, so run those " +
-  "first if you want them in the document. " +
-  "<p>Below is the document itself, not a preview of one: <b>Download HTML</b> writes exactly this, in a " +
-  "single self-contained file with no external assets, and <b>Save as PDF</b> hands the same thing to the " +
-  "browser's print dialog.</p>";
 
 /** The headline strip under the document title: what the file is, in one line. */
 function headlineFacts(): [string, string][] {
@@ -373,14 +368,7 @@ function compareSection(): AnalysisSection | null {
         `(${Math.round(settings.scale * 100)}%, ${settings.scaler})`,
     ]);
   }
-  const blocks: AnalysisBlock[] = [
-    {
-      kind: "prose",
-      html:
-        "Only the segment above was encoded, so its size is not the whole file's — it is what that stretch of " +
-        "video costs at these settings, which is what makes two settings comparable without encoding twice.",
-    },
-  ];
+  const blocks: AnalysisBlock[] = [{ kind: "prose", html: ENCODED_SEGMENT_NOTE }];
 
   const est = currentSizeEstimate();
   if (est) {
@@ -540,7 +528,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "Full Analysis"));
-  sec.append(teachBox(PANEL_INTRO));
+  sec.append(teachBox(ANALYSIS_PANEL_INTRO));
 
   const actions = h("div", "load-actions");
   const pdfBtn = h("button", "btn", "Save as PDF");

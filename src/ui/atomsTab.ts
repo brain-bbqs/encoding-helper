@@ -10,7 +10,7 @@
 
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
 import { h, teachBox } from "../lib/dom";
-import { ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH } from "../lib/explainers";
+import { ATOM_LEGEND_NOTE, ATOM_MAP_READOUT_HINT, ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
@@ -32,8 +32,6 @@ const FAMILIES: [string, string][] = [
   ["mdat", "sample data"],
   ["moof", "fragment index"],
 ];
-
-const READOUT_HINT = "Hover a block for its offset and size; click one to zoom into it.";
 
 /**
  * Roughly what a label costs in the two sizes the blocks draw it at: per character, plus the
@@ -101,7 +99,7 @@ function renderMap(
   host.append(renderCrumbs(shown, zoom, redraw));
 
   const { map, lanes } = mapLanes(layout.laneCount);
-  const readout = h("div", "atom-readout", READOUT_HINT);
+  const readout = h("div", "atom-readout", ATOM_MAP_READOUT_HINT);
   layout.rects.forEach((rect) => lanes[rect.depth].append(blockEl(rect, zoom, redraw, readout)));
   host.append(map, readout);
 
@@ -224,7 +222,7 @@ function blockEl(
     readout.textContent = detail;
   };
   const clear = (): void => {
-    readout.textContent = READOUT_HINT;
+    readout.textContent = ATOM_MAP_READOUT_HINT;
   };
   el.addEventListener("mouseenter", show);
   el.addEventListener("focus", show);
@@ -247,9 +245,7 @@ function renderLegend(): HTMLDivElement {
   FAMILIES.forEach(([key, desc]) => legend.append(item("f-" + key, key, desc)));
   legend.append(item("f-other", "other", "brand, padding, user data"));
   legend.append(item("f-other grouped", "N boxes", "too many to draw, in the color of most of them"));
-  legend.append(
-    h("span", "legend-note", "A box's color is the top-level box it belongs to; each row down is one level in."),
-  );
+  legend.append(h("span", "legend-note", ATOM_LEGEND_NOTE));
   return legend;
 }
 

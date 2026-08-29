@@ -4,7 +4,7 @@
 // go and look at.
 
 import { fold, gridItem, h, svgEl, teachBox } from "../lib/dom";
-import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
+import { GOP_HISTOGRAM_CAPTION, GOP_TEACH, SEEK_SCATTER_CAPTION, SEEK_TEST_INTRO } from "../lib/explainers";
 import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
@@ -12,7 +12,6 @@ import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
 
 /** Caption for the GOP histogram, shared with the Full Analysis document. */
-export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a bar for its frame count)";
 
 /**
  * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
@@ -21,7 +20,6 @@ export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a 
 const DEFAULT_SEEK_SAMPLES = 100;
 
 /** Caption for the seeking scatter plot, shared with the Full Analysis document. */
-export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
 
 export function renderSeekTab(panel: HTMLElement): void {
   const gop = state.gopLengths;

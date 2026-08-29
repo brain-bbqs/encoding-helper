@@ -1,11 +1,17 @@
-// Author-authored explainer copy, shared by the tab renderers and the Full Analysis document.
+// Author-authored explainer copy: every word of teaching material the app shows, in one file.
+//
+// Nothing here is written by a tab. A renderer that wants to teach something imports the copy from
+// here, so the whole of what the app says can be read, edited and kept consistent in one place
+// rather than being hunted for across the tab that happens to show it — and the page and the
+// exported document can never explain the same number two different ways, since they read the same
+// string. What stays with its renderer is the text that is not teaching: button labels, status and
+// error lines, and the per-codec, per-container and per-tag records in the knowledge bases, which
+// are catalogue data rather than prose.
 //
 // Every string here is trusted markup rendered through innerHTML (teachBox, info popovers, the
 // document's prose blocks), so nothing read out of a media file may be interpolated into one
 // without going through escapeHtml first — the two builders below that take file-derived numbers
-// do exactly that. The copy lives here rather than in the tab that first showed it because the
-// document repeats it: one source of words, so the page and the exported document can never
-// explain the same number two different ways.
+// do exactly that.
 
 import type { BitrateTimeline } from "./bitrateTimeline";
 import type { ContainerInfo } from "./containerKb";
@@ -13,6 +19,18 @@ import { escapeHtml } from "./dom";
 import { fmtBits } from "./format";
 import type { SizeEstimate } from "./sizeEstimate";
 import type { CodecInfo } from "./types";
+
+// --- Inspect: the container, the tracks and their bitrates ---
+
+/** The container-vs-codec distinction, shown above every container explainer. */
+export const CONTAINER_PREAMBLE =
+  "A <b>video container</b> is the wrapper around the media, not the compression method itself. It stores the " +
+  "encoded tracks, the index that maps timestamps to byte ranges, and the metadata tags. The <b>codec</b> is what " +
+  "actually compresses the pixels and samples. The same H.264 video can sit in an MP4, a MOV (.mov), or a " +
+  "Matroska (.mkv) file unchanged: moving it from one to another copies the already-compressed frames across " +
+  "byte for byte, without decoding or compressing anything again, so it takes seconds and the picture that " +
+  "comes out is the picture that went in. Containers differ in which codecs they accept, though, so not every " +
+  "codec fits in every container.";
 
 /** The Overview's whole-file bitrate, which is not the same as any one track's bitrate. */
 export const OVERALL_BITRATE_INFO =
@@ -138,6 +156,8 @@ export function containerExplainer(info: ContainerInfo): string {
   );
 }
 
+// --- Inspect: the atom map ---
+
 /** What the box tree is, shown above the Atom Map and above the document's text listing of it. */
 export const ATOM_STRUCTURE_TEACH =
   `An MP4 file is a tree of <b>boxes</b> (also called &ldquo;atoms&rdquo;): <code>ftyp</code> declares the ` +
@@ -152,6 +172,14 @@ export const ATOM_MAP_TEACH =
   `room and the whole file is on screen at once however long the video is. Width says nothing about ` +
   `size — hover a box for its offset and byte count, or click to zoom into it. The <b>Full Analysis</b> ` +
   `document draws this same map, minus the zooming.`;
+
+/** What the map does on hover and on click, standing in the readout until one of them happens. */
+export const ATOM_MAP_READOUT_HINT = "Hover a block for its offset and size; click one to zoom into it.";
+
+/** How to read the map's colors, under its legend. */
+export const ATOM_LEGEND_NOTE = "A box's color is the top-level box it belongs to; each row down is one level in.";
+
+// --- Inspect: GOP structure and the seeking test ---
 
 export const GOP_TEACH =
   `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
@@ -168,6 +196,62 @@ export const GOP_TEACH =
   `<code>-keyint_min</code> + <code>-sc_threshold 0</code>) and <b>disables B-frames</b> ` +
   `(<code>-bf 0</code>) specifically to make random-access seeking fast and predictable for ` +
   `pose-estimation pipelines that jump around a video rather than playing it linearly.</p>`;
+
+/** Under the GOP histogram, on the page and in the document. */
+export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a bar for its frame count)";
+
+/** Under the seeking test's scatter, on the page and in the document. */
+export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
+
+export const SEEK_TEST_INTRO =
+  "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
+  "plus how long it takes to decode that frame.";
+
+// --- Reencode with FFmpeg, and the encoder settings both encoding tabs offer ---
+
+/** What reencoding is, and why the command is the thing this tab produces. Heads the Reencode tab. */
+export const REENCODE_INTRO =
+  `<b>Reencoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
+  `lets you change quality, resolution, frame rate or keyframe spacing, and it is lossy: each pass throws ` +
+  `away detail the previous pass kept, so start from the original whenever you can.` +
+  `<p><b>Transcoding</b> is the same operation into a <i>different</i> codec (H.265 to H.264, say); the ` +
+  `terms are often used interchangeably, but transcoding implies the codec itself changes. Neither is ` +
+  `<b>remuxing</b> (<code>ffmpeg -c copy</code>), which lifts the already-compressed frames into a ` +
+  `different container untouched, and so is lossless and nearly instant.</p>` +
+  `<p>The command below runs <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">` +
+  `<b>ffmpeg</b></a> on your own machine, which is the way to do this for real work: it is a native ` +
+  `multi-threaded build with no 30 MB download and no browser memory ceiling, so it is far faster on a ` +
+  `full-length video; it scripts over a whole dataset; and the exact same command reruns later or on a ` +
+  `colleague's machine and produces the same bytes. What runs in the page below is the same ffmpeg, for ` +
+  `judging a setting quickly rather than for processing a corpus.</p>` +
+  `<p>The settings here mirror ` +
+  `<a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io</a>'s ` +
+  `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
+  `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.</p>`;
+
+/** What the Reencode tab's sample run does, and where the Compare Quality tab takes over. */
+export const SAMPLE_RUN_INTRO =
+  `Encodes three seconds of the video with the command above — the real ffmpeg, compiled to WebAssembly, so ` +
+  `the bytes are the bytes it would produce — and shows the result against the same seconds of the ` +
+  `original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
+  `<p>Which three seconds is the question worth asking, so the track below scans the whole recording: ` +
+  `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
+  `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
+  `the beginning.</p>` +
+  `<p>One stretch of a fixed length, judged by eye: there is nothing to set here beyond where it comes ` +
+  `from. Sampling several places at once to project what a setting saves across the whole file, and ` +
+  `sweeping several settings against each other, are the <b>Compare Quality</b> tab's job.</p>`;
+
+/** What running the whole file in the page costs, under the section that offers to. */
+export const WHOLE_FILE_ENCODE_INTRO =
+  `Runs the command above over the <b>whole video</b>, here in the page, and saves the result to a file you ` +
+  `choose. Nothing is uploaded: the frames are decoded and reencoded locally. Pick where to save when ` +
+  `prompted, or the file lands in your downloads folder.` +
+  `<p>The engine is ffmpeg itself, compiled to WebAssembly, so the output is byte-for-byte what the command ` +
+  `gives you on your own machine. It is fetched on first use (~30 MB) and runs single-threaded (no ` +
+  `COOP/COEP headers needed on static hosting), so it is slower than realtime: for a full-length recording ` +
+  `or a whole dataset, copy the command and run ffmpeg natively instead. What runs here is bounded by what ` +
+  `the browser tab can hold in memory.</p>`;
 
 /** What the preset actually trades, shown from the ⓘ beside the field in both tabs that offer it. */
 export const X264_PRESET_INFO =
@@ -203,6 +287,8 @@ export const UPSCALE_VIEW_INFO =
   "better view for judging what a tracking pipeline has left to work with. <b>Smooth</b> interpolates " +
   "between them, closer to what a player would put up. Neither changes the encode or its size.";
 
+// --- Compare Quality: the run, the sweep and its grid ---
+
 /** Why a run would encode the same settings in several places at once. */
 export const SEGMENTS_INFO =
   "<b>Segments</b> is how many stretches of the length above a run encodes. Where they land is the sampler's " +
@@ -225,9 +311,24 @@ export const MATRIX_CACHE_INFO =
   "the A/B window. Untick to measure everything again, for fresh encoding times or a file changed under the " +
   "same name.</p>";
 
-export const SEEK_TEST_INTRO =
-  "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
-  "plus how long it takes to decode that frame.";
+/**
+ * Heads the ffmpeg command for the square in the A/B window. `settings` is the app's own description
+ * of the combination (see describeSettings), never text read out of a file.
+ */
+export function selectedCommandTeach(settings: string): string {
+  return (
+    `What the square in the A/B window above — <b>${settings}</b> — comes to as an ffmpeg command, over the ` +
+    `whole file rather than the sampled seconds. Everything the sweep does not vary (keyframe interval, ` +
+    `B-frames, audio, faststart) is taken from the <b>Reencode with FFmpeg</b> tab as it is set there now.`
+  );
+}
+
+// --- The size a setting projects, under both tabs that measure one ---
+
+/** Why a segment's size is the comparable number, beside the size the encode came to. */
+export const ENCODED_SEGMENT_NOTE =
+  "Only the segment above was encoded, so its size is not the whole file's — it is what that stretch of " +
+  "video costs at these settings, which is what makes two settings comparable without encoding twice.";
 
 /** Why the Compare Quality tab reports a size at all, and on what terms it projects one. */
 export const SIZE_SAVINGS_INTRO =
@@ -297,3 +398,16 @@ export const PROJECTED_SIZE_INFO =
 export const SAMPLED_WINDOW_INFO =
   "How much of the file this estimate actually saw. The smaller it is, the more the projection leans on those " +
   "seconds being typical of the rest; a longer segment narrows the range.";
+
+// --- Full Analysis ---
+
+/** What the Full Analysis tab gathers, and what the two buttons under it write. */
+export const ANALYSIS_PANEL_INTRO =
+  "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
+  "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +
+  "and plots only, with the teaching explainers left out. Runs that have to be started by hand — the seeking " +
+  "test, Compare Quality, an in-browser reencode — are added to it once you have run them, so run those " +
+  "first if you want them in the document. " +
+  "<p>Below is the document itself, not a preview of one: <b>Download HTML</b> writes exactly this, in a " +
+  "single self-contained file with no external assets, and <b>Save as PDF</b> hands the same thing to the " +
+  "browser's print dialog.</p>";

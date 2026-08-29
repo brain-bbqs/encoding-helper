@@ -1,7 +1,8 @@
 // Container knowledge base — maps mediabunny's input format name (what `Input.getFormat().name`
 // returns) to a plain-language explainer of what that container is and which codecs it can carry.
-// The container is the wrapper; the codec is the compression inside it, and the two are chosen
-// independently, so the Inspect tab labels the field "Container" and explains the difference here.
+// One record per container, as catalogue data; the prose that introduces them all (the
+// container-vs-codec distinction) is CONTAINER_PREAMBLE, with the rest of the teaching copy in
+// lib/explainers.
 
 export interface ContainerInfo {
   /** mediabunny's format name, used as the display value. */
@@ -16,16 +17,6 @@ export interface ContainerInfo {
   /** Playback/compatibility note. */
   support: string;
 }
-
-/** The container-vs-codec distinction, shown above every container explainer. */
-export const CONTAINER_PREAMBLE =
-  "A <b>video container</b> is the wrapper around the media, not the compression method itself. It stores the " +
-  "encoded tracks, the index that maps timestamps to byte ranges, and the metadata tags. The <b>codec</b> is what " +
-  "actually compresses the pixels and samples. The same H.264 video can sit in an MP4, a MOV (.mov), or a " +
-  "Matroska (.mkv) file unchanged: moving it from one to another copies the already-compressed frames across " +
-  "byte for byte, without decoding or compressing anything again, so it takes seconds and the picture that " +
-  "comes out is the picture that went in. Containers differ in which codecs they accept, though, so not every " +
-  "codec fits in every container.";
 
 export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
   MP4: {

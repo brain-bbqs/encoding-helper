@@ -3,7 +3,7 @@
 // (seekTab.ts) are appended after them into the same panel by main.ts.
 
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
-import { CONTAINER_PREAMBLE, describeContainer, type ContainerInfo } from "../lib/containerKb";
+import { describeContainer, type ContainerInfo } from "../lib/containerKb";
 import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
 import { isEducationalEnabled } from "../lib/educational";
 import { renderEducationalToggle } from "./educationalToggle";
@@ -13,6 +13,7 @@ import {
   chromaSubsamplingExplainer,
   codecExplainer,
   constantBitrateNote,
+  CONTAINER_PREAMBLE,
   containerExplainer,
   contradictedDeclarationNote,
   FASTSTART_EXPLAINER,

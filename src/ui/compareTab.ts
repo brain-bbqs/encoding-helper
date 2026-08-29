@@ -8,7 +8,13 @@
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, infoIcon, teachBox } from "../lib/dom";
-import { MATRIX_CACHE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import {
+  MATRIX_CACHE_INFO,
+  RESOLUTION_INFO,
+  SCALER_INFO,
+  selectedCommandTeach,
+  X264_PRESET_INFO,
+} from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
   bestReductionCell,
@@ -796,14 +802,7 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Run This Setting with ffmpeg"));
-  sec.append(
-    teachBox(
-      `What the square in the A/B window above — <b>${describeSettings(cell.combo)}</b> — comes to as an ffmpeg ` +
-        `command, over the whole file rather than the sampled seconds. Everything the sweep does not vary ` +
-        `(keyframe interval, B-frames, audio, faststart) is taken from the <b>Reencode with FFmpeg</b> tab as it ` +
-        `is set there now.`,
-    ),
-  );
+  sec.append(teachBox(selectedCommandTeach(describeSettings(cell.combo))));
   const cmdPre = h("pre", "cmd", formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info)));
   sec.append(cmdPre);
   const copyBtn = h("button", "btn sm", "Copy Command");

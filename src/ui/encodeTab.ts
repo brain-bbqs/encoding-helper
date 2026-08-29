@@ -8,7 +8,7 @@
 
 import { computeGop, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
-import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { REENCODE_INTRO, RESOLUTION_INFO, SAMPLE_RUN_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
 import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
@@ -48,27 +48,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const builderHead = h("div", "section-head");
   builderHead.append(h("h2", null, "FFmpeg Command Builder"), renderEducationalToggle());
   builderSec.append(builderHead);
-  builderSec.append(
-    teachBox(
-      `<b>Reencoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
-        `lets you change quality, resolution, frame rate or keyframe spacing, and it is lossy: each pass throws ` +
-        `away detail the previous pass kept, so start from the original whenever you can.` +
-        `<p><b>Transcoding</b> is the same operation into a <i>different</i> codec (H.265 to H.264, say); the ` +
-        `terms are often used interchangeably, but transcoding implies the codec itself changes. Neither is ` +
-        `<b>remuxing</b> (<code>ffmpeg -c copy</code>), which lifts the already-compressed frames into a ` +
-        `different container untouched, and so is lossless and nearly instant.</p>` +
-        `<p>The command below runs <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">` +
-        `<b>ffmpeg</b></a> on your own machine, which is the way to do this for real work: it is a native ` +
-        `multi-threaded build with no 30 MB download and no browser memory ceiling, so it is far faster on a ` +
-        `full-length video; it scripts over a whole dataset; and the exact same command reruns later or on a ` +
-        `colleague's machine and produces the same bytes. What runs in the page below is the same ffmpeg, for ` +
-        `judging a setting quickly rather than for processing a corpus.</p>` +
-        `<p>The settings here mirror ` +
-        `<a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io</a>'s ` +
-        `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
-        `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.</p>`,
-    ),
-  );
+  builderSec.append(teachBox(REENCODE_INTRO));
 
   const form = h("div");
   form.append(
@@ -236,20 +216,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
 function sampleRunSection(vt: TrackInfo): HTMLElement[] {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Try It on a Sample"));
-  sec.append(
-    teachBox(
-      `Encodes three seconds of the video with the command above — the real ffmpeg, compiled to WebAssembly, so ` +
-        `the bytes are the bytes it would produce — and shows the result against the same seconds of the ` +
-        `original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
-        `<p>Which three seconds is the question worth asking, so the track below scans the whole recording: ` +
-        `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
-        `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
-        `the beginning.</p>` +
-        `<p>One stretch of a fixed length, judged by eye: there is nothing to set here beyond where it comes ` +
-        `from. Sampling several places at once to project what a setting saves across the whole file, and ` +
-        `sweeping several settings against each other, are the <b>Compare Quality</b> tab's job.</p>`,
-    ),
-  );
+  sec.append(teachBox(SAMPLE_RUN_INTRO));
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
   const { nodes, ui } = runControls("Run Comparison");

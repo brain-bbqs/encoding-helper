@@ -8,6 +8,7 @@
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
 import { h, teachBox } from "../lib/dom";
+import { WHOLE_FILE_ENCODE_INTRO } from "../lib/explainers";
 import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { downloadBlob, extOf, pickSaveTarget } from "../lib/save";
 import { cli, state } from "../lib/state";
@@ -19,18 +20,7 @@ import { clearLog, engineBox, logLine, type EngineBox } from "./formControls";
 export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
   const sec = h("div", "section");
   sec.append(h("h2", null, `${encodeVerb()} the Entire File Here`));
-  sec.append(
-    teachBox(
-      `Runs the command above over the <b>whole video</b>, here in the page, and saves the result to a file you ` +
-        `choose. Nothing is uploaded: the frames are decoded and reencoded locally. Pick where to save when ` +
-        `prompted, or the file lands in your downloads folder.` +
-        `<p>The engine is ffmpeg itself, compiled to WebAssembly, so the output is byte-for-byte what the command ` +
-        `gives you on your own machine. It is fetched on first use (~30 MB) and runs single-threaded (no ` +
-        `COOP/COEP headers needed on static hosting), so it is slower than realtime: for a full-length recording ` +
-        `or a whole dataset, copy the command and run ffmpeg natively instead. What runs here is bounded by what ` +
-        `the browser tab can hold in memory.</p>`,
-    ),
-  );
+  sec.append(teachBox(WHOLE_FILE_ENCODE_INTRO));
 
   const box = engineBox(`${encodeVerb()} and Save`);
   sec.append(box.el);
