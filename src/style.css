@@ -1182,6 +1182,69 @@ details.teach-more summary {
   opacity: 1;
 }
 
+/* Playback-buffer area chart (built in src/ui/bufferChart.ts; colors live here so it follows the
+   theme). Same shape as the bitrate chart above it, on purpose — the two are read together — with
+   the stall marks in the error color, since a stall is the failure the plot is drawn to show. */
+.buffer-chart {
+  width: 100%;
+  height: auto;
+  max-width: 600px;
+  display: block;
+  margin: 4px 0 6px;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+.buffer-chart .grid-line {
+  stroke: var(--chart-grid);
+}
+.buffer-chart .axis {
+  stroke: var(--border);
+}
+.buffer-chart .tick {
+  fill: var(--muted);
+}
+.buffer-chart .axis-title {
+  fill: var(--muted-2);
+}
+.buffer-chart .area {
+  fill: var(--accent-tint);
+}
+.buffer-chart .line {
+  stroke: var(--accent);
+}
+.buffer-chart .stall-mark {
+  stroke: var(--err);
+  stroke-dasharray: 3 3;
+}
+.buffer-chart .stall-dot {
+  fill: var(--err);
+  stroke: var(--card);
+}
+/* The hover layer, as on the bitrate chart: a transparent band per plotted point. */
+.buffer-chart .band {
+  fill: transparent;
+}
+.buffer-chart .bin:hover .band {
+  fill: var(--accent-tint);
+}
+.buffer-chart .cross,
+.buffer-chart .dot {
+  opacity: 0;
+}
+.buffer-chart .cross {
+  stroke: var(--accent);
+}
+.buffer-chart .dot {
+  fill: var(--accent-bright);
+  stroke: var(--card);
+}
+.buffer-chart .bin:hover .cross,
+.buffer-chart .bin:hover .dot {
+  opacity: 1;
+}
+
 /* Progress */
 .progress-wrap {
   background: var(--btn-off-bg);

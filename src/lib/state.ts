@@ -1,13 +1,14 @@
 // Shared, mutable, single-source-of-truth state objects. Every tab renderer reads and writes these
 // directly (no framework/store layer) — mirrors the original monolithic script's globals, just typed.
 
+import { DEFAULT_LINK_BITRATE_BPS, DEFAULT_STARTUP_SEC } from "./playbackSim";
 import {
   DEFAULT_MATRIX_PRESETS,
   DEFAULT_MATRIX_QUALITIES,
   DEFAULT_MATRIX_SCALERS,
   DEFAULT_MATRIX_SCALES,
 } from "./qualityMatrix";
-import type { AppState, CliState, EncodeTestState } from "./types";
+import type { AppState, BandwidthSettings, CliState, EncodeTestState } from "./types";
 
 export const state: AppState = {
   source: null,
@@ -49,6 +50,11 @@ export const cli: CliState = {
   fps: null,
   scale: 1,
   scaler: "lanczos",
+};
+
+export const bandwidth: BandwidthSettings = {
+  linkBitrateBps: DEFAULT_LINK_BITRATE_BPS,
+  startupSec: DEFAULT_STARTUP_SEC,
 };
 
 export const encodeTest: EncodeTestState = {
@@ -115,6 +121,8 @@ export function resetState(): void {
   state.keyframeTimestampsSec = [];
   state.seekResults = null;
   state.reencodeResult = null;
+  bandwidth.linkBitrateBps = DEFAULT_LINK_BITRATE_BPS;
+  bandwidth.startupSec = DEFAULT_STARTUP_SEC;
   encodeTest.startTime = 0;
   encodeTest.sampleStart = 0;
   encodeTest.duration = 5;

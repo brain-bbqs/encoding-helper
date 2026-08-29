@@ -55,8 +55,9 @@ function tickDecimals(step: number): number {
 /**
  * m:ss past a minute, where plain seconds stop being readable at a glance; below that, seconds with
  * a decimal only where the ticks would otherwise round to uneven numbers (7.5s reading as "8s").
+ * Exported so every plot along the playback timeline labels it the same way.
  */
-function fmtTime(sec: number, durationSec: number): string {
+export function fmtPlaybackTime(sec: number, durationSec: number): string {
   if (durationSec < 60) {
     const decimals = Number.isInteger(durationSec / STEPS) ? 0 : 1;
     return sec.toFixed(decimals) + "s";
@@ -101,7 +102,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
       text(
         "tick",
         { x: gx, y: MT + PLOT_H + 16, "font-size": 10, "text-anchor": "middle" },
-        fmtTime((durationSec * i) / STEPS, durationSec),
+        fmtPlaybackTime((durationSec * i) / STEPS, durationSec),
       ),
     );
     svg.append(
@@ -179,7 +180,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
     const g = svgEl("g", { class: "bin" });
     const title = svgEl("title");
     title.textContent =
-      `${fmtTime(b.startSec, durationSec)}–${fmtTime(b.endSec, durationSec)}  ·  ${fmtBits(b.bitrate)}  ·  ` +
+      `${fmtPlaybackTime(b.startSec, durationSec)}–${fmtPlaybackTime(b.endSec, durationSec)}  ·  ${fmtBits(b.bitrate)}  ·  ` +
       `${b.sampleCount} frame${b.sampleCount === 1 ? "" : "s"}`;
     g.append(title);
     g.append(svgEl("rect", { class: "band", x, y: MT, width: w, height: PLOT_H }));

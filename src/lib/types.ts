@@ -112,6 +112,18 @@ export type X264Preset =
  * see SCALER_INFO for what each one trades. */
 export type Scaler = "lanczos" | "bicubic";
 
+/**
+ * What the Low-Bandwidth Playback card is currently simulating. Kept beside the file's own state
+ * rather than inside the card so the Full Analysis document reports the link the reader chose,
+ * rather than a default they never looked at.
+ */
+export interface BandwidthSettings {
+  /** What the simulated link carries, in bits per second. */
+  linkBitrateBps: number;
+  /** Wall-clock seconds the simulated player buffers before showing the first frame. */
+  startupSec: number;
+}
+
 /** Shared CLI-command state, edited from the Reencode with FFmpeg tab's command builder. */
 export interface CliState {
   quality: QualityPreset;

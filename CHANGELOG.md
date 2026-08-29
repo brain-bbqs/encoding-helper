@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+
+#### 🚀 Enhancement
+
+- Inspect carries a **Low-Bandwidth Playback** card under the bitrate plot: pick a link speed and it says whether the file streams over it, where playback would freeze, and what a viewer would wait ([#34](https://github.com/brain-bbqs/encoding-helper/pull/34))
+
 ## 1.3.0
 
 #### 🚀 Enhancement

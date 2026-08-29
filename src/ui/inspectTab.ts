@@ -28,6 +28,7 @@ import { describeMetadataTag, describeMetadataTagValue, type MetadataTagInfo } f
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { state } from "../lib/state";
 import type { CodecInfo } from "../lib/types";
+import { renderBandwidthSection } from "./bandwidthPanel";
 import { renderBitrateChart } from "./bitrateChart";
 
 /**
@@ -254,12 +255,18 @@ export function renderInspectHead(panel: HTMLElement): void {
   if (videoSec) panel.append(videoSec);
 }
 
-/** The bitrate and audio cards, after the atom map. See {@link renderInspectHead}. */
+/**
+ * The bitrate, low-bandwidth and audio cards, after the atom map. See {@link renderInspectHead}.
+ * Low-Bandwidth Playback follows the bitrate plot directly because it reads the same measurement:
+ * the plot shows where the bits went, and the card below it says who can afford to receive them.
+ */
 export function renderInspectTail(panel: HTMLElement): void {
   if (!state.source) return;
 
   const bitrateSec = renderBitrateTimelineSection();
   if (bitrateSec) panel.append(bitrateSec);
+  const bandwidthSec = renderBandwidthSection();
+  if (bandwidthSec) panel.append(bandwidthSec);
   const audioSec = renderAudioTrackSection();
   if (audioSec) panel.append(audioSec);
 }

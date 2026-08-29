@@ -82,6 +82,28 @@ test.describe("Encoding Helper shell", () => {
     await expect(videoCard.locator(".item").filter({ has: page.locator('label:text-is("Bitrate")') })).toHaveCount(0);
   });
 
+  test("answers whether the loaded file survives a slow link, and redraws as that link changes", async ({ page }) => {
+    await loadDemo(page);
+    const card = page
+      .locator("#panel-inspect .section")
+      .filter({ has: page.locator('h2:text-is("Low-Bandwidth Playback")') });
+    // Directly under the bitrate plot it is read against.
+    await expect(card).toBeVisible();
+    await expect(card.locator("svg.buffer-chart")).toBeVisible();
+
+    // The demo is a small 320x240 encode, so every preset carries it and the default one says so.
+    await expect(card.locator(".badge")).toHaveText(/Plays through/);
+    const stalls = card.locator(".item").filter({ has: page.locator('label:text-is("Stalls")') });
+    await expect(stalls.locator(".val")).toHaveText("0");
+
+    // A link far below what the file needs turns the verdict over, with no run in between.
+    await card.locator("#bwLinkSpeed").selectOption("custom");
+    await card.locator("#bwCustomSpeed").fill("0.05");
+    await expect(card.locator(".badge")).toHaveText(/Stalls/);
+    await expect(card.locator("svg.buffer-chart .stall")).not.toHaveCount(0);
+    await expect(card.locator("details.fold")).toBeVisible();
+  });
+
   test("draws every box in the file, in the tab and in the document, none summarised away", async ({ page }) => {
     // ?tab=atoms is the map's old address, from when it was a tab of its own; it lands on Inspect,
     // where the map is now a section.
@@ -138,6 +160,7 @@ test.describe("Encoding Helper shell", () => {
       "Video Container Overview",
       "Video Track",
       "Video Bitrate Over Time",
+      "Low-Bandwidth Playback",
       "MP4 Atom Map",
       "GOP / Keyframe Structure",
       "Reencode CLI Command",
@@ -145,6 +168,7 @@ test.describe("Encoding Helper shell", () => {
       await expect(doc.locator(".section h2", { hasText: title })).toBeVisible();
     }
     await expect(doc.locator("#video-bitrate-over-time svg.bitrate-chart")).toBeVisible();
+    await expect(doc.locator("#low-bandwidth-playback svg.buffer-chart")).toBeVisible();
     await expect(doc.locator(".doc-toc li")).not.toHaveCount(0);
     // Nothing was run by hand, so the sections those runs produce are simply absent.
     await expect(doc.locator("#empirical-seeking-test")).toHaveCount(0);

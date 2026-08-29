@@ -25,11 +25,16 @@ import {
   constantBitrateNote,
   containerExplainer,
   contradictedDeclarationNote,
+  DOWNLOAD_TIME_INFO,
   FASTSTART_EXPLAINER,
   GOP_TEACH,
+  LOW_BANDWIDTH_TEACH,
+  MOOV_LAST_PLAYBACK_NOTE,
   METADATA_TAGS_TEACH,
   OVERALL_BITRATE_INFO,
   PEAK_RATIO_INFO,
+  REQUIRED_BITRATE_INFO,
+  REQUIRED_STARTUP_INFO,
   SEEK_TEST_INTRO,
   SIZE_SAVINGS_INTRO,
   sizeEstimateTeach,
@@ -42,11 +47,19 @@ import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { bestReductionCell, cliSettings, comboCrf, comboKey, matrixAxes } from "../lib/qualityMatrix";
 import { downloadBlob } from "../lib/save";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
-import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
+import { bandwidth, cli, currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
 import { describeSampledStretches } from "./abPanel";
+import {
+  BUFFER_CHART_CAPTION,
+  currentPlaybackSim,
+  fmtWait,
+  playbackSummaryItems,
+  playbackVerdict,
+} from "./bandwidthPanel";
 import { renderBitrateChart } from "./bitrateChart";
+import { renderBufferChart } from "./bufferChart";
 import { flattenMetadataTags } from "./inspectTab";
 import { GOP_HISTOGRAM_CAPTION, renderGopHistogram, renderSeekScatter, SEEK_SCATTER_CAPTION } from "./seekTab";
 
@@ -211,6 +224,48 @@ function bitrateSection(vt: TrackInfo): AnalysisSection {
     { kind: "prose", html: `<b>Average.</b> ${VIDEO_AVERAGE_INFO}<p><b>Peak ÷ Average.</b> ${PEAK_RATIO_INFO}</p>` },
   );
   return { title: "Video Bitrate Over Time", blocks };
+}
+
+/**
+ * The Low-Bandwidth Playback card, simulated at whatever link the reader last set on Inspect rather
+ * than at a default they never chose. Null where there is nothing to play back.
+ */
+function bandwidthSection(): AnalysisSection | null {
+  const sim = currentPlaybackSim();
+  if (!sim) return null;
+  const verdict = playbackVerdict(sim);
+  const blocks: AnalysisBlock[] = [{ kind: "prose", html: LOW_BANDWIDTH_TEACH }];
+  if (state.faststart === false) blocks.push({ kind: "prose", html: MOOV_LAST_PLAYBACK_NOTE });
+  blocks.push(
+    { kind: "badge", text: verdict.text, tone: verdict.tone },
+    {
+      kind: "kv",
+      items: [
+        ["Link Speed", fmtBits(bandwidth.linkBitrateBps)],
+        ["Startup Wait", fmtWait(bandwidth.startupSec)],
+        ...playbackSummaryItems(sim),
+      ],
+    },
+  );
+  const chart = renderBufferChart(sim, state.duration ?? 0);
+  if (chart) blocks.push({ kind: "figure", caption: BUFFER_CHART_CAPTION, element: chart });
+  // On the page these are ⓘ popovers on the fields above; a document has no hover, so they are
+  // spelled out under the plot instead, as the bitrate section does.
+  blocks.push({
+    kind: "prose",
+    html:
+      `<b>Needs At Least.</b> ${REQUIRED_BITRATE_INFO}` +
+      `<p><b>Startup Wait Needed.</b> ${REQUIRED_STARTUP_INFO}</p>` +
+      `<p><b>Whole-File Download.</b> ${DOWNLOAD_TIME_INFO}</p>`,
+  });
+  if (sim.stalls.length) {
+    blocks.push({
+      kind: "table",
+      headers: ["Playback Position", "Frozen For"],
+      rows: sim.stalls.map((st) => [st.atMediaSec.toFixed(2) + "s", fmtWait(st.seconds)]),
+    });
+  }
+  return { title: "Low-Bandwidth Playback", blocks };
 }
 
 function audioTrackSection(at: TrackInfo): AnalysisSection {
@@ -491,6 +546,7 @@ function buildAnalysisSections(): AnalysisSection[] {
     containerSection(),
     vt ? videoTrackSection(vt) : null,
     vt ? bitrateSection(vt) : null,
+    bandwidthSection(),
     at ? audioTrackSection(at) : null,
     metadataTagsSection(),
     atomMapSection(),

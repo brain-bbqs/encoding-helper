@@ -129,12 +129,14 @@ describe("the Inspect panel", () => {
     renderSeekTab(panel);
     const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
     // Metadata first, then the map of where the bytes are (ahead of bitrate/audio), then the
-    // structure that governs seeking, with the seeking test folded into that same card.
+    // structure that governs seeking, with the seeking test folded into that same card. Low-Bandwidth
+    // Playback sits directly under the bitrate plot, since it reads the same measurement.
     expect(headings).toEqual([
       "Video Container Overview",
       "Video Track",
       "MP4 Box / Atom Structure",
       "Video Bitrate Over Time",
+      "Low-Bandwidth Playback",
       "GOP / Keyframe Structure",
     ]);
   });

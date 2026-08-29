@@ -89,6 +89,59 @@ export function contradictedDeclarationNote(avgBitrate: number, timeline: Bitrat
   );
 }
 
+export const LOW_BANDWIDTH_TEACH =
+  "The bitrate above says what this file <i>costs</i>; this says whether a viewer on a given connection can " +
+  "<i>watch</i> it. A player downloading a file from the front holds a <b>buffer</b>: video that has arrived " +
+  "but has not been shown yet. It fills at whatever the link carries and drains at one second of video per " +
+  "second of playback, so it grows while the link outruns the encode and shrinks while the encode outruns " +
+  "the link. When it hits zero the picture freezes until enough has arrived to go on. " +
+  "<p>That is arithmetic, not an experiment: the size and timestamp of every frame is already in the sample " +
+  "table, so the whole of playback can be worked out here without a server, a network, or a single frame " +
+  "being decoded. Nothing below is throttled or measured; it is what a player would do with these frames at " +
+  "this speed.</p>" +
+  "<p>The <b>average</b> bitrate is not what decides this. A file averaging 2 Mbps with a 9 Mbps burst in it " +
+  "empties the buffer at that burst on a link that its average fits inside comfortably, which is why the " +
+  "peaks in the plot above matter and why streaming encodes are given a ceiling (<code>-maxrate</code>) as " +
+  "well as a target.</p>";
+
+export const LINK_SPEED_INFO =
+  "The <b>throughput</b> the viewer's connection actually delivers, which is not the number on the plan: real " +
+  "wifi loses to distance, walls, interference and everyone else on the access point, and a shared " +
+  "conference or hotel link can sit an order of magnitude below what it advertises. Pick the worst case you " +
+  "care about supporting rather than the typical one, since that is the case that stalls.";
+
+export const STARTUP_WAIT_INFO =
+  "How long the viewer waits, staring at a spinner, before the first frame appears. A player spends this " +
+  "filling the buffer, and every second of it is a second of head start against a slow link later on. It " +
+  "trades directly against stalling: a longer wait absorbs more of the encode's bursts, which is why the " +
+  "rate a file needs is quoted against a particular wait rather than on its own.";
+
+export const REQUIRED_BITRATE_INFO =
+  "The slowest link that plays this file through without a single freeze, given the startup wait set above. " +
+  "It is set by the worst moment in the file rather than by the average, so it sits above the track's " +
+  "average bitrate, often well above on a bursty encode. Anything at or over this number plays clean; " +
+  "anything under it stalls somewhere.";
+
+export const REQUIRED_STARTUP_INFO =
+  "How long a player would have to buffer before starting for this file to play through without freezing at " +
+  "the link speed set above. It is the other side of the same trade: below the required bitrate a file is " +
+  "not unplayable, it just needs a longer head start, until the wait grows longer than anyone will sit " +
+  "through and downscaling or a higher CRF is the real answer.";
+
+export const DOWNLOAD_TIME_INFO =
+  "How long the whole file takes to arrive at this speed, and that against how long the video runs. Under " +
+  "1&times; the link outruns playback and the buffer only grows; over 1&times; the file cannot be streamed " +
+  "at this speed at all, and a viewer either waits for the download to finish or watches it stall " +
+  "throughout, whatever the startup wait.";
+
+/** Shown where the index sits at the end of the file, which changes the answer rather than shading it. */
+export const MOOV_LAST_PLAYBACK_NOTE =
+  "<b>This file is not faststart</b>, so none of the above is what a viewer would get. Its <code>moov</code> " +
+  "index sits after the frame data, and a player cannot decode a single frame without it: the whole file has " +
+  "to come down before anything appears, so the startup wait below is the entire download and there is " +
+  "nothing left to stall on afterwards. Moving the index to the front costs one remux " +
+  "(<code>-movflags +faststart</code>) and no quality at all.";
+
 export const AUDIO_BITRATE_INFO =
   "Average bitrate of the audio track alone. Speech stays clean at low rates, while music needs more; for " +
   "AAC, roughly 128 kbps stereo is transparent for most listeners. This is separate from the video bitrate, " +
