@@ -27,9 +27,11 @@ describe("describeContainer", () => {
     expect(describeContainer("MPEG Transport Stream")?.name).toBe("MPEG Transport Stream");
   });
 
+  // The wording is the copy's to set, sentence case and all; what this asks is that an audio-only
+  // container says it carries no video.
   it("marks audio-only containers as carrying no video", () => {
     for (const name of ["MP3", "WAVE", "FLAC", "ADTS"]) {
-      expect(describeContainer(name)?.video).toContain("none");
+      expect(describeContainer(name)?.video).toMatch(/none/i);
     }
   });
 
