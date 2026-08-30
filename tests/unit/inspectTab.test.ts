@@ -139,6 +139,38 @@ describe("the Inspect panel", () => {
     ]);
   });
 
+  // Faststart is a fact about where moov sits relative to mdat, so it is read against the map that
+  // draws them rather than in the file overview.
+  it("reports faststart on the atom card, not on the overview", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.format = "MP4";
+    state.faststart = true;
+    state.boxes = [{ type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] }];
+    const overview = document.createElement("div");
+    renderInspectHead(overview);
+    expect(overview.textContent).not.toContain("Faststart");
+    const atoms = document.createElement("div");
+    renderAtomMap(atoms);
+    expect(atoms.querySelector(".atom-faststart")?.textContent).toBe("✓ Faststart (moov before mdat)");
+  });
+
+  // The container's own card was folded into the overview, and its explainer names the container,
+  // so the grid no longer carries a Type row saying the same thing.
+  it("carries the container explainer in the overview card, without a Type row", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.format = "MP4";
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual([
+      "Video Container Overview",
+      "Video Track",
+    ]);
+    expect(panel.textContent).toContain("MPEG-4 Part 14");
+    expect(Array.from(panel.querySelectorAll("label")).map((el) => el.textContent)).not.toContain("Type");
+  });
+
   it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
     const panel = document.createElement("div");
     renderSeekTab(panel);

@@ -3,9 +3,8 @@
 // (seekTab.ts) are appended after them into the same panel by main.ts.
 
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
-import { describeContainer, type ContainerInfo } from "../lib/containerKb";
+import { describeContainer } from "../lib/containerKb";
 import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
-import { isEducationalEnabled } from "../lib/educational";
 import { renderEducationalToggle } from "./educationalToggle";
 import {
   AUDIO_BITRATE_INFO,
@@ -16,8 +15,8 @@ import {
   CONTAINER_PREAMBLE,
   containerExplainer,
   contradictedDeclarationNote,
-  FASTSTART_EXPLAINER,
   METADATA_TAGS_HOVER_HINT,
+  MIME_TYPE_INFO,
   METADATA_TAGS_TEACH,
   OVERALL_BITRATE_INFO,
   PEAK_RATIO_INFO,
@@ -30,21 +29,6 @@ import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { state } from "../lib/state";
 import type { CodecInfo } from "../lib/types";
 import { renderBitrateChart } from "./bitrateChart";
-
-/**
- * What this particular file's container is, as its own card so it reads as file-specific rather
- * than as part of the general container-vs-codec explainer above it. The heading carries the
- * container name, so loading a different file visibly retitles the card.
- */
-function renderContainerDetailSection(info: ContainerInfo | null): HTMLDivElement | null {
-  // The whole card is a heading plus one explainer, nothing else — with educational text off there
-  // is no data left to show, so the card itself goes rather than sitting there empty.
-  if (!info || !isEducationalEnabled()) return null;
-  const sec = h("div", "section");
-  sec.append(h("h2", null, `This File's Container: ${info.name}`));
-  sec.append(teachBox(containerExplainer(info)));
-  return sec;
-}
 
 /**
  * Builds the popover for one metadata tag. The tag name comes from the file, so it is escaped
@@ -94,26 +78,19 @@ function renderOverviewSection(): HTMLDivElement {
   head.append(h("h2", null, "Video Container Overview"), renderEducationalToggle());
   overview.append(head);
   overview.append(teachBox(CONTAINER_PREAMBLE));
+  // What this file's container in particular is, which used to be a card of its own below. Its
+  // first words name the container, so the grid no longer carries a "Type" row saying the same.
+  const containerInfo = describeContainer(state.format);
+  if (containerInfo) overview.append(teachBox(containerExplainer(containerInfo)));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   const og = h("div", "grid");
   og.append(
-    gridItem("Type", state.format || "–"),
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
     gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
-    gridItem("MIME Type", state.mimeType || "–", { sm: true, wide: true }),
+    gridItem("MIME Type", state.mimeType || "–", { sm: true, wide: true, info: MIME_TYPE_INFO }),
   );
   overview.append(og);
-  const fsBadge = h(
-    "span",
-    "badge " + (state.faststart ? "good" : "bad"),
-    state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
-  );
-  const fsWrap = h("div");
-  fsWrap.style.marginTop = "10px";
-  fsWrap.append(fsBadge);
-  overview.append(fsWrap);
-  overview.append(teachBox(FASTSTART_EXPLAINER));
 
   // Metadata Tags folds into this card rather than getting one of its own: it is more of this same
   // file-overview information, not a separate finding.
@@ -249,8 +226,6 @@ export function renderInspectHead(panel: HTMLElement): void {
   if (!state.source) return;
 
   panel.append(renderOverviewSection());
-  const containerSec = renderContainerDetailSection(describeContainer(state.format));
-  if (containerSec) panel.append(containerSec);
   const videoSec = renderVideoTrackSection();
   if (videoSec) panel.append(videoSec);
 }

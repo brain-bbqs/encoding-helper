@@ -32,17 +32,170 @@ export const CONTAINER_PREAMBLE =
   "be found in an MP4, a MOV (.mov), or a Matroska (.mkv) file. Containers differ in which other codecs they " +
   "allow; not every codec belongs in every container.";
 
+/** What this particular container is, and which codecs it can carry. */
+export function containerExplainer(info: ContainerInfo): string {
+  return (
+    `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}` +
+    `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
+    `<b>Audio codecs:</b> ${info.audio}<br>` +
+    `<b>Playback:</b> ${info.support}</p>`
+  );
+}
+
+/** One record per container the app recognizes, shown by containerExplainer above. */
+export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
+  MP4: {
+    name: "MP4",
+    fullName: "MPEG-4 Part 14, an ISO Base Media File Format (ISOBMFF) layout",
+    extensions: ".mp4, .m4v, .m4a",
+    description:
+      "The default delivery container for the web: a tree of boxes (atoms) where <code>moov</code> holds the " +
+      "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> tab for this file's layout.",
+    video:
+      "H.264/AVC (near universal), plus H.265/HEVC, AV1, VP9 and ProRes, which the format accepts but far " +
+      "fewer players handle",
+    audio: "AAC (the usual pairing), MP3, AC-3/E-AC-3, plus Opus and FLAC in newer players",
+    support:
+      "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
+  },
+  "QuickTime File Format": {
+    name: "QuickTime File Format",
+    fullName: "QTFF, Apple's original format and the ancestor of MP4",
+    extensions: ".mov, .qt",
+    description:
+      "Structurally the same box tree as MP4 (MP4 was standardized from it), so tools read both the same way. " +
+      "It is looser about what may go inside, which is why editing and camera workflows prefer it.",
+    video: "H.264, H.265, ProRes and other intra-only mezzanine codecs, plus uncompressed and animation formats",
+    audio: "AAC, uncompressed PCM, and multi-channel layouts used in production",
+    support:
+      "Native on Apple platforms and in most editors. Browsers only play it when the payload happens to be a " +
+      "codec they support, so .mov files are usually rewrapped to MP4 for the web.",
+  },
+  Matroska: {
+    name: "Matroska",
+    fullName: "Matroska Multimedia Container",
+    extensions: ".mkv, .mka",
+    description:
+      "An open, extensible container that deliberately puts almost no restriction on its payload, including " +
+      "many tracks, chapters, attachments and subtitle formats in one file.",
+    video: "essentially anything: H.264, H.265, AV1, VP9, VP8, ProRes, FFV1 and more",
+    audio: "AAC, Opus, Vorbis, FLAC, MP3, AC-3, PCM and others",
+    support:
+      "Great for archival and playback in VLC/mpv, but browsers do not play .mkv directly; only its WebM " +
+      "subset is supported.",
+  },
+  WebM: {
+    name: "WebM",
+    fullName: "WebM, a deliberately restricted profile of Matroska",
+    extensions: ".webm",
+    description:
+      "Matroska trimmed down to royalty-free codecs so browsers can guarantee playback. The file structure is " +
+      "Matroska; the restriction is on which codecs may appear.",
+    video: "VP8, VP9 and AV1 only",
+    audio: "Vorbis and Opus only",
+    support: "Plays in Chrome, Firefox and Edge; Safari support depends on the codec and the device.",
+  },
+  MP3: {
+    name: "MP3",
+    fullName: "MPEG-1/2 Audio Layer III elementary stream",
+    extensions: ".mp3",
+    description:
+      "Barely a container at all: a bare sequence of audio frames, with tags bolted on at the front or back as " +
+      "ID3 blocks. There is no index, so players estimate seek positions from the bitrate.",
+    video: "none, this is an audio-only format",
+    audio: "MP3 only",
+    support: "Universal.",
+  },
+  WAVE: {
+    name: "WAVE",
+    fullName: "Waveform Audio File Format, a RIFF layout",
+    extensions: ".wav",
+    description:
+      "A simple RIFF chunk list, almost always holding uncompressed samples. Metadata lives in an optional " +
+      "<code>INFO</code> chunk.",
+    video: "none, this is an audio-only format",
+    audio: "uncompressed PCM in the common case; a few compressed payloads are accepted but rare",
+    support: "Universal, at the cost of very large files.",
+  },
+  Ogg: {
+    name: "Ogg",
+    fullName: "Ogg bitstream container",
+    extensions: ".ogg, .oga, .ogv",
+    description:
+      "An open container built around interleaved pages, with tags stored as Vorbis-style comments in each " +
+      "stream's header rather than in one global block.",
+    video: "Theora, and VP8 in some encoders",
+    audio: "Vorbis, Opus and FLAC",
+    support: "Supported by Chrome and Firefox; the Opus-in-Ogg pairing is the common modern use.",
+  },
+  FLAC: {
+    name: "FLAC",
+    fullName: "Free Lossless Audio Codec, native stream layout",
+    extensions: ".flac",
+    description:
+      "The FLAC codec in its own minimal container: a stream of metadata blocks followed by audio frames, with " +
+      "tags in a Vorbis comment block.",
+    video: "none, this is an audio-only format",
+    audio: "FLAC only",
+    support: "Widely supported for lossless audio; also carryable inside MP4, Matroska and Ogg.",
+  },
+  ADTS: {
+    name: "ADTS",
+    fullName: "Audio Data Transport Stream",
+    extensions: ".aac, .adts",
+    description:
+      "Raw AAC framing meant for streaming rather than storage: every frame repeats its own header, so a " +
+      "decoder can join mid-stream. No index and no real metadata beyond optional ID3 tags.",
+    video: "none, this is an audio-only format",
+    audio: "AAC only",
+    support: "Used inside HLS and broadcast pipelines; usually rewrapped into MP4 for playback.",
+  },
+  "MPEG Transport Stream": {
+    name: "MPEG Transport Stream",
+    fullName: "MPEG-TS, ISO/IEC 13818-1",
+    extensions: ".ts, .m2ts, .mts",
+    description:
+      "A broadcast container built from fixed 188-byte packets so a receiver can recover from data loss and " +
+      "start decoding at any point. Robust on a lossy link, wasteful on disk.",
+    video: "H.264, H.265, MPEG-2",
+    audio: "AAC, AC-3/E-AC-3, MP2",
+    support: "The segment format of older HLS streams and of camera/broadcast recordings, not of browsers directly.",
+  },
+  "HTTP Live Streaming (HLS)": {
+    name: "HTTP Live Streaming (HLS)",
+    fullName: "HLS playlist, not a single media file",
+    extensions: ".m3u8",
+    description:
+      "A text playlist pointing at a sequence of media segments (MPEG-TS or fragmented MP4), often at several " +
+      "bitrates. The codecs are whatever the segments hold.",
+    video: "H.264 and H.265 in practice",
+    audio: "AAC, plus AC-3/E-AC-3",
+    support: "Native in Safari and on iOS; other browsers play it through a JavaScript player.",
+  },
+};
+
 /** The Overview's whole-file bitrate, which is not the same as any one track's bitrate. */
 export const OVERALL_BITRATE_INFO =
   "<b>Overall bitrate</b> is the file size in bytes &times; 8 &divide; duration, where duration is in seconds, " +
   "averaged across the entire file. It counts the video, audio, and the container's own overhead, " +
   "so it always exceeds the sum of the individual stream bitrates.";
 
-export const FASTSTART_EXPLAINER =
-  "<b>Faststart</b> means the <code>moov</code> atom (the index describing every sample) sits before " +
-  "<code>mdat</code> (the actual frame bytes). A browser or CDN can then start playback after downloading " +
-  "just the first few kilobytes, instead of the entire file. " +
-  "This is especially important when handling very large files, such as chronic recordings.";
+/** What the MIME type's <code>codecs</code> parameter is saying, from the ⓘ beside it. */
+export const MIME_TYPE_INFO =
+  "The container's media type, with a <code>codecs</code> parameter naming what is inside it, which is what a " +
+  "player is handed to decide whether it can play the file before downloading any of it. " +
+  '<code>video/mp4; codecs="avc1.640028, mp4a.40.2"</code> decodes as H.264 High profile level 4.0 plus ' +
+  "AAC-LC." +
+  "<ul>" +
+  "<li><code>avc1.PPCCLL</code> — H.264, hex profile/constraints/level (<code>avc1.42E01E</code> is Baseline " +
+  "3.0)</li>" +
+  "<li><code>hvc1.*</code> / <code>hev1.*</code> — HEVC; the two differ in where the parameter sets live, and " +
+  "Apple devices are picky about it</li>" +
+  "<li><code>av01.0.08M.08</code> — AV1, Main profile, level 4.0, 8-bit</li>" +
+  "<li><code>vp09.00.10.08</code> — VP9</li>" +
+  "<li><code>mp4a.40.2</code> is AAC-LC and <code>mp4a.40.5</code> HE-AAC; Opus and FLAC are plain " +
+  "<code>opus</code> and <code>flac</code></li>" +
+  "</ul>";
 
 export const METADATA_TAGS_TEACH =
   "<b>Metadata tags</b> are descriptive labels stored beside the media data. They never affect playback or " +
@@ -234,150 +387,6 @@ export const VALUE_HINTS: { pattern: RegExp; describe: (version: string) => stri
   },
 ];
 
-// --- Inspect · This File's Container ---
-
-/** What this particular container is, and which codecs it can carry. */
-export function containerExplainer(info: ContainerInfo): string {
-  return (
-    `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}` +
-    `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
-    `<b>Audio codecs:</b> ${info.audio}<br>` +
-    `<b>Playback:</b> ${info.support}</p>`
-  );
-}
-
-/** One record per container the app recognizes, shown by containerExplainer above. */
-export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
-  MP4: {
-    name: "MP4",
-    fullName: "MPEG-4 Part 14, an ISO Base Media File Format (ISOBMFF) layout",
-    extensions: ".mp4, .m4v, .m4a",
-    description:
-      "The default delivery container for the web: a tree of boxes (atoms) where <code>moov</code> holds the " +
-      "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> tab for this file's layout.",
-    video:
-      "H.264/AVC (near universal), plus H.265/HEVC, AV1, VP9 and ProRes, which the format accepts but far " +
-      "fewer players handle",
-    audio: "AAC (the usual pairing), MP3, AC-3/E-AC-3, plus Opus and FLAC in newer players",
-    support:
-      "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
-  },
-  "QuickTime File Format": {
-    name: "QuickTime File Format",
-    fullName: "QTFF, Apple's original format and the ancestor of MP4",
-    extensions: ".mov, .qt",
-    description:
-      "Structurally the same box tree as MP4 (MP4 was standardized from it), so tools read both the same way. " +
-      "It is looser about what may go inside, which is why editing and camera workflows prefer it.",
-    video: "H.264, H.265, ProRes and other intra-only mezzanine codecs, plus uncompressed and animation formats",
-    audio: "AAC, uncompressed PCM, and multi-channel layouts used in production",
-    support:
-      "Native on Apple platforms and in most editors. Browsers only play it when the payload happens to be a " +
-      "codec they support, so .mov files are usually rewrapped to MP4 for the web.",
-  },
-  Matroska: {
-    name: "Matroska",
-    fullName: "Matroska Multimedia Container",
-    extensions: ".mkv, .mka",
-    description:
-      "An open, extensible container that deliberately puts almost no restriction on its payload, including " +
-      "many tracks, chapters, attachments and subtitle formats in one file.",
-    video: "essentially anything: H.264, H.265, AV1, VP9, VP8, ProRes, FFV1 and more",
-    audio: "AAC, Opus, Vorbis, FLAC, MP3, AC-3, PCM and others",
-    support:
-      "Great for archival and playback in VLC/mpv, but browsers do not play .mkv directly; only its WebM " +
-      "subset is supported.",
-  },
-  WebM: {
-    name: "WebM",
-    fullName: "WebM, a deliberately restricted profile of Matroska",
-    extensions: ".webm",
-    description:
-      "Matroska trimmed down to royalty-free codecs so browsers can guarantee playback. The file structure is " +
-      "Matroska; the restriction is on which codecs may appear.",
-    video: "VP8, VP9 and AV1 only",
-    audio: "Vorbis and Opus only",
-    support: "Plays in Chrome, Firefox and Edge; Safari support depends on the codec and the device.",
-  },
-  MP3: {
-    name: "MP3",
-    fullName: "MPEG-1/2 Audio Layer III elementary stream",
-    extensions: ".mp3",
-    description:
-      "Barely a container at all: a bare sequence of audio frames, with tags bolted on at the front or back as " +
-      "ID3 blocks. There is no index, so players estimate seek positions from the bitrate.",
-    video: "none, this is an audio-only format",
-    audio: "MP3 only",
-    support: "Universal.",
-  },
-  WAVE: {
-    name: "WAVE",
-    fullName: "Waveform Audio File Format, a RIFF layout",
-    extensions: ".wav",
-    description:
-      "A simple RIFF chunk list, almost always holding uncompressed samples. Metadata lives in an optional " +
-      "<code>INFO</code> chunk.",
-    video: "none, this is an audio-only format",
-    audio: "uncompressed PCM in the common case; a few compressed payloads are accepted but rare",
-    support: "Universal, at the cost of very large files.",
-  },
-  Ogg: {
-    name: "Ogg",
-    fullName: "Ogg bitstream container",
-    extensions: ".ogg, .oga, .ogv",
-    description:
-      "An open container built around interleaved pages, with tags stored as Vorbis-style comments in each " +
-      "stream's header rather than in one global block.",
-    video: "Theora, and VP8 in some encoders",
-    audio: "Vorbis, Opus and FLAC",
-    support: "Supported by Chrome and Firefox; the Opus-in-Ogg pairing is the common modern use.",
-  },
-  FLAC: {
-    name: "FLAC",
-    fullName: "Free Lossless Audio Codec, native stream layout",
-    extensions: ".flac",
-    description:
-      "The FLAC codec in its own minimal container: a stream of metadata blocks followed by audio frames, with " +
-      "tags in a Vorbis comment block.",
-    video: "none, this is an audio-only format",
-    audio: "FLAC only",
-    support: "Widely supported for lossless audio; also carryable inside MP4, Matroska and Ogg.",
-  },
-  ADTS: {
-    name: "ADTS",
-    fullName: "Audio Data Transport Stream",
-    extensions: ".aac, .adts",
-    description:
-      "Raw AAC framing meant for streaming rather than storage: every frame repeats its own header, so a " +
-      "decoder can join mid-stream. No index and no real metadata beyond optional ID3 tags.",
-    video: "none, this is an audio-only format",
-    audio: "AAC only",
-    support: "Used inside HLS and broadcast pipelines; usually rewrapped into MP4 for playback.",
-  },
-  "MPEG Transport Stream": {
-    name: "MPEG Transport Stream",
-    fullName: "MPEG-TS, ISO/IEC 13818-1",
-    extensions: ".ts, .m2ts, .mts",
-    description:
-      "A broadcast container built from fixed 188-byte packets so a receiver can recover from data loss and " +
-      "start decoding at any point. Robust on a lossy link, wasteful on disk.",
-    video: "H.264, H.265, MPEG-2",
-    audio: "AAC, AC-3/E-AC-3, MP2",
-    support: "The segment format of older HLS streams and of camera/broadcast recordings, not of browsers directly.",
-  },
-  "HTTP Live Streaming (HLS)": {
-    name: "HTTP Live Streaming (HLS)",
-    fullName: "HLS playlist, not a single media file",
-    extensions: ".m3u8",
-    description:
-      "A text playlist pointing at a sequence of media segments (MPEG-TS or fragmented MP4), often at several " +
-      "bitrates. The codecs are whatever the segments hold.",
-    video: "H.264 and H.265 in practice",
-    audio: "AAC, plus AC-3/E-AC-3",
-    support: "Native in Safari and on iOS; other browsers play it through a JavaScript player.",
-  },
-};
-
 // --- Inspect · Video Track ---
 
 /**
@@ -451,7 +460,19 @@ export const ATOM_MAP_TEACH =
   `size — hover a box for its offset and byte count, or click to zoom into it. The <b>Full Analysis</b> ` +
   `document draws this same map, minus the zooming.`;
 
-/** What the map does on hover and on click, standing in the readout until one of them happens. */
+/** Why the order of two boxes decides whether the file streams, read against the map that draws them. */
+export const FASTSTART_EXPLAINER =
+  "<b>Faststart</b> means the <code>moov</code> atom (the index describing every sample) sits before " +
+  "<code>mdat</code> (the actual frame bytes). A browser or CDN can then start playback after downloading " +
+  "just the first few kilobytes, instead of the entire file. " +
+  "This is especially important when handling very large files, such as chronic recordings.";
+
+/** Under the atom map in the Full Analysis document, which has no hover or zoom to explain. */
+export const ATOM_MAP_DOC_CAPTION =
+  "The box tree on its side: left to right across the file, each row one level further in. Width is how many " +
+  "boxes a subtree holds, not how many bytes it takes.";
+
+/** Hover and click, in the readout under the map, until one of them says something else. */
 export const ATOM_MAP_READOUT_HINT = "Hover a block for its offset and size; click one to zoom into it.";
 
 /** How to read the map's colors, under its legend. */

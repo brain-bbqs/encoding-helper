@@ -10,7 +10,13 @@
 
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
 import { h, teachBox } from "../lib/dom";
-import { ATOM_LEGEND_NOTE, ATOM_MAP_READOUT_HINT, ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH } from "../lib/explainers";
+import {
+  ATOM_LEGEND_NOTE,
+  ATOM_MAP_READOUT_HINT,
+  ATOM_MAP_TEACH,
+  ATOM_STRUCTURE_TEACH,
+  FASTSTART_EXPLAINER,
+} from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
@@ -66,6 +72,9 @@ export function renderAtomMap(panel: HTMLElement): void {
   const sec = h("div", "section");
   sec.append(h("h2", null, "MP4 Box / Atom Structure"));
   sec.append(teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));
+  // Faststart is a statement about where two of these boxes sit relative to each other, so it is
+  // read here, against the map that draws them, rather than up in the file overview.
+  sec.append(faststartBadge(), teachBox(FASTSTART_EXPLAINER));
 
   const placements = placeAtoms(state.boxes);
   const zoom: { label: string; range: AxisRange }[] = [];
@@ -83,6 +92,19 @@ export function renderAtomMap(panel: HTMLElement): void {
   sec.append(body);
   panel.append(sec);
   draw();
+}
+
+/** Whether `moov` precedes `mdat`, the one fact about box order that decides how the file streams. */
+function faststartBadge(): HTMLDivElement {
+  const wrap = h("div", "atom-faststart");
+  wrap.append(
+    h(
+      "span",
+      "badge " + (state.faststart ? "good" : "bad"),
+      state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
+    ),
+  );
+  return wrap;
 }
 
 function renderMap(

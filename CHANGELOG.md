@@ -2,6 +2,12 @@
 
 ## 1.3.1
 
+#### 🚀 Enhancement
+
+- The faststart badge and its explainer moved to the **MP4 Box / Atom Structure** card, beside the map of the box order they report ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- **This File's Container** folded into the **Video Container Overview** card, whose grid drops the now-redundant Type row ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The MIME Type readout carries an ⓘ explaining its `codecs` parameter, with the shapes H.264, HEVC, AV1, VP9 and the audio codecs take ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+
 #### 🏠 Internal
 
 - Tooltips throughout the app are shorter, most of all on Compare Quality, where several ran to three or four paragraphs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))

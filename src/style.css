@@ -706,6 +706,14 @@ label.field-label {
 .info-pop p {
   margin: 6px 0 0;
 }
+/* Same shape the teach boxes give a list, for the popovers that carry one. */
+.info-pop ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.info-pop li {
+  margin: 2px 0;
+}
 .info-pop .info-pop-meta {
   color: var(--muted);
   font-size: 11px;
@@ -1026,6 +1034,11 @@ details.teach-more summary {
 .atom-block.snug .lbl {
   padding: 0 2px;
   font-size: 9.5px;
+}
+/* The faststart verdict, between the atom card's explainer and the map that shows the box order it
+   reports. */
+.atom-faststart {
+  margin: 10px 0;
 }
 .atom-readout {
   margin-top: 8px;

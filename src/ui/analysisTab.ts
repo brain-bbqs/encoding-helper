@@ -18,6 +18,7 @@ import { describeContainer } from "../lib/containerKb";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import {
   ANALYSIS_PANEL_INTRO,
+  ATOM_MAP_DOC_CAPTION,
   ATOM_STRUCTURE_TEACH,
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
@@ -32,6 +33,7 @@ import {
   GOP_HISTOGRAM_CAPTION,
   GOP_TEACH,
   METADATA_TAGS_TEACH,
+  MIME_TYPE_INFO,
   OVERALL_BITRATE_INFO,
   PEAK_RATIO_INFO,
   SEEK_SCATTER_CAPTION,
@@ -90,38 +92,25 @@ function documentMeta(): DocumentMeta {
 
 function overviewSection(): AnalysisSection {
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
-  return {
-    title: "Video Container Overview",
-    blocks: [
-      { kind: "prose", html: CONTAINER_PREAMBLE },
-      {
-        kind: "kv",
-        items: [
-          ["Type", state.format || "–"],
-          ["File Size", fmtBytes(state.source?.size)],
-          ["Duration", fmtDur(state.duration)],
-          ["Overall Bitrate", fmtBits(fileBitrate)],
-          ["MIME Type", state.mimeType || "–"],
-        ],
-      },
-      { kind: "prose", html: OVERALL_BITRATE_INFO },
-      {
-        kind: "badge",
-        tone: state.faststart ? "good" : "bad",
-        text: state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
-      },
-      { kind: "prose", html: FASTSTART_EXPLAINER },
-    ],
-  };
-}
-
-function containerSection(): AnalysisSection | null {
   const info = describeContainer(state.format);
-  if (!info) return null;
-  return {
-    title: `This File's Container: ${info.name}`,
-    blocks: [{ kind: "prose", html: containerExplainer(info) }],
-  };
+  const blocks: AnalysisBlock[] = [{ kind: "prose", html: CONTAINER_PREAMBLE }];
+  // What this file's container is, which the page carries in this same card. It names the container
+  // in its first words, so there is no "Type" row saying it again.
+  if (info) blocks.push({ kind: "prose", html: containerExplainer(info) });
+  blocks.push(
+    {
+      kind: "kv",
+      items: [
+        ["File Size", fmtBytes(state.source?.size)],
+        ["Duration", fmtDur(state.duration)],
+        ["Overall Bitrate", fmtBits(fileBitrate)],
+        ["MIME Type", state.mimeType || "–"],
+      ],
+    },
+    { kind: "prose", html: OVERALL_BITRATE_INFO },
+    { kind: "prose", html: MIME_TYPE_INFO },
+  );
+  return { title: "Video Container Overview", blocks };
 }
 
 function videoTrackSection(vt: TrackInfo): AnalysisSection {
@@ -254,12 +243,12 @@ function atomMapSection(): AnalysisSection | null {
     blocks: [
       { kind: "prose", html: ATOM_STRUCTURE_TEACH },
       {
-        kind: "figure",
-        caption:
-          "The box tree on its side: left to right across the file, each row one level further in. " +
-          "Width is how many boxes a subtree holds, not how many bytes it takes.",
-        element: map,
+        kind: "badge",
+        tone: state.faststart ? "good" : "bad",
+        text: state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
       },
+      { kind: "prose", html: FASTSTART_EXPLAINER },
+      { kind: "figure", caption: ATOM_MAP_DOC_CAPTION, element: map },
     ],
   };
 }
@@ -476,7 +465,6 @@ function buildAnalysisSections(): AnalysisSection[] {
   const at = state.tracks?.find((t) => t.kind === "audio");
   const sections: (AnalysisSection | null)[] = [
     overviewSection(),
-    containerSection(),
     vt ? videoTrackSection(vt) : null,
     vt ? bitrateSection(vt) : null,
     at ? audioTrackSection(at) : null,
