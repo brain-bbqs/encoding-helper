@@ -30,8 +30,6 @@ export function renderSeekTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "GOP / Keyframe Structure"));
-  // Explainer first, like the atom map above: read what a GOP is before reading this file's numbers.
-  sec.append(teachBox(GOP_TEACH));
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
@@ -54,6 +52,8 @@ export function renderSeekTab(panel: HTMLElement): void {
     sec.append(renderGopHistogram(gop));
     sec.append(h("div", "progress-label", GOP_HISTOGRAM_CAPTION));
   }
+  // What a GOP is, under this file's own: the card leads with the measurement, like the others.
+  sec.append(teachBox(GOP_TEACH));
 
   // The seeking test lives in the same card rather than one of its own: what nearest-keyframe
   // distance costs to seek to is the GOP structure's consequence, not a separate finding.

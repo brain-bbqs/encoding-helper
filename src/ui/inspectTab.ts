@@ -86,27 +86,28 @@ function renderOverviewSection(): HTMLDivElement {
   const head = h("div", "section-head");
   head.append(h("h2", null, overviewTitle()), renderEducationalToggle());
   overview.append(head);
-  overview.append(teachBox(CONTAINER_PREAMBLE));
-  // What this file's container in particular is, which used to be a card of its own below. Its
-  // first words name the container, so the grid no longer carries a "Type" row saying the same.
-  const containerInfo = describeContainer(state.format);
-  if (containerInfo) overview.append(teachBox(containerExplainer(containerInfo)));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   const og = h("div", "grid overview-grid");
   og.append(
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
     gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
-    gridItem("MIME Type", state.mimeType || "–", { sm: true, info: MIME_TYPE_INFO }),
+    gridItem("MIME Type", state.mimeType || "–", { sm: true }),
   );
   overview.append(og);
+  // The figures first, then what they mean: the container-vs-codec distinction, what this file's
+  // container in particular is (a card of its own until it folded in here), and how to read the
+  // MIME type's codecs parameter — too long for the ⓘ the readout used to carry.
+  overview.append(teachBox(CONTAINER_PREAMBLE));
+  const containerInfo = describeContainer(state.format);
+  if (containerInfo) overview.append(teachBox(containerExplainer(containerInfo)));
+  overview.append(teachBox(MIME_TYPE_INFO));
 
   // Metadata Tags folds into this card rather than getting one of its own: it is more of this same
   // file-overview information, not a separate finding.
   const flatTags = flattenMetadataTags();
   if (Object.keys(flatTags).length) {
     overview.append(h("h3", null, "Metadata Tags"));
-    overview.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT));
     const tagsGrid = h("div", "grid");
     for (const [k, v] of Object.entries(flatTags)) {
       const value = String(v);
@@ -120,6 +121,7 @@ function renderOverviewSection(): HTMLDivElement {
       );
     }
     overview.append(tagsGrid);
+    overview.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT));
   }
   return overview;
 }
@@ -192,8 +194,6 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
     return sec;
   }
 
-  sec.append(teachBox(BITRATE_TIMELINE_TEACH));
-  if (declaresConstant && declared) sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline)));
   const g = h("div", "grid");
   g.append(
     gridItem("Average", fmtBits(timeline.averageBitrate), { info: VIDEO_AVERAGE_INFO }),
@@ -203,6 +203,8 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
   );
   sec.append(g);
   sec.append(renderBitrateChart(timeline));
+  sec.append(teachBox(BITRATE_TIMELINE_TEACH));
+  if (declaresConstant && declared) sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline)));
   return sec;
 }
 

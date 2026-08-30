@@ -71,10 +71,9 @@ function familyClass(family: string | null): string {
 export function renderAtomMap(panel: HTMLElement): void {
   const sec = h("div", "section");
   sec.append(h("h2", null, "MP4 Box / Atom Structure"));
-  sec.append(teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));
   // Faststart is a statement about where two of these boxes sit relative to each other, so it is
   // read here, against the map that draws them, rather than up in the file overview.
-  sec.append(faststartBadge(), teachBox(FASTSTART_EXPLAINER));
+  sec.append(faststartBadge());
 
   const placements = placeAtoms(state.boxes);
   const zoom: { label: string; range: AxisRange }[] = [];
@@ -90,6 +89,9 @@ export function renderAtomMap(panel: HTMLElement): void {
   };
 
   sec.append(body);
+  // What the map is and how to read it, under the map itself: the card leads with this file's
+  // layout, the way every other card leads with its figures.
+  sec.append(teachBox(FASTSTART_EXPLAINER), teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));
   panel.append(sec);
   draw();
 }

@@ -172,6 +172,21 @@ describe("the Inspect panel", () => {
     expect(Array.from(panel.querySelectorAll("label")).map((el) => el.textContent)).not.toContain("Type");
   });
 
+  // Every card leads with what it measured; the teaching text reads under it, not in front of it.
+  it("puts the overview's figures above the explainers that follow them", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.format = "MP4";
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    const card = panel.querySelector(".section")!;
+    const kinds = Array.from(card.querySelectorAll(".grid, .teach")).map((el) =>
+      el.classList.contains("grid") ? "grid" : "teach",
+    );
+    expect(kinds[0]).toBe("grid");
+    expect(kinds).toContain("teach");
+  });
+
   it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
     const panel = document.createElement("div");
     renderSeekTab(panel);

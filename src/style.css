@@ -2370,6 +2370,39 @@ table.data.matrix-table th.matrix-row-head {
   }
 }
 
+/* Educational mode puts a teaching paragraph or two under most cards' figures, and the file
+   overview reads its four figures across one line, so the page takes a wider column while the
+   switch is on (main.ts marks the body). The cap leaves the fixed corner watermarks the 220px a
+   side they need to keep framing the page, the same allowance .demos-page makes. */
+body.edu-wide {
+  max-width: min(1180px, calc(100vw - 440px));
+}
+
+/* Below the width that allowance needs, the wider column wins and the watermarks give way: they
+   drop out of fixed positioning into the flow of the page, which is the same trade the max-width:
+   1420px block at the end of this file makes for everyone on a narrower screen. Without this a
+   1440px laptop — the common case — would gain 20px and stay as cramped as before. */
+@media (max-width: 1560px) {
+  body.edu-wide {
+    max-width: min(1180px, calc(100vw - 40px));
+    /* No fixed footer left to clear, so only the normal page padding. */
+    padding-bottom: 20px;
+  }
+  body.edu-wide .brand-watermark-link {
+    display: none;
+  }
+  body.edu-wide .page-footer-bar {
+    position: static;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 12px 0;
+  }
+  body.edu-wide .footer-left {
+    align-items: center;
+  }
+}
+
 /* body caps out at a 940px-wide content box (980px max-width minus its own 20px side padding);
    above that it is centred with (viewport - 980) / 2 px of margin on either side. The footer bar's
    right column (the Talmo Lab and CON logos, plus the bar's own right padding) is the widest thing
