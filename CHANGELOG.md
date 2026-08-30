@@ -6,7 +6,7 @@
 
 - Tooltips throughout the app are shorter, most of all on Compare Quality, where several ran to three or four paragraphs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Size factors now read "original 2.4× larger" or "encoded 1.3× larger" instead of "2.4× reduction", naming which file the factor belongs to ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
-- Every explainer, teach box and chart caption now lives in `src/lib/explainers.ts` instead of being spread across the tab that showed it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Every explainer, teach box, chart caption and knowledge-base record now lives in `src/lib/explainers.ts`, ordered as the app shows it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 ## 1.3.0
 

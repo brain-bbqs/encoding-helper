@@ -334,3 +334,18 @@ export interface AnalysisSection {
   title: string;
   blocks: AnalysisBlock[];
 }
+
+/** One container's entry in the knowledge base; the records themselves are in lib/explainers. */
+export interface ContainerInfo {
+  /** mediabunny's format name, used as the display value. */
+  name: string;
+  fullName: string;
+  extensions: string;
+  /** Trusted, author-authored explainer markup. */
+  description: string;
+  /** Video codecs the container commonly carries; empty for audio-only containers. */
+  video: string;
+  audio: string;
+  /** Playback/compatibility note. */
+  support: string;
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CONTAINER_KB, describeContainer } from "../../src/lib/containerKb";
+import { describeContainer } from "../../src/lib/containerKb";
+import { CONTAINER_KB } from "../../src/lib/explainers";
 
 describe("describeContainer", () => {
   it("returns null for a missing format name", () => {

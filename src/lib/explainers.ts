@@ -4,23 +4,25 @@
 // here, so the whole of what the app says can be read, edited and kept consistent in one place
 // rather than being hunted for across the tab that happens to show it — and the page and the
 // exported document can never explain the same number two different ways, since they read the same
-// string. What stays with its renderer is the text that is not teaching: button labels, status and
-// error lines, and the per-codec, per-container and per-tag records in the knowledge bases, which
-// are catalogue data rather than prose.
+// string. The knowledge bases' records live here too, the prose of them; what stays in lib/codecKb,
+// lib/containerKb and lib/metadataTagKb is the lookup and the parsing that reads these tables.
+//
+// Order follows the app, not the code: tab by tab left to right (Inspect, Reencode with FFmpeg,
+// Compare Quality, Full Analysis) and, within a tab, card by card down the page, so an entry is
+// found by remembering where it is read. Copy shown on two tabs sits where it first appears. What
+// stays with its renderer is the text that is not teaching: button labels, status and error lines.
 //
 // Every string here is trusted markup rendered through innerHTML (teachBox, info popovers, the
 // document's prose blocks), so nothing read out of a media file may be interpolated into one
-// without going through escapeHtml first — the two builders below that take file-derived numbers
-// do exactly that.
-
+// without going through escapeHtml first — the builders below that take file-derived numbers do
+// exactly that.
 import type { BitrateTimeline } from "./bitrateTimeline";
-import type { ContainerInfo } from "./containerKb";
 import { escapeHtml } from "./dom";
 import { fmtBits } from "./format";
 import type { SizeEstimate } from "./sizeEstimate";
-import type { CodecInfo } from "./types";
+import type { CodecInfo, ContainerInfo } from "./types";
 
-// --- Inspect: the container, the tracks and their bitrates ---
+// --- Inspect · Video Container Overview, the first card on the first tab ---
 
 /** The container-vs-codec distinction, shown above every container explainer. */
 export const CONTAINER_PREAMBLE =
@@ -42,68 +44,6 @@ export const FASTSTART_EXPLAINER =
   "just the first few kilobytes, instead of the entire file. " +
   "This is especially important when handling very large files, such as chronic recordings.";
 
-export const VIDEO_AVERAGE_INFO =
-  "Average bitrate of the video track alone: its packets &times; 8 &divide; duration. The Overview's " +
-  "<b>Overall Bitrate</b> is higher because it also counts audio and container overhead. Lowering this (a " +
-  "higher CRF) is what shrinks the file, at the cost of visible artifacts.";
-
-export const TOO_FEW_FRAMES_NOTE =
-  "There are too few frames here to divide the track into windows of playback, so there is no shape to " +
-  "plot. The average is the whole of what the sample table can say about this file's rate.";
-
-export const BITRATE_TIMELINE_TEACH =
-  "<b>Bitrate</b> is how many bits it takes to store one second of playback, so it is a major factor determining " +
-  "both file size and video quality. " +
-  "This is the video track's bitrate measured one window at a time instead of once across the whole track: " +
-  "the bits of every frame presented in that window, divided by the window's length. No decoding is " +
-  "involved, since the size and timestamp of every frame is already listed in the container's sample table. " +
-  "<p>A <b>variable bitrate</b> encoder (which is what a CRF encode is, and what x264 does by default) " +
-  "targets a constant <i>quality</i> and lets the rate go wherever that costs. It spends bits on keyframes, " +
-  "scene cuts and fast motion and saves them on still shots, so the line moves even though the average is a " +
-  "single number. A run well above the average is the part of the video that is expensive to store; a flat " +
-  "line means the rate was held constant instead.</p>" +
-  "<p>The peak matters separately from the average: a stream is only smooth to play over a network that can " +
-  "carry its <i>peaks</i>, not its mean, which is why streaming encoders are usually given a ceiling " +
-  "(<code>-maxrate</code>) as well as a target.</p>";
-
-export const PEAK_RATIO_INFO =
-  "The busiest window's bitrate divided by the track average. The further above <b>1&times;</b>, the burstier " +
-  "the encode, and the more bandwidth headroom smooth playback needs beyond the average.";
-
-/** Explains why the plot is absent: the container says the rate is constant, and it turned out to be. */
-export function constantBitrateNote(avgBitrate: number): string {
-  return (
-    `The container declares this track <b>constant bitrate</b>: its <code>btrt</code> box gives the same ` +
-    `number, ${escapeHtml(fmtBits(avgBitrate))}, as both the track's average and its maximum rate. Its sample ` +
-    `sizes bear that out, every window of playback carrying the same bits as every other, so there is no ` +
-    `variation over time for a plot to show. ` +
-    `<p>That is the trade a constant bitrate makes: the rate is predictable, which is what fixed-bandwidth ` +
-    `delivery and older broadcast pipelines need, but quality is not. A hard scene gets no more bits than ` +
-    `its share and visibly degrades, while an easy one cannot give its unused share back. A ` +
-    `<b>variable bitrate</b> encode (any CRF encode, including the Reencode with FFmpeg tab's) inverts that: it holds ` +
-    `quality steady and lets the rate move, which is what this card plots for such a file.</p>`
-  );
-}
-
-/**
- * Shown when the container declares a constant rate but the sample sizes disagree. Worth saying
- * rather than quietly ignoring, because the declaration is wrong here for a reason worth knowing.
- */
-export function contradictedDeclarationNote(avgBitrate: number, timeline: BitrateTimeline): string {
-  return (
-    `<b>Note:</b> this file's <code>btrt</code> box gives ${escapeHtml(fmtBits(avgBitrate))} as both the ` +
-    `track's average and its maximum rate, which read literally would mean a constant bitrate. The sample ` +
-    `sizes say otherwise: the windows below run from ${escapeHtml(fmtBits(timeline.minBitrate))} to ` +
-    `${escapeHtml(fmtBits(timeline.peakBitrate))}. Muxers commonly write the computed average into both ` +
-    `fields whatever the encoder was doing (ffmpeg does), so that declaration is not evidence of a constant ` +
-    `rate on its own, and the sample table is the measurement that settles it.`
-  );
-}
-
-export const AUDIO_BITRATE_INFO =
-  "Average bitrate of the audio track alone. Speech stays clean at low rates, while music needs more; for " +
-  "AAC, roughly 128 kbps stereo is transparent for most listeners.";
-
 export const METADATA_TAGS_TEACH =
   "<b>Metadata tags</b> are descriptive labels stored beside the media data. They never affect playback or " +
   "quality, and most are written automatically by whatever tool produced the file. The names below are the " +
@@ -115,6 +55,369 @@ export const METADATA_TAGS_TEACH =
 
 /** Only true where the tags are rendered with their ⓘ affordances, so the document leaves it off. */
 export const METADATA_TAGS_HOVER_HINT = "Hover the ⓘ on any tag for what it means.";
+
+export type TagSeed = [key: string, label: string, description: string];
+
+export const QUICKTIME_ORIGIN = "MP4 / QuickTime atom";
+export const ID3_ORIGIN = "ID3v2 frame (MP3, ADTS)";
+export const VORBIS_ORIGIN = "Vorbis comment / Matroska tag (Ogg, FLAC, MKV)";
+export const RIFF_ORIGIN = "RIFF INFO chunk (WAVE)";
+export const NORMALIZED_ORIGIN = "Normalized by mediabunny";
+
+export const COPYRIGHT_PREFIX_NOTE =
+  "The leading <code>©</code> is byte <code>0xA9</code>, QuickTime's marker for a text atom, not a copyright " +
+  "statement.";
+
+// MP4/QuickTime `ilst` atoms. Four characters each, case-sensitive.
+export const QUICKTIME_TAGS: TagSeed[] = [
+  ["©nam", "Title", "The title of the work. " + COPYRIGHT_PREFIX_NOTE],
+  ["©ART", "Artist", "The credited artist or creator. " + COPYRIGHT_PREFIX_NOTE],
+  ["aART", "Album artist", "The main artist for the album or collection as a whole."],
+  ["©alb", "Album", "The album or collection this file belongs to. " + COPYRIGHT_PREFIX_NOTE],
+  ["©day", "Date", "Release, recording or creation date, often just a year. " + COPYRIGHT_PREFIX_NOTE],
+  ["©cmt", "Comment", "Freeform notes about the file. " + COPYRIGHT_PREFIX_NOTE],
+  ["©gen", "Genre", "Genre as free text (the <code>gnre</code> atom stores it as a numeric id instead)."],
+  ["gnre", "Genre (numeric)", "Genre stored as an ID3v1 genre number rather than as text."],
+  [
+    "©too",
+    "Encoding tool",
+    "The software that wrote this file, stamped in by the muxer. <code>too</code> is short for " +
+      '"tool", so this is the encoder signature, not a truncated word. ' +
+      COPYRIGHT_PREFIX_NOTE,
+  ],
+  ["©enc", "Encoded by", "The person or organization credited with encoding the file."],
+  ["©swr", "Software", "The application that created the file, as distinct from the muxing library."],
+  ["©wrt", "Composer", "The writer or composer of the work."],
+  ["©dir", "Director", "The credited director."],
+  ["©des", "Description", "A short description of the content."],
+  ["desc", "Description", "A short description of the content, as written by iTunes-style taggers."],
+  ["ldes", "Long description", "A longer synopsis, used by Apple media apps."],
+  ["©cpy", "Copyright", "The actual copyright notice. Unlike the other © atoms, this one really is about rights."],
+  ["cprt", "Copyright", "The copyright notice for the work."],
+  ["©lyr", "Lyrics", "Full lyrics or a transcript."],
+  ["©inf", "Information", "Freeform information about the file."],
+  ["©xyz", "Location", "GPS coordinates in ISO 6709 form, written by phones and action cameras."],
+  ["trkn", "Track number", "Track position within its album, stored as a packed number/total pair."],
+  ["disk", "Disc number", "Disc position within a multi-disc release, stored as a packed number/total pair."],
+  ["covr", "Cover art", "Embedded artwork bytes (JPEG or PNG)."],
+  ["stik", "Media kind", "Numeric hint at the content type, e.g. movie, TV show, music video or audiobook."],
+  ["cpil", "Compilation", "Flag marking the album as a various-artists compilation."],
+  ["tmpo", "Tempo (BPM)", "Beats per minute."],
+  ["pgap", "Gapless playback", "Flag telling players not to insert silence between tracks."],
+  ["purl", "Podcast URL", "Feed URL for podcast episodes."],
+  ["keyw", "Keywords", "Searchable keywords."],
+  ["rtng", "Content rating", "Numeric advisory rating, e.g. clean or explicit."],
+  [
+    "com.apple.quicktime.make",
+    "Camera make",
+    "Manufacturer of the recording device, written from a <code>keys</code> atom by Apple devices.",
+  ],
+  ["com.apple.quicktime.model", "Camera model", "Model of the recording device."],
+  ["com.apple.quicktime.software", "Device software", "OS or app version on the recording device."],
+  ["com.apple.quicktime.creationdate", "Capture date", "When the recording was made, including the time zone."],
+  ["com.apple.quicktime.location.ISO6709", "Capture location", "GPS coordinates of the recording, in ISO 6709 form."],
+];
+
+// ID3v2 frames, used by MP3 and ADTS files.
+export const ID3_TAGS: TagSeed[] = [
+  ["TIT2", "Title", "ID3v2's title frame."],
+  ["TPE1", "Artist", "Lead performer or artist."],
+  ["TPE2", "Album artist", "Band, orchestra or album-level artist."],
+  ["TALB", "Album", "Album or collection name."],
+  ["TCON", "Genre", "Genre, either as text or as a legacy numeric code in parentheses."],
+  ["TRCK", "Track number", 'Track position, often written as "5/12".'],
+  ["TPOS", "Disc number", 'Disc position in a set, often written as "1/2".'],
+  ["TYER", "Year", "Four-digit year (ID3v2.3; superseded by <code>TDRC</code>)."],
+  ["TDRC", "Recording date", "Full recording timestamp (ID3v2.4)."],
+  ["TLEN", "Length", "Declared duration in milliseconds."],
+  ["TCOM", "Composer", "Composer of the work."],
+  [
+    "TSSE",
+    "Encoding settings",
+    "The software and settings used to encode the file, the ID3 equivalent of MP4's <code>©too</code>.",
+  ],
+  ["TENC", "Encoded by", "The person or tool credited with encoding."],
+  ["TBPM", "Tempo (BPM)", "Beats per minute."],
+  ["COMM", "Comment", "Freeform comment, with a language code and a short description attached."],
+  ["APIC", "Attached picture", "Embedded artwork such as cover art."],
+  ["TXXX", "User-defined text", "Custom key/value pairs that do not fit any standard frame."],
+  ["WXXX", "User-defined URL", "A custom URL, e.g. the artist or purchase page."],
+  ["TAG", "ID3v1 block", "The legacy 128-byte tag at the end of an MP3, kept for old players."],
+];
+
+// Vorbis comments (Ogg, FLAC) and Matroska SimpleTags. Conventionally uppercase.
+export const VORBIS_TAGS: TagSeed[] = [
+  ["TITLE", "Title", "The title of the work."],
+  ["ARTIST", "Artist", "The credited artist or creator."],
+  ["ALBUMARTIST", "Album artist", "The artist credited for the album as a whole."],
+  ["ALBUM", "Album", "Album or collection name."],
+  ["DATE", "Date", "Release or recording date."],
+  ["DATE_RELEASED", "Release date", "Matroska's release-date tag."],
+  ["GENRE", "Genre", "Genre as free text."],
+  ["TRACKNUMBER", "Track number", "Track position within the album."],
+  ["DISCNUMBER", "Disc number", "Disc position within the release."],
+  ["COMMENT", "Comment", "Freeform comment."],
+  ["DESCRIPTION", "Description", "A short description of the content."],
+  [
+    "ENCODER",
+    "Encoding tool",
+    "The software that wrote the file, the Vorbis/Matroska equivalent of MP4's <code>©too</code>.",
+  ],
+  ["ENCODED_BY", "Encoded by", "The person or organization credited with encoding."],
+  ["vendor", "Vendor string", "The encoder's own identification string from the comment header."],
+];
+
+// RIFF INFO chunks, used by WAVE files. Values are ISO 8859-1 text.
+export const RIFF_TAGS: TagSeed[] = [
+  ["INAM", "Title", "The name of the work."],
+  ["IART", "Artist", "The credited artist."],
+  ["IPRD", "Product / album", "The product or album the file belongs to."],
+  ["ICMT", "Comment", "Freeform comment."],
+  ["ICRD", "Creation date", "When the file was created."],
+  ["ISFT", "Software", "The software that wrote the file."],
+  ["IGNR", "Genre", "Genre as free text."],
+  ["ICOP", "Copyright", "The copyright notice."],
+  ["IENG", "Engineer", "The engineer credited with the recording."],
+];
+
+// mediabunny's own normalized field names, which appear alongside the raw ones.
+export const NORMALIZED_TAGS: TagSeed[] = [
+  ["title", "Title", "Normalized from whichever title tag the container uses."],
+  ["description", "Description", "Normalized short description or subtitle."],
+  ["artist", "Artist", "Normalized primary artist or creator."],
+  ["album", "Album", "Normalized album or collection name."],
+  ["albumArtist", "Album artist", "Normalized album-level artist."],
+  ["trackNumber", "Track number", "Normalized 1-based track position."],
+  ["tracksTotal", "Total tracks", "Normalized count of tracks in the album."],
+  ["discNumber", "Disc number", "Normalized 1-based disc position."],
+  ["discsTotal", "Total discs", "Normalized count of discs in the release."],
+  ["genre", "Genre", "Normalized genre."],
+  ["lyrics", "Lyrics", "Normalized lyrics or transcript."],
+  ["comment", "Comment", "Normalized freeform comment."],
+];
+
+// Encoder signatures common enough to be worth decoding on sight. Each pattern captures only a
+// version number, so nothing from the file itself is ever interpolated into the returned markup
+// beyond digits and dots.
+export const VALUE_HINTS: { pattern: RegExp; describe: (version: string) => string }[] = [
+  {
+    pattern: /\bLavf([\d.]+)/,
+    describe: (v) =>
+      `<code>Lavf${v}</code> is <b>libavformat ${v}</b>, the muxing library from FFmpeg, so this file was ` +
+      "written by FFmpeg or by a tool built on it.",
+  },
+  {
+    pattern: /\bLavc([\d.]+)/,
+    describe: (v) => `<code>Lavc${v}</code> is <b>libavcodec ${v}</b>, FFmpeg's encoding library.`,
+  },
+  {
+    pattern: /\bHandBrake\s*([\d.]*)/i,
+    describe: (v) => `Written by <b>HandBrake</b>${v ? " " + v : ""}, a GUI front end over FFmpeg's libraries.`,
+  },
+  {
+    // Every version group is written so it always participates in the match, even when the value
+    // carries no version at all: that keeps the capture a string rather than undefined.
+    pattern: /\bx264(?:\s+core)?\s*([\d.]*)/i,
+    describe: (v) =>
+      `Encoded with <b>x264</b>${v ? " core " + v : ""}, the open source H.264 encoder; the rest of the string is ` +
+      "its full parameter list.",
+  },
+  {
+    pattern: /\bx265\s*([\d.]*)/i,
+    describe: (v) => `Encoded with <b>x265</b>${v ? " " + v : ""}, the open source H.265/HEVC encoder.`,
+  },
+  {
+    pattern: /\bmediabunny\s*([\d.]*)/i,
+    describe: (v) =>
+      `Written by <b>mediabunny</b>${v ? " " + v : ""}, the in-browser media library this app uses, so the file ` +
+      "was probably produced by a WebCodecs tool.",
+  },
+];
+
+// --- Inspect · This File's Container ---
+
+/** What this particular container is, and which codecs it can carry. */
+export function containerExplainer(info: ContainerInfo): string {
+  return (
+    `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}` +
+    `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
+    `<b>Audio codecs:</b> ${info.audio}<br>` +
+    `<b>Playback:</b> ${info.support}</p>`
+  );
+}
+
+/** One record per container the app recognizes, shown by containerExplainer above. */
+export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
+  MP4: {
+    name: "MP4",
+    fullName: "MPEG-4 Part 14, an ISO Base Media File Format (ISOBMFF) layout",
+    extensions: ".mp4, .m4v, .m4a",
+    description:
+      "The default delivery container for the web: a tree of boxes (atoms) where <code>moov</code> holds the " +
+      "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> tab for this file's layout.",
+    video:
+      "H.264/AVC (near universal), plus H.265/HEVC, AV1, VP9 and ProRes, which the format accepts but far " +
+      "fewer players handle",
+    audio: "AAC (the usual pairing), MP3, AC-3/E-AC-3, plus Opus and FLAC in newer players",
+    support:
+      "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
+  },
+  "QuickTime File Format": {
+    name: "QuickTime File Format",
+    fullName: "QTFF, Apple's original format and the ancestor of MP4",
+    extensions: ".mov, .qt",
+    description:
+      "Structurally the same box tree as MP4 (MP4 was standardized from it), so tools read both the same way. " +
+      "It is looser about what may go inside, which is why editing and camera workflows prefer it.",
+    video: "H.264, H.265, ProRes and other intra-only mezzanine codecs, plus uncompressed and animation formats",
+    audio: "AAC, uncompressed PCM, and multi-channel layouts used in production",
+    support:
+      "Native on Apple platforms and in most editors. Browsers only play it when the payload happens to be a " +
+      "codec they support, so .mov files are usually rewrapped to MP4 for the web.",
+  },
+  Matroska: {
+    name: "Matroska",
+    fullName: "Matroska Multimedia Container",
+    extensions: ".mkv, .mka",
+    description:
+      "An open, extensible container that deliberately puts almost no restriction on its payload, including " +
+      "many tracks, chapters, attachments and subtitle formats in one file.",
+    video: "essentially anything: H.264, H.265, AV1, VP9, VP8, ProRes, FFV1 and more",
+    audio: "AAC, Opus, Vorbis, FLAC, MP3, AC-3, PCM and others",
+    support:
+      "Great for archival and playback in VLC/mpv, but browsers do not play .mkv directly; only its WebM " +
+      "subset is supported.",
+  },
+  WebM: {
+    name: "WebM",
+    fullName: "WebM, a deliberately restricted profile of Matroska",
+    extensions: ".webm",
+    description:
+      "Matroska trimmed down to royalty-free codecs so browsers can guarantee playback. The file structure is " +
+      "Matroska; the restriction is on which codecs may appear.",
+    video: "VP8, VP9 and AV1 only",
+    audio: "Vorbis and Opus only",
+    support: "Plays in Chrome, Firefox and Edge; Safari support depends on the codec and the device.",
+  },
+  MP3: {
+    name: "MP3",
+    fullName: "MPEG-1/2 Audio Layer III elementary stream",
+    extensions: ".mp3",
+    description:
+      "Barely a container at all: a bare sequence of audio frames, with tags bolted on at the front or back as " +
+      "ID3 blocks. There is no index, so players estimate seek positions from the bitrate.",
+    video: "none, this is an audio-only format",
+    audio: "MP3 only",
+    support: "Universal.",
+  },
+  WAVE: {
+    name: "WAVE",
+    fullName: "Waveform Audio File Format, a RIFF layout",
+    extensions: ".wav",
+    description:
+      "A simple RIFF chunk list, almost always holding uncompressed samples. Metadata lives in an optional " +
+      "<code>INFO</code> chunk.",
+    video: "none, this is an audio-only format",
+    audio: "uncompressed PCM in the common case; a few compressed payloads are accepted but rare",
+    support: "Universal, at the cost of very large files.",
+  },
+  Ogg: {
+    name: "Ogg",
+    fullName: "Ogg bitstream container",
+    extensions: ".ogg, .oga, .ogv",
+    description:
+      "An open container built around interleaved pages, with tags stored as Vorbis-style comments in each " +
+      "stream's header rather than in one global block.",
+    video: "Theora, and VP8 in some encoders",
+    audio: "Vorbis, Opus and FLAC",
+    support: "Supported by Chrome and Firefox; the Opus-in-Ogg pairing is the common modern use.",
+  },
+  FLAC: {
+    name: "FLAC",
+    fullName: "Free Lossless Audio Codec, native stream layout",
+    extensions: ".flac",
+    description:
+      "The FLAC codec in its own minimal container: a stream of metadata blocks followed by audio frames, with " +
+      "tags in a Vorbis comment block.",
+    video: "none, this is an audio-only format",
+    audio: "FLAC only",
+    support: "Widely supported for lossless audio; also carryable inside MP4, Matroska and Ogg.",
+  },
+  ADTS: {
+    name: "ADTS",
+    fullName: "Audio Data Transport Stream",
+    extensions: ".aac, .adts",
+    description:
+      "Raw AAC framing meant for streaming rather than storage: every frame repeats its own header, so a " +
+      "decoder can join mid-stream. No index and no real metadata beyond optional ID3 tags.",
+    video: "none, this is an audio-only format",
+    audio: "AAC only",
+    support: "Used inside HLS and broadcast pipelines; usually rewrapped into MP4 for playback.",
+  },
+  "MPEG Transport Stream": {
+    name: "MPEG Transport Stream",
+    fullName: "MPEG-TS, ISO/IEC 13818-1",
+    extensions: ".ts, .m2ts, .mts",
+    description:
+      "A broadcast container built from fixed 188-byte packets so a receiver can recover from data loss and " +
+      "start decoding at any point. Robust on a lossy link, wasteful on disk.",
+    video: "H.264, H.265, MPEG-2",
+    audio: "AAC, AC-3/E-AC-3, MP2",
+    support: "The segment format of older HLS streams and of camera/broadcast recordings, not of browsers directly.",
+  },
+  "HTTP Live Streaming (HLS)": {
+    name: "HTTP Live Streaming (HLS)",
+    fullName: "HLS playlist, not a single media file",
+    extensions: ".m3u8",
+    description:
+      "A text playlist pointing at a sequence of media segments (MPEG-TS or fragmented MP4), often at several " +
+      "bitrates. The codecs are whatever the segments hold.",
+    video: "H.264 and H.265 in practice",
+    audio: "AAC, plus AC-3/E-AC-3",
+    support: "Native in Safari and on iOS; other browsers play it through a JavaScript player.",
+  },
+};
+
+// --- Inspect · Video Track ---
+
+/**
+ * What a codec is and what its parsed profile/level came out as, shown under the track it belongs
+ * to. Null for a codec the knowledge base does not recognize, where there is nothing to say.
+ */
+export function codecExplainer(codecInfo: CodecInfo | null | undefined): string | null {
+  if (!codecInfo) return null;
+  const details = codecInfo.details.length
+    ? "<br>" + codecInfo.details.map((d) => `<b>${d.label}:</b> ${String(d.value)}`).join(" &nbsp;&middot;&nbsp; ")
+    : "";
+  const year = codecInfo.year ? ` (${codecInfo.year})` : "";
+  const name = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? `, ${codecInfo.fullName}` : "";
+  return `<b>${codecInfo.family}</b>${year}${name}. ${codecInfo.description}${details}`;
+}
+
+/**
+ * What each codec is, keyed by mediabunny's short codec id, shown under the track that uses it.
+ * The profile/level parsing that goes beside it stays in lib/codecKb, which reads these.
+ */
+export const CODEC_DESCRIPTIONS: Record<string, string> = {
+  avc: "The most widely supported video codec in existence: nearly every browser, phone, and hardware decoder handles it natively. Block-based motion compensation with in-loop deblocking; this is the codec sleap-io's <code>reencode</code> baseline targets specifically for its universal compatibility and predictable I/P/B-frame random access.",
+  hevc: "Roughly 2&times; more efficient than H.264 at equal visual quality, using larger coding-tree blocks and richer intra/inter prediction, at the cost of much slower encoding and patchier hardware decode support (older devices and some browsers can't play it back at all, which is a poor fit for a shared QC/annotation pipeline).",
+  vp9: "An open, royalty-free codec from Google built as a free alternative to H.265, with broadly similar compression efficiency. Well supported in Chrome/Firefox and common in WebM, but not universal on iOS/Safari or older hardware decoders.",
+  av1: "The newest royalty-free, open codec, developed by the Alliance for Open Media (Google, Netflix, Amazon, Mozilla, and others). Roughly 30% more efficient than HEVC/VP9 at equal quality and historically very slow to encode, with hardware decode support still spreading, so it is increasingly used for high-volume streaming where the bitrate savings outweigh the encoding cost.",
+  vp8: "An earlier royalty-free codec from On2/Google, roughly comparable in efficiency to H.264. Mostly superseded by VP9 today, but still seen in WebRTC and some legacy WebM files.",
+  prores:
+    "A high-bitrate, intraframe-only professional mezzanine codec in which every frame is a keyframe, so it's trivially and instantly seekable, at the cost of much larger files. Meant for editing workflows, not final delivery.",
+  aac: "The default audio codec paired with H.264/MP4 video; a more efficient successor to MP3 at the same bitrate, with near-universal hardware and browser support.",
+  opus: "A modern, royalty-free, low-latency codec tuned for both speech and music; it is the default for WebRTC and increasingly used for general-purpose streaming audio.",
+  mp3: "The classic lossy audio format. Universally compatible, but less efficient than AAC or Opus at the same bitrate.",
+  vorbis: "A royalty-free codec and the predecessor to Opus, commonly paired with VP8/VP9 in WebM and OGG containers.",
+  flac: "Lossless compression, meaning bit-exact reconstruction of the original samples, at roughly 50&ndash;60% the size of raw PCM. Not used for lossy delivery, but common for archival audio.",
+  ac3: "A perceptual multichannel (up to 5.1) audio codec common in broadcast, DVD, and streaming.",
+  eac3: "An extension of AC-3 with higher efficiency and up to 7.1 channels; common in modern streaming and broadcast.",
+};
+
+/** Shown for uncompressed audio, which has no knowledge-base entry of its own. */
+export const PCM_DESCRIPTION =
+  "Raw, uncompressed audio samples, with no encoding at all. Simple and lossless, but large; mostly seen in short clips or intermediate/editing files rather than delivery formats.";
 
 export function chromaSubsamplingExplainer(width: number, height: number): string {
   const evenW = width % 2 === 0;
@@ -131,31 +434,7 @@ export function chromaSubsamplingExplainer(width: number, height: number): strin
   );
 }
 
-/**
- * What a codec is and what its parsed profile/level came out as, shown under the track it belongs
- * to. Null for a codec the knowledge base does not recognize, where there is nothing to say.
- */
-export function codecExplainer(codecInfo: CodecInfo | null | undefined): string | null {
-  if (!codecInfo) return null;
-  const details = codecInfo.details.length
-    ? "<br>" + codecInfo.details.map((d) => `<b>${d.label}:</b> ${String(d.value)}`).join(" &nbsp;&middot;&nbsp; ")
-    : "";
-  const year = codecInfo.year ? ` (${codecInfo.year})` : "";
-  const name = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? `, ${codecInfo.fullName}` : "";
-  return `<b>${codecInfo.family}</b>${year}${name}. ${codecInfo.description}${details}`;
-}
-
-/** What this particular container is, and which codecs it can carry. */
-export function containerExplainer(info: ContainerInfo): string {
-  return (
-    `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}` +
-    `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
-    `<b>Audio codecs:</b> ${info.audio}<br>` +
-    `<b>Playback:</b> ${info.support}</p>`
-  );
-}
-
-// --- Inspect: the atom map ---
+// --- Inspect · Atom Map ---
 
 /** What the box tree is, shown above the Atom Map and above the document's text listing of it. */
 export const ATOM_STRUCTURE_TEACH =
@@ -178,7 +457,73 @@ export const ATOM_MAP_READOUT_HINT = "Hover a block for its offset and size; cli
 /** How to read the map's colors, under its legend. */
 export const ATOM_LEGEND_NOTE = "A box's color is the top-level box it belongs to; each row down is one level in.";
 
-// --- Inspect: GOP structure and the seeking test ---
+// --- Inspect · Video Bitrate Over Time ---
+
+/** Explains why the plot is absent: the container says the rate is constant, and it turned out to be. */
+export function constantBitrateNote(avgBitrate: number): string {
+  return (
+    `The container declares this track <b>constant bitrate</b>: its <code>btrt</code> box gives the same ` +
+    `number, ${escapeHtml(fmtBits(avgBitrate))}, as both the track's average and its maximum rate. Its sample ` +
+    `sizes bear that out, every window of playback carrying the same bits as every other, so there is no ` +
+    `variation over time for a plot to show. ` +
+    `<p>That is the trade a constant bitrate makes: the rate is predictable, which is what fixed-bandwidth ` +
+    `delivery and older broadcast pipelines need, but quality is not. A hard scene gets no more bits than ` +
+    `its share and visibly degrades, while an easy one cannot give its unused share back. A ` +
+    `<b>variable bitrate</b> encode (any CRF encode, including the Reencode with FFmpeg tab's) inverts that: it holds ` +
+    `quality steady and lets the rate move, which is what this card plots for such a file.</p>`
+  );
+}
+
+export const TOO_FEW_FRAMES_NOTE =
+  "There are too few frames here to divide the track into windows of playback, so there is no shape to " +
+  "plot. The average is the whole of what the sample table can say about this file's rate.";
+
+export const BITRATE_TIMELINE_TEACH =
+  "<b>Bitrate</b> is how many bits it takes to store one second of playback, so it is a major factor determining " +
+  "both file size and video quality. " +
+  "This is the video track's bitrate measured one window at a time instead of once across the whole track: " +
+  "the bits of every frame presented in that window, divided by the window's length. No decoding is " +
+  "involved, since the size and timestamp of every frame is already listed in the container's sample table. " +
+  "<p>A <b>variable bitrate</b> encoder (which is what a CRF encode is, and what x264 does by default) " +
+  "targets a constant <i>quality</i> and lets the rate go wherever that costs. It spends bits on keyframes, " +
+  "scene cuts and fast motion and saves them on still shots, so the line moves even though the average is a " +
+  "single number. A run well above the average is the part of the video that is expensive to store; a flat " +
+  "line means the rate was held constant instead.</p>" +
+  "<p>The peak matters separately from the average: a stream is only smooth to play over a network that can " +
+  "carry its <i>peaks</i>, not its mean, which is why streaming encoders are usually given a ceiling " +
+  "(<code>-maxrate</code>) as well as a target.</p>";
+
+/**
+ * Shown when the container declares a constant rate but the sample sizes disagree. Worth saying
+ * rather than quietly ignoring, because the declaration is wrong here for a reason worth knowing.
+ */
+export function contradictedDeclarationNote(avgBitrate: number, timeline: BitrateTimeline): string {
+  return (
+    `<b>Note:</b> this file's <code>btrt</code> box gives ${escapeHtml(fmtBits(avgBitrate))} as both the ` +
+    `track's average and its maximum rate, which read literally would mean a constant bitrate. The sample ` +
+    `sizes say otherwise: the windows below run from ${escapeHtml(fmtBits(timeline.minBitrate))} to ` +
+    `${escapeHtml(fmtBits(timeline.peakBitrate))}. Muxers commonly write the computed average into both ` +
+    `fields whatever the encoder was doing (ffmpeg does), so that declaration is not evidence of a constant ` +
+    `rate on its own, and the sample table is the measurement that settles it.`
+  );
+}
+
+export const VIDEO_AVERAGE_INFO =
+  "Average bitrate of the video track alone: its packets &times; 8 &divide; duration. The Overview's " +
+  "<b>Overall Bitrate</b> is higher because it also counts audio and container overhead. Lowering this (a " +
+  "higher CRF) is what shrinks the file, at the cost of visible artifacts.";
+
+export const PEAK_RATIO_INFO =
+  "The busiest window's bitrate divided by the track average. The further above <b>1&times;</b>, the burstier " +
+  "the encode, and the more bandwidth headroom smooth playback needs beyond the average.";
+
+// --- Inspect · Audio Track ---
+
+export const AUDIO_BITRATE_INFO =
+  "Average bitrate of the audio track alone. Speech stays clean at low rates, while music needs more; for " +
+  "AAC, roughly 128 kbps stereo is transparent for most listeners.";
+
+// --- Inspect · GOP / Keyframe Structure, and the seeking test under it ---
 
 export const GOP_TEACH =
   `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
@@ -199,14 +544,14 @@ export const GOP_TEACH =
 /** Under the GOP histogram, on the page and in the document. */
 export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a bar for its frame count)";
 
-/** Under the seeking test's scatter, on the page and in the document. */
-export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
-
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";
 
-// --- Reencode with FFmpeg, and the encoder settings both encoding tabs offer ---
+/** Under the seeking test's scatter, on the page and in the document. */
+export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
+
+// --- Reencode with FFmpeg · the command builder, whose settings Compare Quality sweeps ---
 
 /** What reencoding is, and why the command is the thing this tab produces. Heads the Reencode tab. */
 export const REENCODE_INTRO =
@@ -227,30 +572,6 @@ export const REENCODE_INTRO =
   `<a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io</a>'s ` +
   `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
   `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.</p>`;
-
-/** What the Reencode tab's sample run does, and where the Compare Quality tab takes over. */
-export const SAMPLE_RUN_INTRO =
-  `Encodes three seconds of the video with the command above — the real ffmpeg, compiled to WebAssembly, so ` +
-  `the bytes are the bytes it would produce — and shows the result against the same seconds of the ` +
-  `original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
-  `<p>Which three seconds is the question worth asking, so the track below scans the whole recording: ` +
-  `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
-  `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
-  `the beginning.</p>` +
-  `<p>One stretch of a fixed length, judged by eye: there is nothing to set here beyond where it comes ` +
-  `from. Sampling several places at once to project what a setting saves across the whole file, and ` +
-  `sweeping several settings against each other, are the <b>Compare Quality</b> tab's job.</p>`;
-
-/** What running the whole file in the page costs, under the section that offers to. */
-export const WHOLE_FILE_ENCODE_INTRO =
-  `Runs the command above over the <b>whole video</b>, here in the page, and saves the result to a file you ` +
-  `choose. Nothing is uploaded: the frames are decoded and reencoded locally. Pick where to save when ` +
-  `prompted, or the file lands in your downloads folder.` +
-  `<p>The engine is ffmpeg itself, compiled to WebAssembly, so the output is byte-for-byte what the command ` +
-  `gives you on your own machine. It is fetched on first use (~30 MB) and runs single-threaded (no ` +
-  `COOP/COEP headers needed on static hosting), so it is slower than realtime: for a full-length recording ` +
-  `or a whole dataset, copy the command and run ffmpeg natively instead. What runs here is bounded by what ` +
-  `the browser tab can hold in memory.</p>`;
 
 /** What the preset actually trades, shown from the ⓘ beside the field in both tabs that offer it. */
 export const X264_PRESET_INFO =
@@ -279,6 +600,23 @@ export const SCALER_INFO =
   "<p>Sharper is not automatically better downstream, and the detail lanczos keeps costs a few more bits at " +
   "the same CRF. Compare them in the A/B window at 100% zoom rather than assuming.</p>";
 
+// --- Reencode with FFmpeg · Try It on a Sample ---
+
+/** What the Reencode tab's sample run does, and where the Compare Quality tab takes over. */
+export const SAMPLE_RUN_INTRO =
+  `Encodes three seconds of the video with the command above — the real ffmpeg, compiled to WebAssembly, so ` +
+  `the bytes are the bytes it would produce — and shows the result against the same seconds of the ` +
+  `original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
+  `<p>Which three seconds is the question worth asking, so the track below scans the whole recording: ` +
+  `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
+  `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
+  `the beginning.</p>` +
+  `<p>One stretch of a fixed length, judged by eye: there is nothing to set here beyond where it comes ` +
+  `from. Sampling several places at once to project what a setting saves across the whole file, and ` +
+  `sweeping several settings against each other, are the <b>Compare Quality</b> tab's job.</p>`;
+
+// --- The A/B window and the size it projects, under both encoding tabs ---
+
 /** Why the A/B window offers two ways of drawing a downscaled encode back up. */
 export const UPSCALE_VIEW_INFO =
   "A downscaled encode is drawn back at the source's size so both panes share one coordinate system. " +
@@ -286,43 +624,18 @@ export const UPSCALE_VIEW_INFO =
   "better view for judging what a tracking pipeline has left to work with. <b>Smooth</b> interpolates " +
   "between them, closer to what a player would put up. Neither changes the encode or its size.";
 
-// --- Compare Quality: the run, the sweep and its grid ---
+export const ORIGINAL_SEGMENT_INFO =
+  "What the <i>source</i> spends on the same seconds the encode covered, counted on the same terms: video " +
+  "frames, plus the stretch's share of the audio track and the container's overhead. This is what the " +
+  "encoded segment is compared against.";
 
-/** Why a run would encode the same settings in several places at once. */
-export const SEGMENTS_INFO =
-  "<b>Segments</b> is how many stretches of the length above a run encodes. Where they land is the sampler's " +
-  "to decide, never yours: one lands anywhere in the file, several are drawn one per equal band of it, so the " +
-  "projection is not taken over whichever flattering moment was picked by hand." +
-  "<p>Each is a real encode, so a run costs that many times as long. The stretches are cut out of the source " +
-  "once and reused, which is what makes two runs comparable, and the A/B window plays all of them in turn.</p>";
+export const PROJECTED_SIZE_INFO =
+  "The source's size times the ratio the snippet came to, i.e. what the whole file would come to at these " +
+  "settings if the rest of it compresses like the sampled part. An extrapolation, not a measurement.";
 
-/** Why "best" is a size ranking and nothing more. */
-export const MATRIX_BEST_INFO =
-  "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
-  "highest CRF wins nearly every sweep, and the lowest resolution wins outright when one is ticked. Read the " +
-  "grid, not the star, which has no idea what your tracking needs.";
-
-/** What the sweep remembers between runs, and when a square is encoded again anyway. */
-export const MATRIX_CACHE_INFO =
-  "A combination this file has already been swept at is read back rather than encoded again, including after " +
-  "a reload, so widening a sweep only encodes the new squares." +
-  "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination for " +
-  "the A/B window. Untick to measure everything again, for fresh encoding times or a file changed under the " +
-  "same name.</p>";
-
-/**
- * Heads the ffmpeg command for the square in the A/B window. `settings` is the app's own description
- * of the combination (see describeSettings), never text read out of a file.
- */
-export function selectedCommandTeach(settings: string): string {
-  return (
-    `What the square in the A/B window above — <b>${settings}</b> — comes to as an ffmpeg command, over the ` +
-    `whole file rather than the sampled seconds. Everything the sweep does not vary (keyframe interval, ` +
-    `B-frames, audio, faststart) is taken from the <b>Reencode with FFmpeg</b> tab as it is set there now.`
-  );
-}
-
-// --- The size a setting projects, under both tabs that measure one ---
+export const SAMPLED_WINDOW_INFO =
+  "How much of the file this estimate actually saw. The smaller it is, the more the projection leans on those " +
+  "seconds being typical of the rest; a longer segment narrows the range.";
 
 /** Why a segment's size is the comparable number, beside the size the encode came to. */
 export const ENCODED_SEGMENT_NOTE =
@@ -385,18 +698,54 @@ function windowDifficultySentence(estimate: SizeEstimate): string {
   return `The stretch picked here costs about what the source averages, so it is a fair sample to project from.`;
 }
 
-export const ORIGINAL_SEGMENT_INFO =
-  "What the <i>source</i> spends on the same seconds the encode covered, counted on the same terms: video " +
-  "frames, plus the stretch's share of the audio track and the container's overhead. This is what the " +
-  "encoded segment is compared against.";
+// --- Reencode with FFmpeg · the whole-file encode at the foot of the tab ---
 
-export const PROJECTED_SIZE_INFO =
-  "The source's size times the ratio the snippet came to, i.e. what the whole file would come to at these " +
-  "settings if the rest of it compresses like the sampled part. An extrapolation, not a measurement.";
+/** What running the whole file in the page costs, under the section that offers to. */
+export const WHOLE_FILE_ENCODE_INTRO =
+  `Runs the command above over the <b>whole video</b>, here in the page, and saves the result to a file you ` +
+  `choose. Nothing is uploaded: the frames are decoded and reencoded locally. Pick where to save when ` +
+  `prompted, or the file lands in your downloads folder.` +
+  `<p>The engine is ffmpeg itself, compiled to WebAssembly, so the output is byte-for-byte what the command ` +
+  `gives you on your own machine. It is fetched on first use (~30 MB) and runs single-threaded (no ` +
+  `COOP/COEP headers needed on static hosting), so it is slower than realtime: for a full-length recording ` +
+  `or a whole dataset, copy the command and run ffmpeg natively instead. What runs here is bounded by what ` +
+  `the browser tab can hold in memory.</p>`;
 
-export const SAMPLED_WINDOW_INFO =
-  "How much of the file this estimate actually saw. The smaller it is, the more the projection leans on those " +
-  "seconds being typical of the rest; a longer segment narrows the range.";
+// --- Compare Quality · the run, the sweep and the command under its grid ---
+
+/** Why a run would encode the same settings in several places at once. */
+export const SEGMENTS_INFO =
+  "<b>Segments</b> is how many stretches of the length above a run encodes. Where they land is the sampler's " +
+  "to decide, never yours: one lands anywhere in the file, several are drawn one per equal band of it, so the " +
+  "projection is not taken over whichever flattering moment was picked by hand." +
+  "<p>Each is a real encode, so a run costs that many times as long. The stretches are cut out of the source " +
+  "once and reused, which is what makes two runs comparable, and the A/B window plays all of them in turn.</p>";
+
+/** What the sweep remembers between runs, and when a square is encoded again anyway. */
+export const MATRIX_CACHE_INFO =
+  "A combination this file has already been swept at is read back rather than encoded again, including after " +
+  "a reload, so widening a sweep only encodes the new squares." +
+  "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination for " +
+  "the A/B window. Untick to measure everything again, for fresh encoding times or a file changed under the " +
+  "same name.</p>";
+
+/** Why "best" is a size ranking and nothing more. */
+export const MATRIX_BEST_INFO =
+  "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
+  "highest CRF wins nearly every sweep, and the lowest resolution wins outright when one is ticked. Read the " +
+  "grid, not the star, which has no idea what your tracking needs.";
+
+/**
+ * Heads the ffmpeg command for the square in the A/B window. `settings` is the app's own description
+ * of the combination (see describeSettings), never text read out of a file.
+ */
+export function selectedCommandTeach(settings: string): string {
+  return (
+    `What the square in the A/B window above — <b>${settings}</b> — comes to as an ffmpeg command, over the ` +
+    `whole file rather than the sampled seconds. Everything the sweep does not vary (keyframe interval, ` +
+    `B-frames, audio, faststart) is taken from the <b>Reencode with FFmpeg</b> tab as it is set there now.`
+  );
+}
 
 // --- Full Analysis ---
 
