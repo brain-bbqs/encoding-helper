@@ -60,7 +60,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     fullName: "MPEG-4 Part 14, an ISO Base Media File Format layout",
     extensions: ".mp4, .m4v, .m4a",
     description:
-      "The default delivery container for the web: a tree of boxes (atoms) where <code>moov</code> holds the " +
+      "The default delivery container for the web. A tree of boxes (atoms) where <code>moov</code> holds the " +
       "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> for this file's layout.",
     video:
       "H.264/AVC (near universal), plus H.265/HEVC, AV1, VP9 and ProRes, which the format accepts but far " +
