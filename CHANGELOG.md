@@ -6,7 +6,7 @@
 
 - The faststart badge and its explainer moved to the **MP4 Box / Atom Structure** card, beside the map of the box order they report ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - **This File's Container** folded into the **Video Container Overview** card, which now names the container in its heading and drops the Type row ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
-- The MIME Type is explained under the overview's figures, covering its `codecs` parameter and the shapes H.264, HEVC, AV1, VP9 and the audio codecs take ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The MIME Type is explained under the overview's figures, as a teach box rather than a tooltip ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The overview's four figures sit on one row, the MIME type taking the width left over rather than wrapping onto a line of its own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Inspect's cards lead with what they measured, with the teaching text under it, and the page reads in a wider column while the Educational switch is on ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
