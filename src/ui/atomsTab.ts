@@ -124,7 +124,7 @@ function renderMap(
 
   const { map, lanes } = mapLanes(layout.laneCount);
   const readout = h("div", "atom-readout", ATOM_MAP_READOUT_HINT);
-  layout.rects.forEach((rect) => lanes[rect.depth].append(blockEl(rect, zoom, redraw, readout)));
+  layout.rects.forEach((rect) => lanes[rect.depth].append(blockEl(rect, view, zoom, redraw, readout)));
   host.append(map, readout);
 
   if (layout.truncated) {
@@ -218,7 +218,7 @@ function rectLabel(rect: AtomRect): string {
   return rect.box !== null ? rect.box.type : boxCount(rect.count);
 }
 
-function rectDetail(rect: AtomRect): string {
+function rectDetail(rect: AtomRect, zoomable = true): string {
   if (rect.box !== null) {
     const role = BOX_ROLES[rect.box.type];
     const size = fmtSize(rect.box.size);
@@ -226,19 +226,40 @@ function rectDetail(rect: AtomRect): string {
   }
   return (
     `${boxCount(rect.count)} in ${fmtSize(rect.byteEnd - rect.byteStart)} at offset ` +
-    `${rect.byteStart.toLocaleString()}, too many to draw one by one · click to zoom in on them`
+    `${rect.byteStart.toLocaleString()}, too many to draw one by one` +
+    (zoomable ? " · click to zoom in on them" : "")
   );
+}
+
+/**
+ * Whether zooming to this block would show anything the view does not already. A zoomed-in view
+ * still draws the ancestors of what was zoomed to — that is the context the map is read in — and
+ * each of them spans the whole of it, so clicking one used to push a crumb for a view identical to
+ * the one already on screen (or, for an ancestor whose own range is wider, quietly zoom back out).
+ * Either way the breadcrumb grew without the map changing, which is how a file with one video track
+ * came to offer an endless path of `trak`s.
+ */
+function narrowsView(rect: AtomRect, view: AxisRange): boolean {
+  // A hair of slack: the ranges are sums of fractions, so an edge that should land exactly on the
+  // view's own can miss it by an ulp or two.
+  const slack = (view.end - view.start) * 1e-9;
+  return rect.from > view.start + slack || rect.to < view.end - slack;
 }
 
 function blockEl(
   rect: AtomRect,
+  view: AxisRange,
   zoom: { label: string; range: AxisRange }[],
   redraw: () => void,
   readout: HTMLElement,
 ): HTMLButtonElement {
   const label = rectLabel(rect);
-  const detail = rectDetail(rect);
-  const el = h("button", `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}`);
+  const zoomable = narrowsView(rect, view);
+  const detail = rectDetail(rect, zoomable);
+  const el = h(
+    "button",
+    `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}${zoomable ? "" : " filling"}`,
+  );
   el.type = "button";
   positionBlock(el, rect, label);
 
@@ -252,10 +273,14 @@ function blockEl(
   el.addEventListener("focus", show);
   el.addEventListener("mouseleave", clear);
   el.addEventListener("blur", clear);
-  el.addEventListener("click", () => {
-    zoom.push({ label, range: { start: rect.from, end: rect.to } });
-    redraw();
-  });
+  // Still hoverable and focusable when it fills the view — its offset and size are worth reading —
+  // but not a way further in, since there is no further in to go.
+  if (zoomable) {
+    el.addEventListener("click", () => {
+      zoom.push({ label, range: { start: rect.from, end: rect.to } });
+      redraw();
+    });
+  }
   return el;
 }
 

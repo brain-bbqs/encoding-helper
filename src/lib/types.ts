@@ -1,5 +1,7 @@
 // Shared type definitions used across lib/ and ui/ modules.
 
+import type { ChromaFormat } from "./chromaFormat";
+
 import type { Input, InputAudioTrack, InputVideoTrack, MetadataTags } from "mediabunny";
 import type { ChunkedSource } from "./chunkedSource";
 
@@ -34,6 +36,8 @@ export interface TrackInfo {
   displayHeight?: number;
   rotation?: number;
   colorSpace?: VideoColorSpaceInit | null;
+  /** Chroma subsampling as the file states it; null where nothing in it does (see chromaFormat). */
+  chroma?: ChromaFormat | null;
   hdr?: boolean;
   // Audio-only fields.
   sampleRate?: number;

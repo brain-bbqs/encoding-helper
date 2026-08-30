@@ -146,6 +146,9 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   );
   if (vt.rotation) g.append(gridItem("Rotation", vt.rotation + "°"));
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
+  // Read out of the file rather than assumed, so it sits with the other figures; the teach box
+  // below explains what it means (and says nothing about this file when it states nothing).
+  if (vt.chroma) g.append(gridItem("Chroma", vt.chroma, { sm: true }));
   if (vt.colorSpace) {
     g.append(
       gridItem(
@@ -159,7 +162,7 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   sec.append(g);
   const vtCodecBox = codecTeachBox(vt.codecInfo, "🎞️");
   if (vtCodecBox) sec.append(vtCodecBox);
-  sec.append(teachBox(chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight), "🎨"));
+  sec.append(teachBox(chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight, vt.chroma ?? null), "🎨"));
   return sec;
 }
 

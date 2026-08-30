@@ -187,6 +187,41 @@ describe("the Inspect panel", () => {
     expect(kinds).toContain("teach");
   });
 
+  // A zoomed view still draws the ancestors of what was zoomed to, each spanning the whole of it.
+  // Clicking one used to push a crumb for the view already on screen, so a file with one video track
+  // offered an endless path of traks.
+  it("stops zooming at a block that already fills the view", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.boxes = [
+      {
+        type: "moov",
+        start: 0,
+        size: 900,
+        hdrSize: 8,
+        children: [{ type: "trak", start: 8, size: 800, hdrSize: 8, children: [] }],
+      },
+      { type: "mdat", start: 900, size: 1_100_000, hdrSize: 8, children: [] },
+    ];
+    const panel = document.createElement("div");
+    renderAtomMap(panel);
+
+    const trak = Array.from(panel.querySelectorAll<HTMLButtonElement>(".atom-block")).find(
+      (b) => b.textContent === "trak",
+    )!;
+    trak.click();
+    const crumbLabels = (): (string | null)[] =>
+      Array.from(panel.querySelectorAll(".atom-crumbs .crumb")).map((el) => el.textContent);
+    expect(crumbLabels()).toEqual(["Whole file", "trak"]);
+
+    // Zoomed in, moov and trak both span the view: neither is a way further in, and clicking adds
+    // no crumb.
+    const filling = Array.from(panel.querySelectorAll<HTMLButtonElement>(".atom-block.filling"));
+    expect(filling.map((b) => b.textContent)).toEqual(["moov", "trak"]);
+    filling.forEach((b) => b.click());
+    expect(crumbLabels()).toEqual(["Whole file", "trak"]);
+  });
+
   it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
     const panel = document.createElement("div");
     renderSeekTab(panel);

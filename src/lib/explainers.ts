@@ -20,6 +20,7 @@ import type { BitrateTimeline } from "./bitrateTimeline";
 import { escapeHtml } from "./dom";
 import { fmtBits } from "./format";
 import type { SizeEstimate } from "./sizeEstimate";
+import type { ChromaFormat } from "./chromaFormat";
 import type { CodecInfo, ContainerInfo } from "./types";
 
 // --- Inspect · Video Container Overview, the first card on the first tab ---
@@ -416,19 +417,38 @@ export const CODEC_DESCRIPTIONS: Record<string, string> = {
 export const PCM_DESCRIPTION =
   "Raw, uncompressed audio samples, with no encoding at all. Simple and lossless, but large; mostly seen in short clips or intermediate/editing files rather than delivery formats.";
 
-export function chromaSubsamplingExplainer(width: number, height: number): string {
+/**
+ * What chroma subsampling is, and what this file uses — where the file says. `chroma` is read out of
+ * the container's codec configuration (see lib/chromaFormat), and is null for a file that states
+ * nothing, in which case the box teaches the idea without putting a format on this file.
+ */
+export function chromaSubsamplingExplainer(width: number, height: number, chroma: ChromaFormat | null): string {
   const evenW = width % 2 === 0;
   const evenH = height % 2 === 0;
-  const fitText =
-    evenW && evenH
-      ? "<b>already even</b> in both dimensions."
-      : `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height}), so an encoder must pad or crop before it can write yuv420p.`;
-  return (
-    `<b>Chroma subsampling (yuv420p)</b> halves the horizontal &amp; vertical resolution of the color ` +
-    `channels while keeping full-resolution luma. The human eye is far less sensitive to color detail ` +
-    `than brightness, so this cuts data ~2&times; with minimal visible loss. It requires <b>even</b> width ` +
-    `and height so every 2&times;2 luma block maps to one chroma sample. This file is ${fitText}`
-  );
+  const oddIn = `<b>odd</b> in ${!evenW ? "width" : ""}${!evenW && !evenH ? " and " : ""}${!evenH ? "height" : ""} (${width}×${height})`;
+  const intro =
+    `<b>Chroma subsampling</b> stores the color channels at a lower resolution than the brightness, ` +
+    `which the eye barely registers: <b>4:2:0</b> (<code>yuv420p</code>) halves both dimensions of the ` +
+    `color and so cuts the data roughly in half, <b>4:2:2</b> halves only the horizontal, and <b>4:4:4</b> ` +
+    `subsamples nothing.`;
+  if (chroma === null) {
+    return (
+      `${intro} <p>This file does not state which it uses — the codec configuration carries no chroma ` +
+      `field, and its profile allows more than one — but 4:2:0 is what nearly every delivery file is, ` +
+      `and what this app's own encodes write.</p>`
+    );
+  }
+  if (chroma === "monochrome") {
+    return `${intro} <p>This file is <b>monochrome</b>: it carries brightness only, with no color channels to subsample.</p>`;
+  }
+  const even =
+    chroma === "4:2:0"
+      ? `<p>4:2:0 needs <b>even</b> width and height so every 2&times;2 block of brightness maps to one ` +
+        `color sample, and this file is ${evenW && evenH ? "already even in both" : `${oddIn}, which an encoder must pad or crop before it can write yuv420p`}.</p>`
+      : chroma === "4:2:2"
+        ? `<p>4:2:2 needs an <b>even width</b>, which this file ${evenW ? "has" : `does not (${width}px)`}.</p>`
+        : "";
+  return `${intro} <p>This file is <b>${chroma}</b>, as its codec configuration states.</p>${even}`;
 }
 
 // --- Inspect · Atom Map ---

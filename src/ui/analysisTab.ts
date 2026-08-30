@@ -142,7 +142,7 @@ function videoTrackSection(vt: TrackInfo): AnalysisSection {
   const codec = codecExplainer(vt.codecInfo);
   if (codec) blocks.push({ kind: "prose", html: codec });
   if (vt.codedWidth != null && vt.codedHeight != null) {
-    blocks.push({ kind: "prose", html: chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight) });
+    blocks.push({ kind: "prose", html: chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight, vt.chroma ?? null) });
   }
   return { title: "Video Track", blocks };
 }
