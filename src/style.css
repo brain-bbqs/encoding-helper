@@ -329,12 +329,11 @@ h1 {
 .edu-toggle-icon {
   font-size: 15px;
 }
-/* Sits at the right end of the tab row, just left of Full Analysis: the auto margin that used to
-   push that button to the edge belongs to whichever of the two comes first. */
+/* Follows the tabs on the same row, separated from them by the bar's own gap: the switch belongs to
+   the views, and Full Analysis keeps the right edge to itself. */
 .tab-edu {
   display: flex;
   align-items: center;
-  margin-left: auto;
   padding: 8px 0;
 }
 input[type="checkbox"].switch {
@@ -827,6 +826,7 @@ details.teach-more summary {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  margin-left: auto;
   flex-shrink: 0;
   padding: 8px 14px;
   border: 1px solid var(--accent);
