@@ -483,7 +483,7 @@ export const FASTSTART_EXPLAINER =
   "<b>Faststart</b> means the <code>moov</code> atom (the index describing every sample) sits before " +
   "<code>mdat</code> (the actual frame bytes). A video player can then begin playback immediately after downloading " +
   "only the first few kilobytes, instead of the entire file. " +
-  "This is especially important when handling very large files, such as chronic recordings.";
+  "This is especially important when handling very long videos or when streaming over the web.";
 
 /** Under the atom map in the Full Analysis document, which has no hover or zoom to explain. */
 export const ATOM_MAP_DOC_CAPTION =
