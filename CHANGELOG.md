@@ -9,6 +9,7 @@
 - The MIME Type readout carries an ⓘ saying what a media type is ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The overview's four figures sit on one row, the MIME type taking the width left over rather than wrapping onto a line of its own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Inspect's cards lead with what they measured, with the teaching text under it, and the page reads in a wider column while the Educational switch is on ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Every figure read out of the file sits on a tint of its own, so a card reads as a row of values rather than loose text ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Teach boxes carry a mark for what they are about — 🎥 for this file's container, 🎨 for chroma subsampling, 🚀 for faststart — rather than 💡 throughout ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal

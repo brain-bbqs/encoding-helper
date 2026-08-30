@@ -603,7 +603,16 @@ label.field-label {
   text-transform: uppercase;
   margin-bottom: 2px;
 }
+/* Every figure the app read out of the file sits on a tint of its own, so a card reads as a row of
+   values rather than as a paragraph of loose text. Inline-block so the tint hugs the figure instead
+   of running the width of the column, and the negative margin keeps it left-aligned with the label
+   above it despite the padding. */
 .grid .item .val {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: -8px;
+  border-radius: 5px;
+  background: var(--accent-soft);
   font-size: 16px;
   font-weight: 600;
   color: var(--accent);
@@ -614,6 +623,7 @@ label.field-label {
   font-family: Monaco, Consolas, monospace;
   font-weight: 400;
   color: var(--text);
+  background: var(--sunken);
 }
 /* The overview's four figures on one row: the three short ones take the width they need, and the
    MIME type — long, monospaced, and the only one that varies in length — takes what is left. On a
