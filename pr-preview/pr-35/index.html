@@ -84,11 +84,11 @@
         });
       });
     </script>
-    <script type="module" crossorigin src="./assets/index-BXfbDtXx.js"></script>
+    <script type="module" crossorigin src="./assets/index-DGt1awH_.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
     <link rel="modulepreload" crossorigin href="./assets/ffmpeg-BJaMHjM6.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-BRmjWEOm.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-B8eUepHy.css">
   </head>
   <body>
     <a
@@ -198,7 +198,8 @@
     <div id="app" style="display: none">
       <!-- The tabs are the file's views; Full Analysis is the one action among them (it bundles every
            view into one document), so it sits apart from the row, against the right edge of the
-           content column, rather than reading as a fourth place to look. -->
+           content column, rather than reading as a fourth place to look, with the Educational
+           switch beside it. -->
       <div class="tab-bar">
         <div class="tabs">
           <button class="tab on" data-tab="inspect" type="button">
@@ -211,6 +212,9 @@
             <span class="tab-icon" aria-hidden="true">⚖️</span> Compare Quality
           </button>
         </div>
+        <!-- The Educational switch: one control for every tab, on the row that carries the tabs
+             rather than inside whichever card happens to come first. -->
+        <div id="eduToggleSlot" class="tab-edu"></div>
         <button
           class="tab-action"
           data-tab="analysis"
