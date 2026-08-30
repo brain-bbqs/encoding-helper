@@ -24,26 +24,22 @@ import type { CodecInfo } from "./types";
 
 /** The container-vs-codec distinction, shown above every container explainer. */
 export const CONTAINER_PREAMBLE =
-  "A <b>video container</b> is the wrapper around the media, not the compression method itself. It stores the " +
-  "encoded tracks, the index that maps timestamps to byte ranges, and the metadata tags. The <b>codec</b> is what " +
-  "actually compresses the pixels and samples. The same H.264 video can sit in an MP4, a MOV (.mov), or a " +
-  "Matroska (.mkv) file unchanged: moving it from one to another copies the already-compressed frames across " +
-  "byte for byte, without decoding or compressing anything again, so it takes seconds and the picture that " +
-  "comes out is the picture that went in. Containers differ in which codecs they accept, though, so not every " +
-  "codec fits in every container.";
+  "A <b>video container</b> is the wrapper around the media content: the compressed video bitstream, one or " +
+  "more compressed audio tracks, subtitles, chapter markers, and metadata such as timestamps or sync information. +
+  "The <b>codec</b> is what actually compresses the frames. The most widespread codec (H.264) can be found in an MP4, a MOV (.mov), or a " +
+  "Matroska (.mkv) file. Containers differ in which other codecs they allow; not every codec belongs in every container.";
 
 /** The Overview's whole-file bitrate, which is not the same as any one track's bitrate. */
 export const OVERALL_BITRATE_INFO =
-  "<b>Bitrate</b> is how many bits it takes to store one second of playback, so it is the main lever on both " +
-  "size and quality. This one is <b>overall</b>: file size &times; 8 &divide; duration, counting video, audio " +
-  "and the container's own overhead together, so it comes out above the per-track figures below. " +
-  "<p>It is also an average, and the <b>Video Bitrate Over Time</b> card plots how far the rate moves around " +
-  "it.</p>";
+  "<b>Overall bitrate</b> is the file size in bytes &times; 8 &divide, where duration is in seconds, " +
+  "averaged across the entire file. It counts the video, audio, and the container's own overhead, " +
+  "so it always exceeds the sum of the individual stream bitrates.";
 
 export const FASTSTART_EXPLAINER =
   "<b>Faststart</b> means the <code>moov</code> atom (the index describing every sample) sits before " +
   "<code>mdat</code> (the actual frame bytes). A browser or CDN can then start playback after downloading " +
-  "just the first few KB, instead of the whole file. See the <b>Atom Map</b> for the byte-level layout.";
+  "just the first few kilobytes, instead of the entire file. " +
+  "This is especially important when handling very large files, such as chronic recordings.";
 
 export const VIDEO_AVERAGE_INFO =
   "Average bitrate of the video track alone: its packets &times; 8 &divide; duration. The Overview's " +
@@ -55,6 +51,8 @@ export const TOO_FEW_FRAMES_NOTE =
   "plot. The average is the whole of what the sample table can say about this file's rate.";
 
 export const BITRATE_TIMELINE_TEACH =
+  "<b>Bitrate</b> is how many bits it takes to store one second of playback, so it is a major factor determining " +
+  "both file size and video quality. " +
   "This is the video track's bitrate measured one window at a time instead of once across the whole track: " +
   "the bits of every frame presented in that window, divided by the window's length. No decoding is " +
   "involved, since the size and timestamp of every frame is already listed in the container's sample table. " +
