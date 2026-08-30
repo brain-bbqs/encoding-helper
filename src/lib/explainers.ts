@@ -493,9 +493,6 @@ export const ATOM_MAP_DOC_CAPTION =
 /** Hover and click, in the readout under the map, until one of them says something else. */
 export const ATOM_MAP_READOUT_HINT = "Hover a block for its offset and size; click one to zoom into it.";
 
-/** How to read the map's colors, under its legend. */
-export const ATOM_LEGEND_NOTE = "A box's color is the top-level box it belongs to; each row down is one level in.";
-
 // --- Inspect · Video Bitrate Over Time ---
 
 /** Explains why the plot is absent: the container says the rate is constant, and it turned out to be. */

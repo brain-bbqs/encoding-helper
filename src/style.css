@@ -1115,10 +1115,6 @@ details.teach-more summary {
   font-family: Monaco, Consolas, monospace;
   color: var(--text);
 }
-.legend-note {
-  flex-basis: 100%;
-  color: var(--faint);
-}
 
 /* Histogram bars */
 .hist {

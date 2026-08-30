@@ -10,13 +10,7 @@
 
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
 import { h, teachBox } from "../lib/dom";
-import {
-  ATOM_LEGEND_NOTE,
-  ATOM_MAP_READOUT_HINT,
-  ATOM_MAP_TEACH,
-  ATOM_STRUCTURE_TEACH,
-  FASTSTART_EXPLAINER,
-} from "../lib/explainers";
+import { ATOM_MAP_READOUT_HINT, ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
@@ -305,7 +299,6 @@ function renderLegend(rects: AtomRect[]): HTMLDivElement {
   if (rects.some((rect) => rect.kind === "group")) {
     legend.append(item("f-other grouped", "N boxes", "too many to draw, in the color of most of them"));
   }
-  legend.append(h("span", "legend-note", ATOM_LEGEND_NOTE));
   return legend;
 }
 
