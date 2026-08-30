@@ -123,19 +123,21 @@ describe("the Inspect panel", () => {
     state.gopLengths = [30, 30];
     state.keyframeDecodeIndices = [0, 30];
     const panel = document.createElement("div");
+    // The order main.ts appends them in.
     renderInspectHead(panel);
     renderAtomMap(panel);
-    renderInspectTail(panel);
     renderSeekTab(panel);
+    renderInspectTail(panel);
     const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
-    // Metadata first, then the map of where the bytes are (ahead of bitrate/audio), then the
-    // structure that governs seeking, with the seeking test folded into that same card.
+    // Metadata first, then the map of where the bytes are, then the keyframe structure that map's
+    // box order decides (with the seeking test folded into that same card), then the bitrate over
+    // time, and the audio track last.
     expect(headings).toEqual([
       "Video Container Overview: mp4",
       "Video Track",
       "MP4 Box / Atom Structure",
-      "Video Bitrate Over Time",
       "GOP / Keyframe Structure",
+      "Video Bitrate Over Time",
     ]);
   });
 

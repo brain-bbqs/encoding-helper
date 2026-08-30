@@ -5,6 +5,7 @@ import { ensureMediabunny } from "./lib/mediabunny";
 import { renderAnalysisTab } from "./ui/analysisTab";
 import { renderAtomMap } from "./ui/atomsTab";
 import { renderCompareTab } from "./ui/compareTab";
+import { renderEducationalToggle } from "./ui/educationalToggle";
 import { getElements } from "./ui/elements";
 import { renderEncodeTab } from "./ui/encodeTab";
 import { initDemosPage } from "./ui/demosPage";
@@ -28,15 +29,15 @@ function syncEducationalWidth(): void {
 function renderAll(): void {
   syncEducationalWidth();
   // Inspect is what the file *is*: the metadata, the map of how it is laid out, and the structure
-  // that governs how it seeks. Reading order is overview cards, then the atom map, then bitrate/audio,
-  // then GOP/seeking — renderInspectHead/Tail bracket the atom map so it lands between the video
-  // track card and the bitrate one. Each renderer appends, so the panel is emptied here rather than
-  // once per renderer.
+  // that governs how it seeks. Reading order follows the file's own structure — overview cards, the
+  // atom map, the GOP/keyframe structure the map's box order decides, then the bitrate over time,
+  // with the audio track last since everything above it is about the video. Each renderer appends,
+  // so the panel is emptied here rather than once per renderer.
   els.panels.inspect.innerHTML = "";
   renderInspectHead(els.panels.inspect);
   renderAtomMap(els.panels.inspect);
-  renderInspectTail(els.panels.inspect);
   renderSeekTab(els.panels.inspect);
+  renderInspectTail(els.panels.inspect);
   // Wraps whatever the three renderers above just appended into a content column beside an "On this
   // page" nav built from their own section headings; must run after them, not interleaved.
   mountInspectToc(els.panels.inspect);
@@ -83,9 +84,11 @@ els.themeToggle.addEventListener("click", () => {
 });
 
 // Teaching material — the "teach" boxes and the ⓘ info-icon popovers — is on by default and
-// remembered across reloads. The switch itself lives in each card that carries it (see
-// ui/educationalToggle.ts); flipping it rebuilds every tab from scratch, so a panel not currently
-// showing it still picks up the change next time it is visited.
+// remembered across reloads. The switch sits in the tab bar, beside Full Analysis: one control for
+// every tab, outside the panels it rebuilds, so it is mounted once here rather than by renderAll.
+els.eduToggleSlot.append(renderEducationalToggle());
+// Flipping it rebuilds every tab from scratch, so a panel not currently showing still picks up the
+// change next time it is visited.
 onEducationalChange(() => {
   if (els.app.style.display !== "none") renderAll();
 });

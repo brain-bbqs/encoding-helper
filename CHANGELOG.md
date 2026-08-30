@@ -17,6 +17,9 @@
 - Teach boxes carry a mark for what they are about — 🎥 for this file's container, 🎨 for chroma subsampling, 🚀 for faststart — rather than 💡 throughout ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The codec and chroma explainers no longer repeat the profile, level and subsampling format, which the track card lists as figures right above them ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Atom Map drops the teach box describing the box tree and how to read the map, both of which the container overview and the readout under the map already say ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Each figure card is now as wide as its own label and value, rather than taking a fixed column share that left short readings in mostly empty cards ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Inspect reads overview, video track, atom map, GOP, bitrate, audio: the GOP card follows the map and the audio track comes last, in the document too ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Educational switch sits in the tab bar beside **Full Analysis**, one control for the app, rather than in the top corner of the first card on two tabs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 

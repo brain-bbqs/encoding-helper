@@ -5,7 +5,6 @@
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { describeContainer } from "../lib/containerKb";
 import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
-import { renderEducationalToggle } from "./educationalToggle";
 import {
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
@@ -83,9 +82,7 @@ function overviewTitle(): string {
 
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
-  const head = h("div", "section-head");
-  head.append(h("h2", null, overviewTitle()), renderEducationalToggle());
-  overview.append(head);
+  overview.append(h("h2", null, overviewTitle()));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
   const og = h("div", "grid overview-grid");
   og.append(
@@ -236,9 +233,9 @@ function renderAudioTrackSection(): HTMLDivElement | null {
 }
 
 /**
- * The file-overview cards: container, this file's container detail, and the video track. Split from
- * {@link renderInspectTail} so main.ts can put the atom map (its own module) between this and the
- * bitrate/audio cards that follow it, without Inspect's renderer knowing the atom map exists.
+ * The file-overview cards: the container and the video track. Split from {@link renderInspectTail}
+ * so main.ts can put the atom map and the GOP card (their own modules) between this and the
+ * bitrate/audio cards that follow, without Inspect's renderer knowing either exists.
  */
 export function renderInspectHead(panel: HTMLElement): void {
   if (!state.source) return;
@@ -248,7 +245,7 @@ export function renderInspectHead(panel: HTMLElement): void {
   if (videoSec) panel.append(videoSec);
 }
 
-/** The bitrate and audio cards, after the atom map. See {@link renderInspectHead}. */
+/** The bitrate and audio cards, last on the panel. See {@link renderInspectHead}. */
 export function renderInspectTail(panel: HTMLElement): void {
   if (!state.source) return;
 

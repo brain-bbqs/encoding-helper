@@ -25,6 +25,7 @@ export function getElements() {
     themeToggle: required<HTMLButtonElement>("themeToggle"),
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     clearCacheBtn: required<HTMLButtonElement>("clear-matrix-cache-btn"),
+    eduToggleSlot: required<HTMLDivElement>("eduToggleSlot"),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),
       encode: required<HTMLDivElement>("panel-encode"),

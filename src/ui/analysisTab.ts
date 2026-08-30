@@ -467,15 +467,17 @@ function buildAnalysisSections(): AnalysisSection[] {
   if (!state.source) return [];
   const vt = state.tracks?.find((t) => t.kind === "video");
   const at = state.tracks?.find((t) => t.kind === "audio");
+  // Same reading order as the Inspect tab: the file overview and its tags, the video track, the box
+  // layout, the keyframe structure that layout decides, the bitrate over time, then audio last.
   const sections: (AnalysisSection | null)[] = [
     overviewSection(),
-    vt ? videoTrackSection(vt) : null,
-    vt ? bitrateSection(vt) : null,
-    at ? audioTrackSection(at) : null,
     metadataTagsSection(),
+    vt ? videoTrackSection(vt) : null,
     atomMapSection(),
     gopSection(),
     seekingSection(),
+    vt ? bitrateSection(vt) : null,
+    at ? audioTrackSection(at) : null,
     cliCommandSection(),
     compareSection(),
     matrixSection(),
