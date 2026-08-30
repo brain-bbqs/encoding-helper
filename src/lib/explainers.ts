@@ -389,17 +389,15 @@ export const VALUE_HINTS: { pattern: RegExp; describe: (version: string) => stri
 // --- Inspect · Video Track ---
 
 /**
- * What a codec is and what its parsed profile/level came out as, shown under the track it belongs
- * to. Null for a codec the knowledge base does not recognize, where there is nothing to say.
+ * What a codec is, shown under the track it belongs to. Null for a codec the knowledge base does
+ * not recognize, where there is nothing to say.
  */
 export function codecExplainer(codecInfo: CodecInfo | null | undefined): string | null {
   if (!codecInfo) return null;
-  const details = codecInfo.details.length
-    ? "<br>" + codecInfo.details.map((d) => `<b>${d.label}:</b> ${String(d.value)}`).join(" &nbsp;&middot;&nbsp; ")
-    : "";
   const year = codecInfo.year ? ` (${codecInfo.year})` : "";
   const name = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? `, ${codecInfo.fullName}` : "";
-  return `<b>${codecInfo.family}</b>${year}${name}. ${codecInfo.description}${details}`;
+  // The parsed profile and level are not repeated here: the card lists them as figures of their own.
+  return `<b>${codecInfo.family}</b>${year}${name}. ${codecInfo.description}`;
 }
 
 /**
@@ -428,9 +426,10 @@ export const PCM_DESCRIPTION =
   "Raw, uncompressed audio samples, with no encoding at all. Simple and lossless, but large; mostly seen in short clips or intermediate/editing files rather than delivery formats.";
 
 /**
- * What chroma subsampling is, and what this file uses — where the file says. `chroma` is read out of
- * the container's codec configuration (see lib/chromaFormat), and is null for a file that states
- * nothing, in which case the box teaches the idea without putting a format on this file.
+ * What chroma subsampling is, and what this file's own format asks of its dimensions. The format is
+ * not named here — the card lists it as a figure — except where the file states none at all, which
+ * is the one case worth saying out loud. `chroma` is read out of the container's codec
+ * configuration (see lib/chromaFormat), and is null for a file that states nothing.
  */
 export function chromaSubsamplingExplainer(width: number, height: number, chroma: ChromaFormat | null): string {
   const evenW = width % 2 === 0;
@@ -441,24 +440,26 @@ export function chromaSubsamplingExplainer(width: number, height: number, chroma
     `which the eye barely registers: <b>4:2:0</b> (<code>yuv420p</code>) halves both dimensions of the ` +
     `color and so cuts the data roughly in half, <b>4:2:2</b> halves only the horizontal, and <b>4:4:4</b> ` +
     `subsamples nothing.`;
+  // 4:2:0's even-dimension requirement is worth stating wherever it is the format in play, read off
+  // the file or merely the likely one. The format itself is not: the card lists it as a figure above.
+  const even420 =
+    `<p>4:2:0 needs <b>even</b> width and height so every 2&times;2 block of brightness maps to one ` +
+    `color sample, and this file is ${evenW && evenH ? "already even in both" : `${oddIn}, which an encoder must pad or crop before it can write yuv420p`}.</p>`;
   if (chroma === null) {
     return (
       `${intro} <p>This file does not state which it uses — the codec configuration carries no chroma ` +
       `field, and its profile allows more than one — but 4:2:0 is what nearly every delivery file is, ` +
-      `and what this app's own encodes write.</p>`
+      `and what this app's own encodes write.</p>${even420}`
     );
   }
   if (chroma === "monochrome") {
-    return `${intro} <p>This file is <b>monochrome</b>: it carries brightness only, with no color channels to subsample.</p>`;
+    return `${intro} <p>Monochrome carries brightness only: there are no color channels to subsample.</p>`;
   }
-  const even =
-    chroma === "4:2:0"
-      ? `<p>4:2:0 needs <b>even</b> width and height so every 2&times;2 block of brightness maps to one ` +
-        `color sample, and this file is ${evenW && evenH ? "already even in both" : `${oddIn}, which an encoder must pad or crop before it can write yuv420p`}.</p>`
-      : chroma === "4:2:2"
-        ? `<p>4:2:2 needs an <b>even width</b>, which this file ${evenW ? "has" : `does not (${width}px)`}.</p>`
-        : "";
-  return `${intro} <p>This file is <b>${chroma}</b>, as its codec configuration states.</p>${even}`;
+  if (chroma === "4:2:0") return `${intro}${even420}`;
+  if (chroma === "4:2:2") {
+    return `${intro} <p>4:2:2 needs an <b>even width</b>, which this file ${evenW ? "has" : `does not (${width}px)`}.</p>`;
+  }
+  return intro;
 }
 
 // --- Inspect · Atom Map ---

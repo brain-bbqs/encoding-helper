@@ -15,6 +15,7 @@
 - Every figure read out of the file sits in a card of its own, the recessed panel the demo tiles use, with strings out of the file set as code ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The container explainer's mention of the **Atom Map** links to it, on the page and in the document ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Teach boxes carry a mark for what they are about — 🎥 for this file's container, 🎨 for chroma subsampling, 🚀 for faststart — rather than 💡 throughout ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The codec and chroma explainers no longer repeat the profile, level and subsampling format, which the track card lists as figures right above them ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 
