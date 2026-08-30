@@ -185,20 +185,8 @@ export const OVERALL_BITRATE_INFO =
  * under the overview's figures rather than from an ⓘ, which is for a sentence or two.
  */
 export const MIME_TYPE_INFO =
-  "The container's media type, with a <code>codecs</code> parameter naming what is inside it, which is what a " +
-  "player is handed to decide whether it can play the file before downloading any of it. " +
-  '<code>video/mp4; codecs="avc1.640028, mp4a.40.2"</code> decodes as H.264 High profile level 4.0 plus ' +
-  "AAC-LC." +
-  "<ul>" +
-  "<li><code>avc1.PPCCLL</code> — H.264, hex profile/constraints/level (<code>avc1.42E01E</code> is Baseline " +
-  "3.0)</li>" +
-  "<li><code>hvc1.*</code> / <code>hev1.*</code> — HEVC; the two differ in where the parameter sets live, and " +
-  "Apple devices are picky about it</li>" +
-  "<li><code>av01.0.08M.08</code> — AV1, Main profile, level 4.0, 8-bit</li>" +
-  "<li><code>vp09.00.10.08</code> — VP9</li>" +
-  "<li><code>mp4a.40.2</code> is AAC-LC and <code>mp4a.40.5</code> HE-AAC; Opus and FLAC are plain " +
-  "<code>opus</code> and <code>flac</code></li>" +
-  "</ul>";
+  "The MIME type (formally the media type, registered with IANA) is the standardized machine-readable " +
+  "<code>type/subtype</code> identifier a file uses to declare itself over a network. ";
 
 export const METADATA_TAGS_TEACH =
   "<b>Metadata tags</b> are descriptive labels stored beside the media data. They never affect playback or " +
