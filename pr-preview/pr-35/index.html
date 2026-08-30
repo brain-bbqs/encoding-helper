@@ -84,11 +84,11 @@
         });
       });
     </script>
-    <script type="module" crossorigin src="./assets/index-DYzpYMUJ.js"></script>
+    <script type="module" crossorigin src="./assets/index-CHHeJrhb.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
     <link rel="modulepreload" crossorigin href="./assets/mp4box-BgU8Uk1C.js">
     <link rel="modulepreload" crossorigin href="./assets/ffmpeg-BJaMHjM6.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-tm4D0U-x.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-DDt9sllr.css">
   </head>
   <body>
     <a
@@ -106,6 +106,9 @@
       <img class="brand-logo" src="./assets/encoding-helper-icon-BF9Zd9sA.svg" alt="" width="48" height="48" />
       <h1>Encoding Helper</h1>
       <div class="header-actions">
+        <!-- The Educational switch beside the theme toggle: both are preferences for the whole app,
+             kept together and away from the tab row, which is navigation. -->
+        <div id="eduToggleSlot" class="header-edu"></div>
         <button
           type="button"
           id="themeToggle"
@@ -195,8 +198,7 @@
     <div id="app" style="display: none">
       <!-- The tabs are the file's views; Full Analysis is the one action among them (it bundles every
            view into one document), so it sits apart from the row, against the right edge of the
-           content column, rather than reading as a fourth place to look, with the Educational
-           switch beside it. -->
+           content column, rather than reading as a fourth place to look. -->
       <div class="tab-bar">
         <div class="tabs">
           <button class="tab on" data-tab="inspect" type="button">
@@ -209,9 +211,6 @@
             <span class="tab-icon" aria-hidden="true">⚖️</span> Compare Quality
           </button>
         </div>
-        <!-- The Educational switch: one control for every tab, following them on the same row
-             rather than sitting inside whichever card happens to come first. -->
-        <div id="eduToggleSlot" class="tab-edu"></div>
         <button
           class="tab-action"
           data-tab="analysis"
