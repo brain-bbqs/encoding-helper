@@ -47,15 +47,15 @@ export function containerExplainer(info: ContainerInfo): string {
 export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
   MP4: {
     name: "MP4",
-    fullName: "MPEG-4 Part 14, an ISO Base Media File Format (ISOBMFF) layout",
+    fullName: "MPEG-4 Part 14, an ISO Base Media File Format layout",
     extensions: ".mp4, .m4v, .m4a",
     description:
       "The default delivery container for the web: a tree of boxes (atoms) where <code>moov</code> holds the " +
       "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> tab for this file's layout.",
     video:
       "H.264/AVC (near universal), plus H.265/HEVC, AV1, VP9 and ProRes, which the format accepts but far " +
-      "fewer players handle",
-    audio: "AAC (the usual pairing), MP3, AC-3/E-AC-3, plus Opus and FLAC in newer players",
+      "fewer players handle.",
+    audio: "AAC (the usual pairing), MP3, AC-3/E-AC-3, plus Opus and FLAC in newer players.",
     support:
       "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
   },
@@ -66,8 +66,8 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     description:
       "Structurally the same box tree as MP4 (MP4 was standardized from it), so tools read both the same way. " +
       "It is looser about what may go inside, which is why editing and camera workflows prefer it.",
-    video: "H.264, H.265, ProRes and other intra-only mezzanine codecs, plus uncompressed and animation formats",
-    audio: "AAC, uncompressed PCM, and multi-channel layouts used in production",
+    video: "H.264, H.265, ProRes and other intra-only mezzanine codecs, plus uncompressed and animation formats.",
+    audio: "AAC, uncompressed PCM, and multi-channel layouts used in production.",
     support:
       "Native on Apple platforms and in most editors. Browsers only play it when the payload happens to be a " +
       "codec they support, so .mov files are usually rewrapped to MP4 for the web.",
@@ -79,8 +79,8 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     description:
       "An open, extensible container that deliberately puts almost no restriction on its payload, including " +
       "many tracks, chapters, attachments and subtitle formats in one file.",
-    video: "essentially anything: H.264, H.265, AV1, VP9, VP8, ProRes, FFV1 and more",
-    audio: "AAC, Opus, Vorbis, FLAC, MP3, AC-3, PCM and others",
+    video: "Essentially anything: H.264, H.265, AV1, VP9, VP8, ProRes, FFV1 and more.",
+    audio: "AAC, Opus, Vorbis, FLAC, MP3, AC-3, PCM and others.",
     support:
       "Great for archival and playback in VLC/mpv, but browsers do not play .mkv directly; only its WebM " +
       "subset is supported.",
@@ -92,8 +92,8 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     description:
       "Matroska trimmed down to royalty-free codecs so browsers can guarantee playback. The file structure is " +
       "Matroska; the restriction is on which codecs may appear.",
-    video: "VP8, VP9 and AV1 only",
-    audio: "Vorbis and Opus only",
+    video: "VP8, VP9 and AV1 only.",
+    audio: "Vorbis and Opus only.",
     support: "Plays in Chrome, Firefox and Edge; Safari support depends on the codec and the device.",
   },
   MP3: {
@@ -103,8 +103,8 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     description:
       "Barely a container at all: a bare sequence of audio frames, with tags bolted on at the front or back as " +
       "ID3 blocks. There is no index, so players estimate seek positions from the bitrate.",
-    video: "none, this is an audio-only format",
-    audio: "MP3 only",
+    video: "None, this is an audio-only format.",
+    audio: "MP3 only.",
     support: "Universal.",
   },
   WAVE: {
@@ -114,8 +114,8 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     description:
       "A simple RIFF chunk list, almost always holding uncompressed samples. Metadata lives in an optional " +
       "<code>INFO</code> chunk.",
-    video: "none, this is an audio-only format",
-    audio: "uncompressed PCM in the common case; a few compressed payloads are accepted but rare",
+    video: "None, this is an audio-only format.",
+    audio: "Uncompressed PCM in the common case; a few compressed payloads are accepted but rare.",
     support: "Universal, at the cost of very large files.",
   },
   Ogg: {
@@ -125,8 +125,8 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     description:
       "An open container built around interleaved pages, with tags stored as Vorbis-style comments in each " +
       "stream's header rather than in one global block.",
-    video: "Theora, and VP8 in some encoders",
-    audio: "Vorbis, Opus and FLAC",
+    video: "Theora, and VP8 in some encoders.",
+    audio: "Vorbis, Opus and FLAC.",
     support: "Supported by Chrome and Firefox; the Opus-in-Ogg pairing is the common modern use.",
   },
   FLAC: {
