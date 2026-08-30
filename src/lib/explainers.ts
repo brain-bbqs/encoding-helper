@@ -33,10 +33,20 @@ export const CONTAINER_PREAMBLE =
   "be found in an MP4, a MOV (.mov), or a Matroska (.mkv) file. Containers differ in which other codecs they " +
   "allow; not every codec belongs in every container.";
 
-/** What this particular container is, and which codecs it can carry. */
-export function containerExplainer(info: ContainerInfo): string {
+/**
+ * What this particular container is, and which codecs it can carry.
+ *
+ * `atomMapHref` turns the <b>Atom Map</b> a record mentions into a link to wherever the map is on
+ * the page doing the rendering — a section of the Inspect tab, a section of the Full Analysis
+ * document — since the two anchor it under different headings. Left out, the mention stays plain
+ * text rather than pointing somewhere that is not there.
+ */
+export function containerExplainer(info: ContainerInfo, atomMapHref?: string | null): string {
+  const description = atomMapHref
+    ? info.description.replace("<b>Atom Map</b>", `<a href="${atomMapHref}"><b>Atom Map</b></a>`)
+    : info.description;
   return (
-    `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${info.description}` +
+    `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${description}` +
     `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +
     `<b>Audio codecs:</b> ${info.audio}<br>` +
     `<b>Playback:</b> ${info.support}</p>`
@@ -51,7 +61,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     extensions: ".mp4, .m4v, .m4a",
     description:
       "The default delivery container for the web: a tree of boxes (atoms) where <code>moov</code> holds the " +
-      "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> tab for this file's layout.",
+      "sample index and <code>mdat</code> holds the frame bytes. See the <b>Atom Map</b> for this file's layout.",
     video:
       "H.264/AVC (near universal), plus H.265/HEVC, AV1, VP9 and ProRes, which the format accepts but far " +
       "fewer players handle.",

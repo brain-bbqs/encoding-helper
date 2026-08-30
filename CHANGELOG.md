@@ -11,7 +11,8 @@
 - Inspect's cards lead with what they measured, with the teaching text under it, and the page reads in a wider column while the Educational switch is on ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Video Track card reports the file's **Chroma** subsampling, read out of its codec configuration, and its explainer no longer states a format for a file that declares none ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Atom Map stops offering to zoom into a block that already fills the view, which used to grow the breadcrumb without changing the map ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
-- Every figure read out of the file sits on a tint of its own, so a card reads as a row of values rather than loose text ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Every figure read out of the file sits in a card of its own, the recessed panel the demo tiles use, with strings out of the file set as code ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The container explainer's mention of the **Atom Map** links to it, on the page and in the document ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Teach boxes carry a mark for what they are about — 🎥 for this file's container, 🎨 for chroma subsampling, 🚀 for faststart — rather than 💡 throughout ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal

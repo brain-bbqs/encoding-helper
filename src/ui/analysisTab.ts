@@ -11,7 +11,7 @@
 // State-gathering lives here; how a section is drawn lives in lib/analysisDoc.ts. Sections are
 // rebuilt on every visit to the tab, since the seeking test and the two encode tabs add to them.
 
-import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
+import { buildAnalysisDocument, renderSectionsToMarkdown, slugify, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { describeContainer } from "../lib/containerKb";
@@ -96,7 +96,7 @@ function overviewSection(): AnalysisSection {
   const blocks: AnalysisBlock[] = [{ kind: "prose", html: CONTAINER_PREAMBLE }];
   // What this file's container is, which the page carries in this same card. It names the container
   // in its first words, so there is no "Type" row saying it again.
-  if (info) blocks.push({ kind: "prose", html: containerExplainer(info) });
+  if (info) blocks.push({ kind: "prose", html: containerExplainer(info, "#" + slugify(ATOM_MAP_TITLE)) });
   blocks.push(
     {
       kind: "kv",
@@ -236,11 +236,14 @@ function metadataTagsSection(): AnalysisSection | null {
 // report printed is gone: it was pages of offsets that only ever restated what the map draws, and a
 // fragmented recording turned it into a hundred of them. Each block carries its own offset and size
 // as a title instead.
+/** Named once: the container explainer above links to this section by its slugified title. */
+const ATOM_MAP_TITLE = "MP4 Atom Map";
+
 function atomMapSection(): AnalysisSection | null {
   const map = renderStaticAtomMap(state.boxes, DOCUMENT_WIDTH_PX);
   if (!map) return null;
   return {
-    title: "MP4 Atom Map",
+    title: ATOM_MAP_TITLE,
     blocks: [
       { kind: "prose", html: ATOM_STRUCTURE_TEACH },
       {

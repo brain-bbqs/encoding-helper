@@ -99,7 +99,11 @@ function renderOverviewSection(): HTMLDivElement {
   // file's container in particular is (a card of its own until it folded in here).
   overview.append(teachBox(CONTAINER_PREAMBLE, "📦"));
   const containerInfo = describeContainer(state.format);
-  if (containerInfo) overview.append(teachBox(containerExplainer(containerInfo), "🎥"));
+  // The id mountInspectToc slugifies the atom card's own heading into, which is what its entry in
+  // the "On this page" nav links to as well.
+  if (containerInfo) {
+    overview.append(teachBox(containerExplainer(containerInfo, "#mp4-box-atom-structure"), "🎥"));
+  }
 
   // Metadata Tags folds into this card rather than getting one of its own: it is more of this same
   // file-overview information, not a separate finding.
