@@ -4,7 +4,7 @@
 // go and look at.
 
 import { fold, gridItem, h, svgEl, teachBox } from "../lib/dom";
-import { GOP_HISTOGRAM_CAPTION, GOP_TEACH, SEEK_SCATTER_CAPTION, SEEK_TEST_INTRO } from "../lib/explainers";
+import { GOP_TEACH, SEEK_SCATTER_CAPTION, SEEK_TEST_INTRO } from "../lib/explainers";
 import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
@@ -48,17 +48,16 @@ export function renderSeekTab(panel: HTMLElement): void {
   bWrap.append(bBadge);
   sec.append(bWrap);
 
-  if (gop.length > 1) {
-    sec.append(renderGopHistogram(gop));
-    sec.append(h("div", "progress-label", GOP_HISTOGRAM_CAPTION));
-  }
+  if (gop.length > 1) sec.append(renderGopHistogram(gop));
   // What a GOP is, under this file's own: the card leads with the measurement, like the others.
   sec.append(teachBox(GOP_TEACH, "🔑"));
 
   // The seeking test lives in the same card rather than one of its own: what nearest-keyframe
   // distance costs to seek to is the GOP structure's consequence, not a separate finding.
   sec.append(h("h3", null, "Empirical Seeking Test"));
-  sec.append(h("div", null, SEEK_TEST_INTRO));
+  // Set as a teach box like every other explanation on the page, rather than as bare body text in
+  // its own size.
+  sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
   const nField = h("div", "field");
@@ -81,7 +80,7 @@ export function renderSeekTab(panel: HTMLElement): void {
   seekProgress.id = "seekProgress";
   seekProgress.append(h("div", "fill"));
   sec.append(seekProgress);
-  const seekResultsWrap = h("div");
+  const seekResultsWrap = h("div", "seek-results");
   seekResultsWrap.id = "seekResultsWrap";
   sec.append(seekResultsWrap);
   panel.append(sec);

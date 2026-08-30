@@ -84,8 +84,9 @@ els.themeToggle.addEventListener("click", () => {
 });
 
 // Teaching material — the "teach" boxes and the ⓘ info-icon popovers — is on by default and
-// remembered across reloads. The switch sits in the tab bar, beside Full Analysis: one control for
-// every tab, outside the panels it rebuilds, so it is mounted once here rather than by renderAll.
+// remembered across reloads. The switch sits in the header beside the light/dark toggle: one
+// preference control for the whole app, outside the panels it rebuilds, so it is mounted once here
+// rather than by renderAll.
 els.eduToggleSlot.append(renderEducationalToggle());
 // Flipping it rebuilds every tab from scratch, so a panel not currently showing still picks up the
 // change next time it is visited.

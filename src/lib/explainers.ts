@@ -570,9 +570,13 @@ export const GOP_TEACH =
   `(<code>-bf 0</code>) specifically to make random-access seeking fast and predictable for ` +
   `pose-estimation pipelines that jump around a video rather than playing it linearly.</p>`;
 
-/** Under the GOP histogram, on the page and in the document. */
-export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a bar for its frame count)";
+/**
+ * Under the GOP histogram in the Full Analysis document. The page draws no caption of its own: the
+ * bars sit under a heading that already names them, and hovering one reports its own frame count.
+ */
+export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval";
 
+/** What the seeking test measures, above its controls on the page and in the document. */
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";

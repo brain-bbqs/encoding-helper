@@ -312,8 +312,9 @@ h1 {
    test-accessible — the same shape clip-extractor's SLEAP-annotations switch and bbqs-uploader's
    remote-destination switch use, rather than another button. Carries the same 🎓 icon as the "Learn
    more about codec parameters" goal in the subtitle, so the control that hides every "teach" box and
-   ⓘ popover reads as tied back to that goal. One fixture in the tab bar (.tab-edu), beside the Full
-   Analysis button, rather than one per card — see ui/educationalToggle.ts. */
+   ⓘ popover reads as tied back to that goal. One fixture in the header (.header-edu), beside the
+   light/dark toggle it is a sibling preference to, rather than one per card — see
+   ui/educationalToggle.ts. */
 .edu-toggle {
   display: inline-flex;
   align-items: center;
@@ -329,12 +330,9 @@ h1 {
 .edu-toggle-icon {
   font-size: 15px;
 }
-/* Follows the tabs on the same row, separated from them by the bar's own gap: the switch belongs to
-   the views, and Full Analysis keeps the right edge to itself. */
-.tab-edu {
+.header-edu {
   display: flex;
   align-items: center;
-  padding: 8px 0;
 }
 input[type="checkbox"].switch {
   appearance: none;
@@ -1115,6 +1113,12 @@ details.teach-more summary {
 }
 .hist .bar.tall {
   background: var(--warn);
+}
+
+/* The seeking test's results, spaced off the Run button above them; only once a run has something
+   to show, since an empty wrap would otherwise pad the card's bottom. */
+.seek-results:not(:empty) {
+  margin-top: 14px;
 }
 
 /* Seek scatter plot (built in src/ui/seekTab.ts; colors live here so it follows the theme) */
@@ -2340,6 +2344,11 @@ table.data.matrix-table th.matrix-row-head {
   flex-shrink: 0;
 }
 @media (max-width: 700px) {
+  /* The header has the title, the logo and two controls to fit: the switch keeps its 🎓 and its
+     tooltip, and drops the word, rather than wrapping the title onto a second line. */
+  .header-edu .edu-toggle-label {
+    display: none;
+  }
   .consent-banner {
     align-items: flex-start;
     flex-direction: column;

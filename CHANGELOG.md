@@ -19,7 +19,8 @@
 - The Atom Map drops the teach box describing the box tree and how to read the map, both of which the container overview and the readout under the map already say ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Each figure card is now as wide as its own label and value, rather than taking a fixed column share that left short readings in mostly empty cards ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Inspect reads overview, video track, atom map, GOP, bitrate, audio: the GOP card follows the map and the audio track comes last, in the document too ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
-- The Educational switch sits in the tab bar, after the tabs, as one control for the app rather than in the top corner of the first card on two tabs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Educational switch sits in the header beside the light/dark toggle, one preference control for the app rather than one in the first card of two tabs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The seeking test explains itself in a teach box like every other card, its results are spaced off the Run button, and the GOP histogram drops its caption ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 
