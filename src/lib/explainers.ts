@@ -581,8 +581,11 @@ export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";
 
-/** Under the seeking test's scatter, on the page and in the document. */
-export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
+/**
+ * Under the seeking test's scatter in the Full Analysis document. The page draws no caption of its
+ * own: the plot's own axes name both quantities, and hovering a point reports its timestamp.
+ */
+export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time";
 
 // --- Reencode with FFmpeg · the command builder, whose settings Compare Quality sweeps ---
 

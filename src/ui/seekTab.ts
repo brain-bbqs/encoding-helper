@@ -4,7 +4,7 @@
 // go and look at.
 
 import { fold, gridItem, h, svgEl, teachBox } from "../lib/dom";
-import { GOP_TEACH, SEEK_SCATTER_CAPTION, SEEK_TEST_INTRO } from "../lib/explainers";
+import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
@@ -164,10 +164,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   wrap.append(g);
 
   const scatter = renderSeekScatter(results);
-  if (scatter) {
-    wrap.append(h("div", "progress-label", SEEK_SCATTER_CAPTION));
-    wrap.append(scatter);
-  }
+  if (scatter) wrap.append(scatter);
 
   // The summary figures and the scatter above are what a run is read for; a hundred sampled
   // timestamps of raw rows underneath them would bury the next section, so the table folds away
