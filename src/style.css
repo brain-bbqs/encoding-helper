@@ -34,6 +34,10 @@
   --chip-bg: #e7ebf7;
   --chip-text: #5b6478;
   --code-text: #1f2b52;
+  /* Behind a value set as code, inside the recessed card that carries it: a shade away from that
+     card in whichever direction the theme has room for — up into white here, down into near-black
+     in the dark theme, where --field sat a hair off --sunken and the inset all but vanished. */
+  --code-bg: #ffffff;
   --tab-bg: #ffffff;
   --teach-bg: #eef2ff;
   --teach-text: #333a4d;
@@ -90,6 +94,7 @@
     --chip-bg: #333a54;
     --chip-text: #aaaaaa;
     --code-text: #c9d6ff;
+    --code-bg: #08080f;
     --tab-bg: #1a1a2e;
     --teach-bg: #1a1a2e;
     --teach-text: #bbbbbb;
@@ -141,6 +146,7 @@
   --chip-bg: #333a54;
   --chip-text: #aaaaaa;
   --code-text: #c9d6ff;
+  --code-bg: #08080f;
   --tab-bg: #1a1a2e;
   --teach-bg: #1a1a2e;
   --teach-text: #bbbbbb;
@@ -623,9 +629,10 @@ label.field-label {
 .grid .item .val.sm {
   display: inline-block;
   padding: 2px 7px;
-  margin-left: -7px;
+  margin-left: -8px;
+  border: 1px solid var(--border-soft);
   border-radius: 5px;
-  background: var(--field);
+  background: var(--code-bg);
   font-size: 13px;
   font-family: Monaco, Consolas, monospace;
   font-weight: 400;
