@@ -802,7 +802,7 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Run This Setting with ffmpeg"));
-  sec.append(teachBox(selectedCommandTeach(describeSettings(cell.combo))));
+  sec.append(teachBox(selectedCommandTeach(describeSettings(cell.combo)), "⌨️"));
   const cmdPre = h("pre", "cmd", formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info)));
   sec.append(cmdPre);
   const copyBtn = h("button", "btn sm", "Copy Command");

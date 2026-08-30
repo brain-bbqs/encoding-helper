@@ -48,7 +48,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const builderHead = h("div", "section-head");
   builderHead.append(h("h2", null, "FFmpeg Command Builder"), renderEducationalToggle());
   builderSec.append(builderHead);
-  builderSec.append(teachBox(REENCODE_INTRO));
+  builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
 
   const form = h("div");
   form.append(
@@ -216,7 +216,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
 function sampleRunSection(vt: TrackInfo): HTMLElement[] {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Try It on a Sample"));
-  sec.append(teachBox(SAMPLE_RUN_INTRO));
+  sec.append(teachBox(SAMPLE_RUN_INTRO, "✂️"));
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
   const { nodes, ui } = runControls("Run Comparison");

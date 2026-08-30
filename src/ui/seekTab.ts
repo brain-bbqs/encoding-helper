@@ -53,7 +53,7 @@ export function renderSeekTab(panel: HTMLElement): void {
     sec.append(h("div", "progress-label", GOP_HISTOGRAM_CAPTION));
   }
   // What a GOP is, under this file's own: the card leads with the measurement, like the others.
-  sec.append(teachBox(GOP_TEACH));
+  sec.append(teachBox(GOP_TEACH, "🔑"));
 
   // The seeking test lives in the same card rather than one of its own: what nearest-keyframe
   // distance costs to seek to is the GOP structure's consequence, not a separate finding.

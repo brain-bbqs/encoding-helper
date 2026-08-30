@@ -180,10 +180,7 @@ export const OVERALL_BITRATE_INFO =
   "averaged across the entire file. It counts the video, audio, and the container's own overhead, " +
   "so it always exceeds the sum of the individual stream bitrates.";
 
-/**
- * What the MIME type's <code>codecs</code> parameter is saying. Long enough to read as a teach box
- * under the overview's figures rather than from an ⓘ, which is for a sentence or two.
- */
+/** What the MIME type is, from the ⓘ beside the readout in the overview. */
 export const MIME_TYPE_INFO =
   "The MIME type (formally the media type, registered with IANA) is the standardized machine-readable " +
   "<code>type/subtype</code> identifier a file uses to declare itself over a network. ";

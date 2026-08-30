@@ -517,7 +517,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "Full Analysis"));
-  sec.append(teachBox(ANALYSIS_PANEL_INTRO));
+  sec.append(teachBox(ANALYSIS_PANEL_INTRO, "📄"));
 
   const actions = h("div", "load-actions");
   const pdfBtn = h("button", "btn", "Save as PDF");

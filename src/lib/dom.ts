@@ -165,19 +165,23 @@ export function escapeHtml(text: string): string {
 }
 
 /**
- * A left-accented "teach" callout box, marked with the same 💡 the Educational switch and the
- * "Learn more about codec parameters" goal carry, so every explainer reads as tied back to the one
- * control that hides it. `html` is trusted, author-authored explainer markup. Rendered empty and
- * hidden (rather than returning `null`) when the educational toggle is off, so every call site can
- * keep appending its result unconditionally.
+ * A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup.
+ * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
+ * every call site can keep appending its result unconditionally.
+ *
+ * `mark` is the emoji in the gutter: 💡 by default, the same one the Educational switch and the
+ * "Learn more about codec parameters" goal carry, so an unmarked box still reads as tied back to
+ * the control that hides it. A box about one particular thing says so instead — 🎥 for what this
+ * file's container is, 🎨 for chroma subsampling — which gives a card of stacked boxes something
+ * to tell them apart by at a glance.
  */
-export function teachBox(html: string): HTMLDivElement {
+export function teachBox(html: string, mark = "💡"): HTMLDivElement {
   const d = h("div", "teach");
   if (!isEducationalEnabled()) {
     d.classList.add("edu-off");
     return d;
   }
-  const icon = h("span", "teach-icon", "💡");
+  const icon = h("span", "teach-icon", mark);
   icon.setAttribute("aria-hidden", "true");
   const body = h("div", "teach-body");
   body.innerHTML = html;

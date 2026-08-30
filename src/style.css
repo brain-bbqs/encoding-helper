@@ -620,6 +620,9 @@ label.field-label {
    narrow screen it falls back to the auto-filled columns every other grid uses. */
 .grid.overview-grid {
   grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+  /* Wider than the grid's own 16px: the three short figures sit at their content width, so without
+     it they read as one crowded run rather than four readings. */
+  column-gap: 36px;
 }
 @media (max-width: 820px) {
   .grid.overview-grid {

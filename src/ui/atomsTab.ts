@@ -91,7 +91,7 @@ export function renderAtomMap(panel: HTMLElement): void {
   sec.append(body);
   // What the map is and how to read it, under the map itself: the card leads with this file's
   // layout, the way every other card leads with its figures.
-  sec.append(teachBox(FASTSTART_EXPLAINER), teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));
+  sec.append(teachBox(FASTSTART_EXPLAINER, "🚀"), teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`, "🗺️"));
   panel.append(sec);
   draw();
 }

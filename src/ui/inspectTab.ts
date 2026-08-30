@@ -44,9 +44,9 @@ function metadataTagInfoHtml(key: string, info: MetadataTagInfo | null, value: s
   return head + (valueHint ? `<p>${valueHint}</p>` : "");
 }
 
-export function codecTeachBox(codecInfo: CodecInfo | null | undefined): HTMLDivElement | null {
+export function codecTeachBox(codecInfo: CodecInfo | null | undefined, mark: string): HTMLDivElement | null {
   const html = codecExplainer(codecInfo);
-  return html ? teachBox(html) : null;
+  return html ? teachBox(html, mark) : null;
 }
 
 // Matches the original's leniency: `raw` (format-specific tags mediabunny doesn't normalize) is
@@ -92,16 +92,14 @@ function renderOverviewSection(): HTMLDivElement {
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
     gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
-    gridItem("MIME Type", state.mimeType || "–", { sm: true }),
+    gridItem("MIME Type", state.mimeType || "–", { sm: true, info: MIME_TYPE_INFO }),
   );
   overview.append(og);
-  // The figures first, then what they mean: the container-vs-codec distinction, what this file's
-  // container in particular is (a card of its own until it folded in here), and how to read the
-  // MIME type's codecs parameter — too long for the ⓘ the readout used to carry.
-  overview.append(teachBox(CONTAINER_PREAMBLE));
+  // The figures first, then what they mean: the container-vs-codec distinction, and what this
+  // file's container in particular is (a card of its own until it folded in here).
+  overview.append(teachBox(CONTAINER_PREAMBLE, "📦"));
   const containerInfo = describeContainer(state.format);
-  if (containerInfo) overview.append(teachBox(containerExplainer(containerInfo)));
-  overview.append(teachBox(MIME_TYPE_INFO));
+  if (containerInfo) overview.append(teachBox(containerExplainer(containerInfo), "🎥"));
 
   // Metadata Tags folds into this card rather than getting one of its own: it is more of this same
   // file-overview information, not a separate finding.
@@ -121,7 +119,7 @@ function renderOverviewSection(): HTMLDivElement {
       );
     }
     overview.append(tagsGrid);
-    overview.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT));
+    overview.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT, "🏷️"));
   }
   return overview;
 }
@@ -159,9 +157,9 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   }
   if (vt.hdr) g.append(gridItem("HDR", "Yes"));
   sec.append(g);
-  const vtCodecBox = codecTeachBox(vt.codecInfo);
+  const vtCodecBox = codecTeachBox(vt.codecInfo, "🎞️");
   if (vtCodecBox) sec.append(vtCodecBox);
-  sec.append(teachBox(chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight)));
+  sec.append(teachBox(chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight), "🎨"));
   return sec;
 }
 
@@ -183,14 +181,14 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Video Bitrate Over Time"));
   if (declaresConstant && declared && (!timeline || isEffectivelyConstant(timeline))) {
-    sec.append(teachBox(constantBitrateNote(declared.avgBitrate)));
+    sec.append(teachBox(constantBitrateNote(declared.avgBitrate), "📈"));
     return sec;
   }
   if (!timeline) {
     const g = h("div", "grid");
     g.append(gridItem("Average", fmtBits(vt.bitrate), { info: VIDEO_AVERAGE_INFO }));
     sec.append(g);
-    sec.append(teachBox(TOO_FEW_FRAMES_NOTE));
+    sec.append(teachBox(TOO_FEW_FRAMES_NOTE, "📈"));
     return sec;
   }
 
@@ -203,8 +201,10 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
   );
   sec.append(g);
   sec.append(renderBitrateChart(timeline));
-  sec.append(teachBox(BITRATE_TIMELINE_TEACH));
-  if (declaresConstant && declared) sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline)));
+  sec.append(teachBox(BITRATE_TIMELINE_TEACH, "📈"));
+  if (declaresConstant && declared) {
+    sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline), "📈"));
+  }
   return sec;
 }
 
@@ -223,7 +223,7 @@ function renderAudioTrackSection(): HTMLDivElement | null {
   );
   if (at.codecInfo) at.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
   sec.append(g);
-  const atCodecBox = codecTeachBox(at.codecInfo);
+  const atCodecBox = codecTeachBox(at.codecInfo, "🔊");
   if (atCodecBox) sec.append(atCodecBox);
   return sec;
 }
