@@ -25,13 +25,14 @@ import type { CodecInfo } from "./types";
 /** The container-vs-codec distinction, shown above every container explainer. */
 export const CONTAINER_PREAMBLE =
   "A <b>video container</b> is the wrapper around the media content: the compressed video bitstream, one or " +
-  "more compressed audio tracks, subtitles, chapter markers, and metadata such as timestamps or sync information. +
-  "The <b>codec</b> is what actually compresses the frames. The most widespread codec (H.264) can be found in an MP4, a MOV (.mov), or a " +
-  "Matroska (.mkv) file. Containers differ in which other codecs they allow; not every codec belongs in every container.";
+  "more compressed audio tracks, subtitles, chapter markers, and metadata such as timestamps or sync " +
+  "information. The <b>codec</b> is what actually compresses the frames. The most widespread codec (H.264) can " +
+  "be found in an MP4, a MOV (.mov), or a Matroska (.mkv) file. Containers differ in which other codecs they " +
+  "allow; not every codec belongs in every container.";
 
 /** The Overview's whole-file bitrate, which is not the same as any one track's bitrate. */
 export const OVERALL_BITRATE_INFO =
-  "<b>Overall bitrate</b> is the file size in bytes &times; 8 &divide, where duration is in seconds, " +
+  "<b>Overall bitrate</b> is the file size in bytes &times; 8 &divide; duration, where duration is in seconds, " +
   "averaged across the entire file. It counts the video, audio, and the container's own overhead, " +
   "so it always exceeds the sum of the individual stream bitrates.";
 
