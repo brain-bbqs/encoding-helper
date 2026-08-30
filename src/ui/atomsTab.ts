@@ -130,7 +130,7 @@ function renderMap(
   if (layout.truncated) {
     host.append(h("div", "progress-label", "This file nests further than the map draws; zoom in to see the rest."));
   }
-  host.append(renderLegend());
+  host.append(renderLegend(layout.rects));
   bindLabelSizing(map);
 }
 
@@ -180,7 +180,7 @@ export function renderStaticAtomMap(boxes: BoxNode[], widthPx: number): HTMLDivE
     positionBlock(el, rect, label);
     lanes[rect.depth].append(el);
   });
-  wrap.append(map, renderLegend());
+  wrap.append(map, renderLegend(layout.rects));
   return wrap;
 }
 
@@ -284,16 +284,27 @@ function blockEl(
   return el;
 }
 
-function renderLegend(): HTMLDivElement {
+/**
+ * The key to what is drawn, and only that: a progressive file has no `moof` to explain and, at forty
+ * or so boxes, nothing narrow enough to collapse into a group either — rows for both would be
+ * describing marks that are not on the map. Read off the rects, so it also follows a zoom into one
+ * family's subtree.
+ */
+function renderLegend(rects: AtomRect[]): HTMLDivElement {
   const legend = h("div", "atom-legend");
   const item = (cls: string, name: string, desc: string): HTMLSpanElement => {
     const wrap = h("span", "legend-item");
     wrap.append(h("span", "swatch " + cls), h("span", "legend-label", name), h("span", "legend-desc", desc));
     return wrap;
   };
-  FAMILIES.forEach(([key, desc]) => legend.append(item("f-" + key, key, desc)));
-  legend.append(item("f-other", "other", "brand, padding, user data"));
-  legend.append(item("f-other grouped", "N boxes", "too many to draw, in the color of most of them"));
+  const drawn = new Set(rects.map((rect) => familyClass(rect.family)));
+  FAMILIES.filter(([key]) => drawn.has("f-" + key)).forEach(([key, desc]) =>
+    legend.append(item("f-" + key, key, desc)),
+  );
+  if (drawn.has("f-other")) legend.append(item("f-other", "other", "brand, padding, user data"));
+  if (rects.some((rect) => rect.kind === "group")) {
+    legend.append(item("f-other grouped", "N boxes", "too many to draw, in the color of most of them"));
+  }
   legend.append(h("span", "legend-note", ATOM_LEGEND_NOTE));
   return legend;
 }

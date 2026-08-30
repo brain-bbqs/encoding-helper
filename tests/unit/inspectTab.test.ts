@@ -222,6 +222,47 @@ describe("the Inspect panel", () => {
     expect(crumbLabels()).toEqual(["Whole file", "trak"]);
   });
 
+  // The legend is a key to what is on the map, so a progressive file gets no row for the fragment
+  // index it has none of, nor for the collapsed runs it is far too small to produce.
+  it("keys only the families the map actually drew", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.boxes = [
+      { type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] },
+      {
+        type: "moov",
+        start: 32,
+        size: 900,
+        hdrSize: 8,
+        children: [{ type: "trak", start: 40, size: 800, hdrSize: 8, children: [] }],
+      },
+      { type: "mdat", start: 932, size: 1_100_000, hdrSize: 8, children: [] },
+    ];
+    const panel = document.createElement("div");
+    renderAtomMap(panel);
+    const labels = Array.from(panel.querySelectorAll(".legend-label")).map((el) => el.textContent);
+    expect(labels).toEqual(["moov", "mdat", "other"]);
+  });
+
+  // A fragmented recording is the case those rows are for: thousands of boxes, most of them too
+  // narrow to draw one by one.
+  it("keys the collapsed runs once there are enough boxes to collapse", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.boxes = Array.from({ length: 400 }, (_, i) => ({
+      type: i % 2 === 0 ? "moof" : "mdat",
+      start: i * 100,
+      size: 100,
+      hdrSize: 8,
+      children: [],
+    }));
+    const panel = document.createElement("div");
+    renderAtomMap(panel);
+    const labels = Array.from(panel.querySelectorAll(".legend-label")).map((el) => el.textContent);
+    expect(labels).toContain("N boxes");
+    expect(labels).toContain("moof");
+  });
+
   it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
     const panel = document.createElement("div");
     renderSeekTab(panel);
