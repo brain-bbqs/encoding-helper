@@ -464,20 +464,12 @@ export function chromaSubsamplingExplainer(width: number, height: number, chroma
 
 // --- Inspect · Atom Map ---
 
-/** What the box tree is, shown above the Atom Map and above the document's text listing of it. */
+/** What the box tree is, shown above the Full Analysis document's listing of it. */
 export const ATOM_STRUCTURE_TEACH =
   `An MP4 file is a tree of <b>boxes</b> (also called &ldquo;atoms&rdquo;): <code>ftyp</code> declares the ` +
   `brand/compatibility, <code>moov</code> holds all metadata &amp; the sample index (offsets, sizes, ` +
   `timestamps, keyframe flags), and <code>mdat</code> holds the raw encoded frame bytes it points to. ` +
   `Fragmented MP4s repeat <code>moof</code>+<code>mdat</code> pairs instead of one big <code>mdat</code>.`;
-
-/** The Atom Map's own paragraph about how to read the map; the document has no map to read. */
-export const ATOM_MAP_TEACH =
-  `The map below is that tree on its side: left to right across the file, each row down one level of ` +
-  `nesting. Siblings split their parent's width by how many boxes each subtree holds, so every box gets ` +
-  `room and the whole file is on screen at once however long the video is. Width says nothing about ` +
-  `size — hover a box for its offset and byte count, or click to zoom into it. The <b>Full Analysis</b> ` +
-  `document draws this same map, minus the zooming.`;
 
 /** Why the order of two boxes decides whether the file streams, read against the map that draws them. */
 export const FASTSTART_EXPLAINER =

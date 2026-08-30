@@ -10,7 +10,7 @@
 
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
 import { h, teachBox } from "../lib/dom";
-import { ATOM_MAP_READOUT_HINT, ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH, FASTSTART_EXPLAINER } from "../lib/explainers";
+import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
@@ -83,9 +83,9 @@ export function renderAtomMap(panel: HTMLElement): void {
   };
 
   sec.append(body);
-  // What the map is and how to read it, under the map itself: the card leads with this file's
-  // layout, the way every other card leads with its figures.
-  sec.append(teachBox(FASTSTART_EXPLAINER, "🚀"), teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`, "🗺️"));
+  // Only faststart is taught here. What the box tree is, the container overview already says; how
+  // to read the map, the hint above it and the hover readout do.
+  sec.append(teachBox(FASTSTART_EXPLAINER, "🚀"));
   panel.append(sec);
   draw();
 }
