@@ -72,10 +72,19 @@ export function flattenMetadataTags(): Record<string, unknown> {
   return flatTags;
 }
 
+/**
+ * The overview card's heading, naming the container it is about. The name used to head a card of
+ * its own; it stays in the heading rather than in the grid so it is still there when the educational
+ * text that also names it is switched off, and so loading another file visibly retitles the card.
+ */
+function overviewTitle(): string {
+  return state.format ? `Video Container Overview: ${state.format}` : "Video Container Overview";
+}
+
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
   const head = h("div", "section-head");
-  head.append(h("h2", null, "Video Container Overview"), renderEducationalToggle());
+  head.append(h("h2", null, overviewTitle()), renderEducationalToggle());
   overview.append(head);
   overview.append(teachBox(CONTAINER_PREAMBLE));
   // What this file's container in particular is, which used to be a card of its own below. Its
@@ -83,12 +92,12 @@ function renderOverviewSection(): HTMLDivElement {
   const containerInfo = describeContainer(state.format);
   if (containerInfo) overview.append(teachBox(containerExplainer(containerInfo)));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
-  const og = h("div", "grid");
+  const og = h("div", "grid overview-grid");
   og.append(
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
     gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
-    gridItem("MIME Type", state.mimeType || "–", { sm: true, wide: true, info: MIME_TYPE_INFO }),
+    gridItem("MIME Type", state.mimeType || "–", { sm: true, info: MIME_TYPE_INFO }),
   );
   overview.append(og);
 

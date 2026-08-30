@@ -615,6 +615,21 @@ label.field-label {
   font-weight: 400;
   color: var(--text);
 }
+/* The overview's four figures on one row: the three short ones take the width they need, and the
+   MIME type — long, monospaced, and the only one that varies in length — takes what is left. On a
+   narrow screen it falls back to the auto-filled columns every other grid uses. */
+.grid.overview-grid {
+  grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+}
+@media (max-width: 820px) {
+  .grid.overview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  /* Wrapped onto a row of its own, it takes the whole of it rather than one 150px column. */
+  .grid.overview-grid .item:last-child {
+    grid-column: 1 / -1;
+  }
+}
 .grid .item.wide {
   grid-column: span 2;
 }

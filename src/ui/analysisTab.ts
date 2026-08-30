@@ -110,7 +110,8 @@ function overviewSection(): AnalysisSection {
     { kind: "prose", html: OVERALL_BITRATE_INFO },
     { kind: "prose", html: MIME_TYPE_INFO },
   );
-  return { title: "Video Container Overview", blocks };
+  const title = state.format ? `Video Container Overview: ${state.format}` : "Video Container Overview";
+  return { title, blocks };
 }
 
 function videoTrackSection(vt: TrackInfo): AnalysisSection {

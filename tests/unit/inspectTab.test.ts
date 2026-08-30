@@ -131,7 +131,7 @@ describe("the Inspect panel", () => {
     // Metadata first, then the map of where the bytes are (ahead of bitrate/audio), then the
     // structure that governs seeking, with the seeking test folded into that same card.
     expect(headings).toEqual([
-      "Video Container Overview",
+      "Video Container Overview: mp4",
       "Video Track",
       "MP4 Box / Atom Structure",
       "Video Bitrate Over Time",
@@ -163,8 +163,9 @@ describe("the Inspect panel", () => {
     state.format = "MP4";
     const panel = document.createElement("div");
     renderInspectHead(panel);
+    // The heading names the container, which is what the absorbed card's heading did.
     expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual([
-      "Video Container Overview",
+      "Video Container Overview: MP4",
       "Video Track",
     ]);
     expect(panel.textContent).toContain("MPEG-4 Part 14");
