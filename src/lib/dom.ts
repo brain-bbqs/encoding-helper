@@ -61,6 +61,21 @@ function bindInfoDismiss(): void {
 }
 
 /**
+ * The "i" inside the ⓘ button, drawn rather than typed. A letter sits where its font puts it — an
+ * italic serif "i" leans right of its advance box and hangs its dot high — so the glyph rode
+ * off-centre in the circle, differently on each platform's fallback font. Two shapes in a square
+ * viewBox, with the ink spanning 2 to 8 either way, are centred wherever the icon is drawn.
+ */
+function infoGlyph(): SVGSVGElement {
+  const svg = svgEl("svg", { viewBox: "0 0 10 10", "aria-hidden": "true", focusable: "false" });
+  svg.append(
+    svgEl("circle", { cx: 5, cy: 2.85, r: 0.85 }),
+    svgEl("rect", { x: 4.25, y: 4.6, width: 1.5, height: 3.4, rx: 0.55 }),
+  );
+  return svg;
+}
+
+/**
  * A small ⓘ affordance with a popover explainer. `html` is trusted, author-authored markup; never
  * pass in text read out of a media file without escaping it first.
  */
@@ -71,7 +86,8 @@ export function infoIcon(html: string, label = "More information"): HTMLSpanElem
   if (!isEducationalEnabled()) return h("span", "info edu-off");
   bindInfoDismiss();
   const wrap = h("span", "info");
-  const btn = h("button", "info-btn", "i");
+  const btn = h("button", "info-btn");
+  btn.append(infoGlyph());
   btn.type = "button";
   btn.setAttribute("aria-label", label);
   btn.setAttribute("aria-expanded", "false");

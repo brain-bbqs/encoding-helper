@@ -673,12 +673,14 @@ label.field-label {
   border-radius: 50%;
   background: transparent;
   color: var(--muted);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 10px;
-  font-style: italic;
-  font-weight: 700;
-  line-height: 1;
   cursor: help;
+}
+/* The glyph is drawn (see infoGlyph in lib/dom), so it fills the button's box and takes its color
+   from the button rather than being positioned by a font's own metrics. */
+.info-btn svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }
 .info-btn:hover,
 .info-btn:focus-visible {

@@ -21,6 +21,7 @@
 - Inspect reads overview, video track, atom map, GOP, bitrate, audio: the GOP card follows the map and the audio track comes last, in the document too ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Educational switch sits in the header beside the light/dark toggle, one preference control for the app rather than one in the first card of two tabs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The seeking test explains itself in a teach box like every other card, its results are spaced off the Run button, and both plots drop their captions ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The ⓘ button's "i" is drawn rather than typed, so it sits centred in its circle on every platform instead of wherever the fallback font put it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 
