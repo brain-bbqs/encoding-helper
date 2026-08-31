@@ -706,6 +706,12 @@ function windowDifficultySentence(estimate: SizeEstimate): string {
 
 // --- Compare Quality · the run, the sweep and the command under its grid ---
 
+/** What the frame-rate axis trades, from the ⓘ beside the tick list. */
+export const FRAME_RATE_INFO =
+  "<b>Frame rate</b> is a lever on size that no CRF reaches: half the rate is half the frames to store. " +
+  "It is also the one setting here that throws away moments rather than detail, so a pipeline that tracks " +
+  "or scores frame by frame loses samples, not sharpness.";
+
 // --- Full Analysis ---
 
 /** What the Full Analysis tab gathers, and what the two buttons under it write. */

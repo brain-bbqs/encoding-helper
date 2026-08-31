@@ -117,6 +117,7 @@ describe("cliSettings", () => {
       preset: "superfast",
       scale: 1,
       scaler: "lanczos",
+      fps: null,
     });
   });
 
@@ -153,7 +154,17 @@ describe("matrixAxes", () => {
       presets: ["ultrafast", "fast"],
       scales: [1],
       scalers: ["lanczos"],
+      fpsValues: [null],
     });
+  });
+
+  // A rate is a property of the output like the resolution is, so it multiplies the sweep and each
+  // rate's squares stay distinguishable from the same settings at another rate.
+  it("reports the rates a sweep covered, highest first", () => {
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [null, 15, 7.5]));
+    expect(matrixAxes(cells).fpsValues).toEqual([null, 15, 7.5]);
+    expect(cells).toHaveLength(3);
+    expect(new Set(cells.map((c) => c.combo.key)).size).toBe(3);
   });
 
   it("reports the resolutions and kernels a sweep covered", () => {

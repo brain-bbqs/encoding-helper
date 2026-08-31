@@ -125,6 +125,25 @@ describe("renderCompareTab", () => {
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 = 20 runs");
   });
 
+  // The rate axis starts at the source's own, so a sweep costs what it always did until a reduction
+  // is asked for.
+  it("offers frame rates as an axis, ticked to the source alone", () => {
+    const panel = renderTab();
+    const boxes = axisBoxes(panel, "Frame rates");
+    expect(boxes).toHaveLength(3);
+    expect(boxes.filter((b) => b.checked).map((b) => b.value)).toEqual(["1"]);
+    expect(encodeTest.matrix.fpsFractions).toEqual([1]);
+  });
+
+  it("multiplies the sweep by every rate ticked beyond the source's", () => {
+    const panel = renderTab();
+    const half = axisBoxes(panel, "Frame rates").find((b) => b.value === "0.5")!;
+    half.checked = true;
+    half.dispatchEvent(new Event("change"));
+    expect(encodeTest.matrix.fpsFractions).toEqual([1, 0.5]);
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 × 2 = 40 runs");
+  });
+
   it("records ticked resolutions as the next sweep's coverage, and counts them in the bar", () => {
     const panel = renderTab();
     const half = axisBoxes(panel, "Resolutions").find((b) => b.value === "0.5")!;
@@ -269,7 +288,7 @@ describe("renderCompareTab", () => {
     expect(encodeTest.matrix.scales).toEqual(MATRIX_SCALES);
     expect(encodeTest.matrix.scalers).toEqual(MATRIX_SCALERS);
     expect(axisBoxes(panel, "Quality levels").every((b) => b.checked)).toBe(true);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 9 × 4 × 2 = 288 runs");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 9 × 4 × 2 × 3 = 864 runs");
   });
 });
 

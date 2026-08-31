@@ -8,14 +8,17 @@
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { cmdBlock, h, infoIcon } from "../lib/dom";
-import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { fmtRate } from "../lib/format";
+import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
   bestReductionCell,
   buildMatrixCombos,
   describeSettings,
   evictBeyondBudget,
+  fpsForFraction,
   makeMatrixCells,
+  MATRIX_FPS_FRACTIONS,
   MATRIX_PRESETS,
   MATRIX_QUALITIES,
   MATRIX_RETAINED_BYTES,
@@ -83,12 +86,13 @@ export function renderCompareTab(panel: HTMLElement): void {
   axisSummary.append(h("span", "matrix-settings-gear", "⚙"), h("span", null, "Settings to sweep"));
   const axisCount = h("span", "matrix-settings-count");
   const refreshAxisCount = (): void => {
-    const { qualities, presets, scales, scalers } = encodeTest.matrix;
+    const { qualities, presets, scales, scalers, fpsFractions } = encodeTest.matrix;
     // The two outer axes are left out at one value each, where they multiply the sweep by one and
     // saying so would only make the bar longer.
     const counts = [qualities.length, presets.length];
     if (scales.length > 1) counts.push(scales.length);
     if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
+    if (fpsFractions.length > 1) counts.push(fpsFractions.length);
     // The product is what the run costs, which is the number the factors are read for; a single
     // axis is its own product, so it is left to stand alone.
     const squares = counts.reduce((product, n) => product * n, 1);
@@ -154,6 +158,18 @@ export function renderCompareTab(panel: HTMLElement): void {
         onAxisChange();
       },
       SCALER_INFO,
+    ),
+  );
+  outerRow.append(
+    axisCheckboxes(
+      "Frame rates",
+      MATRIX_FPS_FRACTIONS.map((f) => ({ value: String(f), label: describeFpsFraction(f) })),
+      encodeTest.matrix.fpsFractions.map(String),
+      (values) => {
+        encodeTest.matrix.fpsFractions = values.map(Number);
+        onAxisChange();
+      },
+      FRAME_RATE_INFO,
     ),
   );
   refreshAxisCount();
@@ -277,7 +293,7 @@ function unmeasuredCells(): MatrixCell[] {
 function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
   const matrix = encodeTest.matrix;
   if (matrix.running || encodeTest.running || !unmeasuredCells().length) return;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers);
+  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers, matrixFps());
   const keys = new Set(combos.map((c) => c.key));
   if (combos.length === matrix.cells.length && matrix.cells.every((c) => keys.has(c.combo.key))) return;
   matrix.cells = [];
@@ -306,7 +322,7 @@ function runActionLabel(): string {
 async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
   if (encodeTest.running) return;
   const matrix = encodeTest.matrix;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers);
+  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers, matrixFps());
   if (!combos.length) {
     ui.note.textContent = "Tick at least one quality level and one preset first.";
     return;
@@ -663,6 +679,20 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
 }
 
 /** The stretches the sweep covered, or the one segment it used before several were asked for. */
+/** What the ticked fractions come to for the loaded file: absolute rates, the source's own as null. */
+function matrixFps(): (number | null)[] {
+  const sourceFps = currentVideoInfo()?.fps ?? state.fps;
+  const values = encodeTest.matrix.fpsFractions.map((f) => fpsForFraction(f, sourceFps));
+  return values.length ? values : [null];
+}
+
+/** One tick's label: the source's own rate, or the rate the fraction comes to for this file. */
+function describeFpsFraction(fraction: number): string {
+  const rate = fpsForFraction(fraction, currentVideoInfo()?.fps ?? state.fps);
+  if (rate == null) return "Source";
+  return `${Math.round(fraction * 100)}% (${fmtRate(rate)} fps)`;
+}
+
 function matrixWindows(): SampleWindow[] {
   const matrix = encodeTest.matrix;
   if (matrix.windows.length) return matrix.windows;

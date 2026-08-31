@@ -155,6 +155,8 @@ export interface EncodeSettings {
   scale: number;
   /** The kernel it was downscaled with, meaningless (but carried) at full resolution. */
   scaler: Scaler;
+  /** The frame rate the encode was made at, or null where the source's own rate was kept. */
+  fps: number | null;
 }
 
 /** One square of the matrix — a pair of dropdown settings to encode the segment with. */
@@ -216,6 +218,9 @@ export interface MatrixState {
   /** Ticked kernels, which group the columns. Only ever more than one when a downscale is ticked
    * too, since nothing is resampled at the source's resolution. */
   scalers: Scaler[];
+  /** Ticked frame rates, as fractions of the source's own: 1 is the source, 0.5 every other frame.
+   * Fractions rather than rates, so a tick means the same thing whatever file is loaded. */
+  fpsFractions: number[];
   /** The last sweep's squares, in canonical order; empty before one has been started. */
   cells: MatrixCell[];
   /** The segment the cells were encoded from, which the start/duration fields may have moved off. */

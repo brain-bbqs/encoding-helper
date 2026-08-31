@@ -10,7 +10,7 @@
 // table, so every block is the same width and reads exactly like the grid did before they existed.
 
 import { h } from "../lib/dom";
-import { fmtBytes } from "../lib/format";
+import { fmtBytes, fmtRate } from "../lib/format";
 import { isDownscale } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
@@ -145,13 +145,15 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
  * two-axis table it has always been rather than one captioned "100%" throughout.
  */
 export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
-  const { qualities, presets, scales, scalers } = matrixAxes(opts.cells);
+  const { qualities, presets, scales, scalers, fpsValues } = matrixAxes(opts.cells);
   const byKey = new Map(opts.cells.map((c) => [c.combo.key, c]));
   const width = Math.max(1, presets.length);
   // One block per output actually encoded. Nothing is resampled at the source resolution, so it
   // contributes one block whatever kernels were ticked, and no square anywhere goes unfilled.
-  const blocks = scales.flatMap((scale) =>
-    (isDownscale(scale) ? scalers : scalers.slice(0, 1)).map((scaler) => ({ scale, scaler })),
+  const blocks = fpsValues.flatMap((fps) =>
+    scales.flatMap((scale) =>
+      (isDownscale(scale) ? scalers : scalers.slice(0, 1)).map((scaler) => ({ scale, scaler, fps })),
+    ),
   );
 
   const wrap = h("div", "scroll-x");
@@ -178,10 +180,10 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
     if (blocks.length > 1) tbody.append(blockTitleRow(block, scalers.length > 1, width, band, opts));
     for (const quality of qualities) {
       const row = h("tr", blocks.length > 1 ? "matrix-scale-row" + band : null);
-      const first = byKey.get(comboKey(quality, presets[0], block.scale, block.scaler));
+      const first = byKey.get(comboKey(quality, presets[0], block.scale, block.scaler, block.fps));
       row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
       for (const preset of presets) {
-        const cell = byKey.get(comboKey(quality, preset, block.scale, block.scaler));
+        const cell = byKey.get(comboKey(quality, preset, block.scale, block.scaler, block.fps));
         const td = h("td", "matrix-td");
         if (cell) td.append(renderCell(cell, opts));
         row.append(td);
@@ -194,10 +196,10 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   return wrap;
 }
 
-/** The heading over one block of rows: the resolution it was encoded at, and the kernel that got it
- * there when the sweep tried more than one. */
+/** The heading over one block of rows: the resolution it was encoded at, the kernel that got it
+ * there when the sweep tried more than one, and the rate where that was swept too. */
 function blockTitleRow(
-  block: { scale: number; scaler: Scaler },
+  block: { scale: number; scaler: Scaler; fps: number | null },
   showScaler: boolean,
   width: number,
   band: string,
@@ -207,9 +209,11 @@ function blockTitleRow(
   const th = h("th", "matrix-group-head");
   th.colSpan = width + 1;
   th.append(h("span", "matrix-group-title", opts.scaleLabel?.(block.scale) ?? `${Math.round(block.scale * 100)}%`));
-  // The kernel is a footnote to the resolution rather than a peer of it: it only changes how the
-  // pixels were resampled, and at the source resolution it changed nothing at all.
+  // The kernel and the rate are footnotes to the resolution rather than peers of it: one only
+  // changes how the pixels were resampled, and at the source resolution it changed nothing at all;
+  // the other is absent from every block of a sweep that left the rate alone.
   if (showScaler && isDownscale(block.scale)) th.append(h("span", "matrix-group-note", block.scaler));
+  if (block.fps != null) th.append(h("span", "matrix-group-note", `${fmtRate(block.fps)} fps`));
   row.append(th);
   return row;
 }
