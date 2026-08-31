@@ -249,7 +249,7 @@ function atomMapSection(): AnalysisSection | null {
       {
         kind: "badge",
         tone: state.faststart ? "good" : "bad",
-        text: state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
+        text: state.faststart ? "✓ Fast start" : "✗ Not fast start",
       },
       { kind: "prose", html: FASTSTART_EXPLAINER },
       { kind: "figure", caption: ATOM_MAP_DOC_CAPTION, element: map },

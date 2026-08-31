@@ -154,7 +154,7 @@ describe("the Inspect panel", () => {
     expect(overview.textContent).not.toContain("Faststart");
     const atoms = document.createElement("div");
     renderAtomMap(atoms);
-    expect(atoms.querySelector(".atom-faststart")?.textContent).toBe("✓ Faststart (moov before mdat)");
+    expect(atoms.querySelector(".atom-faststart")?.textContent).toBe("✓ Fast start");
   });
 
   // The container's own card was folded into the overview, and its explainer names the container,

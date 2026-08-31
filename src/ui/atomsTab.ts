@@ -94,11 +94,7 @@ export function renderAtomMap(panel: HTMLElement): void {
 function faststartBadge(): HTMLDivElement {
   const wrap = h("div", "atom-faststart");
   wrap.append(
-    h(
-      "span",
-      "badge " + (state.faststart ? "good" : "bad"),
-      state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
-    ),
+    h("span", "badge " + (state.faststart ? "good" : "bad"), state.faststart ? "✓ Fast start" : "✗ Not fast start"),
   );
   return wrap;
 }
