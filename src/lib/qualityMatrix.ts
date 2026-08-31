@@ -172,25 +172,27 @@ export function buildMatrixCombos(
   const scaleAxis = MATRIX_SCALES.filter((s) => scales.includes(s));
   const scalerAxis = MATRIX_SCALERS.filter((s) => scalers.includes(s));
   const fpsAxis = fpsValues.length ? fpsValues : [null];
+  // One output per rate, resolution and kernel — the properties of the file a square produces, and
+  // the blocks the grid stacks. At the source resolution every kernel is the same encode, so only
+  // the first stands for them.
+  const outputs = fpsAxis.flatMap((fps) =>
+    scaleAxis.flatMap((scale) =>
+      (isDownscale(scale) ? scalerAxis : scalerAxis.slice(0, 1)).map((scaler) => ({ fps, scale, scaler })),
+    ),
+  );
   const combos: MatrixCombo[] = [];
-  for (const fps of fpsAxis) {
-    for (const scale of scaleAxis) {
-      // At the source resolution every kernel is the same encode, so only the first stands for them.
-      const kernels = isDownscale(scale) ? scalerAxis : scalerAxis.slice(0, 1);
-      for (const quality of rows) {
-        for (const scaler of kernels) {
-          for (const preset of cols) {
-            combos.push({
-              key: comboKey(quality, preset, scale, scaler, fps),
-              quality,
-              crf: comboCrf(quality),
-              preset,
-              scale,
-              scaler,
-              fps,
-            });
-          }
-        }
+  for (const { fps, scale, scaler } of outputs) {
+    for (const quality of rows) {
+      for (const preset of cols) {
+        combos.push({
+          key: comboKey(quality, preset, scale, scaler, fps),
+          quality,
+          crf: comboCrf(quality),
+          preset,
+          scale,
+          scaler,
+          fps,
+        });
       }
     }
   }
