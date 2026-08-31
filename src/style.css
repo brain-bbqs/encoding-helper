@@ -599,6 +599,12 @@ label.field-label {
   flex-wrap: wrap;
   gap: 10px 12px;
 }
+/* Forces the cards after it onto a line of their own, where a card grid reads as two groups rather
+   than as one run that happens to wrap (see renderSavingsDetail). */
+.grid-break {
+  flex: 1 0 100%;
+  height: 0;
+}
 .grid .item {
   flex: 0 1 auto;
   /* A card may shrink below its content width — a long value wraps inside it rather than pushing

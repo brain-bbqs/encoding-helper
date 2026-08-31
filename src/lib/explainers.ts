@@ -647,19 +647,6 @@ export const UPSCALE_VIEW_INFO =
   "better view for judging what a tracking pipeline has left to work with. <b>Smooth</b> interpolates " +
   "between them, closer to what a player would put up. Neither changes the encode or its size.";
 
-export const ORIGINAL_SEGMENT_INFO =
-  "What the <i>source</i> spends on the same seconds the encode covered, counted on the same terms: video " +
-  "frames, plus the stretch's share of the audio track and the container's overhead. This is what the " +
-  "encoded segment is compared against.";
-
-export const PROJECTED_SIZE_INFO =
-  "The source's size times the ratio the snippet came to, i.e. what the whole file would come to at these " +
-  "settings if the rest of it compresses like the sampled part. An extrapolation, not a measurement.";
-
-export const SAMPLED_WINDOW_INFO =
-  "How much of the file this estimate actually saw. The smaller it is, the more the projection leans on those " +
-  "seconds being typical of the rest; a longer segment narrows the range.";
-
 /** Why a segment's size is the comparable number, beside the size the encode came to. */
 export const ENCODED_SEGMENT_NOTE =
   "Only the segment above was encoded, so its size is not the whole file's — it is what that stretch of " +
@@ -738,24 +725,6 @@ export const MATRIX_CACHE_INFO =
   "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination for " +
   "the A/B window. Untick to measure everything again, for fresh encoding times or a file changed under the " +
   "same name.</p>";
-
-/** Why "best" is a size ranking and nothing more. */
-export const MATRIX_BEST_INFO =
-  "<b>Best</b> here means the smallest encode, and only that: no picture-quality metric is computed, so the " +
-  "highest CRF wins nearly every sweep, and the lowest resolution wins outright when one is ticked. Read the " +
-  "grid, not the star, which has no idea what your tracking needs.";
-
-/**
- * Heads the ffmpeg command for the square in the A/B window. `settings` is the app's own description
- * of the combination (see describeSettings), never text read out of a file.
- */
-export function selectedCommandTeach(settings: string): string {
-  return (
-    `What the square in the A/B window above — <b>${settings}</b> — comes to as an ffmpeg command, over the ` +
-    `whole file rather than the sampled seconds. Everything the sweep does not vary (keyframe interval, ` +
-    `B-frames, audio, faststart) is taken from the <b>Reencode with FFmpeg</b> tab as it is set there now.`
-  );
-}
 
 // --- Full Analysis ---
 

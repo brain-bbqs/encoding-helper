@@ -311,7 +311,7 @@ describe("choosing a square", () => {
 
   function cellButton(panel: HTMLElement, cell: MatrixCell): HTMLButtonElement {
     return Array.from(panel.querySelectorAll<HTMLButtonElement>("button.matrix-cell")).find((b) =>
-      b.title.startsWith(describeSettings(cell.combo)),
+      (b.getAttribute("aria-label") ?? "").startsWith(describeSettings(cell.combo)),
     )!;
   }
 
