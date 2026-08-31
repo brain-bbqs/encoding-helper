@@ -8,17 +8,17 @@
 
 import { isDownscale } from "../lib/cliCommand";
 import { cmdBlock, h, teachBox } from "../lib/dom";
-import { REENCODE_INTRO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
 import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
 import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
-  parseScale,
+  bindResolutionControls,
   parseScaler,
   refreshCliCommand,
-  scaleOptions,
+  resolutionFields,
   scalerOptions,
   syncQualityControls,
 } from "./cliControls";
@@ -70,7 +70,8 @@ export function renderEncodeTab(panel: HTMLElement): void {
   form.append(crfField);
 
   const row1 = h("div", "row");
-  row1.append(fieldSelect("cliScale", "Resolution", scaleOptions(info), String(cli.scale), RESOLUTION_INFO));
+  const { scaleField, customField } = resolutionFields(info);
+  row1.append(scaleField, customField);
   const cliScalerField = fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
   // Shown at every resolution, the way the sweep lists its kernels, but only live where something is
   // being resampled: at full resolution there is nothing for a kernel to do.
@@ -165,10 +166,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
     cli.preset = (e.target as HTMLSelectElement).value as typeof cli.preset;
     syncQualityControls();
   });
-  document.getElementById("cliScale")?.addEventListener("change", (e) => {
-    cli.scale = parseScale((e.target as HTMLSelectElement).value);
-    syncQualityControls();
-  });
+  bindResolutionControls();
   document.getElementById("cliScaler")?.addEventListener("change", (e) => {
     cli.scaler = parseScaler((e.target as HTMLSelectElement).value);
     syncQualityControls();

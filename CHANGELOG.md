@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2
+
+#### 🚀 Enhancement
+
+- The Reencode tab's Resolution field gains a Custom % entry, for a downsampling target the fixed ladder doesn't offer ([#36](https://github.com/brain-bbqs/encoding-helper/pull/36))
+
 ## 1.3.1
 
 #### 🚀 Enhancement
