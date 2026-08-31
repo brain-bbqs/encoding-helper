@@ -78,7 +78,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
       "cliPreset",
       "x264 Preset",
       ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map(
-        (p) => [p, p + (p === "superfast" ? " (default, sleap-io)" : "")] as [string, string],
+        (p) => [p, p + (p === "superfast" ? " (default)" : "")] as [string, string],
       ),
       cli.preset,
       X264_PRESET_INFO,
