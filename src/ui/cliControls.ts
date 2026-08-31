@@ -3,7 +3,6 @@
 
 import {
   buildFfmpegArgs,
-  computeGop,
   DEFAULT_SCALER,
   describeScale,
   encodedFileName,
@@ -26,11 +25,6 @@ export function refreshCliCommand(): void {
   const args = buildFfmpegArgs(cli, info, undefined, encodedFileName(state.format));
   const cmdPre = document.getElementById("cmdPre");
   if (cmdPre) cmdPre.textContent = formatCliCommand(args);
-  const hint = document.getElementById("gopHint");
-  if (hint) {
-    const fps = cli.fps || info.fps || 30;
-    hint.textContent = `GOP size = round(interval × fps) = round(${cli.keyframeInterval} × ${fps.toFixed(2)}) = ${computeGop(cli, fps)} frames`;
-  }
 }
 
 /** The resolution dropdown's entries, labelled with what each comes out at for the loaded file, so
@@ -70,12 +64,12 @@ export function syncQualityControls(): void {
   if (presetSel) presetSel.value = cli.preset;
   const scaleSel = document.getElementById("cliScale") as HTMLSelectElement | null;
   if (scaleSel) scaleSel.value = String(cli.scale);
-  // The kernel only reaches the command when something is being resampled, so the field goes away
-  // at full resolution rather than sitting there setting nothing.
+  // The kernel only reaches the command when something is being resampled, so at full resolution the
+  // field is there but inert rather than gone.
   const scalerSel = document.getElementById("cliScaler") as HTMLSelectElement | null;
   if (scalerSel) {
     scalerSel.value = cli.scaler;
-    if (scalerSel.parentElement) scalerSel.parentElement.style.display = isDownscale(cli.scale) ? "" : "none";
+    scalerSel.disabled = !isDownscale(cli.scale);
   }
   refreshCliCommand();
 }

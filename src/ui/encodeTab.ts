@@ -6,7 +6,7 @@
 // only useful next to the command that setting comes to, and the whole-file encode is that same
 // command over the whole file rather than a separate feature.
 
-import { computeGop, isDownscale } from "../lib/cliCommand";
+import { isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
@@ -69,7 +69,9 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const row1 = h("div", "row");
   row1.append(fieldSelect("cliScale", "Resolution", scaleOptions(info), String(cli.scale), RESOLUTION_INFO));
   const cliScalerField = fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
-  cliScalerField.style.display = isDownscale(cli.scale) ? "" : "none";
+  // Shown at every resolution, the way the sweep lists its kernels, but only live where something is
+  // being resampled: at full resolution there is nothing for a kernel to do.
+  cliScalerField.querySelector("select")?.toggleAttribute("disabled", !isDownscale(cli.scale));
   row1.append(cliScalerField);
   row1.append(
     fieldSelect(
@@ -84,14 +86,6 @@ export function renderEncodeTab(panel: HTMLElement): void {
   );
   row1.append(fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1));
   form.append(row1);
-  const gopHint = h(
-    "div",
-    "field hint",
-    `GOP size = round(interval × fps) = round(${cli.keyframeInterval} × ${(info.fps || 30).toFixed(2)}) = ${computeGop(cli, info.fps || 30)} frames`,
-  );
-  gopHint.id = "gopHint";
-  form.append(gopHint);
-
   const row2 = h("div", "row");
   const bfField = h("div", "field");
   const bfLabel = h("label");

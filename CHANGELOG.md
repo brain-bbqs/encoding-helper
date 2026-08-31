@@ -29,6 +29,7 @@
 - Progress notes no longer narrate the bar beside them: no "Encoding… 45%", no "Done.", and no line while a square re-encodes for the A/B window ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Compare Quality drops the ⓘ on the best square, the teach box over the selected square's command, and a finished square's tooltip, which repeated its own face ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The savings strip drops its projected-across line, and **Estimate Detail** reads as two lines — what was sampled, then what it projects to — with no ⓘ of their own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The command builder drops the GOP equation and the flag notes on its checkboxes, and keeps the **Scaler** field on show at every resolution, inert until one resamples ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 

@@ -616,8 +616,7 @@ export const X264_PRESET_INFO =
   "<b>Preset</b> sets how hard x264 works to compress, not how good the picture looks: that is CRF's job. At " +
   "the same CRF a slower preset reaches the same quality in a smaller file, and takes far longer to do it." +
   "<p>The returns fall off sharply, and the in-browser encoder is single-threaded, so the slowest presets can " +
-  "take minutes over a few seconds of video. Hence <code>superfast</code> as the default; run the command " +
-  "natively to use the slow end.</p>";
+  "take minutes over a few seconds of video.</p>";
 
 /** Why resolution is its own knob rather than something CRF already covers, from the ⓘ beside the
  * field in both tabs that offer it. */

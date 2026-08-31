@@ -542,12 +542,6 @@ label.field-label {
 .field .field-head label.field-label {
   margin-bottom: 0;
 }
-.field .hint {
-  color: var(--faint);
-  font-size: 12px;
-  margin-top: -6px;
-  margin-bottom: 8px;
-}
 .row {
   display: flex;
   gap: 16px;
