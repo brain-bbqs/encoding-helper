@@ -24,6 +24,8 @@
 - The ⓘ button's "i" is drawn rather than typed, so it sits centred in its circle on every platform instead of wherever the fallback font put it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The two Copyright atoms are told apart by label, and the © atoms no longer repeat what the copy above the tag table already says ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Reencode tab drops the teach boxes above **Try It on a Sample** and the whole-file encode ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The sample run's **Side-by-Side** comparison sits in the **Try It on a Sample** card that produced it, rather than in a card of its own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- A saved encode is named for what it went through — `video-reencoded.mp4`, or `video-transcoded.mp4` where the container changed — and the command says the same ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 

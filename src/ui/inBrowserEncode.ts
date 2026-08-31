@@ -6,7 +6,7 @@
 // command above stays the recommendation for a full-length recording or a whole dataset.
 
 import { fetchFile } from "@ffmpeg/util";
-import { buildFfmpegArgs } from "../lib/cliCommand";
+import { buildFfmpegArgs, encodedFileName } from "../lib/cliCommand";
 import { h } from "../lib/dom";
 import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { downloadBlob, extOf, pickSaveTarget } from "../lib/save";
@@ -27,11 +27,9 @@ export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
 }
 
 /**
- * What the button offers to do, named for what actually happens to this file.
- *
- * The output is always an MP4, so a source that is already one comes out in the container it went
- * in: that is a reencode. Anything else (a .mov, say) is being moved into a different container as
- * well as compressed again, which is what "transcode" names.
+ * What the button offers to do, named for what actually happens to this file — the same rule that
+ * names the output file, in cliCommand's encodedFileName: an MP4 that comes back an MP4 was
+ * reencoded, and any other source changed container on the way, which is a transcode.
  */
 function encodeVerb(): "Reencode" | "Transcode" {
   return state.format === "MP4" ? "Reencode" : "Transcode";
@@ -57,7 +55,7 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     if (!state.source) throw new Error("No video loaded");
     await ensureFfmpegLoaded();
     const inputName = "in" + extOf(state.source.name);
-    const outputName = "out.reencoded.mp4";
+    const outputName = encodedFileName(state.format);
     box.note.textContent = "Writing input to virtual filesystem…";
     const inputData = await fetchFile(state.file ?? state.source.url ?? undefined);
     const args = buildFfmpegArgs(cli, info, inputName, outputName);
@@ -65,13 +63,13 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     box.note.textContent = "Encoding (single-threaded, so this can take a while)…";
     const { data } = await runFfmpegEncode(args, inputName, inputData, outputName);
     const blob = new Blob([data], { type: "video/mp4" });
-    const baseName = (state.source.name || "video").replace(/\.[^.]+$/, "");
-    const target = await pickSaveTarget(baseName + ".reencoded.mp4");
+    const saveName = encodedFileName(state.format, (state.source.name || "video").replace(/\.[^.]+$/, ""));
+    const target = await pickSaveTarget(saveName);
     if (target && target.kind === "stream") {
       await target.writable.write(blob);
       await target.writable.close();
     } else {
-      downloadBlob(blob, baseName + ".reencoded.mp4");
+      downloadBlob(blob, saveName);
     }
     showReencodeResult(box, state.source.size, blob.size);
   } catch (err) {

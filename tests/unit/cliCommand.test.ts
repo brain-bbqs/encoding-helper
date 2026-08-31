@@ -4,6 +4,7 @@ import {
   computeGop,
   CRF_MAP,
   describeScale,
+  encodedFileName,
   formatCliCommand,
   isDownscale,
   scaledDimensions,
@@ -122,7 +123,21 @@ describe("buildFfmpegArgs", () => {
     );
     const defaults = buildFfmpegArgs(baseCli(), info);
     expect(defaults).toContain("in.mp4");
-    expect(defaults).toContain("out.reencoded.mp4");
+    expect(defaults).toContain("video-reencoded.mp4");
+  });
+});
+
+describe("encodedFileName", () => {
+  // The verb is the whole point of the name: an MP4 that comes back an MP4 was reencoded, and
+  // anything else changed container on the way, which is a transcode.
+  it("names the file for the operation the source is going through", () => {
+    expect(encodedFileName("MP4")).toBe("video-reencoded.mp4");
+    expect(encodedFileName("MOV")).toBe("video-transcoded.mp4");
+    expect(encodedFileName(null)).toBe("video-transcoded.mp4");
+  });
+
+  it("keeps the source's own name where there is one", () => {
+    expect(encodedFileName("MP4", "cage-4-2026-08-30")).toBe("cage-4-2026-08-30-reencoded.mp4");
   });
 });
 

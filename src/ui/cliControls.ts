@@ -6,6 +6,7 @@ import {
   computeGop,
   DEFAULT_SCALER,
   describeScale,
+  encodedFileName,
   formatCliCommand,
   isDownscale,
   SCALE_OPTIONS,
@@ -22,7 +23,7 @@ import type { EngineBox } from "./formControls";
 export function refreshCliCommand(): void {
   const info = currentVideoInfo();
   if (!info) return;
-  const args = buildFfmpegArgs(cli, info);
+  const args = buildFfmpegArgs(cli, info, undefined, encodedFileName(state.format));
   const cmdPre = document.getElementById("cmdPre");
   if (cmdPre) cmdPre.textContent = formatCliCommand(args);
   const hint = document.getElementById("gopHint");
