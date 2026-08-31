@@ -638,21 +638,6 @@ export const SCALER_INFO =
   "<p>Sharper is not automatically better downstream, and the detail lanczos keeps costs a few more bits at " +
   "the same CRF. Compare them in the A/B window at 100% zoom rather than assuming.</p>";
 
-// --- Reencode with FFmpeg · Try It on a Sample ---
-
-/** What the Reencode tab's sample run does, and where the Compare Quality tab takes over. */
-export const SAMPLE_RUN_INTRO =
-  `Encodes three seconds of the video with the command above — the real ffmpeg, compiled to WebAssembly, so ` +
-  `the bytes are the bytes it would produce — and shows the result against the same seconds of the ` +
-  `original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
-  `<p>Which three seconds is the question worth asking, so the track below scans the whole recording: ` +
-  `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
-  `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
-  `the beginning.</p>` +
-  `<p>One stretch of a fixed length, judged by eye: there is nothing to set here beyond where it comes ` +
-  `from. Sampling several places at once to project what a setting saves across the whole file, and ` +
-  `sweeping several settings against each other, are the <b>Compare Quality</b> tab's job.</p>`;
-
 // --- The A/B window and the size it projects, under both encoding tabs ---
 
 /** Why the A/B window offers two ways of drawing a downscaled encode back up. */
@@ -735,19 +720,6 @@ function windowDifficultySentence(estimate: SizeEstimate): string {
   }
   return `The stretch picked here costs about what the source averages, so it is a fair sample to project from.`;
 }
-
-// --- Reencode with FFmpeg · the whole-file encode at the foot of the tab ---
-
-/** What running the whole file in the page costs, under the section that offers to. */
-export const WHOLE_FILE_ENCODE_INTRO =
-  `Runs the command above over the <b>whole video</b>, here in the page, and saves the result to a file you ` +
-  `choose. Nothing is uploaded: the frames are decoded and reencoded locally. Pick where to save when ` +
-  `prompted, or the file lands in your downloads folder.` +
-  `<p>The engine is ffmpeg itself, compiled to WebAssembly, so the output is byte-for-byte what the command ` +
-  `gives you on your own machine. It is fetched on first use (~30 MB) and runs single-threaded (no ` +
-  `COOP/COEP headers needed on static hosting), so it is slower than realtime: for a full-length recording ` +
-  `or a whole dataset, copy the command and run ffmpeg natively instead. What runs here is bounded by what ` +
-  `the browser tab can hold in memory.</p>`;
 
 // --- Compare Quality · the run, the sweep and the command under its grid ---
 

@@ -8,7 +8,7 @@
 
 import { computeGop, isDownscale } from "../lib/cliCommand";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
-import { REENCODE_INTRO, RESOLUTION_INFO, SAMPLE_RUN_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { REENCODE_INTRO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
 import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
@@ -213,7 +213,6 @@ export function renderEncodeTab(panel: HTMLElement): void {
 function sampleRunSection(vt: TrackInfo): HTMLElement[] {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Try It on a Sample"));
-  sec.append(teachBox(SAMPLE_RUN_INTRO, "✂️"));
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
   const { nodes, ui } = runControls("Run Comparison");

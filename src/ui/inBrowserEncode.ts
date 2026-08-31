@@ -7,8 +7,7 @@
 
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
-import { h, teachBox } from "../lib/dom";
-import { WHOLE_FILE_ENCODE_INTRO } from "../lib/explainers";
+import { h } from "../lib/dom";
 import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { downloadBlob, extOf, pickSaveTarget } from "../lib/save";
 import { cli, state } from "../lib/state";
@@ -20,7 +19,6 @@ import { clearLog, engineBox, logLine, type EngineBox } from "./formControls";
 export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
   const sec = h("div", "section");
   sec.append(h("h2", null, `${encodeVerb()} the Entire File Here`));
-  sec.append(teachBox(WHOLE_FILE_ENCODE_INTRO, "💾"));
 
   const box = engineBox(`${encodeVerb()} and Save`);
   sec.append(box.el);

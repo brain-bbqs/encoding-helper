@@ -23,6 +23,7 @@
 - The seeking test explains itself in a teach box like every other card, its results are spaced off the Run button, and both plots drop their captions ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The ⓘ button's "i" is drawn rather than typed, so it sits centred in its circle on every platform instead of wherever the fallback font put it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The two Copyright atoms are told apart by label, and the © atoms no longer repeat what the copy above the tag table already says ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Reencode tab drops the teach boxes above **Try It on a Sample** and the whole-file encode ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 
