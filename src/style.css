@@ -1807,7 +1807,7 @@ table.data th {
    content box, taking the extra width out of the page margins either side rather than out of the
    rest of the page, which stays in its column.
 
-   The gutter is what it may not take: above 1420px the corner watermarks are fixed there and the
+   The gutter is what it may not take: above 1560px the corner watermarks are fixed there and the
    card would slide under them, and below it they are gone, leaving only the page's own padding.
    `clamp()`'s lower bound is the column itself, so on any viewport too narrow to give the card
    more, it is exactly as wide as every other card and the margin below comes out at zero. */
@@ -1817,7 +1817,7 @@ table.data th {
   width: var(--matrix-width);
   margin-left: calc(50% - var(--matrix-width) / 2);
 }
-@media (max-width: 1420px) {
+@media (max-width: 1560px) {
   .matrix-section {
     --matrix-gutter: 20px;
   }
@@ -2437,8 +2437,8 @@ table.data.matrix-table th.matrix-row-head {
    the whole content column while it is up. One card per group of demo files, and inside it one fold
    per file — the same recessed-bar-and-caret treatment the sweep settings and the output console
    use, so a shut row reads as something that opens. */
-/* The demos page is a map of a couple of dozen files, so it takes more width than the 980px column
-   the rest of the app reads in — but not all of it: above 1420px the corner watermarks are fixed in
+/* The demos page is a map of a couple of dozen files, so it takes more width than the column the
+   rest of the app reads in — but not all of it: above 1560px the corner watermarks are fixed in
    the margins (see the media query at the end of this file), and 220px a side is what they need to
    keep framing the page rather than sitting on top of it. Below that threshold they drop into
    normal flow and the page can have everything but its own padding. */
@@ -2448,7 +2448,7 @@ table.data.matrix-table th.matrix-row-head {
   margin-left: min(0px, calc((100% - var(--demos-w)) / 2));
   margin-bottom: 16px;
 }
-@media (max-width: 1420px) {
+@media (max-width: 1560px) {
   .demos-page {
     --demos-w: calc(100vw - 40px);
   }
