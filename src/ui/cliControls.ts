@@ -42,7 +42,7 @@ export function parseScale(value: string): number {
 
 /** The kernel dropdown's entries, each named as the `flags=` value it becomes. */
 export function scalerOptions(): [string, string][] {
-  return SCALER_OPTIONS.map((s) => [s, s === DEFAULT_SCALER ? `${s} (default, sharper)` : `${s} (softer)`]);
+  return SCALER_OPTIONS.map((s) => [s, s === DEFAULT_SCALER ? `${s} (sharper)` : `${s} (softer)`]);
 }
 
 export function parseScaler(value: string): Scaler {

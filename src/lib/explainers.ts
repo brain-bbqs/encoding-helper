@@ -30,14 +30,12 @@ import type { CodecInfo, ContainerInfo } from "./types";
  * and the one piece of teaching material a reader meets before loading anything.
  */
 export const APP_INTRO =
-  "<b>Encoding Helper</b> reads what a video file actually is — its container, its codec, the keyframe " +
-  "structure that decides how fast it seeks, and where its bits go — and lets you try a reencode on a few " +
-  "seconds of it, side by side with the original, before committing a whole dataset to those settings." +
-  "<p>For <b>EMBER</b> and for behavioral annotation generally the target is <b>H.264 in MP4</b>, written " +
-  "with a <b>fixed, short GOP</b> and <b>no B-frames</b>: scoring, tracking and pose estimation jump around a " +
-  "recording rather than playing it through, and those are the settings that make an arbitrary frame cheap " +
-  "to reach. What quality costs is then a judgement to make by eye, on your own footage, which is what the " +
-  "tabs below are for.</p>";
+  "The <b>BBQS Encoding Helper</b> is a web app that deconstructs a video file layout into its internal " +
+  "structures and evaluates operational characteristics to be optimized by our suggested encoding strategies." +
+  '<p>For the <a href="https://emberarchive.org" target="_blank" rel="noopener">EMBER Archive</a> and for ' +
+  "behavioral annotation in general, we recommend the use of <b>H.264 in MP4</b>, written with a <b>fixed, " +
+  "short GOP</b> and <b>no B-frames</b>. This allows for efficient web streaming and fast random seekability, " +
+  "both of which are of the utmost importance for processing data through our platform.</p>";
 
 // --- Inspect · Video Container Overview, the first card on the first tab ---
 
