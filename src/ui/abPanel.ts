@@ -282,7 +282,11 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   activeHost = host;
   host.innerHTML = "";
   host.style.display = "block";
-  host.append(h("h2", null, "Side-by-Side"));
+  // A host marked `ab-inline` is a block inside the card that ran the encode rather than a card of
+  // its own (see encodeTab), so the comparison reads as that card's result and takes a heading of
+  // the same rank as the others inside it.
+  const inline = host.classList.contains("ab-inline");
+  host.append(h(inline ? "h3" : "h2", null, "Side-by-Side"));
 
   // `settings` is what the loaded encode was made with, which after a sweep is the winning square's
   // rather than whatever the command builder happens to say.

@@ -196,7 +196,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   bindNumber("cliFps", "fps", false);
   refreshCliCommand();
 
-  panel.append(...sampleRunSection(vt));
+  panel.append(sampleRunSection(vt));
   panel.append(inBrowserEncodeSection(info));
 }
 
@@ -210,7 +210,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
  * setting would save across the whole file — both questions the command itself cannot answer, and
  * both cheaper to ask here than by encoding a full recording to find out.
  */
-function sampleRunSection(vt: TrackInfo): HTMLElement[] {
+function sampleRunSection(vt: TrackInfo): HTMLElement {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Try It on a Sample"));
   const picker = samplePicker();
@@ -218,8 +218,12 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
   const { nodes, ui } = runControls("Run Comparison");
   sec.append(...nodes);
 
-  const resultSec = h("div", "section");
+  // The comparison lands inside this card rather than in one of its own: it is what the run above
+  // it produced, and a card that reads "Try It on a Sample" with the sample nowhere in it reads as
+  // two unrelated things.
+  const resultSec = h("div", "ab-inline");
   resultSec.style.display = "none";
+  sec.append(resultSec);
 
   ui.runButton.addEventListener("click", () => {
     // Disabled here as well as by the run itself, so a second click cannot land in the gap before
@@ -231,7 +235,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
       ui.runButton.disabled = false;
     });
   });
-  return [sec, resultSec];
+  return sec;
 }
 
 /** Encodes the picked stretch at whatever the builder currently says, and puts it in the A/B
