@@ -80,7 +80,6 @@ export const encodeTest: EncodeTestState = {
     segmentLength: 5,
     windows: [],
     running: false,
-    reuseCached: true,
     selectedKey: null,
   },
   zoom: null,
@@ -140,7 +139,6 @@ export function resetState(): void {
   encodeTest.matrix.segmentLength = 5;
   encodeTest.matrix.windows = [];
   encodeTest.matrix.running = false;
-  encodeTest.matrix.reuseCached = true;
   encodeTest.matrix.selectedKey = null;
   encodeTest.zoom = null;
 }

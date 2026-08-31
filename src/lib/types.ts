@@ -224,10 +224,6 @@ export interface MatrixState {
   /** Every stretch each square covered, which is the one above unless the run sampled several. */
   windows: SampleWindow[];
   running: boolean;
-  /** Whether a sweep may read squares back from earlier runs of this file instead of encoding them
-   * (see lib/matrixCache). Off, every square is encoded again; measurements are written either way,
-   * so switching it back on picks up whatever the re-run measured. */
-  reuseCached: boolean;
   /** The combination showing in the A/B window. */
   selectedKey: string | null;
 }

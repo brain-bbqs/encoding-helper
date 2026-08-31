@@ -30,6 +30,8 @@
 - Compare Quality drops the ⓘ on the best square, the teach box over the selected square's command, and a finished square's tooltip, which repeated its own face ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The savings strip drops its projected-across line, and **Estimate Detail** reads as two lines — what was sampled, then what it projects to — with no ⓘ of their own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The command builder drops the GOP equation and the flag notes on its checkboxes, and keeps the **Scaler** field on show at every resolution, inert until one resamples ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The sweep's settings bar works its axes out to a total, e.g. `2 × 5 × 2 = 20` squares ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The **Reuse earlier measurements** tick is gone: a sweep always reads back what an earlier run of the file measured, and the footer's cache button still forgets it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 

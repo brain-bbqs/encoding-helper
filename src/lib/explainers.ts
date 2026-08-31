@@ -630,12 +630,9 @@ export const RESOLUTION_INFO =
 
 /** What the two offered kernels trade, from the ⓘ beside the field that picks between them. */
 export const SCALER_INFO =
-  "<b>Scaler</b> is the kernel <code>scale</code> resamples with, and it only matters below 100% resolution. " +
-  "<code>lanczos</code> is the sharper: it keeps fine detail (whiskers, tail tips, grid lines) a softer " +
-  "kernel averages away. <code>bicubic</code> is softer, and less prone to the faint ringing lanczos can " +
-  "leave along hard edges." +
-  "<p>Sharper is not automatically better downstream, and the detail lanczos keeps costs a few more bits at " +
-  "the same CRF. Compare them in the A/B window at 100% zoom rather than assuming.</p>";
+  "<b>Scaler</b> is the kernel used for downsampling below 100% resolution. <code>lanczos</code> tends to be " +
+  "sharper and maintains fine details such as whiskers, tail tips, or grid lines. <code>bicubic</code> is " +
+  "softer and less prone to the faint ringing lanczos can leave along hard edges.";
 
 // --- The A/B window and the size it projects, under both encoding tabs ---
 
@@ -716,14 +713,6 @@ export const SEGMENTS_INFO =
   "projection is not taken over whichever flattering moment was picked by hand." +
   "<p>Each is a real encode, so a run costs that many times as long. The stretches are cut out of the source " +
   "once and reused, which is what makes two runs comparable, and the A/B window plays all of them in turn.</p>";
-
-/** What the sweep remembers between runs, and when a square is encoded again anyway. */
-export const MATRIX_CACHE_INFO =
-  "A combination this file has already been swept at is read back rather than encoded again, including after " +
-  "a reload, so widening a sweep only encodes the new squares." +
-  "<p>Only the numbers are kept, never the video: choosing a square still encodes that one combination for " +
-  "the A/B window. Untick to measure everything again, for fresh encoding times or a file changed under the " +
-  "same name.</p>";
 
 // --- Full Analysis ---
 

@@ -1945,10 +1945,6 @@ table.data.matrix-table th.matrix-group-head {
   align-items: center;
   margin-bottom: 4px;
 }
-.matrix-reuse {
-  font-size: 11px;
-  color: var(--muted-2);
-}
 /* The resolution tick list: two columns so the four options sit as a 2×2 grid, aligned down the
    columns instead of wrapping wherever their pixel-dimension labels happen to break. */
 .axis-list.axis-list-grid {
