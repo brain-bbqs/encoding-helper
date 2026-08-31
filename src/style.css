@@ -542,6 +542,17 @@ label.field-label {
 .field .field-head label.field-label {
   margin-bottom: 0;
 }
+/* A row of tick boxes: each takes the width of its own label, so they read as a list rather than as
+   three columns with the boxes stranded at the start of each. */
+.row.row-checks > .field {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* A field whose control is a short menu or a small number, so it takes what it needs rather than
+   the whole form. */
+.field-compact {
+  max-width: 320px;
+}
 .row {
   display: flex;
   gap: 16px;
@@ -1508,16 +1519,19 @@ details.teach-more summary {
   color: var(--err);
 }
 
-/* Command output */
+/* Command output. Sized to the command rather than to the page — a wrapped ffmpeg line is nowhere
+   near the column's width — and centred in the space that leaves. */
 pre.cmd {
   background: var(--sunken);
-  padding: 14px;
+  padding: 12px 14px;
   border-radius: 6px;
   font-size: 12.5px;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  margin: 0 0 10px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
   font-family: Monaco, Consolas, monospace;
   color: var(--code-text);
 }

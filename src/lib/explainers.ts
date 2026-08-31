@@ -706,14 +706,6 @@ function windowDifficultySentence(estimate: SizeEstimate): string {
 
 // --- Compare Quality · the run, the sweep and the command under its grid ---
 
-/** Why a run would encode the same settings in several places at once. */
-export const SEGMENTS_INFO =
-  "<b>Segments</b> is how many stretches of the length above a run encodes. Where they land is the sampler's " +
-  "to decide, never yours: one lands anywhere in the file, several are drawn one per equal band of it, so the " +
-  "projection is not taken over whichever flattering moment was picked by hand." +
-  "<p>Each is a real encode, so a run costs that many times as long. The stretches are cut out of the source " +
-  "once and reused, which is what makes two runs comparable, and the A/B window plays all of them in turn.</p>";
-
 // --- Full Analysis ---
 
 /** What the Full Analysis tab gathers, and what the two buttons under it write. */

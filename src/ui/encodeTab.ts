@@ -48,21 +48,24 @@ export function renderEncodeTab(panel: HTMLElement): void {
   builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
 
   const form = h("div");
-  form.append(
-    fieldSelect(
-      "cliQuality",
-      "Quality",
-      [
-        ["lossless", "Lossless (CRF 0)"],
-        ["high", "High (CRF 18)"],
-        ["medium", "Medium (CRF 25), default"],
-        ["low", "Low (CRF 32)"],
-        ["custom", "Custom CRF"],
-      ],
-      cli.quality,
-    ),
+  // Capped rather than left to fill the form: the longest option is a few words, and a select as
+  // wide as the page reads as a text field.
+  const qualityField = fieldSelect(
+    "cliQuality",
+    "Quality",
+    [
+      ["lossless", "Lossless (CRF 0)"],
+      ["high", "High (CRF 18)"],
+      ["medium", "Medium (CRF 25)"],
+      ["low", "Low (CRF 32)"],
+      ["custom", "Custom CRF"],
+    ],
+    cli.quality,
   );
+  qualityField.classList.add("field-compact");
+  form.append(qualityField);
   const crfField = fieldNumber("cliCrf", "Custom CRF (0=lossless, 51=worst)", cli.crf, 0, 51, 1);
+  crfField.classList.add("field-compact");
   crfField.style.display = cli.quality === "custom" ? "" : "none";
   form.append(crfField);
 
@@ -78,7 +81,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
       "cliPreset",
       "x264 Preset",
       ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map(
-        (p) => [p, p + (p === "superfast" ? " (default)" : "")] as [string, string],
+        (p) => [p, p] as [string, string],
       ),
       cli.preset,
       X264_PRESET_INFO,
@@ -86,7 +89,9 @@ export function renderEncodeTab(panel: HTMLElement): void {
   );
   row1.append(fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1));
   form.append(row1);
-  const row2 = h("div", "row");
+  // Content-width rather than a third of the form each: the labels differ in length, so equal
+  // shares put them at three arbitrary distances from their boxes.
+  const row2 = h("div", "row row-checks");
   const bfField = h("div", "field");
   const bfLabel = h("label");
   const bfCheck = h("input");
@@ -117,18 +122,20 @@ export function renderEncodeTab(panel: HTMLElement): void {
   form.append(row2);
 
   const row3 = h("div", "row");
-  row3.append(
-    fieldSelect(
-      "cliAudio",
-      "Audio",
-      [
-        ["copy", "Copy (default)"],
-        ["strip", "Strip (-an)"],
-      ],
-      cli.audioMode,
-    ),
+  const audioField = fieldSelect(
+    "cliAudio",
+    "Audio",
+    [
+      ["copy", "Copy"],
+      ["strip", "Strip (-an)"],
+    ],
+    cli.audioMode,
   );
-  row3.append(fieldNumber("cliFps", "FPS override (blank = source)", cli.fps || "", 1, 240, 1));
+  audioField.classList.add("field-compact");
+  row3.append(audioField);
+  const fpsField = fieldNumber("cliFps", "FPS override (blank = source)", cli.fps || "", 1, 240, 1);
+  fpsField.classList.add("field-compact");
+  row3.append(fpsField);
   form.append(row3);
   builderSec.append(form);
 

@@ -92,7 +92,8 @@ export function renderCompareTab(panel: HTMLElement): void {
     // The product is what the run costs, which is the number the factors are read for; a single
     // axis is its own product, so it is left to stand alone.
     const squares = counts.reduce((product, n) => product * n, 1);
-    axisCount.textContent = counts.length > 1 ? `${counts.join(" × ")} = ${squares}` : String(squares);
+    const total = `${squares} run${squares === 1 ? "" : "s"}`;
+    axisCount.textContent = counts.length > 1 ? `${counts.join(" × ")} = ${total}` : total;
   };
   // `ui` is only assigned further down, once the sections an axis change needs to repaint exist —
   // but nothing here runs until a checkbox fires, by which point it is. See resetStaleMatrix for why

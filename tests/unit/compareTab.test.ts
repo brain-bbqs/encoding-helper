@@ -122,7 +122,7 @@ describe("renderCompareTab", () => {
     expect(ticked("Resolutions")).toEqual(["1", "0.75"]);
     expect(ticked("Scalers")).toEqual(["lanczos"]);
     // One kernel multiplies the sweep by one, so the bar counts the resolutions but not it.
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 = 20");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 = 20 runs");
   });
 
   it("records ticked resolutions as the next sweep's coverage, and counts them in the bar", () => {
@@ -131,13 +131,13 @@ describe("renderCompareTab", () => {
     half.checked = true;
     half.dispatchEvent(new Event("change"));
     expect(encodeTest.matrix.scales).toEqual([1, 0.75, 0.5]);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3 = 30");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3 = 30 runs");
 
     const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
     bicubic.checked = true;
     bicubic.dispatchEvent(new Event("change"));
     expect(encodeTest.matrix.scalers).toEqual(["lanczos", "bicubic"]);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3 × 2 = 60");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3 × 2 = 60 runs");
   });
 
   // A second kernel resamples nothing while every ticked resolution is the source's, so it does not
@@ -150,7 +150,7 @@ describe("renderCompareTab", () => {
     const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
     bicubic.checked = true;
     bicubic.dispatchEvent(new Event("change"));
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 = 10");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 = 10 runs");
   });
 
   // Where a stretch lands is the sampler's call, so there is no start field to offer at all.
@@ -235,7 +235,7 @@ describe("renderCompareTab", () => {
     const settings = panel.querySelector<HTMLDetailsElement>(".matrix-settings")!;
     expect(settings.open).toBe(false);
     expect(settings.querySelector("summary")!.textContent).toContain("Settings to sweep");
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 = 20");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 = 20 runs");
     // The lists themselves are inside it, not beside it.
     expect(axisBoxes(panel, "Quality levels")[0].closest(".matrix-settings")).toBe(settings);
   });
@@ -258,7 +258,7 @@ describe("renderCompareTab", () => {
       box.dispatchEvent(new Event("change"));
     }
     expect(encodeTest.matrix.qualities).toEqual([]);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2 × 2 = 0");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2 × 2 = 0 runs");
   });
 
   it("ticks every value on every axis from the one select-all button", () => {
@@ -269,7 +269,7 @@ describe("renderCompareTab", () => {
     expect(encodeTest.matrix.scales).toEqual(MATRIX_SCALES);
     expect(encodeTest.matrix.scalers).toEqual(MATRIX_SCALERS);
     expect(axisBoxes(panel, "Quality levels").every((b) => b.checked)).toBe(true);
-    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 9 × 4 × 2 = 288");
+    expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("4 × 9 × 4 × 2 = 288 runs");
   });
 });
 
