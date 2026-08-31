@@ -8,12 +8,8 @@
 // a width, and a bar with a hard end would claim it does not.
 
 import { gridItem, h } from "../lib/dom";
-import { ORIGINAL_SEGMENT_INFO, PROJECTED_SIZE_INFO, SAMPLED_WINDOW_INFO } from "../lib/explainers";
 import { fmtBytes, fmtDur } from "../lib/format";
 import { describeSavings, fmtChangeFactor, fmtPct, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
-
-/** Under this the two projections differ by less than the byte figures beside them would show. */
-const NEGLIGIBLE_BYTES = 1024;
 
 /** One bar on the shared scale, optionally carrying the band its value could land anywhere in. */
 export function savingsBar(
@@ -35,7 +31,7 @@ export function savingsBar(
     const right = Number(pct(band.high, maxBytes));
     bandEl.style.left = left.toFixed(1) + "%";
     bandEl.style.width = Math.max(0, right - left).toFixed(1) + "%";
-    bandEl.title = `Could land anywhere from ${fmtBytes(band.low)} to ${fmtBytes(band.high)}`;
+    bandEl.title = `Anywhere from ${fmtBytes(band.low)} to ${fmtBytes(band.high)}`;
     track.append(bandEl);
   }
   row.append(track, h("span", "savings-value", fmtBytes(bytes)));
@@ -59,17 +55,6 @@ export function renderSavingsStrip(est: SizeEstimate): HTMLDivElement {
     h("div", "savings-headline" + (grew ? " grew" : ""), describeSavings(est)),
     h("div", "savings-factor", fmtChangeFactor(est.ratio)),
   );
-  const delta = Math.abs(est.projectedSavedBytes);
-  const across = `Projected across the whole ${fmtDur(est.totalSeconds)}: `;
-  figure.append(
-    h(
-      "div",
-      "savings-sub",
-      delta < NEGLIGIBLE_BYTES
-        ? across + "no meaningful change"
-        : `${across}≈ ${fmtBytes(delta)} ${grew ? "added" : "saved"}`,
-    ),
-  );
 
   const bars = h("div", "savings-bars");
   const maxBytes = Math.max(est.originalTotalBytes, est.projectedTotalBytes, est.projectedRange?.high ?? 0);
@@ -88,11 +73,21 @@ export function renderSavingsStrip(est: SizeEstimate): HTMLDivElement {
  */
 export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
   const g = h("div", "grid");
+  // Two lines, in the order the estimate is arrived at: what was measured, then what it projects to.
+  // Six figures never fit one line anyway, so the break is put where it means something rather than
+  // wherever the last card stopped fitting.
   g.append(
-    gridItem("Original Segment Size", fmtBytes(est.originalSegmentBytes), { info: ORIGINAL_SEGMENT_INFO }),
+    gridItem(
+      "Sampled",
+      `${fmtDur(est.segmentSeconds)} of ${fmtDur(est.totalSeconds)} (${fmtPct(est.sampledFraction)})` +
+        (est.windowCount > 1 ? `, in ${est.windowCount} places` : ""),
+      { sm: true },
+    ),
+    gridItem("Original Segment Size", fmtBytes(est.originalSegmentBytes)),
     gridItem("Segment Change", `${fmtSignedChange(est)} (${fmtChangeFactor(est.ratio)})`),
+    h("div", "grid-break"),
     gridItem("Original File Size", fmtBytes(est.originalTotalBytes)),
-    gridItem("Projected Full File", fmtBytes(est.projectedTotalBytes), { info: PROJECTED_SIZE_INFO }),
+    gridItem("Projected Full File", fmtBytes(est.projectedTotalBytes)),
   );
   if (est.projectedRange) {
     g.append(
@@ -101,14 +96,6 @@ export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
       }),
     );
   }
-  g.append(
-    gridItem(
-      "Sampled",
-      `${fmtDur(est.segmentSeconds)} of ${fmtDur(est.totalSeconds)} (${fmtPct(est.sampledFraction)})` +
-        (est.windowCount > 1 ? `, in ${est.windowCount} places` : ""),
-      { info: SAMPLED_WINDOW_INFO, sm: true },
-    ),
-  );
 
   return [h("h3", null, "Estimate Detail"), g];
 }

@@ -449,7 +449,6 @@ table.data th {
   -webkit-print-color-adjust: exact;
 }
 .legend-label { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); }
-.legend-note { flex-basis: 100%; color: var(--faint); }
 .hist { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
 .hist .bar {
   flex: 1;

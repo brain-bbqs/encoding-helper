@@ -2,6 +2,7 @@
 // TrackInfo[] shape the Inspect tab and the Full Analysis document render.
 
 import type { Input, InputTrack } from "mediabunny";
+import { describeChromaFormat } from "./chromaFormat";
 import { describeCodec } from "./codecKb";
 import { ensureMediabunny } from "./mediabunny";
 import type { MediabunnyMetadata, TrackInfo } from "./types";
@@ -21,9 +22,12 @@ async function describeTrack(t: InputTrack): Promise<TrackInfo> {
     bitrate: stats ? stats.averageBitrate : null,
   };
   if (t.isVideoTrack()) {
-    const [color, hdr] = await Promise.all([
+    // The decoder config is fetched for its `description`, the container's codec configuration
+    // record, which is where the chroma format is stated when it is stated at all.
+    const [color, hdr, config] = await Promise.all([
       t.getColorSpace().catch(() => null),
       t.hasHighDynamicRange().catch(() => false),
+      t.getDecoderConfig().catch(() => null),
     ]);
     d.codedWidth = t.codedWidth;
     d.codedHeight = t.codedHeight;
@@ -31,6 +35,7 @@ async function describeTrack(t: InputTrack): Promise<TrackInfo> {
     d.displayHeight = t.displayHeight;
     d.rotation = t.rotation;
     d.colorSpace = color;
+    d.chroma = describeChromaFormat(t.codec, codecString, config?.description ?? null);
     d.hdr = hdr;
   }
   if (t.isAudioTrack()) {

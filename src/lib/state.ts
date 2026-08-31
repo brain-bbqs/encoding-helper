@@ -2,6 +2,7 @@
 // directly (no framework/store layer) — mirrors the original monolithic script's globals, just typed.
 
 import {
+  DEFAULT_MATRIX_FPS_FRACTIONS,
   DEFAULT_MATRIX_PRESETS,
   DEFAULT_MATRIX_QUALITIES,
   DEFAULT_MATRIX_SCALERS,
@@ -75,12 +76,12 @@ export const encodeTest: EncodeTestState = {
     presets: [...DEFAULT_MATRIX_PRESETS],
     scales: [...DEFAULT_MATRIX_SCALES],
     scalers: [...DEFAULT_MATRIX_SCALERS],
+    fpsFractions: [...DEFAULT_MATRIX_FPS_FRACTIONS],
     cells: [],
     segmentStart: 0,
     segmentLength: 5,
     windows: [],
     running: false,
-    reuseCached: true,
     selectedKey: null,
   },
   zoom: null,
@@ -135,12 +136,12 @@ export function resetState(): void {
   encodeTest.matrix.presets = [...DEFAULT_MATRIX_PRESETS];
   encodeTest.matrix.scales = [...DEFAULT_MATRIX_SCALES];
   encodeTest.matrix.scalers = [...DEFAULT_MATRIX_SCALERS];
+  encodeTest.matrix.fpsFractions = [...DEFAULT_MATRIX_FPS_FRACTIONS];
   encodeTest.matrix.cells = [];
   encodeTest.matrix.segmentStart = 0;
   encodeTest.matrix.segmentLength = 5;
   encodeTest.matrix.windows = [];
   encodeTest.matrix.running = false;
-  encodeTest.matrix.reuseCached = true;
   encodeTest.matrix.selectedKey = null;
   encodeTest.zoom = null;
 }

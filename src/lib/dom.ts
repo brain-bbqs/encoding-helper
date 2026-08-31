@@ -61,6 +61,21 @@ function bindInfoDismiss(): void {
 }
 
 /**
+ * The "i" inside the ⓘ button, drawn rather than typed. A letter sits where its font puts it — an
+ * italic serif "i" leans right of its advance box and hangs its dot high — so the glyph rode
+ * off-centre in the circle, differently on each platform's fallback font. Two shapes in a square
+ * viewBox, with the ink spanning 2 to 8 either way, are centred wherever the icon is drawn.
+ */
+function infoGlyph(): SVGSVGElement {
+  const svg = svgEl("svg", { viewBox: "0 0 10 10", "aria-hidden": "true", focusable: "false" });
+  svg.append(
+    svgEl("circle", { cx: 5, cy: 2.85, r: 0.85 }),
+    svgEl("rect", { x: 4.25, y: 4.6, width: 1.5, height: 3.4, rx: 0.55 }),
+  );
+  return svg;
+}
+
+/**
  * A small ⓘ affordance with a popover explainer. `html` is trusted, author-authored markup; never
  * pass in text read out of a media file without escaping it first.
  */
@@ -71,7 +86,8 @@ export function infoIcon(html: string, label = "More information"): HTMLSpanElem
   if (!isEducationalEnabled()) return h("span", "info edu-off");
   bindInfoDismiss();
   const wrap = h("span", "info");
-  const btn = h("button", "info-btn", "i");
+  const btn = h("button", "info-btn");
+  btn.append(infoGlyph());
   btn.type = "button";
   btn.setAttribute("aria-label", label);
   btn.setAttribute("aria-expanded", "false");
@@ -165,19 +181,23 @@ export function escapeHtml(text: string): string {
 }
 
 /**
- * A left-accented "teach" callout box, marked with the same 💡 the Educational switch and the
- * "Learn more about codec parameters" goal carry, so every explainer reads as tied back to the one
- * control that hides it. `html` is trusted, author-authored explainer markup. Rendered empty and
- * hidden (rather than returning `null`) when the educational toggle is off, so every call site can
- * keep appending its result unconditionally.
+ * A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup.
+ * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
+ * every call site can keep appending its result unconditionally.
+ *
+ * `mark` is the emoji in the gutter: 💡 by default, the same one the Educational switch and the
+ * "Learn more about codec parameters" goal carry, so an unmarked box still reads as tied back to
+ * the control that hides it. A box about one particular thing says so instead — 🎥 for what this
+ * file's container is, 🎨 for chroma subsampling — which gives a card of stacked boxes something
+ * to tell them apart by at a glance.
  */
-export function teachBox(html: string): HTMLDivElement {
+export function teachBox(html: string, mark = "💡"): HTMLDivElement {
   const d = h("div", "teach");
   if (!isEducationalEnabled()) {
     d.classList.add("edu-off");
     return d;
   }
-  const icon = h("span", "teach-icon", "💡");
+  const icon = h("span", "teach-icon", mark);
   icon.setAttribute("aria-hidden", "true");
   const body = h("div", "teach-body");
   body.innerHTML = html;
@@ -185,16 +205,8 @@ export function teachBox(html: string): HTMLDivElement {
   return d;
 }
 
-export function copyToClipboard(text: string, btn?: HTMLButtonElement | null): void {
-  const done = (): void => {
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = "Copied!";
-      setTimeout(() => {
-        btn.textContent = orig;
-      }, 1400);
-    }
-  };
+/** Writes to the clipboard, falling back to a hidden textarea where the API is refused. */
+function writeClipboard(text: string, done: () => void): void {
   navigator.clipboard
     .writeText(text)
     .then(done)
@@ -207,4 +219,44 @@ export function copyToClipboard(text: string, btn?: HTMLButtonElement | null): v
       document.body.removeChild(ta);
       done();
     });
+}
+
+export function copyToClipboard(text: string, btn?: HTMLButtonElement | null): void {
+  writeClipboard(text, () => {
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => {
+      btn.textContent = orig;
+    }, 1400);
+  });
+}
+
+/**
+ * A command in a code block, with a copy control in its corner rather than a button under it: the
+ * command is the thing on offer, and a labelled button repeated under every block is more furniture
+ * than the action needs. The control is revealed on hover and by keyboard focus, and is always shown
+ * where there is no pointer to hover with (see .cmd-copy in style.css).
+ */
+export function cmdBlock(text?: string): { wrap: HTMLDivElement; pre: HTMLPreElement } {
+  const wrap = h("div", "cmd-wrap");
+  const pre = h("pre", "cmd", text);
+  const btn = h("button", "cmd-copy");
+  btn.type = "button";
+  btn.setAttribute("aria-label", "Copy command");
+  const icon = svgEl("svg", { viewBox: "0 0 16 16", "aria-hidden": "true", focusable: "false" });
+  icon.append(
+    svgEl("rect", { x: 5.5, y: 2.5, width: 8, height: 10, rx: 1.5 }),
+    svgEl("path", { d: "M10.5 13.5H3.5a1 1 0 0 1-1-1V5" }),
+  );
+  const said = h("span", "cmd-copied", "Copied");
+  btn.append(icon, said);
+  btn.addEventListener("click", () => {
+    writeClipboard(pre.textContent || "", () => {
+      btn.classList.add("copied");
+      setTimeout(() => btn.classList.remove("copied"), 1400);
+    });
+  });
+  wrap.append(pre, btn);
+  return { wrap, pre };
 }

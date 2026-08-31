@@ -3,9 +3,9 @@
 
 import {
   buildFfmpegArgs,
-  computeGop,
   DEFAULT_SCALER,
   describeScale,
+  encodedFileName,
   formatCliCommand,
   isDownscale,
   SCALE_OPTIONS,
@@ -22,14 +22,9 @@ import type { EngineBox } from "./formControls";
 export function refreshCliCommand(): void {
   const info = currentVideoInfo();
   if (!info) return;
-  const args = buildFfmpegArgs(cli, info);
+  const args = buildFfmpegArgs(cli, info, undefined, encodedFileName(state.format));
   const cmdPre = document.getElementById("cmdPre");
   if (cmdPre) cmdPre.textContent = formatCliCommand(args);
-  const hint = document.getElementById("gopHint");
-  if (hint) {
-    const fps = cli.fps || info.fps || 30;
-    hint.textContent = `GOP size = round(interval × fps) = round(${cli.keyframeInterval} × ${fps.toFixed(2)}) = ${computeGop(cli, fps)} frames`;
-  }
 }
 
 /** The resolution dropdown's entries, labelled with what each comes out at for the loaded file, so
@@ -47,7 +42,7 @@ export function parseScale(value: string): number {
 
 /** The kernel dropdown's entries, each named as the `flags=` value it becomes. */
 export function scalerOptions(): [string, string][] {
-  return SCALER_OPTIONS.map((s) => [s, s === DEFAULT_SCALER ? `${s} (default, sharper)` : `${s} (softer)`]);
+  return SCALER_OPTIONS.map((s) => [s, s === DEFAULT_SCALER ? `${s} (sharper)` : `${s} (softer)`]);
 }
 
 export function parseScaler(value: string): Scaler {
@@ -69,12 +64,12 @@ export function syncQualityControls(): void {
   if (presetSel) presetSel.value = cli.preset;
   const scaleSel = document.getElementById("cliScale") as HTMLSelectElement | null;
   if (scaleSel) scaleSel.value = String(cli.scale);
-  // The kernel only reaches the command when something is being resampled, so the field goes away
-  // at full resolution rather than sitting there setting nothing.
+  // The kernel only reaches the command when something is being resampled, so at full resolution the
+  // field is there but inert rather than gone.
   const scalerSel = document.getElementById("cliScaler") as HTMLSelectElement | null;
   if (scalerSel) {
     scalerSel.value = cli.scaler;
-    if (scalerSel.parentElement) scalerSel.parentElement.style.display = isDownscale(cli.scale) ? "" : "none";
+    scalerSel.disabled = !isDownscale(cli.scale);
   }
   refreshCliCommand();
 }
@@ -100,5 +95,5 @@ export function showReencodeResult(box: EngineBox, origSize: number, outSize: nu
     ),
   );
   box.result.append(g);
-  box.note.textContent = "Done.";
+  box.note.textContent = "";
 }

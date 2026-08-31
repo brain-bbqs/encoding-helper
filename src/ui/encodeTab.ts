@@ -6,14 +6,13 @@
 // only useful next to the command that setting comes to, and the whole-file encode is that same
 // command over the whole file rather than a separate feature.
 
-import { computeGop, isDownscale } from "../lib/cliCommand";
-import { copyToClipboard, h, teachBox } from "../lib/dom";
-import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { isDownscale } from "../lib/cliCommand";
+import { cmdBlock, h, teachBox } from "../lib/dom";
+import { REENCODE_INTRO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
 import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
-import { renderEducationalToggle } from "./educationalToggle";
 import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
   parseScale,
@@ -45,61 +44,44 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const info: VideoInfo = { fps: state.fps, width: vt.codedWidth, height: vt.codedHeight };
 
   const builderSec = h("div", "section");
-  const builderHead = h("div", "section-head");
-  builderHead.append(h("h2", null, "FFmpeg Command Builder"), renderEducationalToggle());
-  builderSec.append(builderHead);
-  builderSec.append(
-    teachBox(
-      `<b>Reencoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
-        `lets you change quality, resolution, frame rate or keyframe spacing, and it is lossy: each pass throws ` +
-        `away detail the previous pass kept, so start from the original whenever you can.` +
-        `<p><b>Transcoding</b> is the same operation into a <i>different</i> codec (H.265 to H.264, say); the ` +
-        `terms are often used interchangeably, but transcoding implies the codec itself changes. Neither is ` +
-        `<b>remuxing</b> (<code>ffmpeg -c copy</code>), which lifts the already-compressed frames into a ` +
-        `different container untouched, and so is lossless and nearly instant.</p>` +
-        `<p>The command below runs <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">` +
-        `<b>ffmpeg</b></a> on your own machine, which is the way to do this for real work: it is a native ` +
-        `multi-threaded build with no 30 MB download and no browser memory ceiling, so it is far faster on a ` +
-        `full-length video; it scripts over a whole dataset; and the exact same command reruns later or on a ` +
-        `colleague's machine and produces the same bytes. What runs in the page below is the same ffmpeg, for ` +
-        `judging a setting quickly rather than for processing a corpus.</p>` +
-        `<p>The settings here mirror ` +
-        `<a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io</a>'s ` +
-        `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
-        `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.</p>`,
-    ),
-  );
+  builderSec.append(h("h2", null, "FFmpeg Command Builder"));
+  builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
 
   const form = h("div");
-  form.append(
-    fieldSelect(
-      "cliQuality",
-      "Quality",
-      [
-        ["lossless", "Lossless (CRF 0)"],
-        ["high", "High (CRF 18)"],
-        ["medium", "Medium (CRF 25), default"],
-        ["low", "Low (CRF 32)"],
-        ["custom", "Custom CRF"],
-      ],
-      cli.quality,
-    ),
+  // Capped rather than left to fill the form: the longest option is a few words, and a select as
+  // wide as the page reads as a text field.
+  const qualityField = fieldSelect(
+    "cliQuality",
+    "Quality",
+    [
+      ["lossless", "Lossless (CRF 0)"],
+      ["high", "High (CRF 18)"],
+      ["medium", "Medium (CRF 25)"],
+      ["low", "Low (CRF 32)"],
+      ["custom", "Custom CRF"],
+    ],
+    cli.quality,
   );
+  qualityField.classList.add("field-compact");
+  form.append(qualityField);
   const crfField = fieldNumber("cliCrf", "Custom CRF (0=lossless, 51=worst)", cli.crf, 0, 51, 1);
+  crfField.classList.add("field-compact");
   crfField.style.display = cli.quality === "custom" ? "" : "none";
   form.append(crfField);
 
   const row1 = h("div", "row");
   row1.append(fieldSelect("cliScale", "Resolution", scaleOptions(info), String(cli.scale), RESOLUTION_INFO));
   const cliScalerField = fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
-  cliScalerField.style.display = isDownscale(cli.scale) ? "" : "none";
+  // Shown at every resolution, the way the sweep lists its kernels, but only live where something is
+  // being resampled: at full resolution there is nothing for a kernel to do.
+  cliScalerField.querySelector("select")?.toggleAttribute("disabled", !isDownscale(cli.scale));
   row1.append(cliScalerField);
   row1.append(
     fieldSelect(
       "cliPreset",
       "x264 Preset",
       ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map(
-        (p) => [p, p + (p === "superfast" ? " (default, sleap-io)" : "")] as [string, string],
+        (p) => [p, p] as [string, string],
       ),
       cli.preset,
       X264_PRESET_INFO,
@@ -107,22 +89,16 @@ export function renderEncodeTab(panel: HTMLElement): void {
   );
   row1.append(fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1));
   form.append(row1);
-  const gopHint = h(
-    "div",
-    "field hint",
-    `GOP size = round(interval × fps) = round(${cli.keyframeInterval} × ${(info.fps || 30).toFixed(2)}) = ${computeGop(cli, info.fps || 30)} frames`,
-  );
-  gopHint.id = "gopHint";
-  form.append(gopHint);
-
-  const row2 = h("div", "row");
+  // Content-width rather than a third of the form each: the labels differ in length, so equal
+  // shares put them at three arbitrary distances from their boxes.
+  const row2 = h("div", "row row-checks");
   const bfField = h("div", "field");
   const bfLabel = h("label");
   const bfCheck = h("input");
   bfCheck.type = "checkbox";
   bfCheck.id = "cliNoBFrames";
   bfCheck.checked = cli.noBFrames;
-  bfLabel.append(bfCheck, document.createTextNode(" Disable B-frames (-bf 0, recommended for seekability)"));
+  bfLabel.append(bfCheck, document.createTextNode(" Disable B-frames"));
   bfField.append(bfLabel);
   row2.append(bfField);
   const padField = h("div", "field");
@@ -140,34 +116,32 @@ export function renderEncodeTab(panel: HTMLElement): void {
   fsCheck.type = "checkbox";
   fsCheck.id = "cliFaststart";
   fsCheck.checked = cli.faststart;
-  fsLabel.append(fsCheck, document.createTextNode(" Faststart (+movflags)"));
+  fsLabel.append(fsCheck, document.createTextNode(" Faststart"));
   fsField.append(fsLabel);
   row2.append(fsField);
   form.append(row2);
 
   const row3 = h("div", "row");
-  row3.append(
-    fieldSelect(
-      "cliAudio",
-      "Audio",
-      [
-        ["copy", "Copy (default)"],
-        ["strip", "Strip (-an)"],
-      ],
-      cli.audioMode,
-    ),
+  const audioField = fieldSelect(
+    "cliAudio",
+    "Audio",
+    [
+      ["copy", "Copy"],
+      ["strip", "Strip (-an)"],
+    ],
+    cli.audioMode,
   );
-  row3.append(fieldNumber("cliFps", "FPS override (blank = source)", cli.fps || "", 1, 240, 1));
+  audioField.classList.add("field-compact");
+  row3.append(audioField);
+  const fpsField = fieldNumber("cliFps", "FPS override (blank = source)", cli.fps || "", 1, 240, 1);
+  fpsField.classList.add("field-compact");
+  row3.append(fpsField);
   form.append(row3);
   builderSec.append(form);
 
-  const cmdPre = h("pre", "cmd");
+  const { wrap: cmdWrap, pre: cmdPre } = cmdBlock();
   cmdPre.id = "cmdPre";
-  builderSec.append(cmdPre);
-  const copyBtn = h("button", "btn sm", "Copy Command");
-  copyBtn.type = "button";
-  copyBtn.addEventListener("click", () => copyToClipboard(cmdPre.textContent || "", copyBtn));
-  builderSec.append(copyBtn);
+  builderSec.append(cmdWrap);
   panel.append(builderSec);
 
   const bindNumber = (id: string, key: "keyframeInterval" | "fps", isFloat: boolean): void => {
@@ -219,7 +193,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   bindNumber("cliFps", "fps", false);
   refreshCliCommand();
 
-  panel.append(...sampleRunSection(vt));
+  panel.append(sampleRunSection(vt));
   panel.append(inBrowserEncodeSection(info));
 }
 
@@ -233,30 +207,20 @@ export function renderEncodeTab(panel: HTMLElement): void {
  * setting would save across the whole file — both questions the command itself cannot answer, and
  * both cheaper to ask here than by encoding a full recording to find out.
  */
-function sampleRunSection(vt: TrackInfo): HTMLElement[] {
+function sampleRunSection(vt: TrackInfo): HTMLElement {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Try It on a Sample"));
-  sec.append(
-    teachBox(
-      `Encodes three seconds of the video with the command above — the real ffmpeg, compiled to WebAssembly, so ` +
-        `the bytes are the bytes it would produce — and shows the result against the same seconds of the ` +
-        `original, zoomable to the pixel. Nothing is uploaded and the file on disk is untouched.` +
-        `<p>Which three seconds is the question worth asking, so the track below scans the whole recording: ` +
-        `slide the band to the stretch that matters, judging it by the frame above it. A run starts at the ` +
-        `keyframe at or before the band, since that is where the cut can be made without decoding the file from ` +
-        `the beginning.</p>` +
-        `<p>One stretch of a fixed length, judged by eye: there is nothing to set here beyond where it comes ` +
-        `from. Sampling several places at once to project what a setting saves across the whole file, and ` +
-        `sweeping several settings against each other, are the <b>Compare Quality</b> tab's job.</p>`,
-    ),
-  );
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
   const { nodes, ui } = runControls("Run Comparison");
   sec.append(...nodes);
 
-  const resultSec = h("div", "section");
+  // The comparison lands inside this card rather than in one of its own: it is what the run above
+  // it produced, and a card that reads "Try It on a Sample" with the sample nowhere in it reads as
+  // two unrelated things.
+  const resultSec = h("div", "ab-inline");
   resultSec.style.display = "none";
+  sec.append(resultSec);
 
   ui.runButton.addEventListener("click", () => {
     // Disabled here as well as by the run itself, so a second click cannot land in the gap before
@@ -268,7 +232,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement[] {
       ui.runButton.disabled = false;
     });
   });
-  return [sec, resultSec];
+  return sec;
 }
 
 /** Encodes the picked stretch at whatever the builder currently says, and puts it in the A/B

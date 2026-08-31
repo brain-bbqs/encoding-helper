@@ -101,6 +101,9 @@
       <img class="brand-logo" src="/src/assets/encoding-helper-icon.svg" alt="" width="48" height="48" />
       <h1>Encoding Helper</h1>
       <div class="header-actions">
+        <!-- The Educational switch beside the theme toggle: both are preferences for the whole app,
+             kept together and away from the tab row, which is navigation. -->
+        <div id="eduToggleSlot" class="header-edu"></div>
         <button
           type="button"
           id="themeToggle"
@@ -157,6 +160,9 @@
 
     <div class="error-msg" id="errorMsg"></div>
 
+    <!-- What the app is for, filled in by main.ts and shown only while the Educational switch is on. -->
+    <div id="introCard"></div>
+
     <div class="drop-zone" id="dropZone">
       <div class="drop-full">
         <div><strong>Drop a video file here</strong>, or choose an option below</div>
@@ -180,9 +186,6 @@
         <button class="btn sm sec icon-only" id="resetBtn" type="button" title="Reset" aria-label="Reset"></button>
       </div>
     </div>
-    <!-- The Educational switch is no longer a fixture here: it is built at the top-right of the first
-         card on Inspect and Reencode with FFmpeg (src/ui/educationalToggle.ts), the two tabs that
-         carry teaching material worth silencing, and left off Compare Quality. -->
     <input type="file" id="fileInput" accept="video/*,.mp4,.m4v,.mov" style="display: none" />
 
     <!-- The demo-file page, at ?demos: an alternative to the drop zone above rather than a panel
@@ -210,7 +213,7 @@
           class="tab-action"
           data-tab="analysis"
           type="button"
-          title="Bundle everything on these tabs into one document to save, print or share"
+          title="Bundle these tabs into one document to save, print or share"
         >
           <svg
             viewBox="0 0 24 24"
@@ -289,7 +292,7 @@
             id="clear-matrix-cache-btn"
             class="footer-button-link"
             type="button"
-            title="Forget the sweep measurements kept for every file, so the next Compare Quality run encodes every square again"
+            title="Forget the sweep measurements kept for every file"
           >
             Clear sweep cache
           </button>

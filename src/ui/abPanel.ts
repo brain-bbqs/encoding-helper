@@ -275,6 +275,15 @@ function appendSegmentNav(controls: HTMLElement, count: number): { prev: HTMLBut
   return { prev, next };
 }
 
+/**
+ * The comparison's own heading, at the rank its host asks for: a host marked `ab-inline` is a block
+ * inside the card that ran the encode rather than a card of its own (see encodeTab), so it reads as
+ * that card's result, alongside the other headings inside it.
+ */
+function abHeading(host: HTMLElement): HTMLElement {
+  return h(host.classList.contains("ab-inline") ? "h3" : "h2", null, "Side-by-Side");
+}
+
 function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettings): void {
   stopActivePlayback?.();
   // The other tab's copy, if it has one, is of an encode whose sinks have just been replaced.
@@ -282,7 +291,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   activeHost = host;
   host.innerHTML = "";
   host.style.display = "block";
-  host.append(h("h2", null, "Side-by-Side"));
+  host.append(abHeading(host));
 
   // `settings` is what the loaded encode was made with, which after a sweep is the winning square's
   // rather than whatever the command builder happens to say.
@@ -324,11 +333,10 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const syncEncLabel = (): void => {
     if (!downscaled) return;
     encLabel.title =
-      `Encoded at ${encSize.width}×${encSize.height} and drawn back at ${srcWidth}×${srcHeight} ` +
+      `Encoded at ${encSize.width}×${encSize.height}, drawn back at ${srcWidth}×${srcHeight} ` +
       (encodeTest.upscaleSmoothing
-        ? `with smoothing, which is closer to how a player would show it, at the cost of interpolating in ` +
-          `detail the encode does not contain.`
-        : `one block per encoded pixel, so nothing is interpolated in that the encode does not contain.`);
+        ? `with smoothing, closer to how a player would show it.`
+        : `one block per encoded pixel, so nothing is interpolated in.`);
   };
   syncEncLabel();
   encPane.append(encLabel);

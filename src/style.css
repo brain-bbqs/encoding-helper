@@ -34,6 +34,10 @@
   --chip-bg: #e7ebf7;
   --chip-text: #5b6478;
   --code-text: #1f2b52;
+  /* Behind a value set as code, inside the recessed card that carries it: a shade away from that
+     card in whichever direction the theme has room for — up into white here, down into near-black
+     in the dark theme, where --field sat a hair off --sunken and the inset all but vanished. */
+  --code-bg: #ffffff;
   --tab-bg: #ffffff;
   --teach-bg: #eef2ff;
   --teach-text: #333a4d;
@@ -90,6 +94,7 @@
     --chip-bg: #333a54;
     --chip-text: #aaaaaa;
     --code-text: #c9d6ff;
+    --code-bg: #08080f;
     --tab-bg: #1a1a2e;
     --teach-bg: #1a1a2e;
     --teach-text: #bbbbbb;
@@ -141,6 +146,7 @@
   --chip-bg: #333a54;
   --chip-text: #aaaaaa;
   --code-text: #c9d6ff;
+  --code-bg: #08080f;
   --tab-bg: #1a1a2e;
   --teach-bg: #1a1a2e;
   --teach-text: #bbbbbb;
@@ -172,7 +178,12 @@ body {
     system-ui,
     -apple-system,
     sans-serif;
-  max-width: 980px;
+  /* Most cards read a paragraph or two under their figures while the Educational switch is on, and
+     the figure cards themselves tile across the column, so the page takes a wide one either way: at
+     980px a row of eight figures wrapped one card onto a line of its own. The cap leaves the fixed
+     corner watermarks the 220px a side they need to keep framing the page, the same allowance
+     .demos-page makes. */
+  max-width: min(1180px, calc(100vw - 440px));
   margin: 0 auto;
   /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar, whose tallest
      column is the three rows of footer links at ~86px. */
@@ -302,22 +313,13 @@ h1 {
   margin: 0 6px;
 }
 
-/* A card's <h2> beside an action that belongs to that card rather than the page — currently only
-   the Educational toggle (see .card-toggle below), on the first card of Inspect and Reencode with
-   FFmpeg. */
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 /* Educational toggle. A slide switch — a restyled checkbox, so it stays keyboard- and
    test-accessible — the same shape clip-extractor's SLEAP-annotations switch and bbqs-uploader's
    remote-destination switch use, rather than another button. Carries the same 🎓 icon as the "Learn
    more about codec parameters" goal in the subtitle, so the control that hides every "teach" box and
-   ⓘ popover reads as tied back to that goal. Built fresh at the top-right of whichever card carries
-   it (.card-toggle) rather than living as one page-level fixture — see ui/educationalToggle.ts. */
+   ⓘ popover reads as tied back to that goal. One fixture in the header (.header-edu), beside the
+   light/dark toggle it is a sibling preference to, rather than one per card — see
+   ui/educationalToggle.ts. */
 .edu-toggle {
   display: inline-flex;
   align-items: center;
@@ -333,10 +335,9 @@ h1 {
 .edu-toggle-icon {
   font-size: 15px;
 }
-.card-toggle {
-  flex-shrink: 0;
-  text-transform: none;
-  letter-spacing: normal;
+.header-edu {
+  display: flex;
+  align-items: center;
 }
 input[type="checkbox"].switch {
   appearance: none;
@@ -541,11 +542,16 @@ label.field-label {
 .field .field-head label.field-label {
   margin-bottom: 0;
 }
-.field .hint {
-  color: var(--faint);
-  font-size: 12px;
-  margin-top: -6px;
-  margin-bottom: 8px;
+/* A row of tick boxes: each takes the width of its own label, so they read as a list rather than as
+   three columns with the boxes stranded at the start of each. */
+.row.row-checks > .field {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* A field whose control is a short menu or a small number, so it takes what it needs rather than
+   the whole form. */
+.field-compact {
+  max-width: 320px;
 }
 .row {
   display: flex;
@@ -591,10 +597,25 @@ label.field-label {
 .section h3:first-child {
   margin-top: 0;
 }
+/* Each figure takes the width its own label and value need. A column grid gave "2.1" and "Baseline"
+   the same 150px as a codec parameter string, leaving most of those cards empty. */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+}
+/* Forces the cards after it onto a line of their own, where a card grid reads as two groups rather
+   than as one run that happens to wrap (see renderSavingsDetail). */
+.grid-break {
+  flex: 1 0 100%;
+  height: 0;
+}
+.grid .item {
+  flex: 0 1 auto;
+  /* A card may shrink below its content width — a long value wraps inside it rather than pushing
+     the row past the panel's edge — but never grows past what it has to show. */
+  min-width: 0;
+  max-width: 100%;
 }
 .grid .item label {
   display: block;
@@ -603,13 +624,29 @@ label.field-label {
   text-transform: uppercase;
   margin-bottom: 2px;
 }
+/* Every figure the app read out of the file gets a card of its own — the recessed panel the demo
+   tiles use, rather than the teach boxes' tinted, accent-edged callout, so a reading and an
+   explainer never read as the same kind of thing. */
+.grid .item {
+  padding: 7px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+}
 .grid .item .val {
   font-size: 16px;
   font-weight: 600;
   color: var(--accent);
   word-break: break-word;
 }
+/* A value that is really a string out of the file — a MIME type, a codec parameter string, a raw
+   tag — is set as code, on an inset of its own against the card it sits in. */
 .grid .item .val.sm {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  background: var(--code-bg);
   font-size: 13px;
   font-family: Monaco, Consolas, monospace;
   font-weight: 400;
@@ -652,12 +689,14 @@ label.field-label {
   border-radius: 50%;
   background: transparent;
   color: var(--muted);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 10px;
-  font-style: italic;
-  font-weight: 700;
-  line-height: 1;
   cursor: help;
+}
+/* The glyph is drawn (see infoGlyph in lib/dom), so it fills the button's box and takes its color
+   from the button rather than being positioned by a font's own metrics. */
+.info-btn svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }
 .info-btn:hover,
 .info-btn:focus-visible {
@@ -705,6 +744,14 @@ label.field-label {
 }
 .info-pop p {
   margin: 6px 0 0;
+}
+/* Same shape the teach boxes give a list, for the popovers that carry one. */
+.info-pop ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.info-pop li {
+  margin: 2px 0;
 }
 .info-pop .info-pop-meta {
   color: var(--muted);
@@ -998,6 +1045,10 @@ details.teach-more summary {
 }
 /* Runs of boxes too narrow to draw individually keep the color of whichever family fills most of
    the run, and carry a hatch over it so the count never reads as one real box. */
+/* A block already filling the view is a readout, not a way further in (see narrowsView). */
+.atom-block.filling {
+  cursor: default;
+}
 .atom-block.grouped,
 .swatch.grouped {
   background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.3) 0 3px, transparent 3px 6px);
@@ -1026,6 +1077,11 @@ details.teach-more summary {
 .atom-block.snug .lbl {
   padding: 0 2px;
   font-size: 9.5px;
+}
+/* The faststart verdict, between the atom card's explainer and the map that shows the box order it
+   reports. */
+.atom-faststart {
+  margin: 10px 0;
 }
 .atom-readout {
   margin-top: 8px;
@@ -1058,10 +1114,6 @@ details.teach-more summary {
   font-family: Monaco, Consolas, monospace;
   color: var(--text);
 }
-.legend-note {
-  flex-basis: 100%;
-  color: var(--faint);
-}
 
 /* Histogram bars */
 .hist {
@@ -1079,6 +1131,12 @@ details.teach-more summary {
 }
 .hist .bar.tall {
   background: var(--warn);
+}
+
+/* The seeking test's results, spaced off the Run button above them; only once a run has something
+   to show, since an empty wrap would otherwise pad the card's bottom. */
+.seek-results:not(:empty) {
+  margin-top: 14px;
 }
 
 /* Seek scatter plot (built in src/ui/seekTab.ts; colors live here so it follows the theme) */
@@ -1461,18 +1519,86 @@ details.teach-more summary {
   color: var(--err);
 }
 
-/* Command output */
+/* Command output. Sized to the command rather than to the page — a wrapped ffmpeg line is nowhere
+   near the column's width — and centred in the space that leaves. */
 pre.cmd {
   background: var(--sunken);
-  padding: 14px;
+  padding: 12px 14px;
   border-radius: 6px;
   font-size: 12.5px;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  margin: 0 0 10px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
   font-family: Monaco, Consolas, monospace;
   color: var(--code-text);
+}
+/* The wrapper is what carries the block's width, so the copy control can sit in the command's own
+   corner rather than the column's. */
+.cmd-wrap {
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
+}
+.cmd-wrap > pre.cmd {
+  width: auto;
+  margin: 0;
+}
+.cmd-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--field);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.cmd-copy svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The word only after a copy; the icon carries the offer until then. */
+.cmd-copied {
+  display: none;
+  font-size: 11px;
+  font-weight: 600;
+}
+.cmd-copy.copied {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.cmd-copy.copied .cmd-copied {
+  display: inline;
+}
+.cmd-wrap:hover .cmd-copy,
+.cmd-copy:focus-visible,
+.cmd-copy.copied {
+  opacity: 1;
+}
+.cmd-copy:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+/* Nothing to hover with, so the control is simply there. */
+@media (hover: none) {
+  .cmd-copy {
+    opacity: 1;
+  }
 }
 
 /* Table */
@@ -1760,7 +1886,7 @@ table.data th {
    content box, taking the extra width out of the page margins either side rather than out of the
    rest of the page, which stays in its column.
 
-   The gutter is what it may not take: above 1420px the corner watermarks are fixed there and the
+   The gutter is what it may not take: above 1560px the corner watermarks are fixed there and the
    card would slide under them, and below it they are gone, leaving only the page's own padding.
    `clamp()`'s lower bound is the column itself, so on any viewport too narrow to give the card
    more, it is exactly as wide as every other card and the margin below comes out at zero. */
@@ -1770,7 +1896,7 @@ table.data th {
   width: var(--matrix-width);
   margin-left: calc(50% - var(--matrix-width) / 2);
 }
-@media (max-width: 1420px) {
+@media (max-width: 1560px) {
   .matrix-section {
     --matrix-gutter: 20px;
   }
@@ -1898,10 +2024,6 @@ table.data.matrix-table th.matrix-group-head {
   align-items: center;
   margin-bottom: 4px;
 }
-.matrix-reuse {
-  font-size: 11px;
-  color: var(--muted-2);
-}
 /* The resolution tick list: two columns so the four options sit as a 2×2 grid, aligned down the
    columns instead of wrapping wherever their pixel-dimension labels happen to break. */
 .axis-list.axis-list-grid {
@@ -1981,8 +2103,8 @@ table.data.matrix-table th.matrix-row-head {
 .matrix-cell {
   position: relative;
   width: 100%;
-  /* Wide enough for "2.4× reduction" to sit on one line, which is the longest thing a square says. */
-  min-width: 104px;
+  /* Wide enough for "original 2.4× larger" to sit on one line, the longest thing a square says. */
+  min-width: 128px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2304,6 +2426,11 @@ table.data.matrix-table th.matrix-row-head {
   flex-shrink: 0;
 }
 @media (max-width: 700px) {
+  /* The header has the title, the logo and two controls to fit: the switch keeps its 🎓 and its
+     tooltip, and drops the word, rather than wrapping the title onto a second line. */
+  .header-edu .edu-toggle-label {
+    display: none;
+  }
   .consent-banner {
     align-items: flex-start;
     flex-direction: column;
@@ -2313,9 +2440,6 @@ table.data.matrix-table th.matrix-row-head {
 @media (max-width: 600px) {
   body {
     padding: 12px 12px 90px;
-  }
-  .grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
   .drop-zone {
     padding: 26px 12px;
@@ -2342,24 +2466,20 @@ table.data.matrix-table th.matrix-row-head {
   }
 }
 
-/* body caps out at a 940px-wide content box (980px max-width minus its own 20px side padding);
-   above that it is centred with (viewport - 980) / 2 px of margin on either side. The footer bar's
-   right column (the Talmo Lab and CON logos, plus the bar's own right padding) is the widest thing
-   needing that margin at 212px, so page content stops clearing the fixed corner watermarks once
-   the viewport drops below 1404px. Below that, as the page scrolls, they end up pinned on top of
-   content instead of framing it: take them out of fixed positioning so the footer sits in normal
-   document flow (and drop the BBQS watermark entirely, since the top-left of the page is where the
-   header already sits). The 1420px threshold leaves a little slack past that measured 1404px, and
-   has to stay under 1440 so it does not fire on the many laptops exactly that wide.
+/* Below the width that allowance needs, the column wins and the watermarks give way: they drop out
+   of fixed positioning into the flow of the page, rather than ending up pinned over content as it
+   scrolls (and the BBQS watermark goes entirely, since the header already sits top-left). Without
+   this a 1440px laptop — the common case — would gain 20px and stay as cramped as before.
 
    This block must stay after the max-width: 600px one above, whose body padding it overrides. */
-@media (max-width: 1420px) {
+@media (max-width: 1560px) {
+  body {
+    max-width: min(1180px, calc(100vw - 40px));
+    /* No fixed footer left to clear, so only the normal page padding. */
+    padding-bottom: 20px;
+  }
   .brand-watermark-link {
     display: none;
-  }
-  body {
-    /* No fixed footer to clear anymore, so only the normal page padding is left. */
-    padding-bottom: 20px;
   }
   .page-footer-bar {
     position: static;
@@ -2392,8 +2512,8 @@ table.data.matrix-table th.matrix-row-head {
    the whole content column while it is up. One card per group of demo files, and inside it one fold
    per file — the same recessed-bar-and-caret treatment the sweep settings and the output console
    use, so a shut row reads as something that opens. */
-/* The demos page is a map of a couple of dozen files, so it takes more width than the 980px column
-   the rest of the app reads in — but not all of it: above 1420px the corner watermarks are fixed in
+/* The demos page is a map of a couple of dozen files, so it takes more width than the column the
+   rest of the app reads in — but not all of it: above 1560px the corner watermarks are fixed in
    the margins (see the media query at the end of this file), and 220px a side is what they need to
    keep framing the page rather than sitting on top of it. Below that threshold they drop into
    normal flow and the page can have everything but its own padding. */
@@ -2403,7 +2523,7 @@ table.data.matrix-table th.matrix-row-head {
   margin-left: min(0px, calc((100% - var(--demos-w)) / 2));
   margin-bottom: 16px;
 }
-@media (max-width: 1420px) {
+@media (max-width: 1560px) {
   .demos-page {
     --demos-w: calc(100vw - 40px);
   }

@@ -10,7 +10,7 @@
 
 import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
 import { h, teachBox } from "../lib/dom";
-import { ATOM_MAP_TEACH, ATOM_STRUCTURE_TEACH } from "../lib/explainers";
+import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
@@ -32,8 +32,6 @@ const FAMILIES: [string, string][] = [
   ["mdat", "sample data"],
   ["moof", "fragment index"],
 ];
-
-const READOUT_HINT = "Hover a block for its offset and size; click one to zoom into it.";
 
 /**
  * Roughly what a label costs in the two sizes the blocks draw it at: per character, plus the
@@ -67,7 +65,9 @@ function familyClass(family: string | null): string {
 export function renderAtomMap(panel: HTMLElement): void {
   const sec = h("div", "section");
   sec.append(h("h2", null, "MP4 Box / Atom Structure"));
-  sec.append(teachBox(ATOM_STRUCTURE_TEACH + `<p>${ATOM_MAP_TEACH}</p>`));
+  // Faststart is a statement about where two of these boxes sit relative to each other, so it is
+  // read here, against the map that draws them, rather than up in the file overview.
+  sec.append(faststartBadge());
 
   const placements = placeAtoms(state.boxes);
   const zoom: { label: string; range: AxisRange }[] = [];
@@ -83,8 +83,20 @@ export function renderAtomMap(panel: HTMLElement): void {
   };
 
   sec.append(body);
+  // Only faststart is taught here. What the box tree is, the container overview already says; how
+  // to read the map, the hint above it and the hover readout do.
+  sec.append(teachBox(FASTSTART_EXPLAINER, "🚀"));
   panel.append(sec);
   draw();
+}
+
+/** Whether `moov` precedes `mdat`, the one fact about box order that decides how the file streams. */
+function faststartBadge(): HTMLDivElement {
+  const wrap = h("div", "atom-faststart");
+  wrap.append(
+    h("span", "badge " + (state.faststart ? "good" : "bad"), state.faststart ? "✓ Fast start" : "✗ Not fast start"),
+  );
+  return wrap;
 }
 
 function renderMap(
@@ -101,14 +113,14 @@ function renderMap(
   host.append(renderCrumbs(shown, zoom, redraw));
 
   const { map, lanes } = mapLanes(layout.laneCount);
-  const readout = h("div", "atom-readout", READOUT_HINT);
-  layout.rects.forEach((rect) => lanes[rect.depth].append(blockEl(rect, zoom, redraw, readout)));
+  const readout = h("div", "atom-readout", ATOM_MAP_READOUT_HINT);
+  layout.rects.forEach((rect) => lanes[rect.depth].append(blockEl(rect, view, zoom, redraw, readout)));
   host.append(map, readout);
 
   if (layout.truncated) {
     host.append(h("div", "progress-label", "This file nests further than the map draws; zoom in to see the rest."));
   }
-  host.append(renderLegend());
+  host.append(renderLegend(layout.rects));
   bindLabelSizing(map);
 }
 
@@ -158,7 +170,7 @@ export function renderStaticAtomMap(boxes: BoxNode[], widthPx: number): HTMLDivE
     positionBlock(el, rect, label);
     lanes[rect.depth].append(el);
   });
-  wrap.append(map, renderLegend());
+  wrap.append(map, renderLegend(layout.rects));
   return wrap;
 }
 
@@ -196,7 +208,7 @@ function rectLabel(rect: AtomRect): string {
   return rect.box !== null ? rect.box.type : boxCount(rect.count);
 }
 
-function rectDetail(rect: AtomRect): string {
+function rectDetail(rect: AtomRect, zoomable = true): string {
   if (rect.box !== null) {
     const role = BOX_ROLES[rect.box.type];
     const size = fmtSize(rect.box.size);
@@ -204,19 +216,40 @@ function rectDetail(rect: AtomRect): string {
   }
   return (
     `${boxCount(rect.count)} in ${fmtSize(rect.byteEnd - rect.byteStart)} at offset ` +
-    `${rect.byteStart.toLocaleString()}, too many to draw one by one · click to zoom in on them`
+    `${rect.byteStart.toLocaleString()}, too many to draw one by one` +
+    (zoomable ? " · click to zoom in on them" : "")
   );
+}
+
+/**
+ * Whether zooming to this block would show anything the view does not already. A zoomed-in view
+ * still draws the ancestors of what was zoomed to — that is the context the map is read in — and
+ * each of them spans the whole of it, so clicking one used to push a crumb for a view identical to
+ * the one already on screen (or, for an ancestor whose own range is wider, quietly zoom back out).
+ * Either way the breadcrumb grew without the map changing, which is how a file with one video track
+ * came to offer an endless path of `trak`s.
+ */
+function narrowsView(rect: AtomRect, view: AxisRange): boolean {
+  // A hair of slack: the ranges are sums of fractions, so an edge that should land exactly on the
+  // view's own can miss it by an ulp or two.
+  const slack = (view.end - view.start) * 1e-9;
+  return rect.from > view.start + slack || rect.to < view.end - slack;
 }
 
 function blockEl(
   rect: AtomRect,
+  view: AxisRange,
   zoom: { label: string; range: AxisRange }[],
   redraw: () => void,
   readout: HTMLElement,
 ): HTMLButtonElement {
   const label = rectLabel(rect);
-  const detail = rectDetail(rect);
-  const el = h("button", `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}`);
+  const zoomable = narrowsView(rect, view);
+  const detail = rectDetail(rect, zoomable);
+  const el = h(
+    "button",
+    `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}${zoomable ? "" : " filling"}`,
+  );
   el.type = "button";
   positionBlock(el, rect, label);
 
@@ -224,32 +257,44 @@ function blockEl(
     readout.textContent = detail;
   };
   const clear = (): void => {
-    readout.textContent = READOUT_HINT;
+    readout.textContent = ATOM_MAP_READOUT_HINT;
   };
   el.addEventListener("mouseenter", show);
   el.addEventListener("focus", show);
   el.addEventListener("mouseleave", clear);
   el.addEventListener("blur", clear);
-  el.addEventListener("click", () => {
-    zoom.push({ label, range: { start: rect.from, end: rect.to } });
-    redraw();
-  });
+  // Still hoverable and focusable when it fills the view — its offset and size are worth reading —
+  // but not a way further in, since there is no further in to go.
+  if (zoomable) {
+    el.addEventListener("click", () => {
+      zoom.push({ label, range: { start: rect.from, end: rect.to } });
+      redraw();
+    });
+  }
   return el;
 }
 
-function renderLegend(): HTMLDivElement {
+/**
+ * The key to what is drawn, and only that: a progressive file has no `moof` to explain and, at forty
+ * or so boxes, nothing narrow enough to collapse into a group either — rows for both would be
+ * describing marks that are not on the map. Read off the rects, so it also follows a zoom into one
+ * family's subtree.
+ */
+function renderLegend(rects: AtomRect[]): HTMLDivElement {
   const legend = h("div", "atom-legend");
   const item = (cls: string, name: string, desc: string): HTMLSpanElement => {
     const wrap = h("span", "legend-item");
     wrap.append(h("span", "swatch " + cls), h("span", "legend-label", name), h("span", "legend-desc", desc));
     return wrap;
   };
-  FAMILIES.forEach(([key, desc]) => legend.append(item("f-" + key, key, desc)));
-  legend.append(item("f-other", "other", "brand, padding, user data"));
-  legend.append(item("f-other grouped", "N boxes", "too many to draw, in the color of most of them"));
-  legend.append(
-    h("span", "legend-note", "A box's color is the top-level box it belongs to; each row down is one level in."),
+  const drawn = new Set(rects.map((rect) => familyClass(rect.family)));
+  FAMILIES.filter(([key]) => drawn.has("f-" + key)).forEach(([key, desc]) =>
+    legend.append(item("f-" + key, key, desc)),
   );
+  if (drawn.has("f-other")) legend.append(item("f-other", "other", "brand, padding, user data"));
+  if (rects.some((rect) => rect.kind === "group")) {
+    legend.append(item("f-other grouped", "N boxes", "too many to draw, in the color of most of them"));
+  }
   return legend;
 }
 

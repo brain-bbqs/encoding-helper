@@ -12,7 +12,6 @@ import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
 
 /** Caption for the GOP histogram, shared with the Full Analysis document. */
-export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a bar for its frame count)";
 
 /**
  * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
@@ -21,7 +20,6 @@ export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval (hover a 
 const DEFAULT_SEEK_SAMPLES = 100;
 
 /** Caption for the seeking scatter plot, shared with the Full Analysis document. */
-export const SEEK_SCATTER_CAPTION = "Keyframe distance vs. decode time; hover a point for its timestamp";
 
 export function renderSeekTab(panel: HTMLElement): void {
   const gop = state.gopLengths;
@@ -32,8 +30,6 @@ export function renderSeekTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "GOP / Keyframe Structure"));
-  // Explainer first, like the atom map above: read what a GOP is before reading this file's numbers.
-  sec.append(teachBox(GOP_TEACH));
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
@@ -45,22 +41,23 @@ export function renderSeekTab(panel: HTMLElement): void {
   const bBadge = h(
     "span",
     "badge " + (state.hasBFrames ? "info" : "good"),
-    state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames (IPPP…)",
+    state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames",
   );
   const bWrap = h("div");
   bWrap.style.margin = "10px 0";
   bWrap.append(bBadge);
   sec.append(bWrap);
 
-  if (gop.length > 1) {
-    sec.append(renderGopHistogram(gop));
-    sec.append(h("div", "progress-label", GOP_HISTOGRAM_CAPTION));
-  }
+  if (gop.length > 1) sec.append(renderGopHistogram(gop));
+  // What a GOP is, under this file's own: the card leads with the measurement, like the others.
+  sec.append(teachBox(GOP_TEACH, "🔑"));
 
   // The seeking test lives in the same card rather than one of its own: what nearest-keyframe
   // distance costs to seek to is the GOP structure's consequence, not a separate finding.
   sec.append(h("h3", null, "Empirical Seeking Test"));
-  sec.append(h("div", null, SEEK_TEST_INTRO));
+  // Set as a teach box like every other explanation on the page, rather than as bare body text in
+  // its own size.
+  sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
   const nField = h("div", "field");
@@ -83,7 +80,7 @@ export function renderSeekTab(panel: HTMLElement): void {
   seekProgress.id = "seekProgress";
   seekProgress.append(h("div", "fill"));
   sec.append(seekProgress);
-  const seekResultsWrap = h("div");
+  const seekResultsWrap = h("div", "seek-results");
   seekResultsWrap.id = "seekResultsWrap";
   sec.append(seekResultsWrap);
   panel.append(sec);
@@ -167,10 +164,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   wrap.append(g);
 
   const scatter = renderSeekScatter(results);
-  if (scatter) {
-    wrap.append(h("div", "progress-label", SEEK_SCATTER_CAPTION));
-    wrap.append(scatter);
-  }
+  if (scatter) wrap.append(scatter);
 
   // The summary figures and the scatter above are what a run is read for; a hundred sampled
   // timestamps of raw rows underneath them would bury the next section, so the table folds away

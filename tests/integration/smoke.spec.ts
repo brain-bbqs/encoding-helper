@@ -19,9 +19,9 @@ test.describe("Encoding Helper shell", () => {
 
   test("frames the page with the BBQS, CON, and Talmo Lab watermarks", async ({ page }) => {
     // Wide enough that the corner watermarks stay in their fixed, viewport-anchored spots instead
-    // of the narrow-screen fallback (see the max-width: 1420px query in style.css) that hides the
+    // of the narrow-screen fallback (see the max-width: 1560px query in style.css) that hides the
     // BBQS mark and flows the footer bar into the page to avoid overlapping content.
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1680, height: 900 });
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/");
 
@@ -248,8 +248,10 @@ test.describe("Encoding Helper shell", () => {
     await expect(clearButton).toHaveText("Clear sweep cache");
   });
 
+  // 1440 is the common laptop, and the page's own column takes the width there rather than leaving
+  // the 220px a side the fixed marks need.
   test("drops the fixed watermarks once the viewport is too narrow to frame the page", async ({ page }) => {
-    await page.setViewportSize({ width: 1200, height: 900 });
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
     await expect(page.locator(".brand-watermark-link")).toBeHidden();
     // The remaining watermarks stay, but in normal document flow under the page content.

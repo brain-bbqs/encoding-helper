@@ -1,7 +1,9 @@
 // Codec knowledge base — infers codec family from mediabunny's short codec id (the same identifiers
 // it accepts in Conversion's `codec:` option) and parses profile/level/tier out of the RFC 6381 codec
-// parameter string (e.g. "avc1.640028") when the format is known.
+// parameter string (e.g. "avc1.640028") when the format is known. What each codec *is* reads out of
+// CODEC_DESCRIPTIONS in lib/explainers, with the rest of the app's copy.
 
+import { CODEC_DESCRIPTIONS, PCM_DESCRIPTION } from "./explainers";
 import type { CodecDetail, CodecInfo } from "./types";
 
 interface CodecKbEntry {
@@ -73,8 +75,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "H.264 / AVC",
     fullName: "Advanced Video Coding",
     year: 2003,
-    description:
-      "The most widely supported video codec in existence: nearly every browser, phone, and hardware decoder handles it natively. Block-based motion compensation with in-loop deblocking; this is the codec sleap-io's <code>reencode</code> baseline targets specifically for its universal compatibility and predictable I/P/B-frame random access.",
+    description: CODEC_DESCRIPTIONS.avc,
     parse: (cs) => {
       const m = /^avc[13]\.([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(cs || "");
       if (!m) return [];
@@ -90,8 +91,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "H.265 / HEVC",
     fullName: "High Efficiency Video Coding",
     year: 2013,
-    description:
-      "Roughly 2&times; more efficient than H.264 at equal visual quality, using larger coding-tree blocks and richer intra/inter prediction, at the cost of much slower encoding and patchier hardware decode support (older devices and some browsers can't play it back at all, which is a poor fit for a shared QC/annotation pipeline).",
+    description: CODEC_DESCRIPTIONS.hevc,
     parse: (cs) => {
       const m = /^(?:hev1|hvc1)\.[ABC]?(\d+)\.[0-9A-Fa-f]+\.([LH])(\d+)/.exec(cs || "");
       if (!m) return [];
@@ -106,8 +106,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "VP9",
     fullName: "VP9",
     year: 2013,
-    description:
-      "An open, royalty-free codec from Google built as a free alternative to H.265, with broadly similar compression efficiency. Well supported in Chrome/Firefox and common in WebM, but not universal on iOS/Safari or older hardware decoders.",
+    description: CODEC_DESCRIPTIONS.vp9,
     parse: (cs) => {
       const m = /^vp0?9\.(\d{2})\.(\d{2})\.(\d{2})/.exec(cs || "");
       if (!m) return [];
@@ -122,8 +121,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "AV1",
     fullName: "AOMedia Video 1",
     year: 2018,
-    description:
-      "The newest royalty-free, open codec, developed by the Alliance for Open Media (Google, Netflix, Amazon, Mozilla, and others). Roughly 30% more efficient than HEVC/VP9 at equal quality and historically very slow to encode, with hardware decode support still spreading, so it is increasingly used for high-volume streaming where the bitrate savings outweigh the encoding cost.",
+    description: CODEC_DESCRIPTIONS.av1,
     parse: (cs) => {
       const m = /^av01\.(\d)\.(\d{2})([MH])\.(\d{2})/.exec(cs || "");
       if (!m) return [];
@@ -139,24 +137,21 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "VP8",
     fullName: "VP8",
     year: 2008,
-    description:
-      "An earlier royalty-free codec from On2/Google, roughly comparable in efficiency to H.264. Mostly superseded by VP9 today, but still seen in WebRTC and some legacy WebM files.",
+    description: CODEC_DESCRIPTIONS.vp8,
     parse: () => [],
   },
   prores: {
     family: "Apple ProRes",
     fullName: "ProRes",
     year: 2007,
-    description:
-      "A high-bitrate, intraframe-only professional mezzanine codec in which every frame is a keyframe, so it's trivially and instantly seekable, at the cost of much larger files. Meant for editing workflows, not final delivery.",
+    description: CODEC_DESCRIPTIONS.prores,
     parse: () => [],
   },
   aac: {
     family: "AAC",
     fullName: "Advanced Audio Coding",
     year: 1997,
-    description:
-      "The default audio codec paired with H.264/MP4 video; a more efficient successor to MP3 at the same bitrate, with near-universal hardware and browser support.",
+    description: CODEC_DESCRIPTIONS.aac,
     parse: (cs) => {
       const m = /^mp4a\.40\.(\d+)/.exec(cs || "");
       if (!m) return [];
@@ -167,47 +162,42 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     family: "Opus",
     fullName: "Opus",
     year: 2012,
-    description:
-      "A modern, royalty-free, low-latency codec tuned for both speech and music; it is the default for WebRTC and increasingly used for general-purpose streaming audio.",
+    description: CODEC_DESCRIPTIONS.opus,
     parse: () => [],
   },
   mp3: {
     family: "MP3",
     fullName: "MPEG-1/2 Audio Layer III",
     year: 1993,
-    description:
-      "The classic lossy audio format. Universally compatible, but less efficient than AAC or Opus at the same bitrate.",
+    description: CODEC_DESCRIPTIONS.mp3,
     parse: () => [],
   },
   vorbis: {
     family: "Vorbis",
     fullName: "Ogg Vorbis",
     year: 2000,
-    description:
-      "A royalty-free codec and the predecessor to Opus, commonly paired with VP8/VP9 in WebM and OGG containers.",
+    description: CODEC_DESCRIPTIONS.vorbis,
     parse: () => [],
   },
   flac: {
     family: "FLAC",
     fullName: "Free Lossless Audio Codec",
     year: 2001,
-    description:
-      "Lossless compression, meaning bit-exact reconstruction of the original samples, at roughly 50&ndash;60% the size of raw PCM. Not used for lossy delivery, but common for archival audio.",
+    description: CODEC_DESCRIPTIONS.flac,
     parse: () => [],
   },
   ac3: {
     family: "Dolby Digital (AC-3)",
     fullName: "Dolby Digital",
     year: 1991,
-    description: "A perceptual multichannel (up to 5.1) audio codec common in broadcast, DVD, and streaming.",
+    description: CODEC_DESCRIPTIONS.ac3,
     parse: () => [],
   },
   eac3: {
     family: "Dolby Digital Plus (E-AC-3)",
     fullName: "Enhanced AC-3",
     year: 2005,
-    description:
-      "An extension of AC-3 with higher efficiency and up to 7.1 channels; common in modern streaming and broadcast.",
+    description: CODEC_DESCRIPTIONS.eac3,
     parse: () => [],
   },
 };
@@ -219,8 +209,7 @@ export function describeCodec(shortCodec: string | null | undefined, codecString
       family: "PCM (uncompressed)",
       fullName: "Pulse-Code Modulation",
       year: null,
-      description:
-        "Raw, uncompressed audio samples, with no encoding at all. Simple and lossless, but large; mostly seen in short clips or intermediate/editing files rather than delivery formats.",
+      description: PCM_DESCRIPTION,
       details: [],
     };
   }

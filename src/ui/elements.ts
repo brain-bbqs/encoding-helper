@@ -10,6 +10,7 @@ export function getElements() {
   return {
     errorMsg: required<HTMLDivElement>("errorMsg"),
     dropZone: required<HTMLDivElement>("dropZone"),
+    introCard: required<HTMLDivElement>("introCard"),
     pickFileBtn: required<HTMLButtonElement>("pickFileBtn"),
     browseDemosBtn: required<HTMLButtonElement>("browseDemosBtn"),
     showUrlBtn: required<HTMLButtonElement>("showUrlBtn"),
@@ -25,6 +26,7 @@ export function getElements() {
     themeToggle: required<HTMLButtonElement>("themeToggle"),
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     clearCacheBtn: required<HTMLButtonElement>("clear-matrix-cache-btn"),
+    eduToggleSlot: required<HTMLDivElement>("eduToggleSlot"),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),
       encode: required<HTMLDivElement>("panel-encode"),

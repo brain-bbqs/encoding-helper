@@ -80,7 +80,7 @@ function metaFor(demo: DemoFile, withBadge: boolean): HTMLSpanElement {
   if (demo.size) meta.append(h("span", "demo-size", fmtBytes(demo.size)));
   if (withBadge && !demo.loadsInApp) {
     const badge = h("span", "badge bad demo-badge", "MP4 parser can't open this");
-    badge.title = "mp4box.js reads MP4 and MOV only, so opening this file lands on the error path.";
+    badge.title = "mp4box.js reads MP4 and MOV only, so this file lands on the error path.";
     meta.append(badge);
   }
   return meta;
@@ -205,7 +205,7 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     tile.append(h("span", "demo-tile-name", demo.title), metaFor(demo, false));
     if (!demo.loadsInApp) {
       const mark = h("span", "demo-tile-mark");
-      mark.title = "mp4box.js reads MP4 and MOV only, so opening this file lands on the error path.";
+      mark.title = "mp4box.js reads MP4 and MOV only, so this file lands on the error path.";
       mark.setAttribute("aria-label", "The MP4 parser can't open this");
       tile.append(mark);
     }
@@ -253,6 +253,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     writeDemosToUrl(false, push);
     page.style.display = "none";
     els.dropZone.style.display = "";
+    els.introCard.style.display = "";
     if (appDisplay !== null) els.app.style.display = appDisplay;
     appDisplay = null;
   };
@@ -314,6 +315,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     writeDemosToUrl(true, push);
     build();
     els.dropZone.style.display = "none";
+    els.introCard.style.display = "none";
     if (appDisplay === null) appDisplay = els.app.style.display;
     els.app.style.display = "none";
     page.style.display = "block";

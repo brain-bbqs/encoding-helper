@@ -59,7 +59,7 @@ describe("renderMatrixTable", () => {
     const table = renderMatrixTable({ cells: swept, estimate: estimateFor });
     const [cached, encoded] = cellButtons(table);
     expect(cached.querySelector(".matrix-sub")!.textContent).toContain("↺ 4.2s");
-    expect(cached.title).toContain("measured on an earlier run of this file");
+    expect(cached.title).toContain("cached from an earlier run");
     expect(encoded.querySelector(".matrix-sub")!.textContent).not.toContain("↺");
   });
 
@@ -109,7 +109,7 @@ describe("renderMatrixTable", () => {
     // 60 KB against the 100 KB the same 10 s costs in the source.
     expect(first.querySelector(".matrix-change")!.textContent).toBe("−40%");
     // The same change as a factor, on the square itself rather than only in its tooltip.
-    expect(first.querySelector(".matrix-factor")!.textContent).toBe("1.7× reduction");
+    expect(first.querySelector(".matrix-factor")!.textContent).toBe("original 1.7× larger");
     // 60% of the 1 MB source, i.e. 600,000 bytes.
     expect(first.querySelector(".matrix-sub")!.textContent).toBe("585.9 KB · 4.2s");
   });

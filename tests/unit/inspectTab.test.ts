@@ -123,20 +123,146 @@ describe("the Inspect panel", () => {
     state.gopLengths = [30, 30];
     state.keyframeDecodeIndices = [0, 30];
     const panel = document.createElement("div");
+    // The order main.ts appends them in.
     renderInspectHead(panel);
     renderAtomMap(panel);
-    renderInspectTail(panel);
     renderSeekTab(panel);
+    renderInspectTail(panel);
     const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
-    // Metadata first, then the map of where the bytes are (ahead of bitrate/audio), then the
-    // structure that governs seeking, with the seeking test folded into that same card.
+    // Metadata first, then the map of where the bytes are, then the keyframe structure that map's
+    // box order decides (with the seeking test folded into that same card), then the bitrate over
+    // time, and the audio track last.
     expect(headings).toEqual([
-      "Video Container Overview",
+      "Video Container Overview: mp4",
       "Video Track",
       "MP4 Box / Atom Structure",
-      "Video Bitrate Over Time",
       "GOP / Keyframe Structure",
+      "Video Bitrate Over Time",
     ]);
+  });
+
+  // Faststart is a fact about where moov sits relative to mdat, so it is read against the map that
+  // draws them rather than in the file overview.
+  it("reports faststart on the atom card, not on the overview", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.format = "MP4";
+    state.faststart = true;
+    state.boxes = [{ type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] }];
+    const overview = document.createElement("div");
+    renderInspectHead(overview);
+    expect(overview.textContent).not.toContain("Faststart");
+    const atoms = document.createElement("div");
+    renderAtomMap(atoms);
+    expect(atoms.querySelector(".atom-faststart")?.textContent).toBe("✓ Fast start");
+  });
+
+  // The container's own card was folded into the overview, and its explainer names the container,
+  // so the grid no longer carries a Type row saying the same thing.
+  it("carries the container explainer in the overview card, without a Type row", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.format = "MP4";
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    // The heading names the container, which is what the absorbed card's heading did.
+    expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual([
+      "Video Container Overview: MP4",
+      "Video Track",
+    ]);
+    expect(panel.textContent).toContain("MPEG-4 Part 14");
+    expect(Array.from(panel.querySelectorAll("label")).map((el) => el.textContent)).not.toContain("Type");
+  });
+
+  // Every card leads with what it measured; the teaching text reads under it, not in front of it.
+  it("puts the overview's figures above the explainers that follow them", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.format = "MP4";
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    const card = panel.querySelector(".section")!;
+    const kinds = Array.from(card.querySelectorAll(".grid, .teach")).map((el) =>
+      el.classList.contains("grid") ? "grid" : "teach",
+    );
+    expect(kinds[0]).toBe("grid");
+    expect(kinds).toContain("teach");
+  });
+
+  // A zoomed view still draws the ancestors of what was zoomed to, each spanning the whole of it.
+  // Clicking one used to push a crumb for the view already on screen, so a file with one video track
+  // offered an endless path of traks.
+  it("stops zooming at a block that already fills the view", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.boxes = [
+      {
+        type: "moov",
+        start: 0,
+        size: 900,
+        hdrSize: 8,
+        children: [{ type: "trak", start: 8, size: 800, hdrSize: 8, children: [] }],
+      },
+      { type: "mdat", start: 900, size: 1_100_000, hdrSize: 8, children: [] },
+    ];
+    const panel = document.createElement("div");
+    renderAtomMap(panel);
+
+    const trak = Array.from(panel.querySelectorAll<HTMLButtonElement>(".atom-block")).find(
+      (b) => b.textContent === "trak",
+    )!;
+    trak.click();
+    const crumbLabels = (): (string | null)[] =>
+      Array.from(panel.querySelectorAll(".atom-crumbs .crumb")).map((el) => el.textContent);
+    expect(crumbLabels()).toEqual(["Whole file", "trak"]);
+
+    // Zoomed in, moov and trak both span the view: neither is a way further in, and clicking adds
+    // no crumb.
+    const filling = Array.from(panel.querySelectorAll<HTMLButtonElement>(".atom-block.filling"));
+    expect(filling.map((b) => b.textContent)).toEqual(["moov", "trak"]);
+    filling.forEach((b) => b.click());
+    expect(crumbLabels()).toEqual(["Whole file", "trak"]);
+  });
+
+  // The legend is a key to what is on the map, so a progressive file gets no row for the fragment
+  // index it has none of, nor for the collapsed runs it is far too small to produce.
+  it("keys only the families the map actually drew", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.boxes = [
+      { type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] },
+      {
+        type: "moov",
+        start: 32,
+        size: 900,
+        hdrSize: 8,
+        children: [{ type: "trak", start: 40, size: 800, hdrSize: 8, children: [] }],
+      },
+      { type: "mdat", start: 932, size: 1_100_000, hdrSize: 8, children: [] },
+    ];
+    const panel = document.createElement("div");
+    renderAtomMap(panel);
+    const labels = Array.from(panel.querySelectorAll(".legend-label")).map((el) => el.textContent);
+    expect(labels).toEqual(["moov", "mdat", "other"]);
+  });
+
+  // A fragmented recording is the case those rows are for: thousands of boxes, most of them too
+  // narrow to draw one by one.
+  it("keys the collapsed runs once there are enough boxes to collapse", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    state.boxes = Array.from({ length: 400 }, (_, i) => ({
+      type: i % 2 === 0 ? "moof" : "mdat",
+      start: i * 100,
+      size: 100,
+      hdrSize: 8,
+      children: [],
+    }));
+    const panel = document.createElement("div");
+    renderAtomMap(panel);
+    const labels = Array.from(panel.querySelectorAll(".legend-label")).map((el) => el.textContent);
+    expect(labels).toContain("N boxes");
+    expect(labels).toContain("moof");
   });
 
   it("offers a hundred sampled timestamps as the seeking test's starting point", () => {

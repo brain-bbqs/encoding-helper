@@ -72,6 +72,16 @@ export function computeGop(cliState: CliState, fps: number): number {
   return Math.max(1, Math.round(cliState.keyframeInterval * fps));
 }
 
+/**
+ * What a run's output is called. The operation names it: an MP4 in and an MP4 out is a reencode,
+ * while any other source is moved into a different container as well as compressed again, which is
+ * what "transcode" names. `base` is the source's own name where there is one to take it from; the
+ * command shown on the page has no particular file in it, so it reads `video`.
+ */
+export function encodedFileName(sourceFormat: string | null | undefined, base = "video"): string {
+  return `${base}-${sourceFormat === "MP4" ? "reencoded" : "transcoded"}.mp4`;
+}
+
 export function buildFfmpegArgs(cliState: CliState, info: VideoInfo, inName?: string, outName?: string): string[] {
   const fps = cliState.fps || info.fps || 30;
   const gop = computeGop(cliState, fps);
@@ -106,7 +116,7 @@ export function buildFfmpegArgs(cliState: CliState, info: VideoInfo, inName?: st
   if (cliState.fps) args.push("-r", String(cliState.fps));
   if (cliState.audioMode === "copy") args.push("-c:a", "copy");
   else args.push("-an");
-  args.push(outName || "out.reencoded.mp4");
+  args.push(outName || encodedFileName("MP4"));
   return args;
 }
 

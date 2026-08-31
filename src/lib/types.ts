@@ -1,5 +1,7 @@
 // Shared type definitions used across lib/ and ui/ modules.
 
+import type { ChromaFormat } from "./chromaFormat";
+
 import type { Input, InputAudioTrack, InputVideoTrack, MetadataTags } from "mediabunny";
 import type { ChunkedSource } from "./chunkedSource";
 
@@ -34,6 +36,8 @@ export interface TrackInfo {
   displayHeight?: number;
   rotation?: number;
   colorSpace?: VideoColorSpaceInit | null;
+  /** Chroma subsampling as the file states it; null where nothing in it does (see chromaFormat). */
+  chroma?: ChromaFormat | null;
   hdr?: boolean;
   // Audio-only fields.
   sampleRate?: number;
@@ -151,6 +155,8 @@ export interface EncodeSettings {
   scale: number;
   /** The kernel it was downscaled with, meaningless (but carried) at full resolution. */
   scaler: Scaler;
+  /** The frame rate the encode was made at, or null where the source's own rate was kept. */
+  fps: number | null;
 }
 
 /** One square of the matrix — a pair of dropdown settings to encode the segment with. */
@@ -212,6 +218,9 @@ export interface MatrixState {
   /** Ticked kernels, which group the columns. Only ever more than one when a downscale is ticked
    * too, since nothing is resampled at the source's resolution. */
   scalers: Scaler[];
+  /** Ticked frame rates, as fractions of the source's own: 1 is the source, 0.5 every other frame.
+   * Fractions rather than rates, so a tick means the same thing whatever file is loaded. */
+  fpsFractions: number[];
   /** The last sweep's squares, in canonical order; empty before one has been started. */
   cells: MatrixCell[];
   /** The segment the cells were encoded from, which the start/duration fields may have moved off. */
@@ -220,10 +229,6 @@ export interface MatrixState {
   /** Every stretch each square covered, which is the one above unless the run sampled several. */
   windows: SampleWindow[];
   running: boolean;
-  /** Whether a sweep may read squares back from earlier runs of this file instead of encoding them
-   * (see lib/matrixCache). Off, every square is encoded again; measurements are written either way,
-   * so switching it back on picks up whatever the re-run measured. */
-  reuseCached: boolean;
   /** The combination showing in the A/B window. */
   selectedKey: string | null;
 }
@@ -333,4 +338,19 @@ export type AnalysisBlock =
 export interface AnalysisSection {
   title: string;
   blocks: AnalysisBlock[];
+}
+
+/** One container's entry in the knowledge base; the records themselves are in lib/explainers. */
+export interface ContainerInfo {
+  /** mediabunny's format name, used as the display value. */
+  name: string;
+  fullName: string;
+  extensions: string;
+  /** Trusted, author-authored explainer markup. */
+  description: string;
+  /** Video codecs the container commonly carries; empty for audio-only containers. */
+  video: string;
+  audio: string;
+  /** Playback/compatibility note. */
+  support: string;
 }

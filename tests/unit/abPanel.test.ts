@@ -52,7 +52,14 @@ const VIDEO_TRACK: TrackInfo = {
   codedHeight: 480,
 };
 
-const SETTINGS: EncodeSettings = { quality: "medium", crf: 25, preset: "superfast", scale: 1, scaler: "lanczos" };
+const SETTINGS: EncodeSettings = {
+  quality: "medium",
+  crf: 25,
+  preset: "superfast",
+  scale: 1,
+  scaler: "lanczos",
+  fps: null,
+};
 
 function hostSection(): HTMLDivElement {
   const sec = document.createElement("div");

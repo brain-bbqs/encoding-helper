@@ -219,29 +219,29 @@ describe("savings wording", () => {
 });
 
 describe("fmtChangeFactor", () => {
-  it("states a shrink as a reduction factor", () => {
-    expect(fmtChangeFactor(0.5)).toBe("2.0× reduction");
-    expect(fmtChangeFactor(0.05)).toBe("20× reduction");
+  it("names the original as the larger file when the encode shrank it", () => {
+    expect(fmtChangeFactor(0.5)).toBe("original 2.0× larger");
+    expect(fmtChangeFactor(0.05)).toBe("original 20× larger");
   });
 
-  it("states a growth as an inflation factor", () => {
-    expect(fmtChangeFactor(1.3)).toBe("1.3× inflation");
+  it("names the encode as the larger file when it grew", () => {
+    expect(fmtChangeFactor(1.3)).toBe("encoded 1.3× larger");
   });
 
   // Where a percentage flattens out is exactly where the factor separates: 90% and 95% smaller are
   // 10× and 20×, one file twice the size of the other.
   it("keeps the deep end apart, where percentages crowd together", () => {
-    expect(fmtChangeFactor(0.1)).toBe("10× reduction");
-    expect(fmtChangeFactor(0.05)).toBe("20× reduction");
+    expect(fmtChangeFactor(0.1)).toBe("original 10× larger");
+    expect(fmtChangeFactor(0.05)).toBe("original 20× larger");
   });
 
   it("drops the decimal once the digits before it carry the number", () => {
-    expect(fmtChangeFactor(0.09)).toBe("11× reduction");
-    expect(fmtChangeFactor(0.4)).toBe("2.5× reduction");
+    expect(fmtChangeFactor(0.09)).toBe("original 11× larger");
+    expect(fmtChangeFactor(0.4)).toBe("original 2.5× larger");
   });
 
   it("says so plainly when nothing changed", () => {
-    expect(fmtChangeFactor(1)).toBe("1× (no change)");
+    expect(fmtChangeFactor(1)).toBe("no size change");
   });
 
   it("has nothing to state for a ratio no encode could produce", () => {

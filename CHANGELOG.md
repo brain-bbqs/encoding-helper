@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.3.1
+
+#### 🚀 Enhancement
+
+- The faststart badge and its explainer moved to the **MP4 Box / Atom Structure** card, beside the map of the box order they report ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- **This File's Container** folded into the **Video Container Overview** card, which now names the container in its heading and drops the Type row ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The MIME Type readout carries an ⓘ saying what a media type is ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The overview's four figures sit on one row, the MIME type taking the width left over rather than wrapping onto a line of its own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Inspect's cards lead with what they measured, with the teaching text under it, and the page reads in a wider column so a row of figures is not left wrapping ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Video Track card reports the file's **Chroma** subsampling, read out of its codec configuration, and its explainer no longer states a format for a file that declares none ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Atom Map's legend keys only what it drew, dropping its note and any row for fragment indexes or collapsed runs the file has none of ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Atom Map stops offering to zoom into a block that already fills the view, which used to grow the breadcrumb without changing the map ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Every figure read out of the file sits in a card of its own, the recessed panel the demo tiles use, with strings out of the file set as code ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The container explainer's mention of the **Atom Map** links to it, on the page and in the document ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Teach boxes carry a mark for what they are about — 🎥 for this file's container, 🎨 for chroma subsampling, 🚀 for faststart — rather than 💡 throughout ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The codec and chroma explainers no longer repeat the profile, level and subsampling format, which the track card lists as figures right above them ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Atom Map drops the teach box describing the box tree and how to read the map, both of which the container overview and the readout under the map already say ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Each figure card is now as wide as its own label and value, rather than taking a fixed column share that left short readings in mostly empty cards ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Inspect reads overview, video track, atom map, GOP, bitrate, audio: the GOP card follows the map and the audio track comes last, in the document too ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Educational switch sits in the header beside the light/dark toggle, one preference control for the app rather than one in the first card of two tabs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The seeking test explains itself in a teach box like every other card, its results are spaced off the Run button, and both plots drop their captions ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The ⓘ button's "i" is drawn rather than typed, so it sits centred in its circle on every platform instead of wherever the fallback font put it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The two Copyright atoms are told apart by label, and the © atoms no longer repeat what the copy above the tag table already says ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The Reencode tab drops the teach boxes above **Try It on a Sample** and the whole-file encode ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The sample run's **Side-by-Side** comparison sits in the **Try It on a Sample** card that produced it, rather than in a card of its own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- A saved encode is named for what it went through — `video-reencoded.mp4`, or `video-transcoded.mp4` where the container changed — and the command says the same ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Progress notes no longer narrate the bar beside them: no "Encoding… 45%", no "Done.", and no line while a square re-encodes for the A/B window ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Compare Quality drops the ⓘ on the best square, the teach box over the selected square's command, and a finished square's tooltip, which repeated its own face ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The savings strip drops its projected-across line, and **Estimate Detail** reads as two lines — what was sampled, then what it projects to — with no ⓘ of their own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The command builder drops the GOP equation and the flag notes on its checkboxes, and keeps the **Scaler** field on show at every resolution, inert until one resamples ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The builder's short menus and number fields take the width they need rather than the whole form, its tick boxes sit as a list, and the command block hugs its text, centred ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- A command block carries a copy control in its own corner, shown on hover or keyboard focus, in place of the labelled button under it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Compare Quality sweeps **Frame rates** as a fourth axis, as fractions of the source's own, and names the rate over each block of rows it produced ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- A card above the file picker says what the app is for and what EMBER and behavioral annotation want out of an encode, while the Educational switch is on ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Option labels drop the word "default", and the **Segments** field drops its ⓘ ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The sweep's settings bar works its axes out to a total, e.g. `2 × 5 × 2 = 20` squares ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The sweep's settings bar counts its total in runs, e.g. `2 × 5 × 2 = 20 runs` ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The **Reuse earlier measurements** tick is gone: a sweep always reads back what an earlier run of the file measured, and the footer's cache button still forgets it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+
+#### 🏠 Internal
+
+- Tooltips throughout the app are shorter, most of all on Compare Quality, where several ran to three or four paragraphs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Size factors now read "original 2.4× larger" or "encoded 1.3× larger" instead of "2.4× reduction", naming which file the factor belongs to ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Every explainer, teach box, chart caption and knowledge-base record now lives in `src/lib/explainers.ts`, ordered as the app shows it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+
 ## 1.3.0
 
 #### 🚀 Enhancement

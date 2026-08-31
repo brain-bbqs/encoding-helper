@@ -7,15 +7,18 @@
 // command that setting comes to.
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
-import { copyToClipboard, h, infoIcon, teachBox } from "../lib/dom";
-import { MATRIX_CACHE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
+import { cmdBlock, h, infoIcon } from "../lib/dom";
+import { fmtRate } from "../lib/format";
+import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
   bestReductionCell,
   buildMatrixCombos,
   describeSettings,
   evictBeyondBudget,
+  fpsForFraction,
   makeMatrixCells,
+  MATRIX_FPS_FRACTIONS,
   MATRIX_PRESETS,
   MATRIX_QUALITIES,
   MATRIX_RETAINED_BYTES,
@@ -83,13 +86,18 @@ export function renderCompareTab(panel: HTMLElement): void {
   axisSummary.append(h("span", "matrix-settings-gear", "⚙"), h("span", null, "Settings to sweep"));
   const axisCount = h("span", "matrix-settings-count");
   const refreshAxisCount = (): void => {
-    const { qualities, presets, scales, scalers } = encodeTest.matrix;
+    const { qualities, presets, scales, scalers, fpsFractions } = encodeTest.matrix;
     // The two outer axes are left out at one value each, where they multiply the sweep by one and
     // saying so would only make the bar longer.
     const counts = [qualities.length, presets.length];
     if (scales.length > 1) counts.push(scales.length);
     if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
-    axisCount.textContent = counts.join(" × ");
+    if (fpsFractions.length > 1) counts.push(fpsFractions.length);
+    // The product is what the run costs, which is the number the factors are read for; a single
+    // axis is its own product, so it is left to stand alone.
+    const squares = counts.reduce((product, n) => product * n, 1);
+    const total = `${squares} run${squares === 1 ? "" : "s"}`;
+    axisCount.textContent = counts.length > 1 ? `${counts.join(" × ")} = ${total}` : total;
   };
   // `ui` is only assigned further down, once the sections an axis change needs to repaint exist —
   // but nothing here runs until a checkbox fires, by which point it is. See resetStaleMatrix for why
@@ -152,6 +160,18 @@ export function renderCompareTab(panel: HTMLElement): void {
       SCALER_INFO,
     ),
   );
+  outerRow.append(
+    axisCheckboxes(
+      "Frame rates",
+      MATRIX_FPS_FRACTIONS.map((f) => ({ value: String(f), label: describeFpsFraction(f) })),
+      encodeTest.matrix.fpsFractions.map(String),
+      (values) => {
+        encodeTest.matrix.fpsFractions = values.map(Number);
+        onAxisChange();
+      },
+      FRAME_RATE_INFO,
+    ),
+  );
   refreshAxisCount();
   // One "select all" for the whole sweep rather than one per list: it ticks every value on every
   // axis, for the runs that want the full grid rather than the defaults.
@@ -167,7 +187,7 @@ export function renderCompareTab(panel: HTMLElement): void {
     }
   });
   const selectAllRow = h("div", "row axis-select-all-row");
-  selectAllRow.append(reuseCachedToggle(), selectAll);
+  selectAllRow.append(selectAll);
   axisSettings.append(selectAllRow, axisRow, outerRow);
   sec.append(axisSettings);
 
@@ -254,28 +274,6 @@ function axisCheckboxes(
   return field;
 }
 
-/**
- * Whether a sweep may read squares back from earlier runs of this file rather than encoding them.
- *
- * Ticked, since a measurement that has already been made is a measurement, and the whole cost of
- * this tab is making them. It is a tick box rather than nothing at all because "encode it again"
- * is a real request: encoding times are the one figure in the grid that is about this machine on
- * this day rather than about the video, and a file edited under the same name is a file this
- * cannot tell apart on a checksum of a few megabytes.
- */
-function reuseCachedToggle(): HTMLLabelElement {
-  const wrap = h("label", "axis-option matrix-reuse");
-  const box = h("input");
-  box.type = "checkbox";
-  box.checked = encodeTest.matrix.reuseCached;
-  box.addEventListener("change", () => {
-    encodeTest.matrix.reuseCached = box.checked;
-  });
-  wrap.append(box, document.createTextNode(" Reuse earlier measurements"));
-  wrap.append(infoIcon(MATRIX_CACHE_INFO, "About reusing earlier measurements"));
-  return wrap;
-}
-
 /** The squares a sweep left without a size: the ones that failed, and the ones Stop never reached. */
 function unmeasuredCells(): MatrixCell[] {
   return encodeTest.matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
@@ -295,7 +293,7 @@ function unmeasuredCells(): MatrixCell[] {
 function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
   const matrix = encodeTest.matrix;
   if (matrix.running || encodeTest.running || !unmeasuredCells().length) return;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers);
+  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers, matrixFps());
   const keys = new Set(combos.map((c) => c.key));
   if (combos.length === matrix.cells.length && matrix.cells.every((c) => keys.has(c.combo.key))) return;
   matrix.cells = [];
@@ -324,7 +322,7 @@ function runActionLabel(): string {
 async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
   if (encodeTest.running) return;
   const matrix = encodeTest.matrix;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers);
+  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers, matrixFps());
   if (!combos.length) {
     ui.note.textContent = "Tick at least one quality level and one preset first.";
     return;
@@ -359,7 +357,7 @@ async function sweepWindows(): Promise<SampleWindow[]> {
   // fields ask for, so anything else is a fresh random draw — which is exactly when an earlier
   // run's stretches are worth taking up instead.
   const remembered =
-    fresh !== encodeTest.sampled && encodeTest.matrix.reuseCached && checksum
+    fresh !== encodeTest.sampled && checksum
       ? await matrixCache.recallWindows(checksum, encodeTest.duration, encodeTest.segments)
       : null;
   const windows = remembered ?? fresh;
@@ -487,7 +485,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
     // Read back before anything is loaded: a grid the cache can answer in full is a run that never
     // starts an encoder, which is the difference between a sweep and a table appearing.
     const checksum = await fileChecksum();
-    const pending = checksum && matrix.reuseCached ? await applyCachedMeasurements(queue, checksum, ui) : queue;
+    const pending = checksum ? await applyCachedMeasurements(queue, checksum, ui) : queue;
     // A retry queued mid-run joins what is actually being encoded, not what was asked for.
     activeQueue = pending;
     repaint();
@@ -648,8 +646,8 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
     if (!blobs) {
       // Its outputs were dropped to stay inside the memory budget, so the square is encoded again —
       // over the same stretches the sweep measured, which are usually still cut and waiting. All of
-      // them, not just one: the window plays every stretch the square was measured over.
-      ui.note.textContent = "Re-encoding the chosen square for the A/B window…";
+      // them, not just one: the window plays every stretch the square was measured over. The bar
+      // below says a run is going; the note does not say it again.
       const workers = acquireWorkers(matrixWindows().length);
       const inputs = await prepareRun(matrixWindows(), workers, ui);
       try {
@@ -681,6 +679,20 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
 }
 
 /** The stretches the sweep covered, or the one segment it used before several were asked for. */
+/** What the ticked fractions come to for the loaded file: absolute rates, the source's own as null. */
+function matrixFps(): (number | null)[] {
+  const sourceFps = currentVideoInfo()?.fps ?? state.fps;
+  const values = encodeTest.matrix.fpsFractions.map((f) => fpsForFraction(f, sourceFps));
+  return values.length ? values : [null];
+}
+
+/** One tick's label: the source's own rate, or the rate the fraction comes to for this file. */
+function describeFpsFraction(fraction: number): string {
+  const rate = fpsForFraction(fraction, currentVideoInfo()?.fps ?? state.fps);
+  if (rate == null) return "Source";
+  return `${Math.round(fraction * 100)}% (${fmtRate(rate)} fps)`;
+}
+
 function matrixWindows(): SampleWindow[] {
   const matrix = encodeTest.matrix;
   if (matrix.windows.length) return matrix.windows;
@@ -796,18 +808,5 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Run This Setting with ffmpeg"));
-  sec.append(
-    teachBox(
-      `What the square in the A/B window above — <b>${describeSettings(cell.combo)}</b> — comes to as an ffmpeg ` +
-        `command, over the whole file rather than the sampled seconds. Everything the sweep does not vary ` +
-        `(keyframe interval, B-frames, audio, faststart) is taken from the <b>Reencode with FFmpeg</b> tab as it ` +
-        `is set there now.`,
-    ),
-  );
-  const cmdPre = h("pre", "cmd", formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info)));
-  sec.append(cmdPre);
-  const copyBtn = h("button", "btn sm", "Copy Command");
-  copyBtn.type = "button";
-  copyBtn.addEventListener("click", () => copyToClipboard(cmdPre.textContent || "", copyBtn));
-  sec.append(copyBtn);
+  sec.append(cmdBlock(formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info))).wrap);
 }

@@ -18,6 +18,7 @@
 // judgement, and the grid is what tells you how much the next row down would have saved.
 
 import { CRF_MAP, DEFAULT_SCALER, isDownscale, SCALE_OPTIONS, SCALER_OPTIONS } from "./cliCommand";
+import { fmtRate } from "./format";
 import type { CliState, EncodeSettings, MatrixCell, MatrixCombo, MatrixQuality, Scaler, X264Preset } from "./types";
 
 /** The quality dropdown's named entries, best picture first. "custom" is a single arbitrary CRF, so
@@ -76,6 +77,24 @@ export const DEFAULT_MATRIX_SCALES: number[] = [1, 0.75];
 export const DEFAULT_MATRIX_SCALERS: Scaler[] = [DEFAULT_SCALER];
 
 /**
+ * The frame-rate axis, as fractions of the source's own rate: a tick means the same thing whatever
+ * file is loaded, the way the resolution axis is a fraction rather than a pixel count. Halving the
+ * rate halves the frames there are to encode, which is a lever on size that no CRF reaches — and one
+ * with a real cost for anything tracked frame by frame, which is why it is offered rather than
+ * assumed.
+ */
+export const MATRIX_FPS_FRACTIONS: number[] = [1, 0.5, 0.25];
+
+/** Ticked to begin with: the source's own rate, so a sweep costs what it always did. */
+export const DEFAULT_MATRIX_FPS_FRACTIONS: number[] = [1];
+
+/** The rate a fraction comes to for a given source, or null where it is the source's own. */
+export function fpsForFraction(fraction: number, sourceFps: number | null | undefined): number | null {
+  if (fraction >= 1 || !sourceFps || !(sourceFps > 0)) return null;
+  return Math.round(sourceFps * fraction * 1000) / 1000;
+}
+
+/**
  * How many bytes of encoded segments to keep in memory across a sweep.
  *
  * Every finished cell holds every stretch it was measured over, so clicking it can load the A/B
@@ -93,8 +112,9 @@ export function comboKey(
   preset: X264Preset,
   scale = 1,
   scaler: Scaler = DEFAULT_SCALER,
+  fps: number | null = null,
 ): string {
-  return `${quality}:${preset}:${scale}:${scaler}`;
+  return `${quality}:${preset}:${scale}:${scaler}:${fps ?? "src"}`;
 }
 
 export function comboCrf(quality: MatrixQuality): number {
@@ -106,8 +126,10 @@ export function comboCrf(quality: MatrixQuality): number {
  * resolution the kernel names a choice that had no effect. */
 export function describeSettings(settings: EncodeSettings): string {
   const base = `${settings.quality} (CRF ${settings.crf}), ${settings.preset}`;
-  if (!isDownscale(settings.scale)) return base;
-  return `${base}, ${Math.round(settings.scale * 100)}% ${settings.scaler}`;
+  const scaled = isDownscale(settings.scale)
+    ? `${base}, ${Math.round(settings.scale * 100)}% ${settings.scaler}`
+    : base;
+  return settings.fps ? `${scaled}, ${fmtRate(settings.fps)} fps` : scaled;
 }
 
 /** What the dropdowns currently come to, for labelling a single (non-matrix) run's encode. */
@@ -118,6 +140,7 @@ export function cliSettings(cliState: CliState): EncodeSettings {
     preset: cliState.preset,
     scale: cliState.scale,
     scaler: cliState.scaler,
+    fps: cliState.fps,
   };
 }
 
@@ -136,31 +159,40 @@ export function cliSettings(cliState: CliState): EncodeSettings {
 export function buildMatrixCombos(
   qualities: MatrixQuality[],
   presets: X264Preset[],
-  // Omitted outer axes mean the plain two-axis grid at the source resolution, not whatever the
-  // checkboxes happen to start ticked to.
+  // Omitted outer axes mean the plain two-axis grid at the source resolution and rate, not whatever
+  // the checkboxes happen to start ticked to.
   scales: number[] = [1],
   scalers: Scaler[] = [DEFAULT_SCALER],
+  // Absolute rates, already resolved from the ticked fractions against this file (see
+  // fpsForFraction), with null standing for the source's own.
+  fpsValues: (number | null)[] = [null],
 ): MatrixCombo[] {
   const rows = MATRIX_QUALITIES.filter((q) => qualities.includes(q));
   const cols = MATRIX_PRESETS.filter((p) => presets.includes(p));
   const scaleAxis = MATRIX_SCALES.filter((s) => scales.includes(s));
   const scalerAxis = MATRIX_SCALERS.filter((s) => scalers.includes(s));
+  const fpsAxis = fpsValues.length ? fpsValues : [null];
+  // One output per rate, resolution and kernel — the properties of the file a square produces, and
+  // the blocks the grid stacks. At the source resolution every kernel is the same encode, so only
+  // the first stands for them.
+  const outputs = fpsAxis.flatMap((fps) =>
+    scaleAxis.flatMap((scale) =>
+      (isDownscale(scale) ? scalerAxis : scalerAxis.slice(0, 1)).map((scaler) => ({ fps, scale, scaler })),
+    ),
+  );
   const combos: MatrixCombo[] = [];
-  for (const scale of scaleAxis) {
-    // At the source resolution every kernel is the same encode, so only the first stands for them.
-    const kernels = isDownscale(scale) ? scalerAxis : scalerAxis.slice(0, 1);
+  for (const { fps, scale, scaler } of outputs) {
     for (const quality of rows) {
-      for (const scaler of kernels) {
-        for (const preset of cols) {
-          combos.push({
-            key: comboKey(quality, preset, scale, scaler),
-            quality,
-            crf: comboCrf(quality),
-            preset,
-            scale,
-            scaler,
-          });
-        }
+      for (const preset of cols) {
+        combos.push({
+          key: comboKey(quality, preset, scale, scaler, fps),
+          quality,
+          crf: comboCrf(quality),
+          preset,
+          scale,
+          scaler,
+          fps,
+        });
       }
     }
   }
@@ -187,12 +219,15 @@ export function matrixAxes(cells: MatrixCell[]): {
   presets: X264Preset[];
   scales: number[];
   scalers: Scaler[];
+  fpsValues: (number | null)[];
 } {
   const qualities = MATRIX_QUALITIES.filter((q) => cells.some((c) => c.combo.quality === q));
   const presets = MATRIX_PRESETS.filter((p) => cells.some((c) => c.combo.preset === p));
   const scales = MATRIX_SCALES.filter((s) => cells.some((c) => c.combo.scale === s));
   const scalers = MATRIX_SCALERS.filter((s) => cells.some((c) => c.combo.scaler === s));
-  return { qualities, presets, scales, scalers };
+  // Highest rate first, the source's own ahead of every reduction of it.
+  const fpsValues = [...new Set(cells.map((c) => c.combo.fps))].sort((a, b) => (b ?? Infinity) - (a ?? Infinity));
+  return { qualities, presets, scales, scalers, fpsValues: fpsValues.length ? fpsValues : [null] };
 }
 
 /** The `cli` state a combination stands for: everything else about the encode is left as the user
@@ -205,6 +240,7 @@ export function matrixCliState(base: CliState, combo: MatrixCombo): CliState {
     preset: combo.preset,
     scale: combo.scale,
     scaler: combo.scaler,
+    fps: combo.fps,
   };
 }
 

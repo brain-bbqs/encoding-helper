@@ -11,25 +11,32 @@
 // State-gathering lives here; how a section is drawn lives in lib/analysisDoc.ts. Sections are
 // rebuilt on every visit to the tab, since the seeking test and the two encode tabs add to them.
 
-import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
+import { buildAnalysisDocument, renderSectionsToMarkdown, slugify, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scaledDimensions } from "../lib/cliCommand";
-import { CONTAINER_PREAMBLE, describeContainer } from "../lib/containerKb";
+import { describeContainer } from "../lib/containerKb";
 import { copyToClipboard, h, teachBox } from "../lib/dom";
 import {
+  ANALYSIS_PANEL_INTRO,
+  ATOM_MAP_DOC_CAPTION,
   ATOM_STRUCTURE_TEACH,
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
   chromaSubsamplingExplainer,
   codecExplainer,
   constantBitrateNote,
+  CONTAINER_PREAMBLE,
   containerExplainer,
   contradictedDeclarationNote,
+  ENCODED_SEGMENT_NOTE,
   FASTSTART_EXPLAINER,
+  GOP_HISTOGRAM_CAPTION,
   GOP_TEACH,
   METADATA_TAGS_TEACH,
+  MIME_TYPE_INFO,
   OVERALL_BITRATE_INFO,
   PEAK_RATIO_INFO,
+  SEEK_SCATTER_CAPTION,
   SEEK_TEST_INTRO,
   SIZE_SAVINGS_INTRO,
   sizeEstimateTeach,
@@ -48,7 +55,7 @@ import { renderStaticAtomMap } from "./atomsTab";
 import { describeSampledStretches } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
 import { flattenMetadataTags } from "./inspectTab";
-import { GOP_HISTOGRAM_CAPTION, renderGopHistogram, renderSeekScatter, SEEK_SCATTER_CAPTION } from "./seekTab";
+import { renderGopHistogram, renderSeekScatter } from "./seekTab";
 
 /** Printed in the document so a copy saved to disk still says where it came from. */
 const APP_URL = "https://encoding-helper.brain-bbqs.org";
@@ -59,16 +66,6 @@ const APP_URL = "https://encoding-helper.brain-bbqs.org";
  * block labels fit, but the document runs no script, so that has to be settled while it is built.
  */
 const DOCUMENT_WIDTH_PX = 772;
-
-const PANEL_INTRO =
-  "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
-  "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +
-  "and plots only, with the teaching explainers left out. Runs that have to be started by hand — the seeking " +
-  "test, Compare Quality, an in-browser reencode — are added to it once you have run them, so run those " +
-  "first if you want them in the document. " +
-  "<p>Below is the document itself, not a preview of one: <b>Download HTML</b> writes exactly this, in a " +
-  "single self-contained file with no external assets, and <b>Save as PDF</b> hands the same thing to the " +
-  "browser's print dialog.</p>";
 
 /** The headline strip under the document title: what the file is, in one line. */
 function headlineFacts(): [string, string][] {
@@ -95,38 +92,26 @@ function documentMeta(): DocumentMeta {
 
 function overviewSection(): AnalysisSection {
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
-  return {
-    title: "Video Container Overview",
-    blocks: [
-      { kind: "prose", html: CONTAINER_PREAMBLE },
-      {
-        kind: "kv",
-        items: [
-          ["Type", state.format || "–"],
-          ["File Size", fmtBytes(state.source?.size)],
-          ["Duration", fmtDur(state.duration)],
-          ["Overall Bitrate", fmtBits(fileBitrate)],
-          ["MIME Type", state.mimeType || "–"],
-        ],
-      },
-      { kind: "prose", html: OVERALL_BITRATE_INFO },
-      {
-        kind: "badge",
-        tone: state.faststart ? "good" : "bad",
-        text: state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
-      },
-      { kind: "prose", html: FASTSTART_EXPLAINER },
-    ],
-  };
-}
-
-function containerSection(): AnalysisSection | null {
   const info = describeContainer(state.format);
-  if (!info) return null;
-  return {
-    title: `This File's Container: ${info.name}`,
-    blocks: [{ kind: "prose", html: containerExplainer(info) }],
-  };
+  const blocks: AnalysisBlock[] = [{ kind: "prose", html: CONTAINER_PREAMBLE }];
+  // What this file's container is, which the page carries in this same card. It names the container
+  // in its first words, so there is no "Type" row saying it again.
+  if (info) blocks.push({ kind: "prose", html: containerExplainer(info, "#" + slugify(ATOM_MAP_TITLE)) });
+  blocks.push(
+    {
+      kind: "kv",
+      items: [
+        ["File Size", fmtBytes(state.source?.size)],
+        ["Duration", fmtDur(state.duration)],
+        ["Overall Bitrate", fmtBits(fileBitrate)],
+        ["MIME Type", state.mimeType || "–"],
+      ],
+    },
+    { kind: "prose", html: OVERALL_BITRATE_INFO },
+    { kind: "prose", html: MIME_TYPE_INFO },
+  );
+  const title = state.format ? `Video Container Overview: ${state.format}` : "Video Container Overview";
+  return { title, blocks };
 }
 
 function videoTrackSection(vt: TrackInfo): AnalysisSection {
@@ -157,7 +142,7 @@ function videoTrackSection(vt: TrackInfo): AnalysisSection {
   const codec = codecExplainer(vt.codecInfo);
   if (codec) blocks.push({ kind: "prose", html: codec });
   if (vt.codedWidth != null && vt.codedHeight != null) {
-    blocks.push({ kind: "prose", html: chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight) });
+    blocks.push({ kind: "prose", html: chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight, vt.chroma ?? null) });
   }
   return { title: "Video Track", blocks };
 }
@@ -251,20 +236,23 @@ function metadataTagsSection(): AnalysisSection | null {
 // report printed is gone: it was pages of offsets that only ever restated what the map draws, and a
 // fragmented recording turned it into a hundred of them. Each block carries its own offset and size
 // as a title instead.
+/** Named once: the container explainer above links to this section by its slugified title. */
+const ATOM_MAP_TITLE = "MP4 Atom Map";
+
 function atomMapSection(): AnalysisSection | null {
   const map = renderStaticAtomMap(state.boxes, DOCUMENT_WIDTH_PX);
   if (!map) return null;
   return {
-    title: "MP4 Atom Map",
+    title: ATOM_MAP_TITLE,
     blocks: [
       { kind: "prose", html: ATOM_STRUCTURE_TEACH },
       {
-        kind: "figure",
-        caption:
-          "The box tree on its side: left to right across the file, each row one level further in. " +
-          "Width is how many boxes a subtree holds, not how many bytes it takes.",
-        element: map,
+        kind: "badge",
+        tone: state.faststart ? "good" : "bad",
+        text: state.faststart ? "✓ Fast start" : "✗ Not fast start",
       },
+      { kind: "prose", html: FASTSTART_EXPLAINER },
+      { kind: "figure", caption: ATOM_MAP_DOC_CAPTION, element: map },
     ],
   };
 }
@@ -288,7 +276,7 @@ function gopSection(): AnalysisSection | null {
     {
       kind: "badge",
       tone: state.hasBFrames ? "info" : "good",
-      text: state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames (IPPP…)",
+      text: state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames",
     },
   ];
   if (gop.length > 1) {
@@ -373,14 +361,7 @@ function compareSection(): AnalysisSection | null {
         `(${Math.round(settings.scale * 100)}%, ${settings.scaler})`,
     ]);
   }
-  const blocks: AnalysisBlock[] = [
-    {
-      kind: "prose",
-      html:
-        "Only the segment above was encoded, so its size is not the whole file's — it is what that stretch of " +
-        "video costs at these settings, which is what makes two settings comparable without encoding twice.",
-    },
-  ];
+  const blocks: AnalysisBlock[] = [{ kind: "prose", html: ENCODED_SEGMENT_NOTE }];
 
   const est = currentSizeEstimate();
   if (est) {
@@ -486,16 +467,17 @@ function buildAnalysisSections(): AnalysisSection[] {
   if (!state.source) return [];
   const vt = state.tracks?.find((t) => t.kind === "video");
   const at = state.tracks?.find((t) => t.kind === "audio");
+  // Same reading order as the Inspect tab: the file overview and its tags, the video track, the box
+  // layout, the keyframe structure that layout decides, the bitrate over time, then audio last.
   const sections: (AnalysisSection | null)[] = [
     overviewSection(),
-    containerSection(),
-    vt ? videoTrackSection(vt) : null,
-    vt ? bitrateSection(vt) : null,
-    at ? audioTrackSection(at) : null,
     metadataTagsSection(),
+    vt ? videoTrackSection(vt) : null,
     atomMapSection(),
     gopSection(),
     seekingSection(),
+    vt ? bitrateSection(vt) : null,
+    at ? audioTrackSection(at) : null,
     cliCommandSection(),
     compareSection(),
     matrixSection(),
@@ -540,7 +522,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "Full Analysis"));
-  sec.append(teachBox(PANEL_INTRO));
+  sec.append(teachBox(ANALYSIS_PANEL_INTRO, "📄"));
 
   const actions = h("div", "load-actions");
   const pdfBtn = h("button", "btn", "Save as PDF");

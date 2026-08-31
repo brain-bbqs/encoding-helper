@@ -10,7 +10,6 @@
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
 import { h } from "../lib/dom";
-import { SEGMENTS_INFO } from "../lib/explainers";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -65,15 +64,7 @@ export function sampleFields(idPrefix: string): HTMLDivElement {
   encodeTest.duration = Math.min(Math.max(1, encodeTest.duration || 3), maxDuration);
   const row = h("div", "row compare-grid");
   const durationField = fieldNumber(idPrefix + "Duration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5);
-  const segmentsField = fieldNumber(
-    idPrefix + "Segments",
-    "Segments",
-    encodeTest.segments,
-    1,
-    MAX_SEGMENTS,
-    1,
-    SEGMENTS_INFO,
-  );
+  const segmentsField = fieldNumber(idPrefix + "Segments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1);
   const duration = durationField.querySelector("input")!;
   const segments = segmentsField.querySelector("input")!;
   duration.classList.add("sample-duration");

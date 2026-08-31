@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { METADATA_TAGS_TEACH } from "../../src/lib/explainers";
 import { describeMetadataTag, describeMetadataTagValue } from "../../src/lib/metadataTagKb";
 
 describe("describeMetadataTag", () => {
@@ -12,7 +13,29 @@ describe("describeMetadataTag", () => {
     const info = describeMetadataTag("©too");
     expect(info?.label).toBe("Encoding tool");
     expect(info?.origin).toBe("MP4 / QuickTime atom");
-    expect(info?.description).toContain("0xA9");
+    expect(info?.description).toContain("tool");
+  });
+
+  // What the leading © is belongs to the teach box above the table, said once, rather than to the
+  // entries that happen to carry one.
+  it("leaves the 0xA9 marker to the copy above the table", () => {
+    expect(METADATA_TAGS_TEACH).toContain("0xA9");
+    expect(describeMetadataTag("©nam")?.description).not.toContain("0xA9");
+  });
+
+  // Reverse-DNS keys reach the same lookup from a table of their own, so an Apple recording still
+  // resolves to a label and an explanation rather than showing its raw key.
+  it("resolves the QuickTime metadata keys Apple devices write", () => {
+    const info = describeMetadataTag("com.apple.quicktime.model");
+    expect(info?.label).toBe("Camera model");
+    expect(info?.origin).toBe("QuickTime metadata key (mdta)");
+    expect(describeMetadataTag("com.apple.quicktime.location.ISO6709")?.label).toBe("Capture location");
+  });
+
+  // Both spell the same idea; the labels have to say which atom the reader is looking at.
+  it("tells the two copyright atoms apart by label", () => {
+    expect(describeMetadataTag("©cpy")?.label).toBe("Copyright (QuickTime)");
+    expect(describeMetadataTag("cprt")?.label).toBe("Copyright");
   });
 
   it("resolves ID3v2, Vorbis and RIFF spellings of the same idea", () => {

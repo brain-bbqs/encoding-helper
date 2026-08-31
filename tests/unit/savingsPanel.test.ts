@@ -34,7 +34,7 @@ describe("savingsBar", () => {
     const band = row.querySelector<HTMLElement>(".savings-band")!;
     expect(band.style.left).toBe("20%");
     expect(band.style.width).toBe("20%");
-    expect(band.title).toBe("Could land anywhere from 200 B to 400 B");
+    expect(band.title).toBe("Anywhere from 200 B to 400 B");
   });
 
   it("keeps a value past the top of the scale inside its track", () => {
@@ -57,25 +57,17 @@ describe("renderSavingsStrip", () => {
     expect(strip.querySelector(".savings-headline")!.textContent).toBe("50% smaller");
     expect(strip.querySelector(".savings-headline")!.classList.contains("grew")).toBe(false);
     // The same change stated the other way, for the deep end where percentages crowd together.
-    expect(strip.querySelector(".savings-factor")!.textContent).toBe("2.0× reduction");
-    expect(strip.querySelector(".savings-sub")!.textContent).toBe(
-      "Projected across the whole 1m 40.0s: ≈ 488.3 KB saved",
-    );
+    expect(strip.querySelector(".savings-factor")!.textContent).toBe("original 2.0× larger");
+    // What the projection comes to across the whole file is the bars' job, and the Estimate Detail
+    // below spells it out; the strip does not say it a third time.
+    expect(strip.querySelector(".savings-sub")).toBeNull();
   });
 
   it("marks settings that grew the file instead of reporting a saving", () => {
     const strip = renderSavingsStrip(estimate(150_000));
     expect(strip.querySelector(".savings-headline")!.textContent).toBe("50% larger");
     expect(strip.querySelector(".savings-headline")!.classList.contains("grew")).toBe(true);
-    expect(strip.querySelector(".savings-factor")!.textContent).toBe("1.5× inflation");
-    expect(strip.querySelector(".savings-sub")!.textContent).toContain("≈ 488.3 KB added");
-  });
-
-  it("says so plainly when the projection lands on the same size", () => {
-    const strip = renderSavingsStrip(estimate(100_000));
-    expect(strip.querySelector(".savings-sub")!.textContent).toBe(
-      "Projected across the whole 1m 40.0s: no meaningful change",
-    );
+    expect(strip.querySelector(".savings-factor")!.textContent).toBe("encoded 1.5× larger");
   });
 
   it("puts both bars on one scale, topped by the larger of the two", () => {
@@ -140,11 +132,12 @@ describe("renderSavingsDetail", () => {
     expect(detail(est).textContent).toContain("Projected Range");
   });
 
-  it("leaves the method to the ⓘ rather than writing it out under the numbers", () => {
+  // The figures are the card: no prose under them, and no ⓘ on them either — how the estimate is
+  // arrived at is the Full Analysis document's to write out, since nobody can hover that.
+  it("states the numbers and nothing else", () => {
     const block = detail(estimate(50_000));
     expect(block.querySelector(".teach")).toBeNull();
     expect(block.querySelector("details")).toBeNull();
-    // The explainers are still reachable, on the figures they bear on.
-    expect(block.querySelectorAll(".info-pop").length).toBe(3);
+    expect(block.querySelectorAll(".info-pop").length).toBe(0);
   });
 });

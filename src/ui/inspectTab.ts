@@ -3,20 +3,19 @@
 // (seekTab.ts) are appended after them into the same panel by main.ts.
 
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
-import { CONTAINER_PREAMBLE, describeContainer, type ContainerInfo } from "../lib/containerKb";
+import { describeContainer } from "../lib/containerKb";
 import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
-import { isEducationalEnabled } from "../lib/educational";
-import { renderEducationalToggle } from "./educationalToggle";
 import {
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
   chromaSubsamplingExplainer,
   codecExplainer,
   constantBitrateNote,
+  CONTAINER_PREAMBLE,
   containerExplainer,
   contradictedDeclarationNote,
-  FASTSTART_EXPLAINER,
   METADATA_TAGS_HOVER_HINT,
+  MIME_TYPE_INFO,
   METADATA_TAGS_TEACH,
   OVERALL_BITRATE_INFO,
   PEAK_RATIO_INFO,
@@ -29,21 +28,6 @@ import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { state } from "../lib/state";
 import type { CodecInfo } from "../lib/types";
 import { renderBitrateChart } from "./bitrateChart";
-
-/**
- * What this particular file's container is, as its own card so it reads as file-specific rather
- * than as part of the general container-vs-codec explainer above it. The heading carries the
- * container name, so loading a different file visibly retitles the card.
- */
-function renderContainerDetailSection(info: ContainerInfo | null): HTMLDivElement | null {
-  // The whole card is a heading plus one explainer, nothing else — with educational text off there
-  // is no data left to show, so the card itself goes rather than sitting there empty.
-  if (!info || !isEducationalEnabled()) return null;
-  const sec = h("div", "section");
-  sec.append(h("h2", null, `This File's Container: ${info.name}`));
-  sec.append(teachBox(containerExplainer(info)));
-  return sec;
-}
 
 /**
  * Builds the popover for one metadata tag. The tag name comes from the file, so it is escaped
@@ -59,9 +43,9 @@ function metadataTagInfoHtml(key: string, info: MetadataTagInfo | null, value: s
   return head + (valueHint ? `<p>${valueHint}</p>` : "");
 }
 
-export function codecTeachBox(codecInfo: CodecInfo | null | undefined): HTMLDivElement | null {
+export function codecTeachBox(codecInfo: CodecInfo | null | undefined, mark: string): HTMLDivElement | null {
   const html = codecExplainer(codecInfo);
-  return html ? teachBox(html) : null;
+  return html ? teachBox(html, mark) : null;
 }
 
 // Matches the original's leniency: `raw` (format-specific tags mediabunny doesn't normalize) is
@@ -87,39 +71,42 @@ export function flattenMetadataTags(): Record<string, unknown> {
   return flatTags;
 }
 
+/**
+ * The overview card's heading, naming the container it is about. The name used to head a card of
+ * its own; it stays in the heading rather than in the grid so it is still there when the educational
+ * text that also names it is switched off, and so loading another file visibly retitles the card.
+ */
+function overviewTitle(): string {
+  return state.format ? `Video Container Overview: ${state.format}` : "Video Container Overview";
+}
+
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
-  const head = h("div", "section-head");
-  head.append(h("h2", null, "Video Container Overview"), renderEducationalToggle());
-  overview.append(head);
-  overview.append(teachBox(CONTAINER_PREAMBLE));
+  overview.append(h("h2", null, overviewTitle()));
   const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
-  const og = h("div", "grid");
+  const og = h("div", "grid overview-grid");
   og.append(
-    gridItem("Type", state.format || "–"),
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
     gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
-    gridItem("MIME Type", state.mimeType || "–", { sm: true, wide: true }),
+    gridItem("MIME Type", state.mimeType || "–", { sm: true, info: MIME_TYPE_INFO }),
   );
   overview.append(og);
-  const fsBadge = h(
-    "span",
-    "badge " + (state.faststart ? "good" : "bad"),
-    state.faststart ? "✓ Faststart (moov before mdat)" : "✗ Not faststart (moov after mdat)",
-  );
-  const fsWrap = h("div");
-  fsWrap.style.marginTop = "10px";
-  fsWrap.append(fsBadge);
-  overview.append(fsWrap);
-  overview.append(teachBox(FASTSTART_EXPLAINER));
+  // The figures first, then what they mean: the container-vs-codec distinction, and what this
+  // file's container in particular is (a card of its own until it folded in here).
+  overview.append(teachBox(CONTAINER_PREAMBLE, "📦"));
+  const containerInfo = describeContainer(state.format);
+  // The id mountInspectToc slugifies the atom card's own heading into, which is what its entry in
+  // the "On this page" nav links to as well.
+  if (containerInfo) {
+    overview.append(teachBox(containerExplainer(containerInfo, "#mp4-box-atom-structure"), "🎥"));
+  }
 
   // Metadata Tags folds into this card rather than getting one of its own: it is more of this same
   // file-overview information, not a separate finding.
   const flatTags = flattenMetadataTags();
   if (Object.keys(flatTags).length) {
     overview.append(h("h3", null, "Metadata Tags"));
-    overview.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT));
     const tagsGrid = h("div", "grid");
     for (const [k, v] of Object.entries(flatTags)) {
       const value = String(v);
@@ -133,6 +120,7 @@ function renderOverviewSection(): HTMLDivElement {
       );
     }
     overview.append(tagsGrid);
+    overview.append(teachBox(METADATA_TAGS_TEACH + " " + METADATA_TAGS_HOVER_HINT, "🏷️"));
   }
   return overview;
 }
@@ -159,6 +147,9 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   );
   if (vt.rotation) g.append(gridItem("Rotation", vt.rotation + "°"));
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
+  // Read out of the file rather than assumed, so it sits with the other figures; the teach box
+  // below explains what it means (and says nothing about this file when it states nothing).
+  if (vt.chroma) g.append(gridItem("Chroma", vt.chroma, { sm: true }));
   if (vt.colorSpace) {
     g.append(
       gridItem(
@@ -170,9 +161,9 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   }
   if (vt.hdr) g.append(gridItem("HDR", "Yes"));
   sec.append(g);
-  const vtCodecBox = codecTeachBox(vt.codecInfo);
+  const vtCodecBox = codecTeachBox(vt.codecInfo, "🎞️");
   if (vtCodecBox) sec.append(vtCodecBox);
-  sec.append(teachBox(chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight)));
+  sec.append(teachBox(chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight, vt.chroma ?? null), "🎨"));
   return sec;
 }
 
@@ -194,19 +185,17 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
   const sec = h("div", "section");
   sec.append(h("h2", null, "Video Bitrate Over Time"));
   if (declaresConstant && declared && (!timeline || isEffectivelyConstant(timeline))) {
-    sec.append(teachBox(constantBitrateNote(declared.avgBitrate)));
+    sec.append(teachBox(constantBitrateNote(declared.avgBitrate), "📈"));
     return sec;
   }
   if (!timeline) {
     const g = h("div", "grid");
     g.append(gridItem("Average", fmtBits(vt.bitrate), { info: VIDEO_AVERAGE_INFO }));
     sec.append(g);
-    sec.append(teachBox(TOO_FEW_FRAMES_NOTE));
+    sec.append(teachBox(TOO_FEW_FRAMES_NOTE, "📈"));
     return sec;
   }
 
-  sec.append(teachBox(BITRATE_TIMELINE_TEACH));
-  if (declaresConstant && declared) sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline)));
   const g = h("div", "grid");
   g.append(
     gridItem("Average", fmtBits(timeline.averageBitrate), { info: VIDEO_AVERAGE_INFO }),
@@ -216,6 +205,10 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
   );
   sec.append(g);
   sec.append(renderBitrateChart(timeline));
+  sec.append(teachBox(BITRATE_TIMELINE_TEACH, "📈"));
+  if (declaresConstant && declared) {
+    sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline), "📈"));
+  }
   return sec;
 }
 
@@ -234,27 +227,25 @@ function renderAudioTrackSection(): HTMLDivElement | null {
   );
   if (at.codecInfo) at.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
   sec.append(g);
-  const atCodecBox = codecTeachBox(at.codecInfo);
+  const atCodecBox = codecTeachBox(at.codecInfo, "🔊");
   if (atCodecBox) sec.append(atCodecBox);
   return sec;
 }
 
 /**
- * The file-overview cards: container, this file's container detail, and the video track. Split from
- * {@link renderInspectTail} so main.ts can put the atom map (its own module) between this and the
- * bitrate/audio cards that follow it, without Inspect's renderer knowing the atom map exists.
+ * The file-overview cards: the container and the video track. Split from {@link renderInspectTail}
+ * so main.ts can put the atom map and the GOP card (their own modules) between this and the
+ * bitrate/audio cards that follow, without Inspect's renderer knowing either exists.
  */
 export function renderInspectHead(panel: HTMLElement): void {
   if (!state.source) return;
 
   panel.append(renderOverviewSection());
-  const containerSec = renderContainerDetailSection(describeContainer(state.format));
-  if (containerSec) panel.append(containerSec);
   const videoSec = renderVideoTrackSection();
   if (videoSec) panel.append(videoSec);
 }
 
-/** The bitrate and audio cards, after the atom map. See {@link renderInspectHead}. */
+/** The bitrate and audio cards, last on the panel. See {@link renderInspectHead}. */
 export function renderInspectTail(panel: HTMLElement): void {
   if (!state.source) return;
 
