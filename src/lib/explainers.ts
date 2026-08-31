@@ -556,7 +556,7 @@ export const AUDIO_BITRATE_INFO =
 
 export const GOP_TEACH =
   `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
-  `reference to other frames).<br>Shorter GOPs leads to more keyframes which means faster seeking &amp; scrubbing but ` +
+  `reference to other frames).<br>Shorter GOPs leads to more keyframes which means faster seeking but ` +
   `worse compression.` +
   `<ul>` +
   `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
@@ -564,11 +564,8 @@ export const GOP_TEACH =
   `<li><b>B-frames</b> reference both earlier <i>and later</i> frames, which compresses better but makes ` +
   `decode order ≠ presentation order, complicating random access.</li>` +
   `</ul>` +
-  `<p><a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io's ` +
-  `<code>reencode</code></a> baseline forces a <b>fixed GOP</b> (<code>-g</code> + ` +
-  `<code>-keyint_min</code> + <code>-sc_threshold 0</code>) and <b>disables B-frames</b> ` +
-  `(<code>-bf 0</code>) specifically to make random-access seeking fast and predictable for ` +
-  `pose-estimation pipelines that jump around a video rather than playing it linearly.</p>`;
+  `<p>For behavioral annotations (ethograms, pose estimation, etc.) we encourage the use of a <b>fixed GOP</b> and <b>disabling B-frames</b> entirely ` +
+  `to make random-access seeking fast and predictable .</p>`;
 
 /**
  * Under the GOP histogram in the Full Analysis document. The page draws no caption of its own: the
