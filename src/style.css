@@ -1535,6 +1535,71 @@ pre.cmd {
   font-family: Monaco, Consolas, monospace;
   color: var(--code-text);
 }
+/* The wrapper is what carries the block's width, so the copy control can sit in the command's own
+   corner rather than the column's. */
+.cmd-wrap {
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
+}
+.cmd-wrap > pre.cmd {
+  width: auto;
+  margin: 0;
+}
+.cmd-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--field);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.cmd-copy svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The word only after a copy; the icon carries the offer until then. */
+.cmd-copied {
+  display: none;
+  font-size: 11px;
+  font-weight: 600;
+}
+.cmd-copy.copied {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.cmd-copy.copied .cmd-copied {
+  display: inline;
+}
+.cmd-wrap:hover .cmd-copy,
+.cmd-copy:focus-visible,
+.cmd-copy.copied {
+  opacity: 1;
+}
+.cmd-copy:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+/* Nothing to hover with, so the control is simply there. */
+@media (hover: none) {
+  .cmd-copy {
+    opacity: 1;
+  }
+}
 
 /* Table */
 table.data {

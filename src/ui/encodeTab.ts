@@ -7,7 +7,7 @@
 // command over the whole file rather than a separate feature.
 
 import { isDownscale } from "../lib/cliCommand";
-import { copyToClipboard, h, teachBox } from "../lib/dom";
+import { cmdBlock, h, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
@@ -139,13 +139,9 @@ export function renderEncodeTab(panel: HTMLElement): void {
   form.append(row3);
   builderSec.append(form);
 
-  const cmdPre = h("pre", "cmd");
+  const { wrap: cmdWrap, pre: cmdPre } = cmdBlock();
   cmdPre.id = "cmdPre";
-  builderSec.append(cmdPre);
-  const copyBtn = h("button", "btn sm", "Copy Command");
-  copyBtn.type = "button";
-  copyBtn.addEventListener("click", () => copyToClipboard(cmdPre.textContent || "", copyBtn));
-  builderSec.append(copyBtn);
+  builderSec.append(cmdWrap);
   panel.append(builderSec);
 
   const bindNumber = (id: string, key: "keyframeInterval" | "fps", isFloat: boolean): void => {

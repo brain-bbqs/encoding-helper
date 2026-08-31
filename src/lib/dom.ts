@@ -205,16 +205,8 @@ export function teachBox(html: string, mark = "💡"): HTMLDivElement {
   return d;
 }
 
-export function copyToClipboard(text: string, btn?: HTMLButtonElement | null): void {
-  const done = (): void => {
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = "Copied!";
-      setTimeout(() => {
-        btn.textContent = orig;
-      }, 1400);
-    }
-  };
+/** Writes to the clipboard, falling back to a hidden textarea where the API is refused. */
+function writeClipboard(text: string, done: () => void): void {
   navigator.clipboard
     .writeText(text)
     .then(done)
@@ -227,4 +219,44 @@ export function copyToClipboard(text: string, btn?: HTMLButtonElement | null): v
       document.body.removeChild(ta);
       done();
     });
+}
+
+export function copyToClipboard(text: string, btn?: HTMLButtonElement | null): void {
+  writeClipboard(text, () => {
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => {
+      btn.textContent = orig;
+    }, 1400);
+  });
+}
+
+/**
+ * A command in a code block, with a copy control in its corner rather than a button under it: the
+ * command is the thing on offer, and a labelled button repeated under every block is more furniture
+ * than the action needs. The control is revealed on hover and by keyboard focus, and is always shown
+ * where there is no pointer to hover with (see .cmd-copy in style.css).
+ */
+export function cmdBlock(text?: string): { wrap: HTMLDivElement; pre: HTMLPreElement } {
+  const wrap = h("div", "cmd-wrap");
+  const pre = h("pre", "cmd", text);
+  const btn = h("button", "cmd-copy");
+  btn.type = "button";
+  btn.setAttribute("aria-label", "Copy command");
+  const icon = svgEl("svg", { viewBox: "0 0 16 16", "aria-hidden": "true", focusable: "false" });
+  icon.append(
+    svgEl("rect", { x: 5.5, y: 2.5, width: 8, height: 10, rx: 1.5 }),
+    svgEl("path", { d: "M10.5 13.5H3.5a1 1 0 0 1-1-1V5" }),
+  );
+  const said = h("span", "cmd-copied", "Copied");
+  btn.append(icon, said);
+  btn.addEventListener("click", () => {
+    writeClipboard(pre.textContent || "", () => {
+      btn.classList.add("copied");
+      setTimeout(() => btn.classList.remove("copied"), 1400);
+    });
+  });
+  wrap.append(pre, btn);
+  return { wrap, pre };
 }

@@ -7,7 +7,7 @@
 // command that setting comes to.
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
-import { copyToClipboard, h, infoIcon } from "../lib/dom";
+import { cmdBlock, h, infoIcon } from "../lib/dom";
 import { RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
@@ -778,10 +778,5 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Run This Setting with ffmpeg"));
-  const cmdPre = h("pre", "cmd", formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info)));
-  sec.append(cmdPre);
-  const copyBtn = h("button", "btn sm", "Copy Command");
-  copyBtn.type = "button";
-  copyBtn.addEventListener("click", () => copyToClipboard(cmdPre.textContent || "", copyBtn));
-  sec.append(copyBtn);
+  sec.append(cmdBlock(formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info))).wrap);
 }
