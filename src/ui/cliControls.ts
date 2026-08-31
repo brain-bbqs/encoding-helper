@@ -101,5 +101,5 @@ export function showReencodeResult(box: EngineBox, origSize: number, outSize: nu
     ),
   );
   box.result.append(g);
-  box.note.textContent = "Done.";
+  box.note.textContent = "";
 }

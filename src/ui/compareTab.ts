@@ -7,14 +7,8 @@
 // command that setting comes to.
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
-import { copyToClipboard, h, infoIcon, teachBox } from "../lib/dom";
-import {
-  MATRIX_CACHE_INFO,
-  RESOLUTION_INFO,
-  SCALER_INFO,
-  selectedCommandTeach,
-  X264_PRESET_INFO,
-} from "../lib/explainers";
+import { copyToClipboard, h, infoIcon } from "../lib/dom";
+import { MATRIX_CACHE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
   bestReductionCell,
@@ -654,8 +648,8 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
     if (!blobs) {
       // Its outputs were dropped to stay inside the memory budget, so the square is encoded again —
       // over the same stretches the sweep measured, which are usually still cut and waiting. All of
-      // them, not just one: the window plays every stretch the square was measured over.
-      ui.note.textContent = "Re-encoding the chosen square for the A/B window…";
+      // them, not just one: the window plays every stretch the square was measured over. The bar
+      // below says a run is going; the note does not say it again.
       const workers = acquireWorkers(matrixWindows().length);
       const inputs = await prepareRun(matrixWindows(), workers, ui);
       try {
@@ -802,7 +796,6 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Run This Setting with ffmpeg"));
-  sec.append(teachBox(selectedCommandTeach(describeSettings(cell.combo)), "⌨️"));
   const cmdPre = h("pre", "cmd", formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info)));
   sec.append(cmdPre);
   const copyBtn = h("button", "btn sm", "Copy Command");

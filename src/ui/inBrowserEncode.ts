@@ -39,16 +39,18 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
   box.button.disabled = true;
   box.progress.style.display = "block";
   const fill = box.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) fill.style.width = "0%";
+  if (fill) {
+    fill.style.width = "0%";
+    fill.classList.remove("done");
+  }
   box.note.textContent = "Loading ffmpeg.wasm…";
   box.result.innerHTML = "";
   clearLog(box.log);
   setFfmpegHandlers(
     (msg) => logLine(box.log, msg, "info"),
+    // The bar is the progress; a percentage spelled out beside it is the same number twice.
     (ratio) => {
-      const pct = Math.min(1, Math.max(0, ratio)) * 100;
-      if (fill) fill.style.width = pct.toFixed(0) + "%";
-      box.note.textContent = `Encoding… ${pct.toFixed(0)}%`;
+      if (fill) fill.style.width = (Math.min(1, Math.max(0, ratio)) * 100).toFixed(0) + "%";
     },
   );
   try {
@@ -70,6 +72,12 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
       await target.writable.close();
     } else {
       downloadBlob(blob, saveName);
+    }
+    // A full bar in the colour the app uses for a good outcome, the way a sample run ends, rather
+    // than a word under an empty one.
+    if (fill) {
+      fill.style.width = "100%";
+      fill.classList.add("done");
     }
     showReencodeResult(box, state.source.size, blob.size);
   } catch (err) {
