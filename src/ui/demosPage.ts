@@ -253,6 +253,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     writeDemosToUrl(false, push);
     page.style.display = "none";
     els.dropZone.style.display = "";
+    els.introCard.style.display = "";
     if (appDisplay !== null) els.app.style.display = appDisplay;
     appDisplay = null;
   };
@@ -314,6 +315,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     writeDemosToUrl(true, push);
     build();
     els.dropZone.style.display = "none";
+    els.introCard.style.display = "none";
     if (appDisplay === null) appDisplay = els.app.style.display;
     els.app.style.display = "none";
     page.style.display = "block";

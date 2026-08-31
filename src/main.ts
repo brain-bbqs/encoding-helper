@@ -1,5 +1,7 @@
 import "./style.css";
 import { onEducationalChange } from "./lib/educational";
+import { teachBox } from "./lib/dom";
+import { APP_INTRO } from "./lib/explainers";
 import { matrixCache } from "./lib/matrixCache";
 import { ensureMediabunny } from "./lib/mediabunny";
 import { renderAnalysisTab } from "./ui/analysisTab";
@@ -73,14 +75,27 @@ els.themeToggle.addEventListener("click", () => {
   }
 });
 
+/**
+ * What the app is for, above the file picker. It sits outside the tab panels, so it is rebuilt on
+ * its own rather than by renderAll — and it is the one card a reader meets before loading anything,
+ * which is why it is put up whether or not a file has been opened.
+ */
+function syncIntroCard(): void {
+  els.introCard.innerHTML = "";
+  els.introCard.append(teachBox(APP_INTRO, "🎓"));
+}
+
 // Teaching material — the "teach" boxes and the ⓘ info-icon popovers — is on by default and
 // remembered across reloads. The switch sits in the header beside the light/dark toggle: one
 // preference control for the whole app, outside the panels it rebuilds, so it is mounted once here
 // rather than by renderAll.
 els.eduToggleSlot.append(renderEducationalToggle());
+syncIntroCard();
 // Flipping it rebuilds every tab from scratch, so a panel not currently showing still picks up the
-// change next time it is visited.
+// change next time it is visited. The intro card is redrawn either way, since it is on the page
+// before any file is.
 onEducationalChange(() => {
+  syncIntroCard();
   if (els.app.style.display !== "none") renderAll();
 });
 

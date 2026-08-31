@@ -23,6 +23,22 @@ import type { SizeEstimate } from "./sizeEstimate";
 import type { ChromaFormat } from "./chromaFormat";
 import type { CodecInfo, ContainerInfo } from "./types";
 
+// --- The page itself, above the file picker ---
+
+/**
+ * What the app is for, and what it is pointed at: the first thing on the page, above the picker,
+ * and the one piece of teaching material a reader meets before loading anything.
+ */
+export const APP_INTRO =
+  "<b>Encoding Helper</b> reads what a video file actually is — its container, its codec, the keyframe " +
+  "structure that decides how fast it seeks, and where its bits go — and lets you try a reencode on a few " +
+  "seconds of it, side by side with the original, before committing a whole dataset to those settings." +
+  "<p>For <b>EMBER</b> and for behavioral annotation generally the target is <b>H.264 in MP4</b>, written " +
+  "with a <b>fixed, short GOP</b> and <b>no B-frames</b>: scoring, tracking and pose estimation jump around a " +
+  "recording rather than playing it through, and those are the settings that make an arbitrary frame cheap " +
+  "to reach. What quality costs is then a judgement to make by eye, on your own footage, which is what the " +
+  "tabs below are for.</p>";
+
 // --- Inspect · Video Container Overview, the first card on the first tab ---
 
 /** The container-vs-codec distinction, shown above every container explainer. */

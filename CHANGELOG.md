@@ -33,6 +33,7 @@
 - The builder's short menus and number fields take the width they need rather than the whole form, its tick boxes sit as a list, and the command block hugs its text, centred ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - A command block carries a copy control in its own corner, shown on hover or keyboard focus, in place of the labelled button under it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Compare Quality sweeps **Frame rates** as a fourth axis, as fractions of the source's own, and names the rate over each block of rows it produced ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- A card above the file picker says what the app is for and what EMBER and behavioral annotation want out of an encode, while the Educational switch is on ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - Option labels drop the word "default", and the **Segments** field drops its ⓘ ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The sweep's settings bar works its axes out to a total, e.g. `2 × 5 × 2 = 20` squares ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The sweep's settings bar counts its total in runs, e.g. `2 × 5 × 2 = 20 runs` ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))

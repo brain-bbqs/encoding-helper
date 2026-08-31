@@ -10,6 +10,7 @@ export function getElements() {
   return {
     errorMsg: required<HTMLDivElement>("errorMsg"),
     dropZone: required<HTMLDivElement>("dropZone"),
+    introCard: required<HTMLDivElement>("introCard"),
     pickFileBtn: required<HTMLButtonElement>("pickFileBtn"),
     browseDemosBtn: required<HTMLButtonElement>("browseDemosBtn"),
     showUrlBtn: required<HTMLButtonElement>("showUrlBtn"),
