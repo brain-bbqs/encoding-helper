@@ -510,17 +510,12 @@ export const TOO_FEW_FRAMES_NOTE =
 export const BITRATE_TIMELINE_TEACH =
   "<b>Bitrate</b> is how many bits it takes to store one second of playback, so it is a major factor determining " +
   "both file size and video quality. " +
-  "This is the video track's bitrate measured one window at a time instead of once across the whole track: " +
-  "the bits of every frame presented in that window, divided by the window's length. No decoding is " +
-  "involved, since the size and timestamp of every frame is already listed in the container's sample table. " +
   "<p>A <b>variable bitrate</b> encoder (which is what a CRF encode is, and what x264 does by default) " +
-  "targets a constant <i>quality</i> and lets the rate go wherever that costs. It spends bits on keyframes, " +
-  "scene cuts and fast motion and saves them on still shots, so the line moves even though the average is a " +
-  "single number. A run well above the average is the part of the video that is expensive to store; a flat " +
-  "line means the rate was held constant instead.</p>" +
-  "<p>The peak matters separately from the average: a stream is only smooth to play over a network that can " +
-  "carry its <i>peaks</i>, not its mean, which is why streaming encoders are usually given a ceiling " +
-  "(<code>-maxrate</code>) as well as a target.</p>";
+  "targets a constant <i>quality</i> and lets the rate adapt. It spends bits on keyframes, " +
+  "scene cuts, and fast motion, but saves them on still shots. " +
+  "<p>The peak is an important metric to track since a stream is only smooth to play over a network if it can " +
+  "handle the densest portions, which is why streaming encoders are usually given a ceiling " +
+  "(<code>maxrate</code>) as well as a target.</p>";
 
 /**
  * Shown when the container declares a constant rate but the sample sizes disagree. Worth saying
@@ -538,13 +533,12 @@ export function contradictedDeclarationNote(avgBitrate: number, timeline: Bitrat
 }
 
 export const VIDEO_AVERAGE_INFO =
-  "Average bitrate of the video track alone: its packets &times; 8 &divide; duration. The Overview's " +
-  "<b>Overall Bitrate</b> is higher because it also counts audio and container overhead. Lowering this (a " +
-  "higher CRF) is what shrinks the file, at the cost of visible artifacts.";
+  "<b>Average bitrate</b> of the video track alone: its packets &times; 8 &divide; duration. Lowering this (a " +
+  "higher CRF) is what shrinks the file, at the cost of degraded quality.";
 
 export const PEAK_RATIO_INFO =
-  "The busiest window's bitrate divided by the track average. The further above <b>1&times;</b>, the burstier " +
-  "the encode, and the more bandwidth headroom smooth playback needs beyond the average.";
+  "The busiest window's bitrate divided by the track average. The further it is above <b>1&times;</b>, the burstier " +
+  "the encode and the more bandwidth headroom a smooth playback requires.";
 
 // --- Inspect · Audio Track ---
 
@@ -556,7 +550,7 @@ export const AUDIO_BITRATE_INFO =
 
 export const GOP_TEACH =
   `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
-  `reference to other frames).<br>Shorter GOPs lead to more keyframes, which means faster seeking but ` +
+  `reference to other frames). Shorter GOPs lead to more keyframes, which means faster seeking but ` +
   `worse compression.` +
   `<ul>` +
   `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
