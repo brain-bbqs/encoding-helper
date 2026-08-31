@@ -99,7 +99,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   bfCheck.type = "checkbox";
   bfCheck.id = "cliNoBFrames";
   bfCheck.checked = cli.noBFrames;
-  bfLabel.append(bfCheck, document.createTextNode(" Disable B-frames (-bf 0, recommended for seekability)"));
+  bfLabel.append(bfCheck, document.createTextNode(" Disable B-frames"));
   bfField.append(bfLabel);
   row2.append(bfField);
   const padField = h("div", "field");
@@ -117,7 +117,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   fsCheck.type = "checkbox";
   fsCheck.id = "cliFaststart";
   fsCheck.checked = cli.faststart;
-  fsLabel.append(fsCheck, document.createTextNode(" Faststart (+movflags)"));
+  fsLabel.append(fsCheck, document.createTextNode(" Faststart"));
   fsField.append(fsLabel);
   row2.append(fsField);
   form.append(row2);
