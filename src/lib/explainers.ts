@@ -549,11 +549,13 @@ export const AUDIO_BITRATE_INFO =
 // --- Inspect · GOP / Keyframe Structure, and the seeking test under it ---
 
 export const GOP_TEACH =
-  `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
-  `reference to other frames). Shorter GOPs lead to more keyframes, which means faster seeking but ` +
+  `The <b>GOP (Group of Pictures)</b> is the span between keyframes (an IDR frame, which also bars later frames ` +
+  `from referencing across it). Shorter GOPs lead to more keyframes, which means faster seeking but ` +
   `worse compression.` +
   `<ul>` +
-  `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
+  `<li><b>I-frames</b> self-contain everything needed to draw the picture within the frame itself.</li>` +
+  `<li><b>IDR-frame</b> are a stronger form of an I-frame which also bars every later frame from referencing ` +
+  `anything before it so that a player can start decoding from that point.</li>` +
   `<li><b>P-frames</b> reference earlier frames, storing only what changed since then.</li>` +
   `<li><b>B-frames</b> reference both earlier <i>and later</i> frames, which compresses better but makes ` +
   `decode order ≠ presentation order, complicating random access.</li>` +
