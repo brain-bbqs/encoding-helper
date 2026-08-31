@@ -178,7 +178,12 @@ body {
     system-ui,
     -apple-system,
     sans-serif;
-  max-width: 980px;
+  /* Most cards read a paragraph or two under their figures while the Educational switch is on, and
+     the figure cards themselves tile across the column, so the page takes a wide one either way: at
+     980px a row of eight figures wrapped one card onto a line of its own. The cap leaves the fixed
+     corner watermarks the 220px a side they need to keep framing the page, the same allowance
+     .demos-page makes. */
+  max-width: min(1180px, calc(100vw - 440px));
   margin: 0 auto;
   /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar, whose tallest
      column is the three rows of footer links at ~86px. */
@@ -2386,57 +2391,20 @@ table.data.matrix-table th.matrix-row-head {
   }
 }
 
-/* Educational mode puts a teaching paragraph or two under most cards' figures, and the file
-   overview reads its four figures across one line, so the page takes a wider column while the
-   switch is on (main.ts marks the body). The cap leaves the fixed corner watermarks the 220px a
-   side they need to keep framing the page, the same allowance .demos-page makes. */
-body.edu-wide {
-  max-width: min(1180px, calc(100vw - 440px));
-}
+/* Below the width that allowance needs, the column wins and the watermarks give way: they drop out
+   of fixed positioning into the flow of the page, rather than ending up pinned over content as it
+   scrolls (and the BBQS watermark goes entirely, since the header already sits top-left). Without
+   this a 1440px laptop — the common case — would gain 20px and stay as cramped as before.
 
-/* Below the width that allowance needs, the wider column wins and the watermarks give way: they
-   drop out of fixed positioning into the flow of the page, which is the same trade the max-width:
-   1420px block at the end of this file makes for everyone on a narrower screen. Without this a
-   1440px laptop — the common case — would gain 20px and stay as cramped as before. */
+   This block must stay after the max-width: 600px one above, whose body padding it overrides. */
 @media (max-width: 1560px) {
-  body.edu-wide {
+  body {
     max-width: min(1180px, calc(100vw - 40px));
     /* No fixed footer left to clear, so only the normal page padding. */
     padding-bottom: 20px;
   }
-  body.edu-wide .brand-watermark-link {
-    display: none;
-  }
-  body.edu-wide .page-footer-bar {
-    position: static;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 24px 12px 0;
-  }
-  body.edu-wide .footer-left {
-    align-items: center;
-  }
-}
-
-/* body caps out at a 940px-wide content box (980px max-width minus its own 20px side padding);
-   above that it is centred with (viewport - 980) / 2 px of margin on either side. The footer bar's
-   right column (the Talmo Lab and CON logos, plus the bar's own right padding) is the widest thing
-   needing that margin at 212px, so page content stops clearing the fixed corner watermarks once
-   the viewport drops below 1404px. Below that, as the page scrolls, they end up pinned on top of
-   content instead of framing it: take them out of fixed positioning so the footer sits in normal
-   document flow (and drop the BBQS watermark entirely, since the top-left of the page is where the
-   header already sits). The 1420px threshold leaves a little slack past that measured 1404px, and
-   has to stay under 1440 so it does not fire on the many laptops exactly that wide.
-
-   This block must stay after the max-width: 600px one above, whose body padding it overrides. */
-@media (max-width: 1420px) {
   .brand-watermark-link {
     display: none;
-  }
-  body {
-    /* No fixed footer to clear anymore, so only the normal page padding is left. */
-    padding-bottom: 20px;
   }
   .page-footer-bar {
     position: static;

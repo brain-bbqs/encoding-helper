@@ -1,5 +1,5 @@
 import "./style.css";
-import { isEducationalEnabled, onEducationalChange } from "./lib/educational";
+import { onEducationalChange } from "./lib/educational";
 import { matrixCache } from "./lib/matrixCache";
 import { ensureMediabunny } from "./lib/mediabunny";
 import { renderAnalysisTab } from "./ui/analysisTab";
@@ -17,17 +17,7 @@ import { initTabs } from "./ui/tabs";
 
 const els = getElements();
 
-/**
- * Marks the page while the teaching material is on, so the stylesheet can give it a wider column:
- * an educational card carries a paragraph or two under its figures, and the file overview's four
- * figures want a line of their own rather than a cramped one.
- */
-function syncEducationalWidth(): void {
-  document.body.classList.toggle("edu-wide", isEducationalEnabled());
-}
-
 function renderAll(): void {
-  syncEducationalWidth();
   // Inspect is what the file *is*: the metadata, the map of how it is laid out, and the structure
   // that governs how it seeks. Reading order follows the file's own structure — overview cards, the
   // atom map, the GOP/keyframe structure the map's box order decides, then the bitrate over time,

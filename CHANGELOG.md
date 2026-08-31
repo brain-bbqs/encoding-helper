@@ -8,7 +8,7 @@
 - **This File's Container** folded into the **Video Container Overview** card, which now names the container in its heading and drops the Type row ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The MIME Type readout carries an ⓘ saying what a media type is ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The overview's four figures sit on one row, the MIME type taking the width left over rather than wrapping onto a line of its own ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
-- Inspect's cards lead with what they measured, with the teaching text under it, and the page reads in a wider column while the Educational switch is on ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- Inspect's cards lead with what they measured, with the teaching text under it, and the page reads in a wider column so a row of figures is not left wrapping ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Video Track card reports the file's **Chroma** subsampling, read out of its codec configuration, and its explainer no longer states a format for a file that declares none ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Atom Map's legend keys only what it drew, dropping its note and any row for fragment indexes or collapsed runs the file has none of ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The Atom Map stops offering to zoom into a block that already fills the view, which used to grow the breadcrumb without changing the map ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
