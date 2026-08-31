@@ -556,7 +556,7 @@ export const AUDIO_BITRATE_INFO =
 
 export const GOP_TEACH =
   `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
-  `reference to other frames).<br>Shorter GOPs leads to more keyframes which means faster seeking but ` +
+  `reference to other frames).<br>Shorter GOPs lead to more keyframes, which means faster seeking but ` +
   `worse compression.` +
   `<ul>` +
   `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
@@ -565,7 +565,7 @@ export const GOP_TEACH =
   `decode order ≠ presentation order, complicating random access.</li>` +
   `</ul>` +
   `<p>For behavioral annotations (ethograms, pose estimation, etc.) we encourage the use of a <b>fixed GOP</b> and <b>disabling B-frames</b> entirely ` +
-  `to make random-access seeking fast and predictable .</p>`;
+  `to make random-access seeking fast and predictable.</p>`;
 
 /**
  * Under the GOP histogram in the Full Analysis document. The page draws no caption of its own: the
