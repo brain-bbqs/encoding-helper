@@ -22,6 +22,7 @@
 - The Educational switch sits in the header beside the light/dark toggle, one preference control for the app rather than one in the first card of two tabs ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The seeking test explains itself in a teach box like every other card, its results are spaced off the Run button, and both plots drop their captions ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 - The ⓘ button's "i" is drawn rather than typed, so it sits centred in its circle on every platform instead of wherever the fallback font put it ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
+- The two Copyright atoms are told apart by label, and the © atoms no longer repeat what the copy above the tag table already says ([#35](https://github.com/brain-bbqs/encoding-helper/pull/35))
 
 #### 🏠 Internal
 

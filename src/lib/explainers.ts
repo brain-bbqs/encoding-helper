@@ -211,59 +211,76 @@ export const METADATA_TAGS_HOVER_HINT = "Hover the ⓘ on any tag for what it me
 export type TagSeed = [key: string, label: string, description: string];
 
 export const QUICKTIME_ORIGIN = "MP4 / QuickTime atom";
+export const QUICKTIME_KEY_ORIGIN = "QuickTime metadata key (mdta)";
 export const ID3_ORIGIN = "ID3v2 frame (MP3, ADTS)";
 export const VORBIS_ORIGIN = "Vorbis comment / Matroska tag (Ogg, FLAC, MKV)";
 export const RIFF_ORIGIN = "RIFF INFO chunk (WAVE)";
 export const NORMALIZED_ORIGIN = "Normalized by mediabunny";
 
-export const COPYRIGHT_PREFIX_NOTE =
-  "The leading <code>©</code> is byte <code>0xA9</code>, QuickTime's marker for a text atom, not a copyright " +
-  "statement.";
-
-// MP4/QuickTime `ilst` atoms. Four characters each, case-sensitive.
+// MP4/QuickTime `ilst` atoms. Four characters each, case-sensitive. The leading `©` on many of
+// them is byte 0xA9, QuickTime's text-atom marker — explained once in METADATA_TAGS_TEACH rather
+// than repeated on every entry below.
 export const QUICKTIME_TAGS: TagSeed[] = [
-  ["©nam", "Title", "The title of the work. " + COPYRIGHT_PREFIX_NOTE],
-  ["©ART", "Artist", "The credited artist or creator. " + COPYRIGHT_PREFIX_NOTE],
-  ["aART", "Album artist", "The main artist for the album or collection as a whole."],
-  ["©alb", "Album", "The album or collection this file belongs to. " + COPYRIGHT_PREFIX_NOTE],
-  ["©day", "Date", "Release, recording or creation date, often just a year. " + COPYRIGHT_PREFIX_NOTE],
-  ["©cmt", "Comment", "Freeform notes about the file. " + COPYRIGHT_PREFIX_NOTE],
+  // Work and release
+  ["©nam", "Title", "The title of the work."],
+  ["©alb", "Album", "The album or collection this file belongs to."],
+  ["©day", "Date", "Release, recording or creation date, often just a year."],
   ["©gen", "Genre", "Genre as free text (the <code>gnre</code> atom stores it as a numeric id instead)."],
   ["gnre", "Genre (numeric)", "Genre stored as an ID3v1 genre number rather than as text."],
+  ["trkn", "Track number", "Track position within its album, stored as a packed number/total pair."],
+  ["disk", "Disc number", "Disc position within a multi-disc release, stored as a packed number/total pair."],
+  ["cpil", "Compilation", "Flag marking the album as a various-artists compilation."],
+  ["tmpo", "Tempo (BPM)", "Beats per minute."],
+
+  // Credits
+  ["©ART", "Artist", "The credited artist or creator."],
+  ["aART", "Album artist", "The main artist for the album or collection as a whole."],
+  ["©wrt", "Composer", "The writer or composer of the work."],
+  ["©dir", "Director", "The credited director."],
+
+  // Description and text
+  ["©des", "Description", "A short description of the content."],
+  ["desc", "Description", "A short description, as written by iTunes-style taggers."],
+  ["ldes", "Long description", "A longer synopsis, used by Apple media apps."],
+  ["©cmt", "Comment", "Freeform notes about the file."],
+  ["©inf", "Information", "Freeform information about the file."],
+  ["keyw", "Keywords", "Searchable keywords."],
+  ["©lyr", "Lyrics", "Full lyrics or a transcript."],
+
+  // Rights
+  [
+    "©cpy",
+    "Copyright (QuickTime)",
+    "QuickTime's copyright notice. Unlike the other <code>©</code> atoms, this one really is about rights.",
+  ],
+  ["cprt", "Copyright", "The copyright notice for the work, as MP4 standardized it."],
+
+  // How the file was made
   [
     "©too",
     "Encoding tool",
     "The software that wrote this file, stamped in by the muxer. <code>too</code> is short for " +
-      '"tool", so this is the encoder signature, not a truncated word. ' +
-      COPYRIGHT_PREFIX_NOTE,
+      '"tool", so this is the encoder signature, not a truncated word.',
   ],
-  ["©enc", "Encoded by", "The person or organization credited with encoding the file."],
   ["©swr", "Software", "The application that created the file, as distinct from the muxing library."],
-  ["©wrt", "Composer", "The writer or composer of the work."],
-  ["©dir", "Director", "The credited director."],
-  ["©des", "Description", "A short description of the content."],
-  ["desc", "Description", "A short description of the content, as written by iTunes-style taggers."],
-  ["ldes", "Long description", "A longer synopsis, used by Apple media apps."],
-  ["©cpy", "Copyright", "The actual copyright notice. Unlike the other © atoms, this one really is about rights."],
-  ["cprt", "Copyright", "The copyright notice for the work."],
-  ["©lyr", "Lyrics", "Full lyrics or a transcript."],
-  ["©inf", "Information", "Freeform information about the file."],
-  ["©xyz", "Location", "GPS coordinates in ISO 6709 form, written by phones and action cameras."],
-  ["trkn", "Track number", "Track position within its album, stored as a packed number/total pair."],
-  ["disk", "Disc number", "Disc position within a multi-disc release, stored as a packed number/total pair."],
+  ["©enc", "Encoded by", "The person or organization credited with encoding the file."],
+
+  // Playback and presentation
   ["covr", "Cover art", "Embedded artwork bytes (JPEG or PNG)."],
   ["stik", "Media kind", "Numeric hint at the content type, e.g. movie, TV show, music video or audiobook."],
-  ["cpil", "Compilation", "Flag marking the album as a various-artists compilation."],
-  ["tmpo", "Tempo (BPM)", "Beats per minute."],
+  ["rtng", "Content rating", "Numeric advisory rating, e.g. clean or explicit."],
   ["pgap", "Gapless playback", "Flag telling players not to insert silence between tracks."],
   ["purl", "Podcast URL", "Feed URL for podcast episodes."],
-  ["keyw", "Keywords", "Searchable keywords."],
-  ["rtng", "Content rating", "Numeric advisory rating, e.g. clean or explicit."],
-  [
-    "com.apple.quicktime.make",
-    "Camera make",
-    "Manufacturer of the recording device, written from a <code>keys</code> atom by Apple devices.",
-  ],
+
+  // Capture
+  ["©xyz", "Location", "GPS coordinates in ISO 6709 form, written by phones and action cameras."],
+];
+
+// QuickTime metadata keys, written by Apple devices through the `mdta` handler: a `keys` atom
+// declares reverse-DNS names and the parallel `ilst` holds their values. Not four-character atoms,
+// and not interchangeable with the table above.
+export const QUICKTIME_KEY_TAGS: TagSeed[] = [
+  ["com.apple.quicktime.make", "Camera make", "Manufacturer of the recording device."],
   ["com.apple.quicktime.model", "Camera model", "Model of the recording device."],
   ["com.apple.quicktime.software", "Device software", "OS or app version on the recording device."],
   ["com.apple.quicktime.creationdate", "Capture date", "When the recording was made, including the time zone."],

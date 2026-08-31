@@ -6,13 +6,17 @@
 // else into `raw` under whatever the container calls it, so the Inspect tab shows names like
 // `©too`, `TIT2` or `ISFT` verbatim. Those are not typos: MP4/QuickTime tags are four-character
 // atom names where a leading © (byte 0xA9) marks a QuickTime text atom, MP3/ADTS use ID3v2 frame
-// ids, Ogg/FLAC/Matroska use Vorbis-style words, and WAVE uses RIFF INFO chunk ids.
+// ids, Ogg/FLAC/Matroska use Vorbis-style words, and WAVE uses RIFF INFO chunk ids. QuickTime has a
+// second naming scheme besides its atoms — the reverse-DNS keys Apple devices write through the
+// `mdta` handler — which is a table of its own in lib/explainers and an origin of its own here.
 
 import {
   ID3_ORIGIN,
   ID3_TAGS,
   NORMALIZED_ORIGIN,
   NORMALIZED_TAGS,
+  QUICKTIME_KEY_ORIGIN,
+  QUICKTIME_KEY_TAGS,
   QUICKTIME_ORIGIN,
   QUICKTIME_TAGS,
   RIFF_ORIGIN,
@@ -43,6 +47,7 @@ function seedGroup(origin: string, seeds: TagSeed[]): MetadataTagInfo[] {
 // Vorbis-style entry rather than to the normalized one.
 const TAG_KB: MetadataTagInfo[] = [
   ...seedGroup(QUICKTIME_ORIGIN, QUICKTIME_TAGS),
+  ...seedGroup(QUICKTIME_KEY_ORIGIN, QUICKTIME_KEY_TAGS),
   ...seedGroup(ID3_ORIGIN, ID3_TAGS),
   ...seedGroup(VORBIS_ORIGIN, VORBIS_TAGS),
   ...seedGroup(RIFF_ORIGIN, RIFF_TAGS),
