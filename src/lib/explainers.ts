@@ -556,7 +556,7 @@ export const AUDIO_BITRATE_INFO =
 
 export const GOP_TEACH =
   `The <b>GOP (Group of Pictures)</b> is the span between keyframes (I-frames that decode with no ` +
-  `reference to other frames). Shorter GOPs → more, larger keyframes → faster seeking &amp; scrubbing but ` +
+  `reference to other frames).<br>Shorter GOPs leads to more keyframes which means faster seeking &amp; scrubbing but ` +
   `worse compression.` +
   `<ul>` +
   `<li><b>I-frames</b> are self-contained: everything needed to draw the picture is in the frame itself.</li>` +
