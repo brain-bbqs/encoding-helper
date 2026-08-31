@@ -41,7 +41,7 @@ export function renderSeekTab(panel: HTMLElement): void {
   const bBadge = h(
     "span",
     "badge " + (state.hasBFrames ? "info" : "good"),
-    state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames (IPPP…)",
+    state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames",
   );
   const bWrap = h("div");
   bWrap.style.margin = "10px 0";

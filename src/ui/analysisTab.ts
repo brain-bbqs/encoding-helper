@@ -276,7 +276,7 @@ function gopSection(): AnalysisSection | null {
     {
       kind: "badge",
       tone: state.hasBFrames ? "info" : "good",
-      text: state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames (IPPP…)",
+      text: state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames",
     },
   ];
   if (gop.length > 1) {
