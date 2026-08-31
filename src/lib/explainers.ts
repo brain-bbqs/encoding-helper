@@ -604,20 +604,12 @@ export const REENCODE_INTRO =
   `<b>Reencoding</b> means decoding a video back to raw frames and compressing them again. That is what ` +
   `lets you change quality, resolution, frame rate or keyframe spacing, and it is lossy: each pass throws ` +
   `away detail the previous pass kept, so start from the original whenever you can.` +
-  `<p><b>Transcoding</b> is the same operation into a <i>different</i> codec (H.265 to H.264, say); the ` +
+  `<p><b>Transcoding</b> is the same operation into a <i>different</i> codec (H.264 to H.265, for instance); the ` +
   `terms are often used interchangeably, but transcoding implies the codec itself changes. Neither is ` +
-  `<b>remuxing</b> (<code>ffmpeg -c copy</code>), which lifts the already-compressed frames into a ` +
+  `<b>remuxing</b>, which lifts the already-compressed frames into a ` +
   `different container untouched, and so is lossless and nearly instant.</p>` +
   `<p>The command below runs <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">` +
-  `<b>ffmpeg</b></a> on your own machine, which is the way to do this for real work: it is a native ` +
-  `multi-threaded build with no 30 MB download and no browser memory ceiling, so it is far faster on a ` +
-  `full-length video; it scripts over a whole dataset; and the exact same command reruns later or on a ` +
-  `colleague's machine and produces the same bytes. What runs in the page below is the same ffmpeg, for ` +
-  `judging a setting quickly rather than for processing a corpus.</p>` +
-  `<p>The settings here mirror ` +
-  `<a href="https://io.sleap.ai/latest/cli/#sio-reencode" target="_blank" rel="noopener">sleap-io</a>'s ` +
-  `<code>reencode</code> baseline, the shared transcoding target for the BBQS consortium's pose ` +
-  `pipelines. Every knob below edits the command live; copy it to run locally, headless, or in batch.</p>`;
+  `<b>ffmpeg</b></a> on your own machine, which is the way to do this for real work.</p>`;
 
 /** What the preset actually trades, shown from the ⓘ beside the field in both tabs that offer it. */
 export const X264_PRESET_INFO =
