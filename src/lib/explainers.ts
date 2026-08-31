@@ -554,7 +554,7 @@ export const GOP_TEACH =
   `worse compression.` +
   `<ul>` +
   `<li><b>I-frames</b> self-contain everything needed to draw the picture within the frame itself.</li>` +
-  `<li><b>IDR-frame</b> are a stronger form of an I-frame which also bars every later frame from referencing ` +
+  `<li><b>IDR-frames</b> are a stronger form of an I-frame, which also bars every later frame from referencing ` +
   `anything before it so that a player can start decoding from that point.</li>` +
   `<li><b>P-frames</b> reference earlier frames, storing only what changed since then.</li>` +
   `<li><b>B-frames</b> reference both earlier <i>and later</i> frames, which compresses better but makes ` +
