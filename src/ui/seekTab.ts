@@ -169,16 +169,21 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
 
   // The summary figures and the scatter above are what a run is read for; a hundred sampled
   // timestamps of raw rows underneath them would bury the next section, so the table folds away
-  // behind a bar carrying its row count, like the output console and the sweep settings.
-  const { wrap: tableFold, body: tableBody } = fold(
-    "Sampled timestamps",
-    `${results.length} row${results.length === 1 ? "" : "s"}`,
-  );
-  const exportBtn = h("button", "btn sec sm", "Export table (CSV)");
+  // behind a bar, like the output console and the sweep settings. The export button sits where the
+  // row count used to, on the right of that bar, rather than inside the folded body: it should be
+  // reachable without opening the table it exports.
+  const { wrap: tableFold, body: tableBody } = fold("Sampled timestamps");
+  const exportBtn = h("button", "btn sec sm", "Export table (TSV)");
   exportBtn.type = "button";
-  exportBtn.style.marginBottom = "8px";
-  exportBtn.addEventListener("click", () => downloadBlob(seekResultsCsv(results), "seek-test.csv"));
-  tableBody.append(exportBtn);
+  // Stops the click from also toggling the <details> open, which it would otherwise do as it
+  // bubbles up through the summary bar.
+  exportBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    downloadBlob(seekResultsTsv(results), "seek-test.tsv");
+  });
+  // Reuses the bar's own note slot (pushed to the right by its auto margin) rather than adding a
+  // second one, since fold() always renders it even when there is no text to show.
+  tableFold.querySelector(".fold-note")?.append(exportBtn);
   const scroll = h("div", "scroll-x");
   const table = h("table", "data");
   const thead = h("thead");
@@ -206,9 +211,11 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   wrap.append(tableFold);
 }
 
-/** The sampled-timestamps table as a CSV blob, same rows and column order as the on-screen table,
- * for a reader who wants the raw run in a spreadsheet rather than scrolled through in the browser. */
-function seekResultsCsv(results: SeekResult[]): Blob {
+/** The sampled-timestamps table as a TSV blob, same rows and column order as the on-screen table,
+ * for a reader who wants the raw run in a spreadsheet rather than scrolled through in the browser.
+ * Tab-separated rather than comma-separated: none of the fields can carry a tab, so it needs no
+ * quoting rules the way a comma-separated file would over a decimal that never uses one anyway. */
+function seekResultsTsv(results: SeekResult[]): Blob {
   const header = [
     "Timestamp (s)",
     "Nearest keyframe <= t (s)",
@@ -223,8 +230,8 @@ function seekResultsCsv(results: SeekResult[]): Blob {
     r.distFrames != null ? String(r.distFrames) : "",
     r.decodeMs.toFixed(3),
   ]);
-  const csv = [header, ...rows].map((row) => row.join(",")).join("\n") + "\n";
-  return new Blob([csv], { type: "text/csv" });
+  const tsv = [header, ...rows].map((row) => row.join("\t")).join("\n") + "\n";
+  return new Blob([tsv], { type: "text/tab-separated-values" });
 }
 
 // Scatter plot: keyframe distance (x) vs. decode time (y), one point per sampled timestamp. A
