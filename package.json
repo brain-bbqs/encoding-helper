@@ -1,6 +1,6 @@
 {
   "name": "encoding-helper",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "A didactic, in-browser video encoding lab: inspect MP4/H.264 structure, learn how encoding works, run empirical seeking tests, and re-encode video directly in the browser.",
   "type": "module",
   "license": "MIT",
