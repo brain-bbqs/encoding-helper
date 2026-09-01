@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.3
+
+#### 🚀 Enhancement
+
+- The seeking test's sampled-timestamps table gains an Export table (CSV) button ([#38](https://github.com/brain-bbqs/encoding-helper/pull/38))
+
 ## 1.3.2
 
 #### 🚀 Enhancement

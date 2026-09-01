@@ -8,6 +8,7 @@ import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
+import { downloadBlob } from "../lib/save";
 import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
 
@@ -173,6 +174,11 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
     "Sampled timestamps",
     `${results.length} row${results.length === 1 ? "" : "s"}`,
   );
+  const exportBtn = h("button", "btn sec sm", "Export table (CSV)");
+  exportBtn.type = "button";
+  exportBtn.style.marginBottom = "8px";
+  exportBtn.addEventListener("click", () => downloadBlob(seekResultsCsv(results), "seek-test.csv"));
+  tableBody.append(exportBtn);
   const scroll = h("div", "scroll-x");
   const table = h("table", "data");
   const thead = h("thead");
@@ -198,6 +204,27 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   scroll.append(table);
   tableBody.append(scroll);
   wrap.append(tableFold);
+}
+
+/** The sampled-timestamps table as a CSV blob, same rows and column order as the on-screen table,
+ * for a reader who wants the raw run in a spreadsheet rather than scrolled through in the browser. */
+function seekResultsCsv(results: SeekResult[]): Blob {
+  const header = [
+    "Timestamp (s)",
+    "Nearest keyframe <= t (s)",
+    "Distance (s)",
+    "Distance (frames)",
+    "Decode time (ms)",
+  ];
+  const rows = results.map((r) => [
+    r.t.toFixed(3),
+    r.kf != null ? r.kf.toFixed(3) : "",
+    r.dist != null ? r.dist.toFixed(3) : "",
+    r.distFrames != null ? String(r.distFrames) : "",
+    r.decodeMs.toFixed(3),
+  ]);
+  const csv = [header, ...rows].map((row) => row.join(",")).join("\n") + "\n";
+  return new Blob([csv], { type: "text/csv" });
 }
 
 // Scatter plot: keyframe distance (x) vs. decode time (y), one point per sampled timestamp. A
