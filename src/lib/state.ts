@@ -50,6 +50,7 @@ export const cli: CliState = {
   fps: null,
   scale: 1,
   scaler: "lanczos",
+  customScale: 60,
 };
 
 export const encodeTest: EncodeTestState = {

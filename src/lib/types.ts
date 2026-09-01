@@ -133,6 +133,9 @@ export interface CliState {
   scale: number;
   /** Which kernel `scale` resamples with. Only reaches the command when `scale` is below 1. */
   scaler: Scaler;
+  /** The Resolution field's "Custom %" value (1-100), remembered independently of `scale` so it is
+   * still there if the dropdown is flipped to a fixed ladder entry and back. */
+  customScale: number;
 }
 
 /** Basic video info needed to fill in CLI defaults (fps for GOP math, dimensions for padding). */
