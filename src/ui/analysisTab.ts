@@ -15,7 +15,7 @@ import { buildAnalysisDocument, renderSectionsToMarkdown, slugify, type Document
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
 import { describeContainer } from "../lib/containerKb";
-import { copyToClipboard, h, teachBox } from "../lib/dom";
+import { button, copyToClipboard, h, section, teachBox } from "../lib/dom";
 import {
   ANALYSIS_PANEL_INTRO,
   ATOM_MAP_DOC_CAPTION,
@@ -511,19 +511,14 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   const documentHtml = buildAnalysisDocument(sections, meta);
   const baseName = baseNameOf(state.source.name);
 
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Full Analysis"));
+  const sec = section("Full Analysis");
   sec.append(teachBox(ANALYSIS_PANEL_INTRO, "📄"));
 
   const actions = h("div", "load-actions");
-  const pdfBtn = h("button", "btn", "Save as PDF");
-  pdfBtn.type = "button";
-  const htmlBtn = h("button", "btn sec", "Download HTML");
-  htmlBtn.type = "button";
-  const mdBtn = h("button", "btn sec", "Download Markdown");
-  mdBtn.type = "button";
-  const copyBtn = h("button", "btn sec", "Copy Markdown");
-  copyBtn.type = "button";
+  const pdfBtn = button("btn", "Save as PDF");
+  const htmlBtn = button("btn sec", "Download HTML");
+  const mdBtn = button("btn sec", "Download Markdown");
+  const copyBtn = button("btn sec", "Copy Markdown");
   actions.append(pdfBtn, htmlBtn, mdBtn, copyBtn);
   sec.append(actions);
   panel.append(sec);

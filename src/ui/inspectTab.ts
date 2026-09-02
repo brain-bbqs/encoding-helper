@@ -4,7 +4,7 @@
 
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { describeContainer } from "../lib/containerKb";
-import { escapeHtml, gridItem, h, teachBox } from "../lib/dom";
+import { escapeHtml, gridItem, h, section, teachBox } from "../lib/dom";
 import {
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
@@ -86,8 +86,7 @@ export function overallBitrate(): number | null {
 }
 
 function renderOverviewSection(): HTMLDivElement {
-  const overview = h("div", "section");
-  overview.append(h("h2", null, overviewTitle()));
+  const overview = section(overviewTitle());
   const fileBitrate = overallBitrate();
   const og = h("div", "grid overview-grid");
   og.append(
@@ -134,8 +133,7 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   const vt = videoTrackInfo();
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;
 
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Video Track"));
+  const sec = section("Video Track");
   const g = h("div", "grid");
   g.append(
     gridItem("Codec", vt.codecString || vt.codec, { sm: true }),
@@ -181,8 +179,7 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
   const declaresConstant = declaresConstantBitrate(declared);
   const timeline = computeBitrateTimeline(state.samples, state.duration ?? 0);
 
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Video Bitrate Over Time"));
+  const sec = section("Video Bitrate Over Time");
   if (declaresConstant && declared && (!timeline || isEffectivelyConstant(timeline))) {
     sec.append(teachBox(constantBitrateNote(declared.avgBitrate), "📈"));
     return sec;
@@ -215,8 +212,7 @@ function renderAudioTrackSection(): HTMLDivElement | null {
   const at = audioTrackInfo();
   if (!at) return null;
 
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Audio Track"));
+  const sec = section("Audio Track");
   const g = h("div", "grid");
   g.append(
     gridItem("Codec", at.codecString || at.codec, { sm: true }),

@@ -10,7 +10,7 @@
 import { errorMessage } from "../lib/format";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
-import { h } from "../lib/dom";
+import { button, h } from "../lib/dom";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -19,7 +19,7 @@ import { extOf } from "../lib/save";
 import { windowsForRun } from "../lib/sizeEstimate";
 import { currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { CliState, SampleWindow } from "../lib/types";
-import { clearLog, fieldNumber, logConsole, logLine } from "./formControls";
+import { clearLog, fieldNumber, logConsole, logLine, progressBar, resetProgressFill } from "./formControls";
 
 /** The controls a run drives: its buttons, its bar, the line under it and its console. */
 export interface RunUi {
@@ -97,15 +97,11 @@ export function syncSampleFields(except?: HTMLElement | null): void {
 /** The run button, Stop beside it, the bar, the line under it and the console, as one block. */
 export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi } {
   const buttons = h("div", "compare-run-buttons");
-  const runButton = h("button", "btn", runLabel);
-  runButton.type = "button";
-  const stopButton = h("button", "btn sec", "Stop");
-  stopButton.type = "button";
+  const runButton = button("btn", runLabel);
+  const stopButton = button("btn sec", "Stop");
   stopButton.style.display = "none";
   buttons.append(runButton, stopButton);
-  const progress = h("div", "progress-wrap");
-  progress.style.display = "none";
-  progress.append(h("div", "fill"));
+  const { wrap: progress } = progressBar();
   const note = h("div", "progress-label");
   const { wrap: logWrap, log } = logConsole();
   const ui: RunUi = {
@@ -500,12 +496,7 @@ export function startRunUi(ui: RunUi): HTMLDivElement | null {
   // long enough to want out of.
   ui.stopButton.style.display = "";
   ui.stopButton.disabled = false;
-  ui.progress.style.display = "block";
-  const fill = ui.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) {
-    fill.style.width = "0%";
-    fill.classList.remove("done");
-  }
+  const fill = resetProgressFill(ui.progress);
   clearLog(ui.log);
   return fill;
 }

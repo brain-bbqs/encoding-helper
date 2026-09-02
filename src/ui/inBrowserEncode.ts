@@ -8,18 +8,17 @@
 import { errorMessage } from "../lib/format";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, encodedFileName } from "../lib/cliCommand";
-import { h } from "../lib/dom";
+import { section } from "../lib/dom";
 import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { baseNameOf, downloadBlob, extOf, pickSaveTarget } from "../lib/save";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
 import { showReencodeResult } from "./cliControls";
-import { clearLog, engineBox, logLine, type EngineBox } from "./formControls";
+import { clearLog, engineBox, type EngineBox, finishFill, logLine, resetProgressFill } from "./formControls";
 
 /** The section that encodes the whole file, for the tab that built the command it runs. */
 export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
-  const sec = h("div", "section");
-  sec.append(h("h2", null, `${encodeVerb()} the Entire File Here`));
+  const sec = section(`${encodeVerb()} the Entire File Here`);
 
   const box = engineBox(`${encodeVerb()} and Save`);
   sec.append(box.el);
@@ -38,12 +37,7 @@ function encodeVerb(): "Reencode" | "Transcode" {
 
 async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
   box.button.disabled = true;
-  box.progress.style.display = "block";
-  const fill = box.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) {
-    fill.style.width = "0%";
-    fill.classList.remove("done");
-  }
+  const fill = resetProgressFill(box.progress);
   box.note.textContent = "Loading ffmpeg.wasm…";
   box.result.innerHTML = "";
   clearLog(box.log);
@@ -74,12 +68,8 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     } else {
       downloadBlob(blob, saveName);
     }
-    // A full bar in the colour the app uses for a good outcome, the way a sample run ends, rather
-    // than a word under an empty one.
-    if (fill) {
-      fill.style.width = "100%";
-      fill.classList.add("done");
-    }
+    // A full bar, the way a sample run ends, rather than a word under an empty one.
+    finishFill(fill);
     showReencodeResult(box, state.source.size, blob.size);
   } catch (err) {
     console.error("[encoding-helper] in-browser encode failed:", err);

@@ -9,7 +9,7 @@
 // Resolution and the kernel it resamples with stack as blocks of rows rather than widening the
 // table, so every block is the same width and reads exactly like the grid did before they existed.
 
-import { h } from "../lib/dom";
+import { button, h } from "../lib/dom";
 import { fmtBytes, fmtRate } from "../lib/format";
 import { isDownscale, scalePercent } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
@@ -225,14 +225,12 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   const est = opts.estimate?.(cell) ?? null;
   const isBest = opts.bestKey != null && cell.combo.key === opts.bestKey;
   const isSelected = opts.selectedKey != null && cell.combo.key === opts.selectedKey;
-  const btn = h(
-    "button",
+  const btn = button(
     "matrix-cell" +
       (isBest ? " best" : "") +
       (isSelected ? " selected" : "") +
       (cell.status === "failed" ? " failed" : ""),
   );
-  btn.type = "button";
 
   const face = cellFace(cell, est);
   btn.append(

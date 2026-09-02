@@ -57,28 +57,27 @@ function estimateFpsFromSamples(): number | null {
   return state.samples.length / state.duration;
 }
 
-async function loadSource(
-  els: AppElements,
-  callbacks: FileLoadingCallbacks,
-  kind: "file" | "url",
-  payload: File | string,
-  name?: string,
-): Promise<void> {
+/** What a load was asked to open: a File the reader picked or dropped, or a URL to fetch. */
+type LoadRequest = { kind: "file"; file: File } | { kind: "url"; url: string; name?: string };
+
+async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req: LoadRequest): Promise<void> {
   hideError(els);
   resetState();
   setLoadingUi(els, "Reading file…");
   try {
     let source: ChunkedSource;
-    let fileForMediabunny: File | null = null;
-    if (kind === "file") {
-      source = ChunkedSource.fromFile(payload as File);
-      fileForMediabunny = payload as File;
+    // What mediabunny reads: the File whenever there is one (picked locally, or a URL that resolved
+    // to one), else the URL itself.
+    let media: { file: File } | { url: string };
+    if (req.kind === "file") {
+      source = ChunkedSource.fromFile(req.file);
+      media = { file: req.file };
     } else {
-      source = await ChunkedSource.fromUrl(payload as string, name);
-      if (source.kind === "file" && source.file instanceof File) fileForMediabunny = source.file;
+      source = await ChunkedSource.fromUrl(req.url, req.name);
+      media = source.kind === "file" && source.file instanceof File ? { file: source.file } : { url: req.url };
     }
     state.source = source;
-    state.file = fileForMediabunny;
+    state.file = "file" in media ? media.file : null;
     showMiniLoaded(els, source.name, source.size);
 
     setLoadingUi(els, "Parsing MP4 structure (mp4box.js)…");
@@ -99,7 +98,7 @@ async function loadSource(
 
     setLoadingUi(els, "Reading metadata (mediabunny)…");
     const mb = await ensureMediabunny();
-    const mbSource = fileForMediabunny ? new mb.BlobSource(fileForMediabunny) : new mb.UrlSource(payload as string);
+    const mbSource = "file" in media ? new mb.BlobSource(media.file) : new mb.UrlSource(media.url);
     const input = new mb.Input({ source: mbSource, formats: mb.ALL_FORMATS });
     const meta = await loadMediabunnyMetadata(input);
     state.input = input;
@@ -114,7 +113,7 @@ async function loadSource(
 
     els.app.style.display = "block";
     // Only a remote URL can be handed to someone else; a local file leaves the address bar clean.
-    writeSrcToUrl(kind === "url" ? (payload as string) : null);
+    writeSrcToUrl(req.kind === "url" ? req.url : null);
     callbacks.onLoaded();
     showMiniLoaded(els, source.name, source.size);
   } catch (err) {
@@ -171,7 +170,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
 
   els.pickFileBtn.addEventListener("click", () => {
     void pickFile(els).then((file) => {
-      if (file) void loadSource(els, callbacks, "file", file);
+      if (file) void loadSource(els, callbacks, { kind: "file", file });
     });
   });
   els.resetBtn.addEventListener("click", (e) => {
@@ -186,7 +185,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
   });
   els.loadUrlBtn.addEventListener("click", () => {
     const url = els.urlInput.value.trim();
-    if (url) void loadSource(els, callbacks, "url", url);
+    if (url) void loadSource(els, callbacks, { kind: "url", url });
   });
   els.urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") els.loadUrlBtn.click();
@@ -201,7 +200,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     e.preventDefault();
     els.dropZone.classList.remove("dragover");
     const file = e.dataTransfer?.files[0];
-    if (file) void loadSource(els, callbacks, "file", file);
+    if (file) void loadSource(els, callbacks, { kind: "file", file });
   });
 
   // A shared link carries ?src=…, so open it the same way the URL box would have.
@@ -209,11 +208,11 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
   if (sharedSrc) {
     els.urlRow.style.display = "flex";
     els.urlInput.value = sharedSrc;
-    void loadSource(els, callbacks, "url", sharedSrc);
+    void loadSource(els, callbacks, { kind: "url", url: sharedSrc });
   }
 
   return {
-    loadFile: (file) => loadSource(els, callbacks, "file", file),
-    loadUrl: (url, name) => loadSource(els, callbacks, "url", url, name),
+    loadFile: (file) => loadSource(els, callbacks, { kind: "file", file }),
+    loadUrl: (url, name) => loadSource(els, callbacks, { kind: "url", url, name }),
   };
 }

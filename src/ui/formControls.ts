@@ -1,6 +1,6 @@
 // Small reusable form-field / engine-progress-box builders shared by the tabs that run an encode.
 
-import { h, infoIcon } from "../lib/dom";
+import { button, h, infoIcon } from "../lib/dom";
 
 /**
  * A field's label, with an ⓘ explainer beside it when there is one. Same shape as the grid cards'
@@ -77,13 +77,10 @@ export interface EngineBox {
 export function engineBox(buttonLabel: string): EngineBox {
   const el = h("div");
   el.style.marginBottom = "18px";
-  const button = h("button", "btn", buttonLabel);
-  button.type = "button";
-  button.style.marginTop = "8px";
-  el.append(button);
-  const progress = h("div", "progress-wrap");
-  progress.style.display = "none";
-  progress.append(h("div", "fill"));
+  const btn = button("btn", buttonLabel);
+  btn.style.marginTop = "8px";
+  el.append(btn);
+  const { wrap: progress } = progressBar();
   el.append(progress);
   const note = h("div", "progress-label");
   note.style.marginTop = "4px";
@@ -94,7 +91,34 @@ export function engineBox(buttonLabel: string): EngineBox {
   const result = h("div");
   result.style.marginTop = "8px";
   el.append(result);
-  return { el, button, progress, note, log, result };
+  return { el, button: btn, progress, note, log, result };
+}
+
+/** A hidden progress bar and its fill, for the run that will show and advance it. */
+export function progressBar(): { wrap: HTMLDivElement; fill: HTMLDivElement } {
+  const wrap = h("div", "progress-wrap");
+  wrap.style.display = "none";
+  const fill = h("div", "fill");
+  wrap.append(fill);
+  return { wrap, fill };
+}
+
+/** Shows a bar with its fill back at the start, and hands the fill back for the run to advance. */
+export function resetProgressFill(progress: HTMLDivElement): HTMLDivElement | null {
+  progress.style.display = "block";
+  const fill = progress.querySelector<HTMLDivElement>(".fill");
+  if (fill) {
+    fill.style.width = "0%";
+    fill.classList.remove("done");
+  }
+  return fill;
+}
+
+/** Fills a bar to the end, in the colour the app uses for a good outcome. */
+export function finishFill(fill: HTMLDivElement | null): void {
+  if (!fill) return;
+  fill.style.width = "100%";
+  fill.classList.add("done");
 }
 
 /**

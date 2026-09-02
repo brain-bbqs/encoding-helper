@@ -16,7 +16,7 @@ import {
   type AxisRange,
   type Placement,
 } from "../lib/atomLayout";
-import { h, teachBox } from "../lib/dom";
+import { button, h, section, teachBox } from "../lib/dom";
 import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
@@ -76,8 +76,7 @@ function familyClass(family: string | null): string {
 }
 
 export function renderAtomMap(panel: HTMLElement): void {
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "MP4 Box / Atom Structure"));
+  const sec = section("MP4 Box / Atom Structure");
   // Faststart is a statement about where two of these boxes sit relative to each other, so it is
   // read here, against the map that draws them, rather than up in the file overview.
   sec.append(faststartBadge());
@@ -187,8 +186,7 @@ function renderCrumbs(shown: number, zoom: ZoomStep[], redraw: () => void): HTML
   crumbs.setAttribute("aria-label", "Zoom path");
   // Each crumb pops the zoom path back to the depth it names; the last one is where you already are.
   const jump = (depth: number, label: string): HTMLButtonElement => {
-    const btn = h("button", "crumb" + (depth === zoom.length ? " on" : ""), label);
-    btn.type = "button";
+    const btn = button("crumb" + (depth === zoom.length ? " on" : ""), label);
     btn.addEventListener("click", () => {
       zoom.length = depth;
       redraw();

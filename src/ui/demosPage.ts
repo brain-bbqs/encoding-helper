@@ -24,10 +24,13 @@ import {
   type DemoFile,
   type DemoSet,
 } from "../lib/demoArchive";
-import { h } from "../lib/dom";
+import { button, h } from "../lib/dom";
 import { errorMessage, fmtBytes } from "../lib/format";
 import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
 import type { AppElements } from "./elements";
+
+/** Why a demo that is not an MP4 or MOV is marked as one the app cannot open. */
+const NOT_MP4_NOTE = "mp4box.js reads MP4 and MOV only, so this file lands on the error path.";
 
 /** What the page needs of the file loader: somewhere to send the demo it was asked to open. */
 interface DemoLoader {
@@ -80,7 +83,7 @@ function metaFor(demo: DemoFile, withBadge: boolean): HTMLSpanElement {
   if (demo.size) meta.append(h("span", "demo-size", fmtBytes(demo.size)));
   if (withBadge && !demo.loadsInApp) {
     const badge = h("span", "badge bad demo-badge", "MP4 parser can't open this");
-    badge.title = "mp4box.js reads MP4 and MOV only, so this file lands on the error path.";
+    badge.title = NOT_MP4_NOTE;
     meta.append(badge);
   }
   return meta;
@@ -157,8 +160,7 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     }
 
     const actions = h("div", "demo-actions");
-    const open = h("button", "btn sm demo-open", demo.loadsInApp ? "Open in the app" : "Open it anyway");
-    open.type = "button";
+    const open = button("btn sm demo-open", demo.loadsInApp ? "Open in the app" : "Open it anyway");
     open.addEventListener("click", () => opts.onOpen(demo));
     const download = h("a", "btn sm sec demo-download", "Download");
     download.href = demo.videoUrl;
@@ -198,14 +200,13 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     // shrinks the greedy ones until the row fits, wrapping their tiles rather than pushing a small
     // theme onto a line of its own — which is what packs the set into a screen rather than a scroll.
     group.style.setProperty("--tiles", String(row.childElementCount + 1));
-    const tile = h("button", "demo-tile");
-    tile.type = "button";
+    const tile = button("demo-tile");
     tile.dataset.session = demo.session;
     tile.setAttribute("aria-pressed", "false");
     tile.append(h("span", "demo-tile-name", demo.title), metaFor(demo, false));
     if (!demo.loadsInApp) {
       const mark = h("span", "demo-tile-mark");
-      mark.title = "mp4box.js reads MP4 and MOV only, so this file lands on the error path.";
+      mark.title = NOT_MP4_NOTE;
       mark.setAttribute("aria-label", "The MP4 parser can't open this");
       tile.append(mark);
     }
@@ -231,8 +232,7 @@ function errorBox(err: unknown, retry: () => void): HTMLElement {
         "A file already on this machine can still be opened from the file picker.",
     ),
   );
-  const again = h("button", "btn sm", "Try again");
-  again.type = "button";
+  const again = button("btn sm", "Try again");
   again.addEventListener("click", retry);
   box.append(again);
   return box;
@@ -298,8 +298,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     if (built) return;
     built = true;
     const head = h("div", "demos-head");
-    const back = h("button", "btn sec demos-back", "← Back to the file picker");
-    back.type = "button";
+    const back = button("btn sec demos-back", "← Back to the file picker");
     back.id = "demosBackBtn";
     back.addEventListener("click", () => close(true));
     head.append(h("h1", "demos-title", "Demo files"), back);

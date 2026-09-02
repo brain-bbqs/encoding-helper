@@ -11,28 +11,26 @@ interface ZoomDrag {
   apply: () => void;
 }
 let activeZoomDrag: ZoomDrag | null = null;
-window.addEventListener("mousemove", (e) => {
-  if (!activeZoomDrag) return;
+
+/** Moves the drag in progress, if there is one, to where the pointer now is. */
+function dragTo(clientX: number, clientY: number): void {
   const d = activeZoomDrag;
-  d.zoom.tx += e.clientX - d.lastX;
-  d.zoom.ty += e.clientY - d.lastY;
-  d.lastX = e.clientX;
-  d.lastY = e.clientY;
+  if (!d) return;
+  d.zoom.tx += clientX - d.lastX;
+  d.zoom.ty += clientY - d.lastY;
+  d.lastX = clientX;
+  d.lastY = clientY;
   d.apply();
-});
+}
+window.addEventListener("mousemove", (e) => dragTo(e.clientX, e.clientY));
 window.addEventListener("mouseup", () => {
   activeZoomDrag = null;
 });
 window.addEventListener(
   "touchmove",
   (e) => {
-    if (!activeZoomDrag || e.touches.length !== 1) return;
-    const d = activeZoomDrag;
-    d.zoom.tx += e.touches[0].clientX - d.lastX;
-    d.zoom.ty += e.touches[0].clientY - d.lastY;
-    d.lastX = e.touches[0].clientX;
-    d.lastY = e.touches[0].clientY;
-    d.apply();
+    if (e.touches.length !== 1) return;
+    dragTo(e.touches[0].clientX, e.touches[0].clientY);
   },
   { passive: true },
 );
@@ -121,14 +119,14 @@ export function attachSyncedZoomPan(
     },
     { passive: false },
   );
-  stageEl.addEventListener("mousedown", (e) => {
-    activeZoomDrag = { lastX: e.clientX, lastY: e.clientY, zoom, apply };
-  });
+  const beginDrag = (clientX: number, clientY: number): void => {
+    activeZoomDrag = { lastX: clientX, lastY: clientY, zoom, apply };
+  };
+  stageEl.addEventListener("mousedown", (e) => beginDrag(e.clientX, e.clientY));
   stageEl.addEventListener(
     "touchstart",
     (e) => {
-      if (e.touches.length === 1)
-        activeZoomDrag = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY, zoom, apply };
+      if (e.touches.length === 1) beginDrag(e.touches[0].clientX, e.touches[0].clientY);
     },
     { passive: true },
   );

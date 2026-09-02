@@ -11,7 +11,7 @@
 // surface is the wrong thing to send to a printer. Its stylesheet is inlined into the exported file
 // so the document keeps its look with no network and no app around it.
 
-import { escapeHtml, gridItem, h, teachBox } from "./dom";
+import { dataTable, escapeHtml, gridItem, h, teachBox } from "./dom";
 import type { AnalysisBlock, AnalysisSection } from "./types";
 
 /** Anchor id for a section heading, used by the document's contents list. */
@@ -45,23 +45,8 @@ function renderBlock(block: AnalysisBlock): Element {
     }
     case "code":
       return h("pre", "cmd", block.content);
-    case "table": {
-      const scroll = h("div", "scroll-x");
-      const table = h("table", "data");
-      const thead = h("thead");
-      const headRow = h("tr");
-      block.headers.forEach((hd) => headRow.append(h("th", null, hd)));
-      thead.append(headRow);
-      const tbody = h("tbody");
-      block.rows.forEach((row) => {
-        const tr = h("tr");
-        row.forEach((cell) => tr.append(h("td", null, cell)));
-        tbody.append(tr);
-      });
-      table.append(thead, tbody);
-      scroll.append(table);
-      return scroll;
-    }
+    case "table":
+      return dataTable(block.headers, block.rows);
     case "figure": {
       const fig = h("figure", "fig");
       fig.append(block.element.cloneNode(true));

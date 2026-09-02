@@ -13,7 +13,7 @@
 // clears it when the other takes over, since the sinks behind the panes belong to one encode at a
 // time.
 
-import { gridItem, h, infoIcon } from "../lib/dom";
+import { button, gridItem, h, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
 import { errorMessage, fmtBytes } from "../lib/format";
@@ -252,18 +252,44 @@ function appendReelRuler(wrap: HTMLElement, segments: AbSegment[], reelSpan: num
 /** The buttons that step between sampled stretches, put in the control row. Only there when a run
  * sampled more than one: buttons that cycle a cycle of one say nothing. */
 function appendSegmentNav(controls: HTMLElement, count: number): { prev: HTMLButtonElement; next: HTMLButtonElement } {
-  const prev = h("button", "btn sm sec seg-step", "◀");
-  prev.type = "button";
-  prev.title = "Jump to the previous sampled stretch";
-  prev.setAttribute("aria-label", "Jump to the previous sampled stretch");
-  const next = h("button", "btn sm sec seg-step", "▶");
-  next.type = "button";
-  next.title = "Jump to the next sampled stretch";
-  next.setAttribute("aria-label", "Jump to the next sampled stretch");
+  const prev = iconButton("btn sm sec seg-step", "◀", "Jump to the previous sampled stretch");
+  const next = iconButton("btn sm sec seg-step", "▶", "Jump to the next sampled stretch");
   const buttons = h("div", "compare-segment-buttons");
   buttons.append(prev, next);
   if (count > 1) controls.append(buttons);
   return { prev, next };
+}
+
+/** A glyph-only button, whose tooltip doubles as its accessible name. */
+function iconButton(cls: string, glyph: string, label: string): HTMLButtonElement {
+  const b = button(cls, glyph);
+  b.title = label;
+  b.setAttribute("aria-label", label);
+  return b;
+}
+
+/**
+ * Draws a decoded frame onto a pane. `target` is the geometry to draw into when it is not the frame's
+ * own: only a downscaled encode has one, and it is the source's size. Whether that redraw
+ * interpolates is the viewer's call (see the Downscaled view control); it makes no difference when
+ * the frame is already the right size, since then nothing is being resampled.
+ */
+function drawFrame(
+  canvas: HTMLCanvasElement,
+  frame: { canvas: HTMLCanvasElement | OffscreenCanvas } | null,
+  target?: { width: number; height: number } | null,
+): void {
+  if (!frame) return;
+  const width = target?.width || frame.canvas.width;
+  const height = target?.height || frame.canvas.height;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.imageSmoothingEnabled = encodeTest.upscaleSmoothing;
+  ctx.drawImage(frame.canvas, 0, 0, width, height);
 }
 
 /**
@@ -361,23 +387,14 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const segmentBands = appendReelRuler(scrubWrap, segments, shownSeconds);
   host.append(scrubWrap);
   const scrubLabel = h("span", "progress-label", "0.00s");
-  const playBtn = h("button", "btn sm sec", "Play");
-  playBtn.type = "button";
+  const playBtn = button("btn sm sec", "Play");
   const zoomBtns = h("div", "zoom-buttons");
   // Wheel zoom is the fast path, but it is unavailable on a trackpad-less mouse or a touch device,
   // so every zoom move is reachable from a button too.
-  const zoomOutBtn = h("button", "btn sm sec zoom-step", "−");
-  zoomOutBtn.type = "button";
-  zoomOutBtn.title = "Zoom out";
-  zoomOutBtn.setAttribute("aria-label", "Zoom out");
-  const zoomInBtn = h("button", "btn sm sec zoom-step", "+");
-  zoomInBtn.type = "button";
-  zoomInBtn.title = "Zoom in";
-  zoomInBtn.setAttribute("aria-label", "Zoom in");
-  const fitBtn = h("button", "btn sm sec", "Fit");
-  fitBtn.type = "button";
-  const actualBtn = h("button", "btn sm sec", "Actual Size (100%)");
-  actualBtn.type = "button";
+  const zoomOutBtn = iconButton("btn sm sec zoom-step", "−", "Zoom out");
+  const zoomInBtn = iconButton("btn sm sec zoom-step", "+", "Zoom in");
+  const fitBtn = button("btn sm sec", "Fit");
+  const actualBtn = button("btn sm sec", "Actual Size (100%)");
   zoomBtns.append(zoomOutBtn, zoomInBtn, fitBtn, actualBtn);
   controls.append(playBtn);
   const { prev: prevSegBtn, next: nextSegBtn } = appendSegmentNav(controls, segments.length);
@@ -403,7 +420,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
       syncEncLabel();
       // Redraw where the playhead already is, so the switch shows on the frame being looked at
       // rather than only on the next one.
-      drawFrom((parseFloat(scrub.value) / 1000) * shownSeconds);
+      drawFrom(scrubSeconds());
     });
     const viewWrap = h("div", "compare-view");
     viewWrap.append(h("span", "compare-view-label", "Downscaled view"), viewSelect, infoIcon(UPSCALE_VIEW_INFO));
@@ -424,27 +441,6 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   actualBtn.addEventListener("click", () => zoomPan.actualSize());
   syncZoomButtons(zoomPan.state.scale);
 
-  // `target` is the geometry to draw into when it is not the frame's own: only a downscaled encode
-  // has one, and it is the source's size. Whether that redraw interpolates is the viewer's call
-  // (see the Downscaled view control); it makes no difference when the frame is already the right
-  // size, since then nothing is being resampled.
-  const drawFrame = (
-    canvas: HTMLCanvasElement,
-    frame: { canvas: HTMLCanvasElement | OffscreenCanvas } | null,
-    target?: { width: number; height: number } | null,
-  ): void => {
-    if (!frame) return;
-    const width = target?.width || frame.canvas.width;
-    const height = target?.height || frame.canvas.height;
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.imageSmoothingEnabled = encodeTest.upscaleSmoothing;
-    ctx.drawImage(frame.canvas, 0, 0, width, height);
-  };
   const drawError = h("div", "error-msg");
   drawError.style.display = "none";
   host.append(drawError);
@@ -537,12 +533,14 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
       if (run === playRun) stopPlayback();
     }
   };
+  /** Where the slider stands, as a second of the reel. */
+  const scrubSeconds = (): number => (parseFloat(scrub.value) / 1000) * shownSeconds;
   playBtn.addEventListener("click", () => {
     if (playing) {
       stopPlayback();
       return;
     }
-    const at = (parseFloat(scrub.value) / 1000) * shownSeconds;
+    const at = scrubSeconds();
     // Pressing Play with the playhead parked at the end starts the reel over.
     rebase(at >= shownSeconds - frameStep ? 0 : at);
     playing = true;
@@ -559,12 +557,12 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     showTime(at);
     drawFrom(at);
   };
-  const currentSegment = (): number => locateInReel((parseFloat(scrub.value) / 1000) * shownSeconds).index;
+  const currentSegment = (): number => locateInReel(scrubSeconds()).index;
   prevSegBtn.addEventListener("click", () => jumpToSegment(currentSegment() - 1));
   nextSegBtn.addEventListener("click", () => jumpToSegment(currentSegment() + 1));
 
   scrub.addEventListener("input", () => {
-    const relT = (parseFloat(scrub.value) / 1000) * shownSeconds;
+    const relT = scrubSeconds();
     // Everything but the slider, which is the thing being dragged.
     showTime(relT, false);
     // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.

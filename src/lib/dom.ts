@@ -13,6 +13,20 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return e;
 }
 
+/** A <button type="button">, which every button in the app is, since none sits in a form. */
+export function button(cls?: string | null, text?: string | number | null): HTMLButtonElement {
+  const b = h("button", cls, text);
+  b.type = "button";
+  return b;
+}
+
+/** A card with its heading, the unit every tab is built from. */
+export function section(title: string): HTMLDivElement {
+  const sec = h("div", "section");
+  sec.append(h("h2", null, title));
+  return sec;
+}
+
 interface GridItemOptions {
   sm?: boolean;
   /** Trusted, author-authored explainer markup, shown from an ⓘ button next to the label. */
@@ -85,9 +99,8 @@ export function infoIcon(html: string, label = "More information"): HTMLSpanElem
   if (!isEducationalEnabled()) return h("span", "info edu-off");
   bindInfoDismiss();
   const wrap = h("span", "info");
-  const btn = h("button", "info-btn");
+  const btn = button("info-btn");
   btn.append(infoGlyph());
-  btn.type = "button";
   btn.setAttribute("aria-label", label);
   btn.setAttribute("aria-expanded", "false");
   const pop = h("div", "info-pop");
@@ -132,6 +145,25 @@ export function fold(label: string, note?: string): { wrap: HTMLDetailsElement; 
   return { wrap, body };
 }
 
+/** A table of text cells inside a horizontal scroller, as the seeking test and the document draw one. */
+export function dataTable(headers: string[], rows: string[][]): HTMLDivElement {
+  const scroll = h("div", "scroll-x");
+  const table = h("table", "data");
+  const thead = h("thead");
+  const headRow = h("tr");
+  headers.forEach((hd) => headRow.append(h("th", null, hd)));
+  thead.append(headRow);
+  const tbody = h("tbody");
+  rows.forEach((row) => {
+    const tr = h("tr");
+    row.forEach((cell) => tr.append(h("td", null, cell)));
+    tbody.append(tr);
+  });
+  table.append(thead, tbody);
+  scroll.append(table);
+  return scroll;
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function svgEl<K extends keyof SVGElementTagNameMap>(
@@ -142,6 +174,13 @@ export function svgEl<K extends keyof SVGElementTagNameMap>(
   if (attrs) {
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
   }
+  return el;
+}
+
+/** An SVG <text> node with its class, the rest of its attributes and its content in one call. */
+export function svgText(cls: string, attrs: Record<string, string | number>, content: string): SVGTextElement {
+  const el = svgEl("text", { class: cls, ...attrs });
+  el.textContent = content;
   return el;
 }
 
@@ -239,8 +278,7 @@ export function copyToClipboard(text: string, btn: HTMLButtonElement): void {
 export function cmdBlock(text?: string): { wrap: HTMLDivElement; pre: HTMLPreElement } {
   const wrap = h("div", "cmd-wrap");
   const pre = h("pre", "cmd", text);
-  const btn = h("button", "cmd-copy");
-  btn.type = "button";
+  const btn = button("cmd-copy");
   btn.setAttribute("aria-label", "Copy command");
   const icon = svgEl("svg", { viewBox: "0 0 16 16", "aria-hidden": "true", focusable: "false" });
   icon.append(

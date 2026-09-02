@@ -7,7 +7,7 @@
 // command over the whole file rather than a separate feature.
 
 import { CRF_MAP, isDownscale } from "../lib/cliCommand";
-import { cmdBlock, h, teachBox } from "../lib/dom";
+import { cmdBlock, h, section, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";
@@ -22,7 +22,7 @@ import {
   scalerOptions,
   syncQualityControls,
 } from "./cliControls";
-import { fieldNumber, fieldSelect } from "./formControls";
+import { fieldNumber, fieldSelect, finishFill } from "./formControls";
 import { samplePicker } from "./samplePicker";
 import {
   acquireWorkers,
@@ -37,14 +37,26 @@ import {
   type RunUi,
 } from "./segmentRun";
 
+/** A labelled checkbox in a field of its own, the input handed back for the caller to listen to. */
+function checkField(id: string, label: string, checked: boolean): { field: HTMLDivElement; input: HTMLInputElement } {
+  const field = h("div", "field");
+  const labelEl = h("label");
+  const input = h("input");
+  input.type = "checkbox";
+  input.id = id;
+  input.checked = checked;
+  labelEl.append(input, document.createTextNode(label));
+  field.append(labelEl);
+  return { field, input };
+}
+
 export function renderEncodeTab(panel: HTMLElement): void {
   panel.innerHTML = "";
   const vt = state.tracks?.find((t) => t.kind === "video");
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return;
   const info: VideoInfo = { fps: state.fps, width: vt.codedWidth, height: vt.codedHeight };
 
-  const builderSec = h("div", "section");
-  builderSec.append(h("h2", null, "FFmpeg Command Builder"));
+  const builderSec = section("FFmpeg Command Builder");
   builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
 
   const form = h("div");
@@ -92,32 +104,11 @@ export function renderEncodeTab(panel: HTMLElement): void {
   // Content-width rather than a third of the form each: the labels differ in length, so equal
   // shares put them at three arbitrary distances from their boxes.
   const row2 = h("div", "row row-checks");
-  const bfField = h("div", "field");
-  const bfLabel = h("label");
-  const bfCheck = h("input");
-  bfCheck.type = "checkbox";
-  bfCheck.id = "cliNoBFrames";
-  bfCheck.checked = cli.noBFrames;
-  bfLabel.append(bfCheck, document.createTextNode(" Disable B-frames"));
-  bfField.append(bfLabel);
+  const { field: bfField, input: bfCheck } = checkField("cliNoBFrames", " Disable B-frames", cli.noBFrames);
   row2.append(bfField);
-  const padField = h("div", "field");
-  const padLabel = h("label");
-  const padCheck = h("input");
-  padCheck.type = "checkbox";
-  padCheck.id = "cliPad";
-  padCheck.checked = cli.pad;
-  padLabel.append(padCheck, document.createTextNode(" Pad to even dimensions"));
-  padField.append(padLabel);
+  const { field: padField, input: padCheck } = checkField("cliPad", " Pad to even dimensions", cli.pad);
   row2.append(padField);
-  const fsField = h("div", "field");
-  const fsLabel = h("label");
-  const fsCheck = h("input");
-  fsCheck.type = "checkbox";
-  fsCheck.id = "cliFaststart";
-  fsCheck.checked = cli.faststart;
-  fsLabel.append(fsCheck, document.createTextNode(" Faststart"));
-  fsField.append(fsLabel);
+  const { field: fsField, input: fsCheck } = checkField("cliFaststart", " Faststart", cli.faststart);
   row2.append(fsField);
   form.append(row2);
 
@@ -219,8 +210,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
  * both cheaper to ask here than by encoding a full recording to find out.
  */
 function sampleRunSection(vt: TrackInfo): HTMLElement {
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Try It on a Sample"));
+  const sec = section("Try It on a Sample");
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
   const { nodes, ui } = runControls("Run Comparison");
@@ -282,10 +272,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     await loadEncodedIntoAB(blobs, cliSettings(cli), vt, resultSec, { bytes, windows: measured });
     // A full bar, in the colour the app uses for a good outcome, rather than the word "Done." under
     // an empty one: the run either filled the bar or it did not.
-    if (fill) {
-      fill.style.width = "100%";
-      fill.classList.add("done");
-    }
+    finishFill(fill);
     ui.note.textContent = "";
   } catch (err) {
     reportRunFailure(err, ui);
