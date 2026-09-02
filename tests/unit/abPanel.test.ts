@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { VIDEO_TRACK } from "../fixtures/state";
 import { encodeTest, resetState, state } from "../../src/lib/state";
-import type { EncodeSettings, TrackInfo } from "../../src/lib/types";
+import type { EncodeSettings } from "../../src/lib/types";
 
 /** Every Input the stub has handed out, so the test can check the old ones are let go of. */
 const disposed: number[] = [];
@@ -39,17 +40,6 @@ vi.mock("../../src/lib/mediabunny", () => {
 });
 
 const { loadEncodedIntoAB, onAbDisplaced } = await import("../../src/ui/abPanel");
-
-const VIDEO_TRACK: TrackInfo = {
-  kind: "video",
-  codec: "avc",
-  codecString: "avc1.640020",
-  codecInfo: null,
-  packetRate: 30,
-  bitrate: 500_000,
-  codedWidth: 640,
-  codedHeight: 480,
-};
 
 const SETTINGS: EncodeSettings = {
   quality: "medium",

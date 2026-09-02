@@ -1,20 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
-import { cli, encodeTest, resetState, state } from "../../src/lib/state";
-import type { TrackInfo } from "../../src/lib/types";
+import { encodeTest, state } from "../../src/lib/state";
 import { renderCompareTab } from "../../src/ui/compareTab";
 import { renderEncodeTab } from "../../src/ui/encodeTab";
-
-const VIDEO_TRACK: TrackInfo = {
-  kind: "video",
-  codec: "avc",
-  codecString: "avc1.640020",
-  codecInfo: null,
-  packetRate: 30,
-  bitrate: 500_000,
-  codedWidth: 640,
-  codedHeight: 480,
-};
 
 /** The tab, rendered over one loaded 20-second file. The panel goes into the document because the
  * tab binds its fields by id, the way the app's own panels are already in the page. */
@@ -31,16 +20,8 @@ function renderTab(format = "MP4"): HTMLElement {
 
 beforeEach(() => {
   document.body.innerHTML = "";
-  resetState();
-  // The CLI settings deliberately survive resetState (they are the user's, not the file's), so the
-  // ones this file edits are put back by hand rather than leaking into the tests after it.
-  cli.quality = "medium";
-  cli.crf = 25;
-  cli.preset = "superfast";
-  cli.scale = 1;
-  cli.scaler = "lanczos";
+  resetCliDefaults();
   encodeTest.duration = 5;
-  encodeTest.segments = 5;
 });
 
 describe("renderEncodeTab", () => {

@@ -1,30 +1,18 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { evenSamples } from "../fixtures/samples";
+import { VIDEO_TRACK as SHARED_VIDEO_TRACK } from "../fixtures/state";
 import { resetState, state } from "../../src/lib/state";
 import type { DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
 import { renderAtomMap } from "../../src/ui/atomsTab";
 import { renderBitrateTimelineSection, renderInspectHead, renderInspectTail } from "../../src/ui/inspectTab";
 import { renderSeekTab } from "../../src/ui/seekTab";
 
-const VIDEO_TRACK: TrackInfo = {
-  kind: "video",
-  codec: "avc",
-  codecString: "avc1.640020",
-  codecInfo: null,
-  packetRate: 20,
-  bitrate: 500_000,
-  codedWidth: 640,
-  codedHeight: 480,
-};
+/** The shared track, at the 20 fps these tests read their figures against. */
+const VIDEO_TRACK: TrackInfo = { ...SHARED_VIDEO_TRACK, packetRate: 20 };
 
 /** `count` frames evenly spread across `durationSec`, sized by `size`. */
 function samples(count: number, durationSec: number, size: (i: number) => number): SampleInfo[] {
-  return Array.from({ length: count }, (_, i) => ({
-    size: size(i),
-    cts: 0,
-    dts: 0,
-    ctsSec: (durationSec * i) / count,
-    is_sync: i % 30 === 0,
-  }));
+  return evenSamples(count, durationSec, size, (i) => i % 30 === 0);
 }
 
 /** Loads one file's worth of state: a video track, its frames, and any `btrt` declaration. */
@@ -38,6 +26,13 @@ function loadFile(opts: {
   state.duration = opts.durationSec;
   state.samples = opts.samples;
   state.declaredVideoBitrate = opts.declared ?? null;
+}
+
+/** A 30-second clip as a loaded file: the metadata sections only render for one; the map and the
+ * seeking test do not care. */
+function loadClip(): void {
+  loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+  state.source = { name: "clip.mp4", size: 2_000_000 } as never;
 }
 
 function chartOf(section: HTMLDivElement | null): SVGSVGElement | null {
@@ -111,9 +106,7 @@ describe("the Inspect panel", () => {
   beforeEach(() => resetState());
 
   it("stacks the metadata, the atom map and the GOP/seeking sections in one panel", () => {
-    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
-    // The metadata sections only render for a loaded file; the map and the seeking test do not care.
-    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    loadClip();
     state.format = "mp4";
     state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
     state.gopLengths = [30, 30];
@@ -140,8 +133,7 @@ describe("the Inspect panel", () => {
   // Faststart is a fact about where moov sits relative to mdat, so it is read against the map that
   // draws them rather than in the file overview.
   it("reports faststart on the atom card, not on the overview", () => {
-    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
-    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    loadClip();
     state.format = "MP4";
     state.faststart = true;
     state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
@@ -156,8 +148,7 @@ describe("the Inspect panel", () => {
   // The container's own card was folded into the overview, and its explainer names the container,
   // so the grid no longer carries a Type row saying the same thing.
   it("carries the container explainer in the overview card, without a Type row", () => {
-    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
-    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    loadClip();
     state.format = "MP4";
     const panel = document.createElement("div");
     renderInspectHead(panel);
@@ -172,8 +163,7 @@ describe("the Inspect panel", () => {
 
   // Every card leads with what it measured; the teaching text reads under it, not in front of it.
   it("puts the overview's figures above the explainers that follow them", () => {
-    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
-    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    loadClip();
     state.format = "MP4";
     const panel = document.createElement("div");
     renderInspectHead(panel);
@@ -189,8 +179,7 @@ describe("the Inspect panel", () => {
   // Clicking one used to push a crumb for the view already on screen, so a file with one video track
   // offered an endless path of traks.
   it("stops zooming at a block that already fills the view", () => {
-    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
-    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    loadClip();
     state.boxes = [
       {
         type: "moov",
@@ -222,8 +211,7 @@ describe("the Inspect panel", () => {
   // The legend is a key to what is on the map, so a progressive file gets no row for the fragment
   // index it has none of, nor for the collapsed runs it is far too small to produce.
   it("keys only the families the map actually drew", () => {
-    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
-    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    loadClip();
     state.boxes = [
       { type: "ftyp", start: 0, size: 32, children: [] },
       {
@@ -243,8 +231,7 @@ describe("the Inspect panel", () => {
   // A fragmented recording is the case those rows are for: thousands of boxes, most of them too
   // narrow to draw one by one.
   it("keys the collapsed runs once there are enough boxes to collapse", () => {
-    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
-    state.source = { name: "clip.mp4", size: 2_000_000 } as never;
+    loadClip();
     state.boxes = Array.from({ length: 400 }, (_, i) => ({
       type: i % 2 === 0 ? "moof" : "mdat",
       start: i * 100,

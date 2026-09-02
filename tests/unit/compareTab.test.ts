@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import {
   buildMatrixCombos,
   DEFAULT_MATRIX_PRESETS,
@@ -11,8 +12,8 @@ import {
   MATRIX_SCALERS,
   MATRIX_SCALES,
 } from "../../src/lib/qualityMatrix";
-import { cli, encodeTest, resetState, state } from "../../src/lib/state";
-import type { MatrixCell, TrackInfo } from "../../src/lib/types";
+import { cli, encodeTest, state } from "../../src/lib/state";
+import type { MatrixCell } from "../../src/lib/types";
 
 /** Settles the A/B window's load, so a test can hold a chosen square half-way into the window and
  * look at the grid while it is there. */
@@ -29,17 +30,6 @@ vi.mock("../../src/ui/abPanel", () => ({
 }));
 
 const { renderCompareTab } = await import("../../src/ui/compareTab");
-
-const VIDEO_TRACK: TrackInfo = {
-  kind: "video",
-  codec: "avc",
-  codecString: "avc1.640020",
-  codecInfo: null,
-  packetRate: 30,
-  bitrate: 500_000,
-  codedWidth: 640,
-  codedHeight: 480,
-};
 
 /** The tab, rendered over one loaded 20-second file. The panel goes into the document because the
  * tab reaches for its fields by class, the way the app's own panels are already in the page. */
@@ -63,18 +53,20 @@ function runButton(panel: HTMLElement): HTMLButtonElement {
   return panel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!;
 }
 
+/** The values ticked in the axis field labelled `label`. */
+function ticked(panel: HTMLElement, label: string): string[] {
+  return axisBoxes(panel, label)
+    .filter((b) => b.checked)
+    .map((b) => b.value);
+}
+
+/** Lets whatever the last event queued run to completion. */
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 beforeEach(() => {
   document.body.innerHTML = "";
   settleAbLoad = null;
-  resetState();
-  // The CLI settings deliberately survive resetState (they are the user's, not the file's), so the
-  // ones this file edits are put back by hand rather than leaking into the tests after it.
-  cli.quality = "medium";
-  cli.crf = 25;
-  cli.preset = "superfast";
-  cli.scale = 1;
-  cli.scaler = "lanczos";
-  encodeTest.segments = 5;
+  resetCliDefaults();
 });
 
 // A square left half-way into the A/B window holds the tab's one encoder, which the next test would
@@ -82,7 +74,7 @@ beforeEach(() => {
 afterEach(async () => {
   settleAbLoad?.resolve();
   settleAbLoad = null;
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await flush();
 });
 
 describe("renderCompareTab", () => {
@@ -114,12 +106,8 @@ describe("renderCompareTab", () => {
 
   it("sweeps the first two resolutions with one kernel until told otherwise", () => {
     const panel = renderTab();
-    const ticked = (label: string): string[] =>
-      axisBoxes(panel, label)
-        .filter((b) => b.checked)
-        .map((b) => b.value);
-    expect(ticked("Resolutions")).toEqual(["1", "0.75"]);
-    expect(ticked("Scalers")).toEqual(["lanczos"]);
+    expect(ticked(panel, "Resolutions")).toEqual(["1", "0.75"]);
+    expect(ticked(panel, "Scalers")).toEqual(["lanczos"]);
     // One kernel multiplies the sweep by one, so the bar counts the resolutions but not it.
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 = 20 runs");
   });
@@ -236,13 +224,9 @@ describe("renderCompareTab", () => {
 
   it("ticks the middle qualities, the faster presets, and the first resolution drop to begin with", () => {
     const panel = renderTab();
-    const ticked = (label: string): string[] =>
-      axisBoxes(panel, label)
-        .filter((b) => b.checked)
-        .map((b) => b.value);
-    expect(ticked("Quality levels")).toEqual(DEFAULT_MATRIX_QUALITIES);
-    expect(ticked("x264 presets")).toEqual(DEFAULT_MATRIX_PRESETS);
-    expect(ticked("Resolutions")).toEqual(DEFAULT_MATRIX_SCALES.map(String));
+    expect(ticked(panel, "Quality levels")).toEqual(DEFAULT_MATRIX_QUALITIES);
+    expect(ticked(panel, "x264 presets")).toEqual(DEFAULT_MATRIX_PRESETS);
+    expect(ticked(panel, "Resolutions")).toEqual(DEFAULT_MATRIX_SCALES.map(String));
     // The extremes are offered, just not run unasked.
     expect(axisBoxes(panel, "Quality levels")).toHaveLength(MATRIX_QUALITIES.length);
     expect(axisBoxes(panel, "x264 presets")).toHaveLength(MATRIX_PRESETS.length);
@@ -312,8 +296,6 @@ describe("choosing a square", () => {
       (b.getAttribute("aria-label") ?? "").startsWith(describeSettings(cell.combo)),
     )!;
   }
-
-  const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
   // The ring says which square was picked, not which video has finished decoding: waiting for the
   // load to move it left a click on a released square looking like a click that missed.

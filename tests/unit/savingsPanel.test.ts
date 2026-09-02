@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { evenSamples } from "../fixtures/samples";
+import { MB_FILE_INPUT } from "../fixtures/sizeEstimate";
 import { estimateSizeSavings, type SizeEstimate } from "../../src/lib/sizeEstimate";
 import { renderSavingsDetail, renderSavingsStrip, savingsBar } from "../../src/ui/savingsPanel";
 
 /** A 1 MB, 100 s file whose sampled 10 s encoded down to `encodedSegmentBytes`. */
 function estimate(encodedSegmentBytes: number): SizeEstimate {
-  return estimateSizeSavings({
-    originalTotalBytes: 1_000_000,
-    totalSeconds: 100,
-    segmentStartSeconds: 0,
-    segmentSeconds: 10,
-    encodedSegmentBytes,
-  })!;
+  return estimateSizeSavings({ ...MB_FILE_INPUT, encodedSegmentBytes })!;
 }
 
 /** The rendered detail block as one element, the way the tab appends it into its section. */
@@ -108,16 +104,7 @@ describe("renderSavingsDetail", () => {
   });
 
   it("shows the range when there is one", () => {
-    const samples = Array.from({ length: 300 }, (_, i) => {
-      const ctsSec = (10 * i) / 300;
-      return {
-        size: ctsSec < 1 ? 2000 : 1000,
-        cts: 0,
-        dts: 0,
-        ctsSec,
-        is_sync: false,
-      };
-    });
+    const samples = evenSamples(300, 10, (_, ctsSec) => (ctsSec < 1 ? 2000 : 1000));
     const est = estimateSizeSavings({
       originalTotalBytes: 330_000,
       totalSeconds: 10,

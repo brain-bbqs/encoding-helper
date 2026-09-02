@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { evenSamples } from "../fixtures/samples";
+import { MB_FILE_INPUT } from "../fixtures/sizeEstimate";
 import { encodeTest, resetState, state } from "../../src/lib/state";
 import {
   currentSizeEstimate,
@@ -11,28 +13,8 @@ import {
   windowsForRun,
   type SizeEstimateInput,
 } from "../../src/lib/sizeEstimate";
-import type { SampleInfo } from "../../src/lib/types";
 
-/** One frame, presented at `ctsSec` and `size` bytes long. */
-function sample(ctsSec: number, size: number): SampleInfo {
-  return { size, cts: 0, dts: 0, ctsSec, is_sync: false };
-}
-
-/** `count` evenly-spaced frames across `durationSec`, sized by `size(ctsSec)`. */
-function evenSamples(count: number, durationSec: number, size: (ctsSec: number) => number): SampleInfo[] {
-  return Array.from({ length: count }, (_, i) => {
-    const ctsSec = (durationSec * i) / count;
-    return sample(ctsSec, size(ctsSec));
-  });
-}
-
-const BASE: SizeEstimateInput = {
-  originalTotalBytes: 1_000_000,
-  totalSeconds: 100,
-  segmentStartSeconds: 0,
-  segmentSeconds: 10,
-  encodedSegmentBytes: 50_000,
-};
+const BASE: SizeEstimateInput = { ...MB_FILE_INPUT, encodedSegmentBytes: 50_000 };
 
 describe("estimateSizeSavings", () => {
   it("returns null when an input cannot support a projection", () => {
@@ -62,7 +44,7 @@ describe("estimateSizeSavings", () => {
 
   it("reads the sampled stretch's real cost out of the sample table", () => {
     // 10 s at 30 fps: the first second costs 2000 bytes a frame, the rest 1000.
-    const samples = evenSamples(300, 10, (t) => (t < 1 ? 2000 : 1000));
+    const samples = evenSamples(300, 10, (_, t) => (t < 1 ? 2000 : 1000));
     const est = estimateSizeSavings({
       originalTotalBytes: 330_000,
       totalSeconds: 10,
@@ -83,7 +65,7 @@ describe("estimateSizeSavings", () => {
 
   it("gives the sampled stretch its share of the audio and container bytes", () => {
     // Same video samples as above, inside a file 100,000 bytes larger than its video track.
-    const samples = evenSamples(300, 10, (t) => (t < 1 ? 2000 : 1000));
+    const samples = evenSamples(300, 10, (_, t) => (t < 1 ? 2000 : 1000));
     const est = estimateSizeSavings({
       originalTotalBytes: 430_000,
       totalSeconds: 10,
@@ -98,7 +80,7 @@ describe("estimateSizeSavings", () => {
   });
 
   it("measures a stretch taken from the middle of the file, not from the start", () => {
-    const samples = evenSamples(300, 10, (t) => (t >= 5 && t < 6 ? 3000 : 1000));
+    const samples = evenSamples(300, 10, (_, t) => (t >= 5 && t < 6 ? 3000 : 1000));
     const est = estimateSizeSavings({
       originalTotalBytes: 360_000,
       totalSeconds: 10,
@@ -129,7 +111,7 @@ describe("estimateSizeSavings", () => {
   });
 
   it("bands the projection by how much the file's own windows differ", () => {
-    const varying = evenSamples(300, 10, (t) => (t < 1 ? 2000 : 1000));
+    const varying = evenSamples(300, 10, (_, t) => (t < 1 ? 2000 : 1000));
     const est = estimateSizeSavings({
       originalTotalBytes: 330_000,
       totalSeconds: 10,
@@ -157,7 +139,7 @@ describe("estimateSizeSavings", () => {
   });
 
   it("drops the band once the whole file has been encoded", () => {
-    const samples = evenSamples(300, 10, (t) => (t < 1 ? 2000 : 1000));
+    const samples = evenSamples(300, 10, (_, t) => (t < 1 ? 2000 : 1000));
     const est = estimateSizeSavings({
       originalTotalBytes: 330_000,
       totalSeconds: 10,
@@ -172,7 +154,7 @@ describe("estimateSizeSavings", () => {
   });
 
   it("narrows the band as more of the file is sampled", () => {
-    const samples = evenSamples(600, 20, (t) => (Math.floor(t) % 2 === 0 ? 2000 : 1000));
+    const samples = evenSamples(600, 20, (_, t) => (Math.floor(t) % 2 === 0 ? 2000 : 1000));
     const forSegment = (segmentSeconds: number): number => {
       const est = estimateSizeSavings({
         originalTotalBytes: 900_000,
@@ -293,16 +275,9 @@ describe("pickSampleWindows", () => {
 });
 
 describe("estimateSizeSavings over several windows", () => {
-  const base = {
-    originalTotalBytes: 1_000_000,
-    totalSeconds: 100,
-    segmentStartSeconds: 0,
-    segmentSeconds: 10,
-  };
-
   it("sums the sampled seconds and reports how many places they came from", () => {
     const est = estimateSizeSavings({
-      ...base,
+      ...BASE,
       windows: [
         { startSeconds: 0, seconds: 10 },
         { startSeconds: 50, seconds: 10 },
@@ -328,13 +303,13 @@ describe("estimateSizeSavings over several windows", () => {
     }));
     const width = (r: { low: number; high: number } | null): number => (r ? r.high - r.low : 0);
     const one = estimateSizeSavings({
-      ...base,
+      ...BASE,
       windows: [{ startSeconds: 0, seconds: 10 }],
       encodedSegmentBytes: 50_000,
       samples,
     })!;
     const three = estimateSizeSavings({
-      ...base,
+      ...BASE,
       windows: [
         { startSeconds: 0, seconds: 10 },
         { startSeconds: 40, seconds: 10 },
@@ -349,7 +324,7 @@ describe("estimateSizeSavings over several windows", () => {
   });
 
   it("falls back to the single window when no list is given", () => {
-    const est = estimateSizeSavings({ ...base, encodedSegmentBytes: 50_000 })!;
+    const est = estimateSizeSavings({ ...BASE, encodedSegmentBytes: 50_000 })!;
     expect(est.windowCount).toBe(1);
     expect(est.segmentSeconds).toBe(10);
   });

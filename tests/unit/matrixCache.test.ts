@@ -19,7 +19,6 @@ const DB_NAME = "test-matrix-cache";
  * read the checksum makes is answered here rather than through a File. */
 function sourceOf(bytes: Uint8Array): ChunkedSource {
   const source = new ChunkedSource();
-  source.kind = "file";
   source.size = bytes.length;
   source.readChunk = (offset, size) =>
     Promise.resolve(bytes.slice(offset, Math.min(offset + size, bytes.length)).buffer as ArrayBuffer);
@@ -29,7 +28,6 @@ function sourceOf(bytes: Uint8Array): ChunkedSource {
 /** A file too big to hold in a test, recording where it was read from. */
 function hugeSource(size: number, reads: number[]): ChunkedSource {
   const source = new ChunkedSource();
-  source.kind = "file";
   source.size = size;
   source.readChunk = (offset, length) => {
     reads.push(offset);

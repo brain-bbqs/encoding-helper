@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { evenSamples } from "../fixtures/samples";
 import { computeBitrateTimeline } from "../../src/lib/bitrateTimeline";
 import type { SampleInfo } from "../../src/lib/types";
 import { niceAxisMax, renderBitrateChart } from "../../src/ui/bitrateChart";
 
 function samples(count: number, durationSec: number, size: (i: number) => number): SampleInfo[] {
-  return Array.from({ length: count }, (_, i) => ({
-    size: size(i),
-    cts: 0,
-    dts: 0,
-    ctsSec: (durationSec * i) / count,
-    is_sync: false,
-  }));
+  return evenSamples(count, durationSec, size);
 }
 
 describe("niceAxisMax", () => {

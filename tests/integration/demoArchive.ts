@@ -8,6 +8,7 @@
 
 import { readFileSync } from "node:fs";
 import { expect, type Page, type Route } from "@playwright/test";
+import { demoVideoPath } from "../fixtures/demoPaths";
 import { buildFixtureVideo } from "../fixtures/demoVideo";
 
 const ASSETS_URL = "https://api-dandi.emberarchive.org/api/dandisets/000527/versions/draft/assets";
@@ -88,7 +89,7 @@ function assetId(session: string, kind: "video" | "sidecar"): string {
 }
 
 function videoPath(demo: FakeDemo): string {
-  return `sub-01/ses-${demo.session}/beh/sub-01_ses-${demo.session}_video.${demo.ext}`;
+  return demoVideoPath(demo.session, demo.ext);
 }
 
 function listing(videoSize: number): unknown {
