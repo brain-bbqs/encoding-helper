@@ -678,7 +678,6 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
   }
 }
 
-/** The stretches the sweep covered, or the one segment it used before several were asked for. */
 /** What the ticked fractions come to for the loaded file: absolute rates, the source's own as null. */
 function matrixFps(): (number | null)[] {
   const sourceFps = currentVideoInfo()?.fps ?? state.fps;
@@ -693,6 +692,7 @@ function describeFpsFraction(fraction: number): string {
   return `${Math.round(fraction * 100)}% (${fmtRate(rate)} fps)`;
 }
 
+/** The stretches the sweep covered, or the one segment it used before several were asked for. */
 function matrixWindows(): SampleWindow[] {
   const matrix = encodeTest.matrix;
   if (matrix.windows.length) return matrix.windows;

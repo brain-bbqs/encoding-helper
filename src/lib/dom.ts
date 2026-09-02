@@ -14,7 +14,6 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 }
 
 interface GridItemOptions {
-  wide?: boolean;
   sm?: boolean;
   /** Trusted, author-authored explainer markup, shown from an ⓘ button next to the label. */
   info?: string | null;
@@ -23,7 +22,7 @@ interface GridItemOptions {
 }
 
 export function gridItem(label: string, value: string | number, opts: GridItemOptions = {}): HTMLDivElement {
-  const d = h("div", "item" + (opts.wide ? " wide" : ""));
+  const d = h("div", "item");
   const labelEl = h("label", opts.rawLabel ? "raw" : null, label);
   if (opts.info) {
     // The button is a sibling of the label rather than a child of it: <label> may not contain

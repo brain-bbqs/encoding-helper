@@ -52,7 +52,7 @@ export async function parseWithMp4Box(
 // Flatten mp4box's box tree into a simple, serializable structure for rendering.
 export function extractBoxTree(mp4boxFile: ISOFile): BoxNode[] {
   const walk = (box: MP4BoxBox): BoxNode => ({
-    type: box.type || box.fourcc || "????",
+    type: box.type || "????",
     start: box.start || 0,
     size: box.size || 0,
     hdrSize: box.hdr_size || 0,

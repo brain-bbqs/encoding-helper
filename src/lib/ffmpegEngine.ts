@@ -230,14 +230,6 @@ export async function ensureFfmpegInput(name: string, data: Uint8Array): Promise
   await defaultFfmpegWorker.ensureInput(name, data);
 }
 
-export function hasFfmpegFile(name: string): boolean {
-  return defaultFfmpegWorker.has(name);
-}
-
-export async function runFfmpegToFile(args: string[], outputName: string): Promise<void> {
-  await defaultFfmpegWorker.runToFile(args, outputName);
-}
-
 export async function deleteFfmpegFile(name: string): Promise<void> {
   await defaultFfmpegWorker.deleteFile(name);
 }

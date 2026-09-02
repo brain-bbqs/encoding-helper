@@ -12,15 +12,11 @@ import { downloadBlob } from "../lib/save";
 import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
 
-/** Caption for the GOP histogram, shared with the Full Analysis document. */
-
 /**
  * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
  * scatter a distribution rather than a handful of points, and still a run of a few seconds.
  */
 const DEFAULT_SEEK_SAMPLES = 100;
-
-/** Caption for the seeking scatter plot, shared with the Full Analysis document. */
 
 export function renderSeekTab(panel: HTMLElement): void {
   const gop = state.gopLengths;

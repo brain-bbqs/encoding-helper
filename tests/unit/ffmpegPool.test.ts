@@ -101,9 +101,7 @@ describe("drainWithPool", () => {
     await drainWithPool([1, 2, 3], [fakeWorker(0)], async (item) => {
       seen.push(item);
       // The caller records the failure against the item; the pool only has to keep going.
-      await Promise.resolve().then(() => {
-        if (item === 2) return;
-      });
+      await Promise.resolve();
     });
     expect(seen).toEqual([1, 2, 3]);
   });

@@ -652,9 +652,6 @@ label.field-label {
   font-weight: 400;
   color: var(--text);
 }
-.grid .item.wide {
-  grid-column: span 2;
-}
 /* Raw container tag names (©too, TIT2, ISFT) are case-sensitive, so they keep their own casing
    instead of the uppercase treatment the other labels get. */
 .grid .item label.raw {
@@ -815,15 +812,6 @@ label.field-label {
 .teach li {
   margin: 2px 0;
 }
-details.teach-more {
-  margin-top: 6px;
-}
-details.teach-more summary {
-  cursor: pointer;
-  color: var(--accent);
-  font-size: 12px;
-}
-
 /* Tabs, and the Full Analysis action that sits opposite them */
 .tab-bar {
   display: flex;
@@ -1382,7 +1370,6 @@ details.teach-more summary {
 .sample-tick-label {
   position: absolute;
   top: 10px;
-  font-family: var(--mono);
   font-size: 9px;
   line-height: 1;
   color: var(--muted);
@@ -1824,7 +1811,6 @@ table.data th {
 .compare-reel-label {
   position: absolute;
   top: 10px;
-  font-family: var(--mono);
   font-size: 9px;
   line-height: 1;
   color: var(--muted);
@@ -2209,11 +2195,6 @@ table.data.matrix-table th.matrix-row-head {
    reported in the same color as a saving. */
 .savings-headline.grew {
   color: var(--warn);
-}
-.savings-sub {
-  margin-top: 3px;
-  font-size: 12px;
-  color: var(--muted);
 }
 .savings-bars {
   flex: 1;

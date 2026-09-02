@@ -18,13 +18,11 @@ declare module "mp4box" {
 
   export interface MP4BoxInfo {
     videoTracks: MP4BoxTrackInfo[];
-    audioTracks: MP4BoxTrackInfo[];
   }
 
   /** A raw parsed box as produced by mp4box's internal BoxParser; only the fields this app reads. */
   export interface MP4BoxBox {
     type?: string;
-    fourcc?: string;
     start?: number;
     size?: number;
     hdr_size?: number;

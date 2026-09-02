@@ -1,4 +1,3 @@
-import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
