@@ -94,8 +94,8 @@ async function loadSource(
       throw new Error("No video track found in this file.");
     }
     const videoTrackId = info.videoTracks[0].id;
-    state.timescale = info.videoTracks[0].timescale;
-    const analysis = extractSampleAnalysis(mp4boxFile, videoTrackId, state.timescale);
+    const timescale = info.videoTracks[0].timescale;
+    const analysis = extractSampleAnalysis(mp4boxFile, videoTrackId, timescale);
     Object.assign(state, analysis);
     state.declaredVideoBitrate = extractDeclaredBitrate(mp4boxFile, videoTrackId);
 
@@ -108,7 +108,6 @@ async function loadSource(
     const meta = await loadMediabunnyMetadata(input);
     state.input = input;
     state.videoTrack = meta.videoTrack;
-    state.audioTrack = meta.audioTrack;
     state.format = meta.format;
     state.mimeType = meta.mimeType;
     state.duration = meta.duration;

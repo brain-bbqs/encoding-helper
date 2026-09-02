@@ -3,7 +3,7 @@ import type { BoxNode } from "../src/lib/types";
 import { renderAtomMap } from "../src/ui/atomsTab";
 
 function box(type: string, start: number, size: number, children: BoxNode[] = []): BoxNode {
-  return { type, start, size, hdrSize: 8, children };
+  return { type, start, size, children };
 }
 
 /** A progressive file: ftyp, a moov holding the index, padding, then the sample payload. */

@@ -15,7 +15,6 @@ export const state: AppState = {
   file: null,
   input: null,
   videoTrack: null,
-  audioTrack: null,
   format: null,
   mimeType: null,
   duration: null,
@@ -27,11 +26,9 @@ export const state: AppState = {
   faststart: null,
   samples: [],
   declaredVideoBitrate: null,
-  timescale: 1,
   keyframeDecodeIndices: [],
   gopLengths: [],
   hasBFrames: false,
-  presentationOrder: [],
   keyframeTimestampsSec: [],
   seekResults: null,
   reencodeResult: null,
@@ -85,7 +82,6 @@ export const encodeTest: EncodeTestState = {
     running: false,
     selectedKey: null,
   },
-  zoom: null,
 };
 
 export function resetState(): void {
@@ -97,7 +93,6 @@ export function resetState(): void {
   state.file = null;
   state.input = null;
   state.videoTrack = null;
-  state.audioTrack = null;
   state.format = null;
   state.mimeType = null;
   state.duration = null;
@@ -109,11 +104,9 @@ export function resetState(): void {
   state.faststart = null;
   state.samples = [];
   state.declaredVideoBitrate = null;
-  state.timescale = 1;
   state.keyframeDecodeIndices = [];
   state.gopLengths = [];
   state.hasBFrames = false;
-  state.presentationOrder = [];
   state.keyframeTimestampsSec = [];
   state.seekResults = null;
   state.reencodeResult = null;
@@ -144,7 +137,6 @@ export function resetState(): void {
   encodeTest.matrix.windows = [];
   encodeTest.matrix.running = false;
   encodeTest.matrix.selectedKey = null;
-  encodeTest.zoom = null;
 }
 
 /** Basic video-track info shared by the FFmpeg Command Builder and the encoding runs, or null pre-load. */

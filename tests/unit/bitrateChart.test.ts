@@ -5,14 +5,11 @@ import { niceAxisMax, renderBitrateChart } from "../../src/ui/bitrateChart";
 
 function samples(count: number, durationSec: number, size: (i: number) => number): SampleInfo[] {
   return Array.from({ length: count }, (_, i) => ({
-    offset: 0,
     size: size(i),
     cts: 0,
     dts: 0,
     ctsSec: (durationSec * i) / count,
-    dtsSec: (durationSec * i) / count,
     is_sync: false,
-    duration: 1,
   }));
 }
 

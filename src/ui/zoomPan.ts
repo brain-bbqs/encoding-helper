@@ -1,6 +1,5 @@
 // Synchronized zoom & pan for the Compare Quality panes: one gesture drives every pane at once.
 
-import { encodeTest } from "../lib/state";
 import type { ZoomPanState } from "../lib/types";
 
 // Shared drag state: a single pair of window-level listeners serves every comparison run rather than
@@ -58,7 +57,6 @@ export function attachSyncedZoomPan(
   onChange?: (scale: number) => void,
 ) {
   const zoom: ZoomPanState = { scale: 1, tx: 0, ty: 0 };
-  encodeTest.zoom = zoom;
 
   // The pane is the untransformed reference box: only the canvas inside it carries the transform,
   // so every anchor and grid measurement below is taken against the pane, never the canvas.

@@ -10,7 +10,6 @@ const VIDEO_TRACK: TrackInfo = {
   codec: "avc",
   codecString: "avc1.640020",
   codecInfo: null,
-  packetCount: 600,
   packetRate: 20,
   bitrate: 500_000,
   codedWidth: 640,
@@ -20,14 +19,11 @@ const VIDEO_TRACK: TrackInfo = {
 /** `count` frames evenly spread across `durationSec`, sized by `size`. */
 function samples(count: number, durationSec: number, size: (i: number) => number): SampleInfo[] {
   return Array.from({ length: count }, (_, i) => ({
-    offset: 0,
     size: size(i),
     cts: 0,
     dts: 0,
     ctsSec: (durationSec * i) / count,
-    dtsSec: (durationSec * i) / count,
     is_sync: i % 30 === 0,
-    duration: 1,
   }));
 }
 
@@ -119,7 +115,7 @@ describe("the Inspect panel", () => {
     // The metadata sections only render for a loaded file; the map and the seeking test do not care.
     state.source = { name: "clip.mp4", size: 2_000_000 } as never;
     state.format = "mp4";
-    state.boxes = [{ type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] }];
+    state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
     state.gopLengths = [30, 30];
     state.keyframeDecodeIndices = [0, 30];
     const panel = document.createElement("div");
@@ -148,7 +144,7 @@ describe("the Inspect panel", () => {
     state.source = { name: "clip.mp4", size: 2_000_000 } as never;
     state.format = "MP4";
     state.faststart = true;
-    state.boxes = [{ type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] }];
+    state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
     const overview = document.createElement("div");
     renderInspectHead(overview);
     expect(overview.textContent).not.toContain("Faststart");
@@ -200,10 +196,9 @@ describe("the Inspect panel", () => {
         type: "moov",
         start: 0,
         size: 900,
-        hdrSize: 8,
-        children: [{ type: "trak", start: 8, size: 800, hdrSize: 8, children: [] }],
+        children: [{ type: "trak", start: 8, size: 800, children: [] }],
       },
-      { type: "mdat", start: 900, size: 1_100_000, hdrSize: 8, children: [] },
+      { type: "mdat", start: 900, size: 1_100_000, children: [] },
     ];
     const panel = document.createElement("div");
     renderAtomMap(panel);
@@ -230,15 +225,14 @@ describe("the Inspect panel", () => {
     loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
     state.source = { name: "clip.mp4", size: 2_000_000 } as never;
     state.boxes = [
-      { type: "ftyp", start: 0, size: 32, hdrSize: 8, children: [] },
+      { type: "ftyp", start: 0, size: 32, children: [] },
       {
         type: "moov",
         start: 32,
         size: 900,
-        hdrSize: 8,
-        children: [{ type: "trak", start: 40, size: 800, hdrSize: 8, children: [] }],
+        children: [{ type: "trak", start: 40, size: 800, children: [] }],
       },
-      { type: "mdat", start: 932, size: 1_100_000, hdrSize: 8, children: [] },
+      { type: "mdat", start: 932, size: 1_100_000, children: [] },
     ];
     const panel = document.createElement("div");
     renderAtomMap(panel);
@@ -255,7 +249,6 @@ describe("the Inspect panel", () => {
       type: i % 2 === 0 ? "moof" : "mdat",
       start: i * 100,
       size: 100,
-      hdrSize: 8,
       children: [],
     }));
     const panel = document.createElement("div");

@@ -17,7 +17,6 @@ async function describeTrack(t: InputTrack): Promise<TrackInfo> {
     codec: String(t.codec || "unknown"),
     codecString,
     codecInfo: describeCodec(t.codec, codecString),
-    packetCount: stats ? stats.packetCount : null,
     packetRate: stats ? stats.averagePacketRate : null,
     bitrate: stats ? stats.averageBitrate : null,
   };
@@ -55,7 +54,6 @@ export async function loadMediabunnyMetadata(input: Input): Promise<MediabunnyMe
     input.getMetadataTags(),
   ]);
   const videoTrack = tracks.find((t) => t.isVideoTrack()) || null;
-  const audioTrack = tracks.find((t) => t.isAudioTrack()) || null;
 
   const result: MediabunnyMetadata = {
     format: format.name,
@@ -64,7 +62,6 @@ export async function loadMediabunnyMetadata(input: Input): Promise<MediabunnyMe
     tags,
     tracks: [],
     videoTrack,
-    audioTrack,
     fps: null,
   };
 

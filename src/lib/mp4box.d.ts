@@ -3,12 +3,10 @@
 // minimal surface this app actually uses (box tree + sample table), not the whole library.
 declare module "mp4box" {
   export interface MP4BoxSample {
-    offset: number;
     size: number;
     cts: number;
     dts: number;
     is_sync: boolean;
-    duration: number;
   }
 
   export interface MP4BoxTrackInfo {
@@ -25,7 +23,6 @@ declare module "mp4box" {
     type?: string;
     start?: number;
     size?: number;
-    hdr_size?: number;
     boxes?: MP4BoxBox[];
   }
 

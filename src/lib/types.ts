@@ -2,7 +2,7 @@
 
 import type { ChromaFormat } from "./chromaFormat";
 
-import type { Input, InputAudioTrack, InputVideoTrack, MetadataTags } from "mediabunny";
+import type { Input, InputVideoTrack, MetadataTags } from "mediabunny";
 import type { ChunkedSource } from "./chunkedSource";
 
 /** One row in a codec's parsed detail list (e.g. "Profile: High", "Level: 4.0"). */
@@ -26,7 +26,6 @@ export interface TrackInfo {
   codec: string;
   codecString: string | null;
   codecInfo: CodecInfo | null;
-  packetCount: number | null;
   packetRate: number | null;
   bitrate: number | null;
   // Video-only fields.
@@ -52,20 +51,16 @@ export interface MediabunnyMetadata {
   tags: MetadataTags | null;
   tracks: TrackInfo[];
   videoTrack: InputVideoTrack | null;
-  audioTrack: InputAudioTrack | null;
   fps: number | null;
 }
 
 /** One sample (frame) in decode order, as read out of mp4box's sample table. */
 export interface SampleInfo {
-  offset: number;
   size: number;
   cts: number;
   dts: number;
   ctsSec: number;
-  dtsSec: number;
   is_sync: boolean;
-  duration: number;
 }
 
 /**
@@ -83,7 +78,6 @@ export interface SampleAnalysis {
   keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
-  presentationOrder: SampleInfo[];
   keyframeTimestampsSec: number[];
 }
 
@@ -92,7 +86,6 @@ export interface BoxNode {
   type: string;
   start: number;
   size: number;
-  hdrSize: number;
   children: BoxNode[];
 }
 
@@ -271,7 +264,6 @@ export interface EncodeTestState {
    * block per encoded pixel when false. A view preference, not part of any encode. */
   upscaleSmoothing: boolean;
   matrix: MatrixState;
-  zoom: ZoomPanState | null;
 }
 
 /** Shared pan/zoom transform for the A/B comparison canvases. */
@@ -293,7 +285,6 @@ export interface AppState {
   file: File | null;
   input: Input | null;
   videoTrack: InputVideoTrack | null;
-  audioTrack: InputAudioTrack | null;
   format: string | null;
   mimeType: string | null;
   duration: number | null;
@@ -305,11 +296,9 @@ export interface AppState {
   faststart: boolean | null;
   samples: SampleInfo[];
   declaredVideoBitrate: DeclaredBitrate | null;
-  timescale: number;
   keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
-  presentationOrder: SampleInfo[];
   keyframeTimestampsSec: number[];
   seekResults: SeekResult[] | null;
   reencodeResult: ReencodeResult | null;

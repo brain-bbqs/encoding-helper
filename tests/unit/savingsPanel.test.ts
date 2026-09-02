@@ -111,14 +111,11 @@ describe("renderSavingsDetail", () => {
     const samples = Array.from({ length: 300 }, (_, i) => {
       const ctsSec = (10 * i) / 300;
       return {
-        offset: 0,
         size: ctsSec < 1 ? 2000 : 1000,
         cts: 0,
         dts: 0,
         ctsSec,
-        dtsSec: ctsSec,
         is_sync: false,
-        duration: 1,
       };
     });
     const est = estimateSizeSavings({

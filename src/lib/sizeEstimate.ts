@@ -63,7 +63,6 @@ export interface SizeEstimate {
   segmentSeconds: number;
   /** What the source spends on the sampled stretch, on the same terms as the encoded stretch. */
   originalSegmentBytes: number;
-  encodedSegmentBytes: number;
   /** Encoded ÷ original over the stretch. Below 1 the encode shrank it; above 1 it grew. */
   ratio: number;
   /** 1 − ratio: positive when the encode saves bytes, negative when it adds them. */
@@ -205,7 +204,6 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
     totalSeconds,
     segmentSeconds: sampledSeconds,
     originalSegmentBytes,
-    encodedSegmentBytes,
     ratio,
     savedFraction: 1 - ratio,
     segmentSavedBytes: originalSegmentBytes - encodedSegmentBytes,

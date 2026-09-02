@@ -45,7 +45,6 @@ const VIDEO_TRACK: TrackInfo = {
   codec: "avc",
   codecString: "avc1.640020",
   codecInfo: null,
-  packetCount: 600,
   packetRate: 30,
   bitrate: 500_000,
   codedWidth: 640,

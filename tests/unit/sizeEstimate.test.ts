@@ -15,7 +15,7 @@ import type { SampleInfo } from "../../src/lib/types";
 
 /** One frame, presented at `ctsSec` and `size` bytes long. */
 function sample(ctsSec: number, size: number): SampleInfo {
-  return { offset: 0, size, cts: 0, dts: 0, ctsSec, dtsSec: ctsSec, is_sync: false, duration: 1 };
+  return { size, cts: 0, dts: 0, ctsSec, is_sync: false };
 }
 
 /** `count` evenly-spaced frames across `durationSec`, sized by `size(ctsSec)`. */
@@ -320,14 +320,11 @@ describe("estimateSizeSavings over several windows", () => {
     // Frame sizes climb across the file, so its ten-second windows genuinely differ from each other
     // and there is a spread for the band to be derived from.
     const samples = Array.from({ length: 100 }, (_, i) => ({
-      offset: 0,
       size: 1_000 + i * 500,
       cts: i,
       dts: i,
       ctsSec: i,
-      dtsSec: i,
       is_sync: i % 10 === 0,
-      duration: 1,
     }));
     const width = (r: { low: number; high: number } | null): number => (r ? r.high - r.low : 0);
     const one = estimateSizeSavings({

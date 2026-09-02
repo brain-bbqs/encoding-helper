@@ -4,7 +4,7 @@ import type { SampleInfo } from "../../src/lib/types";
 
 /** One frame, at `ctsSec` in presentation order, `size` bytes long. */
 function sample(ctsSec: number, size: number): SampleInfo {
-  return { offset: 0, size, cts: 0, dts: 0, ctsSec, dtsSec: ctsSec, is_sync: false, duration: 1 };
+  return { size, cts: 0, dts: 0, ctsSec, is_sync: false };
 }
 
 /** `count` evenly-spaced frames across `durationSec`, each of `size` bytes. */
