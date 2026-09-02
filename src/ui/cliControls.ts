@@ -31,19 +31,19 @@ export function refreshCliCommand(): void {
 /** The resolution dropdown's entries: the fixed ladder, labelled with what each comes out at for
  * the loaded file so the choice is made against real numbers rather than percentages, plus a
  * "Custom %" entry for a value the ladder doesn't offer. */
-export function scaleOptions(info: { width: number; height: number } | null): [string, string][] {
+function scaleOptions(info: { width: number; height: number } | null): [string, string][] {
   return [...SCALE_OPTIONS.map((s) => [String(s), describeScale(s, info)] as [string, string]), ["custom", "Custom %"]];
 }
 
 /** Whether a scale is one of the fixed ladder's own values, as opposed to a custom percentage. */
-export function isPresetScale(scale: number): boolean {
+function isPresetScale(scale: number): boolean {
   return SCALE_OPTIONS.includes(scale as (typeof SCALE_OPTIONS)[number]);
 }
 
 /** The picked resolution as the dropdown's own value, falling back to the source when a value
  * arrives that is not one of the offered fractions. "custom" is handled by the caller, which seeds
  * `cli.scale` from the remembered custom percentage instead of going through this. */
-export function parseScale(value: string): number {
+function parseScale(value: string): number {
   const parsed = parseFloat(value);
   return SCALE_OPTIONS.includes(parsed as (typeof SCALE_OPTIONS)[number]) ? parsed : 1;
 }

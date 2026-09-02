@@ -30,12 +30,12 @@ import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
 import type { AppElements } from "./elements";
 
 /** What the page needs of the file loader: somewhere to send the demo it was asked to open. */
-export interface DemoLoader {
+interface DemoLoader {
   loadUrl(url: string, name?: string): Promise<void>;
 }
 
 /** How the grid is narrowed, and what happens when the card's open button is pressed. */
-export interface DemoBrowserOptions {
+interface DemoBrowserOptions {
   search: string;
   onOpen: (demo: DemoFile) => void;
 }

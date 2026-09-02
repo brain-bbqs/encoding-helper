@@ -21,12 +21,12 @@ import {
 import { resetState, state } from "../lib/state";
 import type { AppElements } from "./elements";
 
-export interface FileLoadingCallbacks {
+interface FileLoadingCallbacks {
   onLoaded: () => void;
 }
 
 /** The two ways in, for anything outside this module that has a file or a URL to open. */
-export interface FileLoader {
+interface FileLoader {
   loadFile(file: File): Promise<void>;
   /** `name` is what the file is called in the app, for a URL whose last segment is not a file name. */
   loadUrl(url: string, name?: string): Promise<void>;

@@ -28,7 +28,7 @@ import type { ChunkedSource } from "./chunkedSource";
 import type { SampleWindow } from "./types";
 
 /** What one finished square is worth remembering: everything its table cell is drawn from. */
-export interface CachedMeasurement {
+interface CachedMeasurement {
   bytes: number;
   /** The output's measured playback length, which the projection is taken over. */
   segmentSeconds: number | null;

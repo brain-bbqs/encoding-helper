@@ -70,7 +70,7 @@ const AV1_LEVELS = [
 
 const AV1_PROFILES = ["Main", "High", "Professional"];
 
-export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
+const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
   avc: {
     family: "H.264 / AVC",
     fullName: "Advanced Video Coding",

@@ -106,7 +106,7 @@ export interface SeekResult {
 }
 
 /** Quality preset keys understood by both the ffmpeg CLI builder and the mediabunny fast engine. */
-export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
+type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 
 /** x264 presets offered in the FFmpeg Command Builder and swept by the Compare Quality matrix. */
 export type X264Preset =
@@ -211,7 +211,7 @@ export interface AbSegment {
 }
 
 /** Mutable matrix-mode state: what the next sweep will cover, and what the last one found. */
-export interface MatrixState {
+interface MatrixState {
   /** Ticked quality levels, i.e. the rows the next sweep will run. */
   qualities: MatrixQuality[];
   /** Ticked presets, i.e. the columns the next sweep will run. */
@@ -282,7 +282,7 @@ export interface ZoomPanState {
 }
 
 /** Result of a completed in-browser reencode, kept so the Full Analysis document can report it. */
-export interface ReencodeResult {
+interface ReencodeResult {
   originalSize: number;
   encodedSize: number;
 }

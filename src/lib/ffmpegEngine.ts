@@ -25,8 +25,8 @@ import { toBlobURL } from "@ffmpeg/util";
 // SharedArrayBuffer support) — same constraint the original CDN version worked under.
 const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
 
-export type FfmpegLogHandler = (message: string) => void;
-export type FfmpegProgressHandler = (ratio: number) => void;
+type FfmpegLogHandler = (message: string) => void;
+type FfmpegProgressHandler = (ratio: number) => void;
 
 /**
  * What the core prints on its way out. ffmpeg finishes by calling `exit()`, which Emscripten
@@ -78,7 +78,7 @@ function loadCoreUrls(): Promise<{ coreURL: string; wasmURL: string }> {
   return coreUrls;
 }
 
-export interface FfmpegRunResult {
+interface FfmpegRunResult {
   data: Uint8Array<ArrayBuffer>;
 }
 

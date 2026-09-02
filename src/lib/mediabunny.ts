@@ -4,7 +4,7 @@
 // separately for that reason. Preserving the lazy accessor keeps that intent: the module is fetched
 // once, cached, and reused by every caller (mp4box parsing/atom-map work never needs it at all).
 
-export type MediabunnyModule = typeof import("mediabunny");
+type MediabunnyModule = typeof import("mediabunny");
 
 let mbPromise: Promise<MediabunnyModule> | null = null;
 

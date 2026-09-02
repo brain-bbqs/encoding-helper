@@ -26,7 +26,7 @@ export interface AxisRange {
 }
 
 /** An atom with the slice of the axis it was given, and its children placed inside that slice. */
-export interface Placement {
+interface Placement {
   box: BoxNode;
   from: number;
   to: number;
@@ -58,7 +58,7 @@ export interface AtomRect {
   count: number;
 }
 
-export interface AtomLayout {
+interface AtomLayout {
   rects: AtomRect[];
   /** Number of lanes to draw, i.e. deepest depth reached + 1. */
   laneCount: number;

@@ -18,9 +18,9 @@
 // costs a request per file — the reason the generator writes them into the index at all.
 
 /** The EMBER archive's DANDI API, and the dandiset scripts/upload-demos.sh publishes into. */
-export const EMBER_API = "https://api-dandi.emberarchive.org/api";
+const EMBER_API = "https://api-dandi.emberarchive.org/api";
 export const EMBER_DANDISET = "000527";
-export const EMBER_VERSION = "draft";
+const EMBER_VERSION = "draft";
 
 /** One demo file, as the demos page shows it before anyone opens its card. */
 export interface DemoFile {
@@ -55,7 +55,7 @@ export interface DemoSet {
  * starts — so they share a row, the recording first and the encode made from it second. Anything
  * the generator grows later still appears, at the end, under its own raw name.
  */
-export interface DemoGroup {
+interface DemoGroup {
   /** The generator's group names this heading covers, in the order their files should appear. */
   ids: readonly string[];
   title: string;

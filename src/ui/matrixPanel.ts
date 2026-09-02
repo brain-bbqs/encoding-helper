@@ -16,7 +16,7 @@ import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
 import type { MatrixCell, Scaler } from "../lib/types";
 
-export interface MatrixTableOptions {
+interface MatrixTableOptions {
   cells: MatrixCell[];
   /** The winning cell's key, marked ★ in place. */
   bestKey?: string | null;

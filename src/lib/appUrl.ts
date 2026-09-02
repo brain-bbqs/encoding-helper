@@ -9,7 +9,7 @@
 
 // "analysis" is the Full Analysis document, reached from the button beside the tab row rather than
 // from a tab, but it is a place the app can be in and so is linkable like the rest.
-export const TAB_IDS = ["inspect", "encode", "compare", "analysis"] as const;
+const TAB_IDS = ["inspect", "encode", "compare", "analysis"] as const;
 
 export type TabId = (typeof TAB_IDS)[number];
 

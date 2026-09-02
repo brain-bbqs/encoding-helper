@@ -43,7 +43,7 @@ function metadataTagInfoHtml(key: string, info: MetadataTagInfo | null, value: s
   return head + (valueHint ? `<p>${valueHint}</p>` : "");
 }
 
-export function codecTeachBox(codecInfo: CodecInfo | null | undefined, mark: string): HTMLDivElement | null {
+function codecTeachBox(codecInfo: CodecInfo | null | undefined, mark: string): HTMLDivElement | null {
   const html = codecExplainer(codecInfo);
   return html ? teachBox(html, mark) : null;
 }

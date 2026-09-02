@@ -20,7 +20,7 @@ import type { SampleWindow } from "../lib/types";
 const STEP_SECONDS = 1;
 const BIG_STEP_SECONDS = 10;
 
-export interface SamplePicker {
+interface SamplePicker {
   el: HTMLElement;
   /** The stretch the next run should encode, as the track currently has it. */
   window: () => SampleWindow;

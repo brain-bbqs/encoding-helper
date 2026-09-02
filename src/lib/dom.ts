@@ -13,7 +13,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return e;
 }
 
-export interface GridItemOptions {
+interface GridItemOptions {
   wide?: boolean;
   sm?: boolean;
   /** Trusted, author-authored explainer markup, shown from an ⓘ button next to the label. */

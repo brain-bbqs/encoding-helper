@@ -24,7 +24,7 @@ export function rulerStep(seconds: number): { major: number; minor: number } {
 }
 
 /** One gradation on the track's ruler. */
-export interface RulerMark {
+interface RulerMark {
   seconds: number;
   /** Drawn taller and labelled; the minor marks between are unlabelled. */
   major: boolean;

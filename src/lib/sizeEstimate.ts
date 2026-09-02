@@ -25,7 +25,7 @@ import { encodeTest, state } from "./state";
 import type { SampleInfo, SampleWindow } from "./types";
 
 /** How the cost of the sampled stretch in the *source* was arrived at. */
-export type SizeEstimateBasis =
+type SizeEstimateBasis =
   /** Summed out of the video sample table, so it is this stretch's real bytes, not an average. */
   | "sample-table"
   /** No sample table (or none covering the stretch): the file's bytes spread evenly over its time. */

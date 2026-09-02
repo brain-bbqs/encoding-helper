@@ -231,7 +231,7 @@ ${holder.innerHTML}
  * of DOM for both, but the values here are a fixed paper palette rather than the app's theme
  * variables: an exported file has no app around it to inherit a theme from.
  */
-export const ANALYSIS_DOC_CSS = `
+const ANALYSIS_DOC_CSS = `
 :root {
   --ink: #1c2333;
   --ink-strong: #0b1020;

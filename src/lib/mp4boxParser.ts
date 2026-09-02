@@ -7,7 +7,7 @@ import MP4Box, { type ISOFile, type MP4BoxBox, type MP4BoxInfo } from "mp4box";
 import type { ChunkedSource } from "./chunkedSource";
 import type { BoxNode, DeclaredBitrate, SampleAnalysis, SampleInfo } from "./types";
 
-export interface Mp4BoxParseResult {
+interface Mp4BoxParseResult {
   mp4boxFile: ISOFile;
   info: MP4BoxInfo;
 }
@@ -61,7 +61,7 @@ export function extractBoxTree(mp4boxFile: ISOFile): BoxNode[] {
   return mp4boxFile.boxes.map(walk);
 }
 
-export function findTopLevelBox(tree: BoxNode[], type: string): BoxNode | null {
+function findTopLevelBox(tree: BoxNode[], type: string): BoxNode | null {
   return tree.find((b) => b.type === type) || null;
 }
 

@@ -11,7 +11,7 @@
 import type { SampleInfo } from "./types";
 
 /** One time window, and the rate the frames presented inside it worked out to. */
-export interface BitrateBin {
+interface BitrateBin {
   startSec: number;
   endSec: number;
   /** Bits of sample data in this window divided by the window's length, i.e. bits per second. */
@@ -49,7 +49,7 @@ const MIN_SAMPLES_PER_BIN = 2;
  * Set tight, because the cost of the two mistakes is not symmetric — a plot of a nearly flat line
  * is still honest, while suppressing one hides real variation the file has.
  */
-export const FLAT_PEAK_RATIO = 1.02;
+const FLAT_PEAK_RATIO = 1.02;
 
 /** Whether the measured windows are flat enough that a plot of them would say nothing. */
 export function isEffectivelyConstant(timeline: BitrateTimeline): boolean {

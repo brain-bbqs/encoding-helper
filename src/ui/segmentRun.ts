@@ -39,7 +39,7 @@ export interface RunUi {
  * single-threaded in-browser core is already a long wait; past that the projection is barely
  * improving anyway, since the band narrows with √n.
  */
-export const MAX_SEGMENTS = 10;
+const MAX_SEGMENTS = 10;
 
 /** The source file's bytes, read once and passed down a sweep rather than re-read per combination. */
 interface SourceBytes {
@@ -48,7 +48,7 @@ interface SourceBytes {
 }
 
 /** The longest stretch worth asking for on the loaded file: ten seconds, or the file when shorter. */
-export function maxSampleDuration(): number {
+function maxSampleDuration(): number {
   return Math.max(1, Math.min(10, state.duration || 10));
 }
 
@@ -464,7 +464,7 @@ export function acquireWorkers(taskCount: number): FfmpegWorker[] {
 }
 
 /** A run ended because Stop was pressed, which is not a failure to report as one. */
-export class RunStopped extends Error {
+class RunStopped extends Error {
   constructor() {
     super("Stopped");
     this.name = "RunStopped";
@@ -481,7 +481,7 @@ export class RunStopped extends Error {
  * error handling it already has, and the next run builds a fresh core. What that costs is the cut
  * stretches the terminated core was holding, which the next run cuts again.
  */
-export function requestStop(ui: RunUi): void {
+function requestStop(ui: RunUi): void {
   if (!encodeTest.running) return;
   encodeTest.cancelRequested = true;
   ui.stopButton.disabled = true;
