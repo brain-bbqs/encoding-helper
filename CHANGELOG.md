@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.4
+
+#### 🏠 Internal
+
+- Dead code removed, duplicated logic, stylesheet rules and demo-generator fragments consolidated, and the unit tests' fixtures shared, with no change in behaviour ([#39](https://github.com/brain-bbqs/encoding-helper/pull/39))
+
 ## 1.3.3
 
 #### 🚀 Enhancement
