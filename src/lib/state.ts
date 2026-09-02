@@ -8,7 +8,7 @@ import {
   DEFAULT_MATRIX_SCALERS,
   DEFAULT_MATRIX_SCALES,
 } from "./qualityMatrix";
-import type { AppState, CliState, EncodeTestState } from "./types";
+import type { AppState, CliState, EncodeTestState, VideoInfo } from "./types";
 
 export const state: AppState = {
   source: null,
@@ -140,7 +140,7 @@ export function resetState(): void {
 }
 
 /** Basic video-track info shared by the FFmpeg Command Builder and the encoding runs, or null pre-load. */
-export function currentVideoInfo(): { fps: number | null; width: number; height: number } | null {
+export function currentVideoInfo(): VideoInfo | null {
   const vt = state.tracks && state.tracks.find((t) => t.kind === "video");
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;
   return { fps: state.fps, width: vt.codedWidth, height: vt.codedHeight };

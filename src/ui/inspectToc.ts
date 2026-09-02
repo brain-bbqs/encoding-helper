@@ -63,7 +63,7 @@ export function mountInspectToc(panel: HTMLElement): void {
   const setActive = (id: string): void => {
     links.forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + id));
   };
-  scrollSpyObserver = new IntersectionObserver(
+  const observer = new IntersectionObserver(
     (entries) => {
       // The heading whose top is closest to (and above) the trigger line is the section being read;
       // scanning every heading each time keeps this correct even when several intersect at once.
@@ -73,6 +73,7 @@ export function mountInspectToc(panel: HTMLElement): void {
     },
     { rootMargin: "-96px 0px -70% 0px", threshold: 0 },
   );
-  headings.forEach((hd) => scrollSpyObserver?.observe(hd));
+  scrollSpyObserver = observer;
+  headings.forEach((hd) => observer.observe(hd));
   setActive(headings[0].id);
 }

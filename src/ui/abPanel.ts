@@ -394,19 +394,26 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   // How the downscaled side is drawn back up is a genuine choice, not a default worth hiding:
   // blocks show exactly which pixels survived, smoothing shows what a player would put on screen.
   // Only offered when something is actually being drawn back up.
-  const viewSelect = h("select", "compare-view-select");
-  viewSelect.id = "etUpscaleView";
-  viewSelect.setAttribute("aria-label", "How the downscaled encode is drawn");
-  for (const [value, label] of [
-    ["blocks", "Blocks (nearest)"],
-    ["smooth", "Smooth"],
-  ]) {
-    const opt = h("option", null, label);
-    opt.value = value;
-    if ((value === "smooth") === encodeTest.upscaleSmoothing) opt.selected = true;
-    viewSelect.append(opt);
-  }
   if (downscaled) {
+    const viewSelect = h("select", "compare-view-select");
+    viewSelect.id = "etUpscaleView";
+    viewSelect.setAttribute("aria-label", "How the downscaled encode is drawn");
+    for (const [value, label] of [
+      ["blocks", "Blocks (nearest)"],
+      ["smooth", "Smooth"],
+    ]) {
+      const opt = h("option", null, label);
+      opt.value = value;
+      if ((value === "smooth") === encodeTest.upscaleSmoothing) opt.selected = true;
+      viewSelect.append(opt);
+    }
+    viewSelect.addEventListener("change", () => {
+      encodeTest.upscaleSmoothing = viewSelect.value === "smooth";
+      syncEncLabel();
+      // Redraw where the playhead already is, so the switch shows on the frame being looked at
+      // rather than only on the next one.
+      drawFrom((parseFloat(scrub.value) / 1000) * shownSeconds);
+    });
     const viewWrap = h("div", "compare-view");
     viewWrap.append(h("span", "compare-view-label", "Downscaled view"), viewSelect, infoIcon(UPSCALE_VIEW_INFO));
     controls.append(viewWrap);
@@ -564,14 +571,6 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const currentSegment = (): number => locateInReel((parseFloat(scrub.value) / 1000) * shownSeconds).index;
   prevSegBtn.addEventListener("click", () => jumpToSegment(currentSegment() - 1));
   nextSegBtn.addEventListener("click", () => jumpToSegment(currentSegment() + 1));
-
-  viewSelect.addEventListener("change", () => {
-    encodeTest.upscaleSmoothing = viewSelect.value === "smooth";
-    syncEncLabel();
-    // Redraw where the playhead already is, so the switch shows on the frame being looked at
-    // rather than only on the next one.
-    drawFrom((parseFloat(scrub.value) / 1000) * shownSeconds);
-  });
 
   scrub.addEventListener("input", () => {
     const relT = (parseFloat(scrub.value) / 1000) * shownSeconds;

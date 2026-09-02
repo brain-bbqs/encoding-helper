@@ -70,14 +70,12 @@ async function loadSource(
   try {
     let source: ChunkedSource;
     let fileForMediabunny: File | null = null;
-    let urlForMediabunny: string | null = null;
     if (kind === "file") {
       source = ChunkedSource.fromFile(payload as File);
       fileForMediabunny = payload as File;
     } else {
       source = await ChunkedSource.fromUrl(payload as string, name);
       if (source.kind === "file" && source.file instanceof File) fileForMediabunny = source.file;
-      else urlForMediabunny = payload as string;
     }
     state.source = source;
     state.file = fileForMediabunny;
@@ -101,9 +99,7 @@ async function loadSource(
 
     setLoadingUi(els, "Reading metadata (mediabunny)…");
     const mb = await ensureMediabunny();
-    const mbSource = fileForMediabunny
-      ? new mb.BlobSource(fileForMediabunny)
-      : new mb.UrlSource(urlForMediabunny ?? "");
+    const mbSource = fileForMediabunny ? new mb.BlobSource(fileForMediabunny) : new mb.UrlSource(payload as string);
     const input = new mb.Input({ source: mbSource, formats: mb.ALL_FORMATS });
     const meta = await loadMediabunnyMetadata(input);
     state.input = input;

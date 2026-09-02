@@ -45,7 +45,7 @@ function isPresetScale(scale: number): boolean {
  * `cli.scale` from the remembered custom percentage instead of going through this. */
 function parseScale(value: string): number {
   const parsed = parseFloat(value);
-  return SCALE_OPTIONS.includes(parsed as (typeof SCALE_OPTIONS)[number]) ? parsed : 1;
+  return isPresetScale(parsed) ? parsed : 1;
 }
 
 /**

@@ -18,6 +18,8 @@ const MT = 16;
 const MB = 40;
 const PLOT_W = W - ML - MR;
 const PLOT_H = H - MT - MB;
+const PLOT_BOTTOM = MT + PLOT_H;
+const PLOT_RIGHT = ML + PLOT_W;
 const STEPS = 4;
 
 /**
@@ -79,7 +81,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
   const maxY = niceAxisMax(timeline.peakBitrate, STEPS);
   const unit = rateUnit(maxY);
   const xScale = (t: number): number => ML + (t / durationSec) * PLOT_W;
-  const yScale = (bps: number): number => MT + PLOT_H - (bps / maxY) * PLOT_H;
+  const yScale = (bps: number): number => PLOT_BOTTOM - (bps / maxY) * PLOT_H;
 
   const svg = svgEl("svg", {
     viewBox: `0 0 ${W} ${H}`,
@@ -95,26 +97,26 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
   for (let i = 0; i <= STEPS; i++) {
     const gx = ML + (PLOT_W * i) / STEPS;
     const gy = MT + (PLOT_H * i) / STEPS;
-    svg.append(svgEl("line", { class: "grid-line", x1: gx, y1: MT, x2: gx, y2: MT + PLOT_H, "stroke-width": 1 }));
-    svg.append(svgEl("line", { class: "grid-line", x1: ML, y1: gy, x2: ML + PLOT_W, y2: gy, "stroke-width": 1 }));
+    svg.append(svgEl("line", { class: "grid-line", x1: gx, y1: MT, x2: gx, y2: PLOT_BOTTOM, "stroke-width": 1 }));
+    svg.append(svgEl("line", { class: "grid-line", x1: ML, y1: gy, x2: PLOT_RIGHT, y2: gy, "stroke-width": 1 }));
     svg.append(
       text(
         "tick",
-        { x: gx, y: MT + PLOT_H + 16, "font-size": 10, "text-anchor": "middle" },
+        { x: gx, y: PLOT_BOTTOM + 16, "font-size": 10, "text-anchor": "middle" },
         fmtTime((durationSec * i) / STEPS, durationSec),
       ),
     );
     svg.append(
       text(
         "tick",
-        { x: ML - 8, y: MT + PLOT_H - (PLOT_H * i) / STEPS + 3, "font-size": 10, "text-anchor": "end" },
+        { x: ML - 8, y: PLOT_BOTTOM - (PLOT_H * i) / STEPS + 3, "font-size": 10, "text-anchor": "end" },
         ((maxY * i) / STEPS / unit.divisor).toFixed(decimals),
       ),
     );
   }
-  svg.append(svgEl("line", { class: "axis", x1: ML, y1: MT, x2: ML, y2: MT + PLOT_H, "stroke-width": 1 }));
+  svg.append(svgEl("line", { class: "axis", x1: ML, y1: MT, x2: ML, y2: PLOT_BOTTOM, "stroke-width": 1 }));
   svg.append(
-    svgEl("line", { class: "axis", x1: ML, y1: MT + PLOT_H, x2: ML + PLOT_W, y2: MT + PLOT_H, "stroke-width": 1 }),
+    svgEl("line", { class: "axis", x1: ML, y1: PLOT_BOTTOM, x2: PLOT_RIGHT, y2: PLOT_BOTTOM, "stroke-width": 1 }),
   );
   svg.append(
     text(
@@ -145,7 +147,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
     )
     .join(" ");
   const baseline = yScale(0);
-  svg.append(svgEl("path", { class: "area", d: `${steps} L${ML + PLOT_W},${baseline} L${ML},${baseline} Z` }));
+  svg.append(svgEl("path", { class: "area", d: `${steps} L${PLOT_RIGHT},${baseline} L${ML},${baseline} Z` }));
   svg.append(svgEl("path", { class: "line", d: steps, fill: "none", "stroke-width": 2 }));
 
   const yAvg = yScale(timeline.averageBitrate);
@@ -154,7 +156,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
       class: "avg-line",
       x1: ML,
       y1: yAvg,
-      x2: ML + PLOT_W,
+      x2: PLOT_RIGHT,
       y2: yAvg,
       "stroke-width": 1.5,
       "stroke-dasharray": "5 4",
@@ -165,7 +167,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
   svg.append(
     text(
       "avg-label",
-      { x: ML + PLOT_W - 2, y: labelAbove ? yAvg - 6 : yAvg + 14, "font-size": 10, "text-anchor": "end" },
+      { x: PLOT_RIGHT - 2, y: labelAbove ? yAvg - 6 : yAvg + 14, "font-size": 10, "text-anchor": "end" },
       `average ${fmtBits(timeline.averageBitrate)}`,
     ),
   );
@@ -183,7 +185,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
       `${b.sampleCount} frame${b.sampleCount === 1 ? "" : "s"}`;
     g.append(title);
     g.append(svgEl("rect", { class: "band", x, y: MT, width: w, height: PLOT_H }));
-    g.append(svgEl("line", { class: "cross", x1: cx, y1: MT, x2: cx, y2: MT + PLOT_H, "stroke-width": 1 }));
+    g.append(svgEl("line", { class: "cross", x1: cx, y1: MT, x2: cx, y2: PLOT_BOTTOM, "stroke-width": 1 }));
     g.append(svgEl("circle", { class: "dot", cx, cy: yScale(b.bitrate), r: 3.5, "stroke-width": 2 }));
     svg.append(g);
   }

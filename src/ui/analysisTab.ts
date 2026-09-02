@@ -405,7 +405,7 @@ function matrixSection(): AnalysisSection | null {
           ...head,
           ...presets.map((preset) => {
             const cell = byKey.get(comboKey(quality, preset, scale, scaler));
-            if (!cell || cell.bytes == null) return "–";
+            if (!cell) return "–";
             const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
             const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
             return `${fmtBytes(cell.bytes)}${took}${mark}`;

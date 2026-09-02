@@ -180,8 +180,8 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
   }
 
   let current: string | null = null;
-  let row = h("div", "demo-tiles");
-  let group = h("section", "section demos-group");
+  let row!: HTMLDivElement;
+  let group!: HTMLElement;
   for (const demo of shown) {
     const heading = headingOf(demo.group);
     if (heading.title !== current) {
@@ -269,9 +269,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     if (browser && set) renderDemoBrowser(browser, set, { search, onOpen });
   };
 
-  const load = (): void => {
-    const target = browser;
-    if (!target) return;
+  const load = (target: HTMLElement): void => {
     target.replaceChildren(h("p", "demos-loading", "Reading the demo set from the archive…"));
     fetchDemoSet()
       .then((fetched) => {
@@ -279,7 +277,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
         rerender();
       })
       .catch((err: unknown) => {
-        target.replaceChildren(errorBox(err, load));
+        target.replaceChildren(errorBox(err, () => load(target)));
       });
   };
 
@@ -308,7 +306,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
 
     browser = h("div", "demos-browser");
     page.replaceChildren(head, searchBox(), browser);
-    load();
+    load(browser);
   };
 
   const open = (push: boolean): void => {

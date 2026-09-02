@@ -132,6 +132,11 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
     return ffmpeg;
   };
 
+  const deleteFile = async (name: string): Promise<void> => {
+    files.delete(name);
+    await instance?.deleteFile(name).catch(() => {});
+  };
+
   const reset = (): void => {
     instance?.terminate();
     instance = null;
@@ -182,7 +187,7 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
         throw new Error(describeFfmpegFailure(err));
       }
       // Only on the way out of a healthy run: a dead instance has no filesystem left to tidy.
-      await this.deleteFile(outputName);
+      await deleteFile(outputName);
       return { data };
     },
     async runToFile(args, outputName) {
@@ -199,10 +204,7 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
       const ffmpeg = await ensureLoaded();
       return new Uint8Array((await ffmpeg.readFile(name)) as Uint8Array);
     },
-    async deleteFile(name) {
-      files.delete(name);
-      await instance?.deleteFile(name).catch(() => {});
-    },
+    deleteFile,
     reset,
   };
 }

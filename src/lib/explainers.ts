@@ -52,13 +52,10 @@ export const CONTAINER_PREAMBLE =
  *
  * `atomMapHref` turns the <b>Atom Map</b> a record mentions into a link to wherever the map is on
  * the page doing the rendering — a section of the Inspect tab, a section of the Full Analysis
- * document — since the two anchor it under different headings. Left out, the mention stays plain
- * text rather than pointing somewhere that is not there.
+ * document — since the two anchor it under different headings.
  */
-export function containerExplainer(info: ContainerInfo, atomMapHref?: string | null): string {
-  const description = atomMapHref
-    ? info.description.replace("<b>Atom Map</b>", `<a href="${atomMapHref}"><b>Atom Map</b></a>`)
-    : info.description;
+export function containerExplainer(info: ContainerInfo, atomMapHref: string): string {
+  const description = info.description.replace("<b>Atom Map</b>", `<a href="${atomMapHref}"><b>Atom Map</b></a>`);
   return (
     `<b>${info.name}</b> (${info.fullName}; ${info.extensions}). ${description}` +
     `<p><b>Video codecs it can carry:</b> ${info.video}<br>` +

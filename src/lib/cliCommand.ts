@@ -1,9 +1,9 @@
 // CLI command builder — single source of truth, shared by the displayed command AND the args fed to
 // ffmpeg.wasm.
 
-import type { CliState, Scaler, VideoInfo } from "./types";
+import type { CliState, MatrixQuality, Scaler, VideoInfo } from "./types";
 
-export const CRF_MAP: Record<Exclude<CliState["quality"], "custom">, number> = {
+export const CRF_MAP: Record<MatrixQuality, number> = {
   lossless: 0,
   high: 18,
   medium: 25,
@@ -62,9 +62,10 @@ export function scaledDimensions(width: number, height: number, scale: number): 
 /** e.g. "50% (320×240)", the label the resolution dropdown carries once a file is loaded. */
 export function describeScale(scale: number, info?: { width: number; height: number } | null): string {
   const pct = `${Math.round(scale * 100)}%`;
-  if (!info || !(info.width > 0) || !(info.height > 0)) return scale === 1 ? "Source (100%)" : pct;
+  const label = scale === 1 ? "Source (100%)" : pct;
+  if (!info || !(info.width > 0) || !(info.height > 0)) return label;
   const { width, height } = scaledDimensions(info.width, info.height, scale);
-  return `${scale === 1 ? "Source (100%)" : pct} (${width}×${height})`;
+  return `${label} (${width}×${height})`;
 }
 
 export function computeGop(cliState: CliState, fps: number): number {
@@ -126,13 +127,10 @@ export function formatCliCommand(args: string[]): string {
   const lines: string[] = [];
   let line = "ffmpeg";
   for (let i = 0; i < args.length; i++) {
-    const tok = quote(args[i]);
+    line += " " + quote(args[i]);
     if (BREAK_AFTER.has(args[i]) || i === args.length - 1) {
-      line += " " + tok;
       lines.push(line + (i === args.length - 1 ? "" : " \\"));
       line = " ";
-    } else {
-      line += " " + tok;
     }
   }
   if (line.trim()) lines.push(line);

@@ -53,7 +53,7 @@ export function samplePicker(): SamplePicker | null {
   band.setAttribute("role", "slider");
   band.setAttribute("aria-label", "Which seconds of the video to encode");
   band.setAttribute("aria-valuemin", "0");
-  band.setAttribute("aria-valuemax", Math.max(0, total - windowSeconds).toFixed(1));
+  band.setAttribute("aria-valuemax", (total - windowSeconds).toFixed(1));
   track.append(band);
   const ruler = h("div", "sample-ruler");
   ruler.setAttribute("aria-hidden", "true");
@@ -78,8 +78,8 @@ export function samplePicker(): SamplePicker | null {
   /** Where the encode actually begins: the cut is made at a keyframe, so the track says so rather
    * than showing a start the run would quietly move. */
   const snapped = (): number => {
-    const at = nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, start());
-    return at == null ? start() : at;
+    const from = start();
+    return nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, from) ?? from;
   };
 
   // Bumped per requested frame, so a drag that outruns the decoder draws the frame it ended on
@@ -119,7 +119,7 @@ export function samplePicker(): SamplePicker | null {
 
   const sync = (): void => {
     const from = start();
-    const left = total > 0 ? (from / total) * 100 : 0;
+    const left = (from / total) * 100;
     band.style.left = left.toFixed(3) + "%";
     band.style.width = Math.min(100 - left, (windowSeconds / total) * 100).toFixed(3) + "%";
     band.setAttribute("aria-valuenow", from.toFixed(1));

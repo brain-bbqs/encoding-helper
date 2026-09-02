@@ -658,12 +658,11 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
       cell.blobs = blobs;
       cell.bytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
     }
-    const heldBytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
     // The A/B window compares against the seconds the grid was measured over, which the start and
     // duration fields may have been moved off since.
     syncSegmentToMatrix();
     await loadEncodedIntoAB(blobs, cell.combo, vt, ui.resultSec, {
-      bytes: cell.bytes ?? heldBytes,
+      bytes: cell.bytes ?? blobs.reduce((sum, blob) => sum + blob.size, 0),
       windows: matrixCellWindows(cell),
     });
   } catch (err) {
@@ -680,14 +679,12 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
 
 /** What the ticked fractions come to for the loaded file: absolute rates, the source's own as null. */
 function matrixFps(): (number | null)[] {
-  const sourceFps = currentVideoInfo()?.fps ?? state.fps;
-  const values = encodeTest.matrix.fpsFractions.map((f) => fpsForFraction(f, sourceFps));
-  return values.length ? values : [null];
+  return encodeTest.matrix.fpsFractions.map((f) => fpsForFraction(f, state.fps));
 }
 
 /** One tick's label: the source's own rate, or the rate the fraction comes to for this file. */
 function describeFpsFraction(fraction: number): string {
-  const rate = fpsForFraction(fraction, currentVideoInfo()?.fps ?? state.fps);
+  const rate = fpsForFraction(fraction, state.fps);
   if (rate == null) return "Source";
   return `${Math.round(fraction * 100)}% (${fmtRate(rate)} fps)`;
 }

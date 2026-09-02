@@ -152,7 +152,7 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
   const sampledFraction = Math.min(1, sampledSeconds / totalSeconds);
   const samples = input.samples ?? [];
   const totalVideoBytes = samples.reduce((sum, s) => sum + s.size, 0);
-  const window = windows.reduce(
+  const sampled = windows.reduce(
     (acc, w) => {
       const got = windowBytes(samples, w.startSeconds, w.seconds);
       return { bytes: acc.bytes + got.bytes, count: acc.count + got.count };
@@ -166,10 +166,10 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
   // fresh container either way), so leaving them out of the original side would compare a snippet
   // with audio against a stretch without it.
   const nonVideoBytes = Math.max(0, originalTotalBytes - totalVideoBytes);
-  const useSampleTable = totalVideoBytes > 0 && window.count >= MIN_WINDOW_SAMPLES && window.bytes > 0;
+  const useSampleTable = totalVideoBytes > 0 && sampled.count >= MIN_WINDOW_SAMPLES && sampled.bytes > 0;
   const basis: SizeEstimateBasis = useSampleTable ? "sample-table" : "proportional";
   const originalSegmentBytes = useSampleTable
-    ? window.bytes + nonVideoBytes * sampledFraction
+    ? sampled.bytes + nonVideoBytes * sampledFraction
     : originalTotalBytes * sampledFraction;
   if (!(originalSegmentBytes > 0)) return null;
 
@@ -195,8 +195,7 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
       ? null
       : { low: Math.max(0, projectedTotalBytes * (1 - band)), high: projectedTotalBytes * (1 + band) };
 
-  const windowDifficulty =
-    useSampleTable && totalVideoBytes > 0 ? window.bytes / sampledSeconds / (totalVideoBytes / totalSeconds) : null;
+  const windowDifficulty = useSampleTable ? sampled.bytes / sampledSeconds / (totalVideoBytes / totalSeconds) : null;
 
   return {
     basis,
@@ -257,7 +256,7 @@ export function windowsForRun(
 export function pickSampleWindows(totalSeconds: number, seconds: number, count: number): SampleWindow[] {
   if (!(totalSeconds > 0) || !(seconds > 0)) return [];
   const length = Math.min(seconds, totalSeconds);
-  const wanted = Math.min(Math.max(1, count), Math.max(1, Math.floor(totalSeconds / length)));
+  const wanted = Math.min(Math.max(1, count), Math.floor(totalSeconds / length));
   const band = totalSeconds / wanted;
   const windows: SampleWindow[] = [];
   for (let i = 0; i < wanted; i++) {
@@ -265,7 +264,7 @@ export function pickSampleWindows(totalSeconds: number, seconds: number, count: 
     // is clamped to leave the whole stretch inside the file.
     const room = Math.max(0, Math.min(band, totalSeconds - i * band) - length);
     const start = Math.min(i * band + Math.random() * room, totalSeconds - length);
-    windows.push({ startSeconds: Math.max(0, start), seconds: length });
+    windows.push({ startSeconds: start, seconds: length });
   }
   return windows;
 }

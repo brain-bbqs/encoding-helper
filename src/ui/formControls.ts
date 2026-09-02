@@ -120,10 +120,7 @@ export function logConsole(): { wrap: HTMLDetailsElement; log: HTMLDivElement } 
 export function clearLog(container: HTMLDivElement): void {
   container.innerHTML = "";
   const wrap = container.closest<HTMLElement>(".log-details");
-  if (!wrap) {
-    container.style.display = "none";
-    return;
-  }
+  if (!wrap) return;
   wrap.style.display = "none";
   const count = wrap.querySelector(".log-count");
   if (count) count.textContent = "";
@@ -135,9 +132,7 @@ export function logLine(
   level: "info" | "success" | "warn" | "error" = "info",
 ): void {
   const wrap = container.closest<HTMLElement>(".log-details");
-  // A console outside a fold shows itself, as it did before there was one to hide behind.
   if (wrap) wrap.style.display = "";
-  else container.style.display = "block";
   const line = h("div", "l " + level, msg);
   container.append(line);
   container.scrollTop = container.scrollHeight;

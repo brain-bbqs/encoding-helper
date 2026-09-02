@@ -62,7 +62,7 @@ export function flattenMetadataTags(): Record<string, unknown> {
         // optional MetadataTags field being absent never surfaces here as an explicit undefined
         // value — only its presence with a real (possibly object-typed, or empty-string) value does.
         typeof v !== "object" &&
-        !(typeof v === "string" && v === "")
+        v !== ""
       ) {
         flatTags[k] = v;
       }

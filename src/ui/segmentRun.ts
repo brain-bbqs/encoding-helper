@@ -323,10 +323,11 @@ export async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[
   // Nothing to cut, so every core needs the whole video. That is the case a pool cannot help with
   // and should not be paid for, so it runs on one core alone.
   const source = await readSource();
-  await workers[0].ensureInput(inputNameFor(source), source.data);
+  const inputName = inputNameFor(source);
+  await workers[0].ensureInput(inputName, source.data);
   return {
     windows,
-    names: windows.map(() => inputNameFor(source)),
+    names: windows.map(() => inputName),
     data: windows.map(() => source.data),
     preCut: false,
     wholeFileOn: workers[0],

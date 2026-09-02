@@ -276,10 +276,11 @@ export function openMatrixCache(options: MatrixCacheOptions = {}): MatrixCache {
         );
         // Checked rather than trusted, for the same reason a measurement is: this came off a
         // database, not out of the run that wrote it.
-        const stretches = (record && Array.isArray(record.w) ? (record.w as unknown[]) : []).filter(
+        if (!record || !Array.isArray(record.w)) return null;
+        const stretches = (record.w as unknown[]).filter(
           (pair): pair is [number, number] => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite),
         );
-        if (!record || !stretches.length || stretches.length !== record.w.length) return null;
+        if (!stretches.length || stretches.length !== record.w.length) return null;
         await touch(db, WINDOWS, [record]);
         return stretches.map(([startSeconds, length]) => ({ startSeconds, seconds: length }));
       } catch {

@@ -26,7 +26,7 @@ export interface AxisRange {
 }
 
 /** An atom with the slice of the axis it was given, and its children placed inside that slice. */
-interface Placement {
+export interface Placement {
   box: BoxNode;
   from: number;
   to: number;
@@ -93,7 +93,6 @@ export function countAtoms(box: BoxNode): number {
 function place(boxes: BoxNode[], from: number, to: number): Placement[] {
   const weights = boxes.map(countAtoms);
   const total = weights.reduce((a, b) => a + b, 0);
-  if (total === 0) return [];
   const span = to - from;
   let cursor = from;
   return boxes.map((box, i) => {
@@ -176,8 +175,6 @@ export function layoutAtoms(placements: Placement[], view: AxisRange, minWidth: 
   let truncated = false;
 
   const pushGroup = (depth: number, run: Clipped[], inherited: string | null): void => {
-    if (run.length === 0) return;
-    laneCount = Math.max(laneCount, depth + 1);
     const from = run[0].from;
     const to = run[run.length - 1].to;
     // Folded rather than spread: a fragmented file's run can hold tens of thousands of atoms, well
@@ -213,6 +210,7 @@ export function layoutAtoms(placements: Placement[], view: AxisRange, minWidth: 
         truncated = true;
         return;
       }
+      laneCount = Math.max(laneCount, depth + 1);
       const current = visible[i];
       const width = (current.to - current.from) / span;
       if (width < floor) {
@@ -230,7 +228,6 @@ export function layoutAtoms(placements: Placement[], view: AxisRange, minWidth: 
         i = end;
         continue;
       }
-      laneCount = Math.max(laneCount, depth + 1);
       const box = current.placement.box;
       // Top-level atoms name their own family; everything below inherits the one it descends from.
       const family = inherited ?? box.type;

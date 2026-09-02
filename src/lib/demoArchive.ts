@@ -175,7 +175,7 @@ export function buildDemoSet(desc: DatasetDescription, assets: ArchiveAsset[]): 
 
   const demos: DemoFile[] = videos.map((video) => {
     const entry: SessionEntry = sessions[video.session] ?? {};
-    const fileName = video.path.split("/").pop() ?? video.path;
+    const fileName = video.path.slice(video.path.lastIndexOf("/") + 1);
     return {
       session: video.session,
       title: entry.title ?? fileName,

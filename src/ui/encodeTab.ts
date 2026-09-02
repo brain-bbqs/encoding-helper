@@ -6,7 +6,7 @@
 // only useful next to the command that setting comes to, and the whole-file encode is that same
 // command over the whole file rather than a separate feature.
 
-import { isDownscale } from "../lib/cliCommand";
+import { CRF_MAP, isDownscale } from "../lib/cliCommand";
 import { cmdBlock, h, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
@@ -54,10 +54,10 @@ export function renderEncodeTab(panel: HTMLElement): void {
     "cliQuality",
     "Quality",
     [
-      ["lossless", "Lossless (CRF 0)"],
-      ["high", "High (CRF 18)"],
-      ["medium", "Medium (CRF 25)"],
-      ["low", "Low (CRF 32)"],
+      ["lossless", `Lossless (CRF ${CRF_MAP.lossless})`],
+      ["high", `High (CRF ${CRF_MAP.high})`],
+      ["medium", `Medium (CRF ${CRF_MAP.medium})`],
+      ["low", `Low (CRF ${CRF_MAP.low})`],
       ["custom", "Custom CRF"],
     ],
     cli.quality,
@@ -75,20 +75,19 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const cliScalerField = fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
   // Shown at every resolution, the way the sweep lists its kernels, but only live where something is
   // being resampled: at full resolution there is nothing for a kernel to do.
-  cliScalerField.querySelector("select")?.toggleAttribute("disabled", !isDownscale(cli.scale));
+  const scalerSelect = cliScalerField.querySelector("select")!;
+  scalerSelect.toggleAttribute("disabled", !isDownscale(cli.scale));
   row1.append(cliScalerField);
-  row1.append(
-    fieldSelect(
-      "cliPreset",
-      "x264 Preset",
-      ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"].map(
-        (p) => [p, p] as [string, string],
-      ),
-      cli.preset,
-      X264_PRESET_INFO,
-    ),
+  const presetField = fieldSelect(
+    "cliPreset",
+    "x264 Preset",
+    ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"],
+    cli.preset,
+    X264_PRESET_INFO,
   );
-  row1.append(fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1));
+  row1.append(presetField);
+  const kfField = fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1);
+  row1.append(kfField);
   form.append(row1);
   // Content-width rather than a third of the form each: the labels differ in length, so equal
   // shares put them at three arbitrary distances from their boxes.
@@ -145,50 +144,64 @@ export function renderEncodeTab(panel: HTMLElement): void {
   builderSec.append(cmdWrap);
   panel.append(builderSec);
 
-  const bindNumber = (id: string, key: "keyframeInterval" | "fps", isFloat: boolean): void => {
-    document.getElementById(id)?.addEventListener("input", (e) => {
-      const v = (e.target as HTMLInputElement).value;
-      const parsed = v === "" ? null : isFloat ? parseFloat(v) : parseInt(v, 10);
-      if (key === "keyframeInterval") cli.keyframeInterval = parsed ?? cli.keyframeInterval;
-      else cli.fps = parsed;
+  const bindNumber = (
+    input: HTMLInputElement,
+    parse: (v: string) => number,
+    assign: (parsed: number | null) => void,
+  ): void => {
+    input.addEventListener("input", () => {
+      const v = input.value;
+      assign(v === "" ? null : parse(v));
       refreshCliCommand();
     });
   };
-  document.getElementById("cliQuality")?.addEventListener("change", (e) => {
-    cli.quality = (e.target as HTMLSelectElement).value as typeof cli.quality;
+  const qualitySelect = qualityField.querySelector("select")!;
+  qualitySelect.addEventListener("change", () => {
+    cli.quality = qualitySelect.value as typeof cli.quality;
     syncQualityControls();
   });
-  document.getElementById("cliCrf")?.addEventListener("input", (e) => {
-    cli.crf = parseInt((e.target as HTMLInputElement).value, 10) || 0;
+  const crfInput = crfField.querySelector("input")!;
+  crfInput.addEventListener("input", () => {
+    cli.crf = parseInt(crfInput.value, 10) || 0;
     syncQualityControls();
   });
-  document.getElementById("cliPreset")?.addEventListener("change", (e) => {
-    cli.preset = (e.target as HTMLSelectElement).value as typeof cli.preset;
+  const presetSelect = presetField.querySelector("select")!;
+  presetSelect.addEventListener("change", () => {
+    cli.preset = presetSelect.value as typeof cli.preset;
     syncQualityControls();
   });
   bindResolutionControls();
-  document.getElementById("cliScaler")?.addEventListener("change", (e) => {
-    cli.scaler = parseScaler((e.target as HTMLSelectElement).value);
+  scalerSelect.addEventListener("change", () => {
+    cli.scaler = parseScaler(scalerSelect.value);
     syncQualityControls();
   });
-  bindNumber("cliKeyframeInterval", "keyframeInterval", true);
-  document.getElementById("cliNoBFrames")?.addEventListener("change", (e) => {
-    cli.noBFrames = (e.target as HTMLInputElement).checked;
+  bindNumber(kfField.querySelector("input")!, parseFloat, (parsed) => {
+    cli.keyframeInterval = parsed ?? cli.keyframeInterval;
+  });
+  bfCheck.addEventListener("change", () => {
+    cli.noBFrames = bfCheck.checked;
     refreshCliCommand();
   });
-  document.getElementById("cliPad")?.addEventListener("change", (e) => {
-    cli.pad = (e.target as HTMLInputElement).checked;
+  padCheck.addEventListener("change", () => {
+    cli.pad = padCheck.checked;
     refreshCliCommand();
   });
-  document.getElementById("cliFaststart")?.addEventListener("change", (e) => {
-    cli.faststart = (e.target as HTMLInputElement).checked;
+  fsCheck.addEventListener("change", () => {
+    cli.faststart = fsCheck.checked;
     refreshCliCommand();
   });
-  document.getElementById("cliAudio")?.addEventListener("change", (e) => {
-    cli.audioMode = (e.target as HTMLSelectElement).value as typeof cli.audioMode;
+  const audioSelect = audioField.querySelector("select")!;
+  audioSelect.addEventListener("change", () => {
+    cli.audioMode = audioSelect.value as typeof cli.audioMode;
     refreshCliCommand();
   });
-  bindNumber("cliFps", "fps", false);
+  bindNumber(
+    fpsField.querySelector("input")!,
+    (v) => parseInt(v, 10),
+    (parsed) => {
+      cli.fps = parsed;
+    },
+  );
   refreshCliCommand();
 
   panel.append(sampleRunSection(vt));
@@ -254,7 +267,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     await workers[0].load();
     inputs = await prepareRun(windows, workers, ui);
     // The A/B window draws the original from startTime, so it follows the stretch actually shown.
-    encodeTest.startTime = windows[0]?.startSeconds ?? encodeTest.startTime;
+    encodeTest.startTime = windows[0].startSeconds;
     ui.note.textContent = "Encoding test segment…";
     const { blobs, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;

@@ -61,8 +61,7 @@ interface CellFace {
 }
 
 /** A finished square: the change it came to, what that projects to, and what it cost to find out. */
-function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
-  const bytes = cell.bytes ?? 0;
+function doneFace(cell: MatrixCell, bytes: number, est: SizeEstimate | null): CellFace {
   const change = est ? (est.ratio - 1 >= 0 ? "+" : "−") + fmtPct(Math.abs(est.ratio - 1)) : fmtBytes(bytes);
   const sub = [est ? fmtBytes(est.projectedTotalBytes) : fmtBytes(bytes)];
   // ↺ against the time, since the time is the figure the mark is about: the bytes are the same
@@ -94,37 +93,40 @@ function releasedNote(cell: MatrixCell): string {
 }
 
 function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
-  if (cell.status === "done" && cell.bytes != null) return doneFace(cell, est);
+  if (cell.status === "done" && cell.bytes != null) return doneFace(cell, cell.bytes, est);
   const settings = describeSettings(cell.combo);
   if (cell.status === "running") {
+    const text = `${settings} — encoding now`;
     return {
       main: "…",
       factor: "",
       sub: "encoding",
-      title: `${settings} — encoding now`,
-      label: `${settings} — encoding now`,
+      title: text,
+      label: text,
       pending: true,
       grew: false,
     };
   }
   if (cell.status === "failed") {
+    const text = `${settings} — ${cell.error ?? "failed"}. Click to try it again.`;
     return {
       main: "✕",
       factor: "",
       sub: "retry",
-      title: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
-      label: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
+      title: text,
+      label: text,
       pending: false,
       grew: false,
     };
   }
   const skipped = cell.status === "skipped";
+  const text = `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`;
   return {
     main: "–",
     factor: "",
     sub: skipped ? "run it" : "queued",
-    title: `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`,
-    label: `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`,
+    title: text,
+    label: text,
     pending: true,
     grew: false,
   };

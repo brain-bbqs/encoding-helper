@@ -220,9 +220,8 @@ function writeClipboard(text: string, done: () => void): void {
     });
 }
 
-export function copyToClipboard(text: string, btn?: HTMLButtonElement | null): void {
+export function copyToClipboard(text: string, btn: HTMLButtonElement): void {
   writeClipboard(text, () => {
-    if (!btn) return;
     const orig = btn.textContent;
     btn.textContent = "Copied!";
     setTimeout(() => {

@@ -2,7 +2,7 @@
 
 import type { ChromaFormat } from "./chromaFormat";
 
-import type { Input, InputVideoTrack, MetadataTags } from "mediabunny";
+import type { CanvasSink, Input, InputVideoTrack, MetadataTags } from "mediabunny";
 import type { ChunkedSource } from "./chunkedSource";
 
 /** One row in a codec's parsed detail list (e.g. "Profile: High", "Level: 4.0"). */
@@ -198,7 +198,7 @@ export interface AbSegment {
   /** Where the stretch sits in the source, which is what the original side is drawn from. */
   window: SampleWindow;
   /** The encoded copy, whose own timeline starts at zero however far into the source it came from. */
-  sink: import("mediabunny").CanvasSink;
+  sink: CanvasSink;
   /** That copy's measured length, which is the stretch of it there is anything to draw over. */
   seconds: number;
 }
@@ -249,7 +249,7 @@ export interface EncodeTestState {
   running: boolean;
   /** Set by the Stop button; a run checks it between (and inside) encodes. */
   cancelRequested: boolean;
-  originalSink: import("mediabunny").CanvasSink | null;
+  originalSink: CanvasSink | null;
   /** Every stretch the loaded comparison covers, in the order the window plays them. */
   abSegments: AbSegment[];
   /** The Inputs behind those sinks, held so they can be disposed when the next encode takes over. */
