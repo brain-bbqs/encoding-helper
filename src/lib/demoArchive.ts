@@ -108,9 +108,12 @@ const VIDEO_PATH_RE = /(?:^|\/)ses-([A-Za-z0-9]+)\/[^/]+\/[^/]*_video\.([A-Za-z0
 
 const DESCRIPTION_PATH = "dataset_description.json";
 
+/** The archive's asset collection for the demo dataset, which every asset URL hangs off. */
+const ASSETS_URL = `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/`;
+
 /** Where the archive serves one asset's bytes. Redirects to storage, so it is fetchable directly. */
 export function assetDownloadUrl(assetId: string): string {
-  return `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/${assetId}/download/`;
+  return `${ASSETS_URL}${assetId}/download/`;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -120,9 +123,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function listAssets(): Promise<ArchiveAsset[]> {
-  const first =
-    `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/` +
-    `?metadata=false&page_size=${ASSET_PAGE_SIZE}`;
+  const first = `${ASSETS_URL}?metadata=false&page_size=${ASSET_PAGE_SIZE}`;
   const out: ArchiveAsset[] = [];
   let next: string | null = first;
   for (let page = 0; next && page < MAX_ASSET_PAGES; page++) {

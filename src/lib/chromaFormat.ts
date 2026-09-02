@@ -80,15 +80,19 @@ function fromAv1C(data: Uint8Array): ChromaFormat | null {
   return "4:4:4";
 }
 
+/** VP9's subsampling code, as `vpcC` and the codec string both carry it. 0 and 1 are both 4:2:0,
+ * differing only in where the chroma sample sits. */
+function vp9ChromaFromCode(code: number): ChromaFormat | null {
+  if (code <= 1) return "4:2:0";
+  if (code === 2) return "4:2:2";
+  if (code === 3) return "4:4:4";
+  return null;
+}
+
 /** `vpcC`'s third byte packs bit depth and the subsampling code (VP Codec ISOBMFF §2.2). */
 function fromVpcC(data: Uint8Array): ChromaFormat | null {
   if (data.length < 3) return null;
-  const subsampling = (data[2] >> 1) & 0x07;
-  // 0 and 1 are both 4:2:0, differing only in where the chroma sample sits.
-  if (subsampling <= 1) return "4:2:0";
-  if (subsampling === 2) return "4:2:2";
-  if (subsampling === 3) return "4:4:4";
-  return null;
+  return vp9ChromaFromCode((data[2] >> 1) & 0x07);
 }
 
 /** The description as WebCodecs hands it over: a buffer, or a view onto one (shared or not). */
@@ -133,10 +137,7 @@ export function chromaFromCodecString(codec: string | null, codecString: string 
 
   // vp09.PP.LL.DD.CC — the fifth field is the subsampling code, and is often left off.
   const vp9 = /^vp09(?:\.\d+){3}\.(\d+)/.exec(codecString);
-  if (vp9) {
-    const code = parseInt(vp9[1], 10);
-    return code <= 1 ? "4:2:0" : code === 2 ? "4:2:2" : code === 3 ? "4:4:4" : null;
-  }
+  if (vp9) return vp9ChromaFromCode(parseInt(vp9[1], 10));
   return null;
 }
 

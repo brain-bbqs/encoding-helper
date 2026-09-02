@@ -13,7 +13,7 @@ import {
 } from "../lib/cliCommand";
 import { gridItem, h } from "../lib/dom";
 import { RESOLUTION_INFO } from "../lib/explainers";
-import { fmtBytes } from "../lib/format";
+import { fmtBytes, fmtSizeChangePct } from "../lib/format";
 import { fmtChangeFactor } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, state } from "../lib/state";
 import type { Scaler } from "../lib/types";
@@ -141,7 +141,6 @@ export function syncQualityControls(): void {
  */
 export function showReencodeResult(box: EngineBox, origSize: number, outSize: number): void {
   state.reencodeResult = { originalSize: origSize, encodedSize: outSize };
-  const pct = (1 - outSize / origSize) * 100;
   box.result.innerHTML = "";
   const g = h("div", "grid");
   g.append(
@@ -149,10 +148,7 @@ export function showReencodeResult(box: EngineBox, origSize: number, outSize: nu
     gridItem("Encoded Size", fmtBytes(outSize)),
     gridItem(
       "Change",
-      (pct >= 0 ? "-" : "+") +
-        Math.abs(pct).toFixed(1) +
-        "%" +
-        (origSize > 0 ? ` (${fmtChangeFactor(outSize / origSize)})` : ""),
+      fmtSizeChangePct(origSize, outSize) + (origSize > 0 ? ` (${fmtChangeFactor(outSize / origSize)})` : ""),
     ),
   );
   box.result.append(g);

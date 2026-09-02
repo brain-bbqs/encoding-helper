@@ -11,7 +11,7 @@
 
 import { h } from "../lib/dom";
 import { fmtBytes, fmtRate } from "../lib/format";
-import { isDownscale } from "../lib/cliCommand";
+import { isDownscale, scalePercent } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
 import type { MatrixCell, Scaler } from "../lib/types";
@@ -210,7 +210,7 @@ function blockTitleRow(
   const row = h("tr", "matrix-group-row" + band);
   const th = h("th", "matrix-group-head");
   th.colSpan = width + 1;
-  th.append(h("span", "matrix-group-title", opts.scaleLabel?.(block.scale) ?? `${Math.round(block.scale * 100)}%`));
+  th.append(h("span", "matrix-group-title", opts.scaleLabel?.(block.scale) ?? scalePercent(block.scale)));
   // The kernel and the rate are footnotes to the resolution rather than peers of it: one only
   // changes how the pixels were resampled, and at the source resolution it changed nothing at all;
   // the other is absent from every block of a sweep that left the rate alone.

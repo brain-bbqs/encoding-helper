@@ -11,7 +11,7 @@
 // surface is the wrong thing to send to a printer. Its stylesheet is inlined into the exported file
 // so the document keeps its look with no network and no app around it.
 
-import { gridItem, h, teachBox } from "./dom";
+import { escapeHtml, gridItem, h, teachBox } from "./dom";
 import type { AnalysisBlock, AnalysisSection } from "./types";
 
 /** Anchor id for a section heading, used by the document's contents list. */
@@ -166,15 +166,6 @@ export function renderSectionsToMarkdown(sections: AnalysisSection[], meta: Docu
   return lines.join("\n");
 }
 
-function escapeHtmlText(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 /**
  * The whole document as one self-contained HTML string: no external stylesheet, no script, no
  * fetched asset, so it opens the same from a downloads folder as it does in the preview.
@@ -185,13 +176,11 @@ export function buildAnalysisDocument(sections: AnalysisSection[], meta: Documen
   const facts = meta.facts
     .map(
       ([k, v]) =>
-        `<div class="fact"><span class="fact-key">${escapeHtmlText(k)}</span>` +
-        `<span class="fact-val">${escapeHtmlText(v)}</span></div>`,
+        `<div class="fact"><span class="fact-key">${escapeHtml(k)}</span>` +
+        `<span class="fact-val">${escapeHtml(v)}</span></div>`,
     )
     .join("");
-  const contents = sections
-    .map((s) => `<li><a href="#${slugify(s.title)}">${escapeHtmlText(s.title)}</a></li>`)
-    .join("");
+  const contents = sections.map((s) => `<li><a href="#${slugify(s.title)}">${escapeHtml(s.title)}</a></li>`).join("");
   const title = `Encoding Helper analysis: ${meta.fileName}`;
 
   return `<!doctype html>
@@ -199,8 +188,8 @@ export function buildAnalysisDocument(sections: AnalysisSection[], meta: Documen
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="Encoding Helper v${escapeHtmlText(meta.version)}">
-<title>${escapeHtmlText(title)}</title>
+<meta name="generator" content="Encoding Helper v${escapeHtml(meta.version)}">
+<title>${escapeHtml(title)}</title>
 <style>
 ${ANALYSIS_DOC_CSS}
 </style>
@@ -209,9 +198,9 @@ ${ANALYSIS_DOC_CSS}
 <article class="doc">
 <header class="doc-head">
 <p class="doc-eyebrow">Encoding Helper &middot; Full Analysis</p>
-<h1>${escapeHtmlText(meta.fileName)}</h1>
-<p class="doc-meta">Generated ${escapeHtmlText(meta.generated)} &middot; v${escapeHtmlText(meta.version)} &middot;
-<a href="${escapeHtmlText(meta.appUrl)}">${escapeHtmlText(meta.appUrl)}</a></p>
+<h1>${escapeHtml(meta.fileName)}</h1>
+<p class="doc-meta">Generated ${escapeHtml(meta.generated)} &middot; v${escapeHtml(meta.version)} &middot;
+<a href="${escapeHtml(meta.appUrl)}">${escapeHtml(meta.appUrl)}</a></p>
 ${facts ? `<div class="doc-facts">${facts}</div>` : ""}
 </header>
 <nav class="doc-toc" aria-label="Contents">

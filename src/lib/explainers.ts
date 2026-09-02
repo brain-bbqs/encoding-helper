@@ -65,8 +65,8 @@ export function containerExplainer(info: ContainerInfo, atomMapHref: string): st
 }
 
 /** One record per container the app recognizes, shown by containerExplainer above. */
-export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
-  MP4: {
+const CONTAINER_RECORDS: ContainerInfo[] = [
+  {
     name: "MP4",
     fullName: "MPEG-4 Part 14, an ISO Base Media File Format layout",
     extensions: ".mp4, .m4v, .m4a",
@@ -80,7 +80,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     support:
       "Plays in every browser and hardware decoder when the payload is H.264 + AAC, which is why it is the safe default.",
   },
-  "QuickTime File Format": {
+  {
     name: "QuickTime File Format",
     fullName: "QTFF, Apple's original format and the ancestor of MP4",
     extensions: ".mov, .qt",
@@ -93,7 +93,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
       "Native on Apple platforms and in most editors. Browsers only play it when the payload happens to be a " +
       "codec they support, so .mov files are usually rewrapped to MP4 for the web.",
   },
-  Matroska: {
+  {
     name: "Matroska",
     fullName: "Matroska Multimedia Container",
     extensions: ".mkv, .mka",
@@ -106,7 +106,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
       "Great for archival and playback in VLC/mpv, but browsers do not play .mkv directly; only its WebM " +
       "subset is supported.",
   },
-  WebM: {
+  {
     name: "WebM",
     fullName: "WebM, a deliberately restricted profile of Matroska",
     extensions: ".webm",
@@ -117,7 +117,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "Vorbis and Opus only.",
     support: "Plays in Chrome, Firefox and Edge; Safari support depends on the codec and the device.",
   },
-  MP3: {
+  {
     name: "MP3",
     fullName: "MPEG-1/2 Audio Layer III elementary stream",
     extensions: ".mp3",
@@ -128,7 +128,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "MP3 only.",
     support: "Universal.",
   },
-  WAVE: {
+  {
     name: "WAVE",
     fullName: "Waveform Audio File Format, a RIFF layout",
     extensions: ".wav",
@@ -139,7 +139,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "Uncompressed PCM in the common case; a few compressed payloads are accepted but rare.",
     support: "Universal, at the cost of very large files.",
   },
-  Ogg: {
+  {
     name: "Ogg",
     fullName: "Ogg bitstream container",
     extensions: ".ogg, .oga, .ogv",
@@ -150,7 +150,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "Vorbis, Opus and FLAC.",
     support: "Supported by Chrome and Firefox; the Opus-in-Ogg pairing is the common modern use.",
   },
-  FLAC: {
+  {
     name: "FLAC",
     fullName: "Free Lossless Audio Codec, native stream layout",
     extensions: ".flac",
@@ -161,7 +161,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "FLAC only",
     support: "Widely supported for lossless audio; also carryable inside MP4, Matroska and Ogg.",
   },
-  ADTS: {
+  {
     name: "ADTS",
     fullName: "Audio Data Transport Stream",
     extensions: ".aac, .adts",
@@ -172,7 +172,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "AAC only",
     support: "Used inside HLS and broadcast pipelines; usually rewrapped into MP4 for playback.",
   },
-  "MPEG Transport Stream": {
+  {
     name: "MPEG Transport Stream",
     fullName: "MPEG-TS, ISO/IEC 13818-1",
     extensions: ".ts, .m2ts, .mts",
@@ -183,7 +183,7 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "AAC, AC-3/E-AC-3, MP2",
     support: "The segment format of older HLS streams and of camera/broadcast recordings, not of browsers directly.",
   },
-  "HTTP Live Streaming (HLS)": {
+  {
     name: "HTTP Live Streaming (HLS)",
     fullName: "HLS playlist, not a single media file",
     extensions: ".m3u8",
@@ -194,7 +194,12 @@ export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = {
     audio: "AAC, plus AC-3/E-AC-3",
     support: "Native in Safari and on iOS; other browsers play it through a JavaScript player.",
   },
-};
+];
+
+/** The records above keyed by name, which is how the parser names a container. */
+export const CONTAINER_KB: Partial<Record<string, ContainerInfo>> = Object.fromEntries(
+  CONTAINER_RECORDS.map((record) => [record.name, record]),
+);
 
 /** The Overview's whole-file bitrate, which is not the same as any one track's bitrate. */
 export const OVERALL_BITRATE_INFO =
@@ -698,18 +703,13 @@ export function sizeEstimateTeach(estimate: SizeEstimate): string {
 function windowDifficultySentence(estimate: SizeEstimate): string {
   const d = estimate.windowDifficulty;
   if (d == null || !isFinite(d) || d <= 0) return "";
-  if (d >= 1.15) {
+  if (d >= 1.15 || d <= 0.85) {
+    // A busy stretch is quoted to one decimal, a calm one to two, since its ratio sits close to 1.
+    const busy = d >= 1.15;
     return (
-      `The stretch picked here is a <b>busy</b> one, costing ${escapeHtml(d.toFixed(1))}&times; the source's ` +
-      `average rate. Dividing by the source's cost for those same seconds is what keeps the projection from ` +
-      `pricing the entire file at this stretch's rate.`
-    );
-  }
-  if (d <= 0.85) {
-    return (
-      `The stretch picked here is a <b>calm</b> one, costing ${escapeHtml(d.toFixed(2))}&times; the source's ` +
-      `average rate. Dividing by the source's cost for those same seconds is what keeps the projection from ` +
-      `pricing the entire file at this stretch's rate.`
+      `The stretch picked here is a <b>${busy ? "busy" : "calm"}</b> one, costing ` +
+      `${escapeHtml(d.toFixed(busy ? 1 : 2))}&times; the source's average rate. Dividing by the source's cost ` +
+      `for those same seconds is what keeps the projection from pricing the entire file at this stretch's rate.`
     );
   }
   return `The stretch picked here costs about what the source averages, so it is a fair sample to project from.`;

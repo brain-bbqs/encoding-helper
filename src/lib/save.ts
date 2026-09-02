@@ -5,6 +5,11 @@ export function extOf(name: string | null | undefined): string {
   return m ? m[0] : ".mp4";
 }
 
+/** The file's name without its extension, for naming what is derived from it; "video" when it has none. */
+export function baseNameOf(name: string | null | undefined): string {
+  return (name || "video").replace(/\.[^.]+$/, "");
+}
+
 type SaveTarget = { kind: "stream"; writable: FileSystemWritableFileStream } | { kind: "buffer" };
 
 export async function pickSaveTarget(suggestedName: string): Promise<SaveTarget | null> {

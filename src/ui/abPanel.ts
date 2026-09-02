@@ -16,11 +16,12 @@
 import { gridItem, h, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
-import { fmtBytes } from "../lib/format";
+import { errorMessage, fmtBytes } from "../lib/format";
+import { describeQuality, describeResolutionChange } from "../lib/qualityMatrix";
 import { fmtClock } from "../lib/sampleTimeline";
 import { ensureMediabunny } from "../lib/mediabunny";
 import type { Input } from "mediabunny";
-import { currentSizeEstimate } from "../lib/sizeEstimate";
+import { currentSizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
 import { encodeTest, state } from "../lib/state";
 import type { AbSegment, EncodeSettings, SampleWindow, TrackInfo } from "../lib/types";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
@@ -125,7 +126,7 @@ export function describeSampledStretches(): string {
   const windows = encodeTest.windows;
   const first = windows[0] ?? { startSeconds: encodeTest.startTime, seconds: encodeTest.duration };
   if (windows.length <= 1) return describeWindow(first);
-  const sampled = windows.reduce((sum, w) => sum + w.seconds, 0);
+  const sampled = windowsSeconds(windows);
   return (
     `${windows.length} × ${first.seconds.toFixed(1)}s at random ` +
     `(${sampled.toFixed(1)}s total), first at ${describeWindow(first)}`
@@ -139,21 +140,11 @@ function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeigh
   const g = h("div", "grid");
   g.append(
     gridItem("Segment", describeSampledStretches()),
-    gridItem(
-      "Quality",
-      settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`,
-    ),
+    gridItem("Quality", describeQuality(settings)),
     gridItem("Preset", settings.preset),
   );
   if (isDownscale(settings.scale)) {
-    const out = scaledDimensions(srcWidth, srcHeight, settings.scale);
-    g.append(
-      gridItem(
-        "Resolution",
-        `${srcWidth}×${srcHeight} → ${out.width}×${out.height} ` +
-          `(${Math.round(settings.scale * 100)}%, ${settings.scaler})`,
-      ),
-    );
+    g.append(gridItem("Resolution", describeResolutionChange(srcWidth, srcHeight, settings)));
   }
   g.append(gridItem("Encoded Segment Size", fmtBytes(encodeTest.encodedSize)));
   return g;
@@ -483,7 +474,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const drawFrom = (relT: number): void => {
     void drawAt(relT).catch((err: unknown) => {
       console.error("[encoding-helper] could not draw the comparison:", err);
-      drawError.textContent = "Could not draw the comparison: " + (err instanceof Error ? err.message : String(err));
+      drawError.textContent = "Could not draw the comparison: " + errorMessage(err);
       drawError.style.display = "";
     });
   };

@@ -5,11 +5,12 @@
 // a ~30 MB download and single-threaded, which is the price of that guarantee and the reason the
 // command above stays the recommendation for a full-length recording or a whole dataset.
 
+import { errorMessage } from "../lib/format";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, encodedFileName } from "../lib/cliCommand";
 import { h } from "../lib/dom";
 import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
-import { downloadBlob, extOf, pickSaveTarget } from "../lib/save";
+import { baseNameOf, downloadBlob, extOf, pickSaveTarget } from "../lib/save";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
 import { showReencodeResult } from "./cliControls";
@@ -65,7 +66,7 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     box.note.textContent = "Encoding (single-threaded, so this can take a while)…";
     const { data } = await runFfmpegEncode(args, inputName, inputData, outputName);
     const blob = new Blob([data], { type: "video/mp4" });
-    const saveName = encodedFileName(state.format, (state.source.name || "video").replace(/\.[^.]+$/, ""));
+    const saveName = encodedFileName(state.format, baseNameOf(state.source.name));
     const target = await pickSaveTarget(saveName);
     if (target && target.kind === "stream") {
       await target.writable.write(blob);
@@ -82,8 +83,9 @@ async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
     showReencodeResult(box, state.source.size, blob.size);
   } catch (err) {
     console.error("[encoding-helper] in-browser encode failed:", err);
-    box.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
-    logLine(box.log, String(err instanceof Error ? err.message : err), "error");
+    const message = errorMessage(err);
+    box.note.textContent = "Failed: " + message;
+    logLine(box.log, message, "error");
   } finally {
     box.button.disabled = false;
     box.progress.style.display = "none";

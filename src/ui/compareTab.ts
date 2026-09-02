@@ -8,7 +8,7 @@
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { cmdBlock, h, infoIcon } from "../lib/dom";
-import { fmtRate } from "../lib/format";
+import { errorMessage, fmtRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
@@ -28,8 +28,8 @@ import {
   matrixProgress,
 } from "../lib/qualityMatrix";
 import { drainWithPool } from "../lib/ffmpegPool";
-import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
-import { estimateSizeSavings, type SizeEstimate } from "../lib/sizeEstimate";
+import { cli, currentVideoInfo, encodeTest, state, videoTrackInfo } from "../lib/state";
+import { estimateForWindows, type SizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
 import type { MatrixCell, MatrixQuality, SampleWindow, Scaler, TrackInfo, X264Preset } from "../lib/types";
 import { loadEncodedIntoAB, onAbDisplaced } from "./abPanel";
 import { logLine } from "./formControls";
@@ -66,7 +66,7 @@ let matrixSettingsOpen = false;
 
 export function renderCompareTab(panel: HTMLElement): void {
   panel.innerHTML = "";
-  const vt = state.tracks?.find((t) => t.kind === "video");
+  const vt = videoTrackInfo();
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return;
 
   const sec = h("div", "section");
@@ -538,7 +538,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
             cell.elapsedMs = performance.now() - startedAt;
             cell.bytes = encoded.bytes;
             cell.blobs = encoded.blobs;
-            cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
+            cell.segmentSeconds = windowsSeconds(encoded.measured);
             cell.status = "done";
             cell.fromCache = false;
             rememberMeasurement(checksum, cell);
@@ -546,7 +546,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
             // A core terminated by Stop rejects whatever it was running; the square it was on was
             // never measured, which is what "skipped" already means for the ones never reached.
             cell.status = stopRequested() ? "skipped" : "failed";
-            cell.error = cell.status === "failed" ? (err instanceof Error ? err.message : String(err)) : null;
+            cell.error = cell.status === "failed" ? errorMessage(err) : null;
             if (cell.error) logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
           }
           inFlight.delete(cell.combo.key);
@@ -584,11 +584,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
         // which is a browser that will not decode what ffmpeg just wrote. Reporting that as the
         // run failing would throw away a grid full of good measurements.
         console.error("[encoding-helper] could not show the best square:", err);
-        logLine(
-          ui.log,
-          "Encoded fine, but could not be shown: " + (err instanceof Error ? err.message : String(err)),
-          "warn",
-        );
+        logLine(ui.log, "Encoded fine, but could not be shown: " + errorMessage(err), "warn");
       }
     }
     if (fill) {
@@ -716,7 +712,7 @@ function syncSegmentToMatrix(): void {
  */
 function matrixCellWindows(cell: MatrixCell): SampleWindow[] {
   const windows = matrixWindows();
-  const requested = windows.reduce((sum, w) => sum + w.seconds, 0);
+  const requested = windowsSeconds(windows);
   const measured = cell.segmentSeconds && cell.segmentSeconds > 0 ? cell.segmentSeconds : requested;
   const factor = requested > 0 ? measured / requested : 1;
   return windows.map((w) => ({ startSeconds: w.startSeconds, seconds: w.seconds * factor }));
@@ -724,17 +720,8 @@ function matrixCellWindows(cell: MatrixCell): SampleWindow[] {
 
 /** What a matrix square projects the whole file to, on the segments that square was encoded from. */
 function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
-  if (cell.bytes == null || !state.source) return null;
-  const windows = matrixCellWindows(cell);
-  return estimateSizeSavings({
-    originalTotalBytes: state.source.size,
-    totalSeconds: state.duration ?? 0,
-    segmentStartSeconds: windows[0]?.startSeconds ?? encodeTest.matrix.segmentStart,
-    segmentSeconds: windows.reduce((sum, w) => sum + w.seconds, 0),
-    windows,
-    encodedSegmentBytes: cell.bytes,
-    samples: state.samples,
-  });
+  if (cell.bytes == null) return null;
+  return estimateForWindows(matrixCellWindows(cell), cell.bytes, encodeTest.matrix.segmentStart);
 }
 
 function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: MatrixUi): void {

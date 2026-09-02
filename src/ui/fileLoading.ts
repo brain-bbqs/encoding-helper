@@ -8,7 +8,7 @@
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
 import { resetIcon } from "../lib/dom";
 import { ChunkedSource } from "../lib/chunkedSource";
-import { fmtBytes } from "../lib/format";
+import { errorMessage, fmtBytes } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { loadMediabunnyMetadata } from "../lib/mediabunnyMeta";
 import {
@@ -119,7 +119,7 @@ async function loadSource(
     showMiniLoaded(els, source.name, source.size);
   } catch (err) {
     console.error("[encoding-helper] load failed:", err);
-    showError(els, err instanceof Error ? err.message : String(err));
+    showError(els, errorMessage(err));
     els.dropZone.classList.remove("collapsed");
   }
 }

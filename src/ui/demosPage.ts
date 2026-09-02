@@ -25,7 +25,7 @@ import {
   type DemoSet,
 } from "../lib/demoArchive";
 import { h } from "../lib/dom";
-import { fmtBytes } from "../lib/format";
+import { errorMessage, fmtBytes } from "../lib/format";
 import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
 import type { AppElements } from "./elements";
 
@@ -222,7 +222,7 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
 function errorBox(err: unknown, retry: () => void): HTMLElement {
   const box = h("div", "section demos-error");
   box.append(h("h2", null, "Could not read the demo set"));
-  box.append(h("p", "demos-error-why", err instanceof Error ? err.message : String(err)));
+  box.append(h("p", "demos-error-why", errorMessage(err)));
   box.append(
     h(
       "p",

@@ -22,10 +22,10 @@ import {
   TOO_FEW_FRAMES_NOTE,
   VIDEO_AVERAGE_INFO,
 } from "../lib/explainers";
-import { fmtBits, fmtBytes, fmtDur, fmtRate } from "../lib/format";
+import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtBytes, fmtDur } from "../lib/format";
 import { describeMetadataTag, describeMetadataTagValue, type MetadataTagInfo } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
-import { state } from "../lib/state";
+import { audioTrackInfo, state, videoTrackInfo } from "../lib/state";
 import type { CodecInfo } from "../lib/types";
 import { renderBitrateChart } from "./bitrateChart";
 
@@ -76,14 +76,19 @@ export function flattenMetadataTags(): Record<string, unknown> {
  * its own; it stays in the heading rather than in the grid so it is still there when the educational
  * text that also names it is switched off, and so loading another file visibly retitles the card.
  */
-function overviewTitle(): string {
+export function overviewTitle(): string {
   return state.format ? `Video Container Overview: ${state.format}` : "Video Container Overview";
+}
+
+/** The whole file's bitrate, every byte of it over its running time, or null before a file is open. */
+export function overallBitrate(): number | null {
+  return state.duration && state.source ? (state.source.size * 8) / state.duration : null;
 }
 
 function renderOverviewSection(): HTMLDivElement {
   const overview = h("div", "section");
   overview.append(h("h2", null, overviewTitle()));
-  const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
+  const fileBitrate = overallBitrate();
   const og = h("div", "grid overview-grid");
   og.append(
     gridItem("File Size", fmtBytes(state.source?.size)),
@@ -126,7 +131,7 @@ function renderOverviewSection(): HTMLDivElement {
 }
 
 function renderVideoTrackSection(): HTMLDivElement | null {
-  const vt = state.tracks?.find((t) => t.kind === "video");
+  const vt = videoTrackInfo();
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;
 
   const sec = h("div", "section");
@@ -142,8 +147,8 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   // No Bitrate item: the track's average heads the Video Bitrate Over Time card below, alongside
   // the peak and the spread the single number cannot show.
   g.append(
-    gridItem("Frame Rate", vt.packetRate != null ? fmtRate(vt.packetRate) + " fps" : "–"),
-    gridItem("Frames", state.frameCount != null ? state.frameCount.toLocaleString() : "–"),
+    gridItem("Frame Rate", describeFrameRate(vt.packetRate)),
+    gridItem("Frames", describeFrameCount(state.frameCount)),
   );
   if (vt.rotation) g.append(gridItem("Rotation", vt.rotation + "°"));
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
@@ -151,13 +156,7 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   // below explains what it means (and says nothing about this file when it states nothing).
   if (vt.chroma) g.append(gridItem("Chroma", vt.chroma, { sm: true }));
   if (vt.colorSpace) {
-    g.append(
-      gridItem(
-        "Color Space",
-        [vt.colorSpace.primaries, vt.colorSpace.transfer, vt.colorSpace.matrix].filter(Boolean).join(" / ") || "–",
-        { sm: true },
-      ),
-    );
+    g.append(gridItem("Color Space", describeColorSpace(vt.colorSpace), { sm: true }));
   }
   if (vt.hdr) g.append(gridItem("HDR", "Yes"));
   sec.append(g);
@@ -176,7 +175,7 @@ function renderVideoTrackSection(): HTMLDivElement | null {
  * hide the plot for most ordinary variable-bitrate files. Null only when there is no video track.
  */
 export function renderBitrateTimelineSection(): HTMLDivElement | null {
-  const vt = state.tracks?.find((t) => t.kind === "video");
+  const vt = videoTrackInfo();
   if (!vt) return null;
   const declared = state.declaredVideoBitrate;
   const declaresConstant = declaresConstantBitrate(declared);
@@ -213,7 +212,7 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
 }
 
 function renderAudioTrackSection(): HTMLDivElement | null {
-  const at = state.tracks?.find((t) => t.kind === "audio");
+  const at = audioTrackInfo();
   if (!at) return null;
 
   const sec = h("div", "section");

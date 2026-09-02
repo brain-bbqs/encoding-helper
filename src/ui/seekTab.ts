@@ -5,10 +5,11 @@
 
 import { fold, gridItem, h, svgEl, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
-import { fmtMs } from "../lib/format";
+import { errorMessage, fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
+import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
 
@@ -19,11 +20,9 @@ import type { SeekResult } from "../lib/types";
 const DEFAULT_SEEK_SAMPLES = 100;
 
 export function renderSeekTab(panel: HTMLElement): void {
-  const gop = state.gopLengths;
-  const avgGop = gop.length ? gop.reduce((a, b) => a + b, 0) / gop.length : 0;
+  const { gop, avgGop, fps } = gopStats();
   const minGop = gop.length ? Math.min(...gop) : 0;
   const maxGop = gop.length ? Math.max(...gop) : 0;
-  const fps = state.fps || 30;
 
   const sec = h("div", "section");
   sec.append(h("h2", null, "GOP / Keyframe Structure"));
@@ -31,7 +30,7 @@ export function renderSeekTab(panel: HTMLElement): void {
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
     gridItem("Keyframes", state.keyframeDecodeIndices.length.toLocaleString()),
-    gridItem("Avg GOP", avgGop.toFixed(1) + " frames (" + (avgGop / fps).toFixed(2) + " s)"),
+    gridItem("Avg GOP", describeAvgGop(avgGop, fps)),
     gridItem("Min / Max GOP", `${minGop} / ${maxGop} frames`),
   );
   sec.append(g);
@@ -120,7 +119,7 @@ async function runSeekingTest(
     console.error("[encoding-helper] seeking test failed:", err);
     const el = document.getElementById("errorMsg");
     if (el) {
-      el.textContent = "Seeking test failed: " + (err instanceof Error ? err.message : String(err));
+      el.textContent = "Seeking test failed: " + errorMessage(err);
       el.style.display = "block";
     }
   } finally {
@@ -149,9 +148,7 @@ export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
 
 function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   wrap.innerHTML = "";
-  const avgDist = results.reduce((a, r) => a + (r.dist || 0), 0) / results.length;
-  const avgDecode = results.reduce((a, r) => a + r.decodeMs, 0) / results.length;
-  const maxDecode = Math.max(...results.map((r) => r.decodeMs));
+  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
   const g = h("div", "grid");
   g.append(
     gridItem("Avg Keyframe Distance", avgDist.toFixed(3) + " s"),
@@ -184,21 +181,13 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   const table = h("table", "data");
   const thead = h("thead");
   const headRow = h("tr");
-  ["Timestamp", "Nearest Keyframe ≤ t", "Distance", "Distance (frames)", "Decode Time"].forEach((t) =>
-    headRow.append(h("th", null, t)),
-  );
+  SEEK_TABLE_HEADERS.forEach((t) => headRow.append(h("th", null, t)));
   thead.append(headRow);
   table.append(thead);
   const tbody = h("tbody");
   results.forEach((r) => {
     const tr = h("tr");
-    tr.append(
-      h("td", null, r.t.toFixed(3) + "s"),
-      h("td", null, r.kf != null ? r.kf.toFixed(3) + "s" : "–"),
-      h("td", null, r.dist != null ? r.dist.toFixed(3) + "s" : "–"),
-      h("td", null, r.distFrames != null ? String(r.distFrames) : "–"),
-      h("td", null, fmtMs(r.decodeMs)),
-    );
+    tr.append(...seekResultRow(r).map((cell) => h("td", null, cell)));
     tbody.append(tr);
   });
   table.append(tbody);

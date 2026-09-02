@@ -146,7 +146,7 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
   const windows: SampleWindow[] = input.windows?.length
     ? input.windows
     : [{ startSeconds: segmentStartSeconds, seconds: segmentSeconds }];
-  const sampledSeconds = windows.reduce((sum, w) => sum + w.seconds, 0);
+  const sampledSeconds = windowsSeconds(windows);
   if (!(sampledSeconds > 0)) return null;
 
   const sampledFraction = Math.min(1, sampledSeconds / totalSeconds);
@@ -269,9 +269,35 @@ export function pickSampleWindows(totalSeconds: number, seconds: number, count: 
   return windows;
 }
 
+/** The seconds a run's stretches add up to. */
+export function windowsSeconds(windows: SampleWindow[]): number {
+  return windows.reduce((sum, w) => sum + w.seconds, 0);
+}
+
+/**
+ * The projection for `windows` having encoded to `encodedBytes`, against the loaded file; null
+ * before a file is open. `fallbackStart` stands in for the first stretch's start when there is none.
+ */
+export function estimateForWindows(
+  windows: SampleWindow[],
+  encodedBytes: number,
+  fallbackStart = 0,
+): SizeEstimate | null {
+  if (!state.source) return null;
+  return estimateSizeSavings({
+    originalTotalBytes: state.source.size,
+    totalSeconds: state.duration ?? 0,
+    segmentStartSeconds: windows[0]?.startSeconds ?? fallbackStart,
+    segmentSeconds: windowsSeconds(windows),
+    windows,
+    encodedSegmentBytes: encodedBytes,
+    samples: state.samples,
+  });
+}
+
 /** The estimate for the comparison currently loaded in the Compare Quality tab, or null before one runs. */
 export function currentSizeEstimate(): SizeEstimate | null {
-  if (encodeTest.encodedSize == null || !state.source) return null;
+  if (encodeTest.encodedSize == null) return null;
   // Every stretch the run covered, not just the one the A/B window is showing: the bytes on the
   // other side of this ratio are all of them added together, so the source side has to cover all
   // of them too. Left as the shown stretch alone, a five-segment run measured five stretches of
@@ -288,15 +314,7 @@ export function currentSizeEstimate(): SizeEstimate | null {
           seconds: encodeTest.segDuration > 0 ? encodeTest.segDuration : encodeTest.duration,
         },
       ];
-  return estimateSizeSavings({
-    originalTotalBytes: state.source.size,
-    totalSeconds: state.duration ?? 0,
-    segmentStartSeconds: windows[0].startSeconds,
-    segmentSeconds: windows.reduce((sum, w) => sum + w.seconds, 0),
-    windows,
-    encodedSegmentBytes: encodeTest.encodedSize,
-    samples: state.samples,
-  });
+  return estimateForWindows(windows, encodeTest.encodedSize);
 }
 
 /** A percentage at a readable precision: tighter below 10%, where a whole point is a big relative move. */

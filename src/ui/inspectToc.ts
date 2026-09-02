@@ -3,17 +3,8 @@
 // picked out as you scroll. Inspect is the one tab long enough (metadata, atom map, GOP/seeking) for
 // a reader to lose their place in, so it is the only tab that gets one.
 
+import { slugify } from "../lib/analysisDoc";
 import { h } from "../lib/dom";
-
-function slugify(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "section"
-  );
-}
 
 let scrollSpyObserver: IntersectionObserver | null = null;
 
