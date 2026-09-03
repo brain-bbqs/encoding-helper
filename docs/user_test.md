@@ -1,57 +1,59 @@
 # User Test Checklist
 
-A basic manual checklist for exercising Encoding Helper end-to-end before a release. Run through this in a real browser (not just automated tests) against `npm run dev` or a deployed build.
+|            |         |
+| ---------- | ------- |
+| **Tester** | <enter> |
+| **Date**   | <enter> |
 
-## Setup
+A basic manual pass through the app before a release or after a significant change. Run through this in a real browser against `npm run dev` or a deployed build.
 
-- [ ] App loads with no console errors
-- [ ] Educational toggle is visible and can be switched on/off
+## Loading a file
 
-## File Loading
+- [ ] Loading the page shows no errors in the browser console
+- [ ] Loading a sample video from the sample picker works
+- [ ] Loading a local video file via the file picker / drag-and-drop works
+- [ ] Loading an unsupported or corrupt file shows a clear error instead of failing silently
+- [ ] The educational toggle is visible and switching it on/off changes what's shown
 
-- [ ] Load a sample video from the sample picker
-- [ ] Load a local video file via file picker / drag-and-drop
-- [ ] Load a video via URL (if supported)
-- [ ] Loading an unsupported or corrupt file shows a clear error instead of a silent failure
+## Inspect tab
 
-## Inspect Tab
-
-- [ ] Atom/box tree renders for a loaded MP4
+- [ ] The atom/box tree renders for a loaded MP4
 - [ ] Selecting an atom shows its details and jumps to the right spot in the tree
 - [ ] Table of contents navigation matches the atom tree
 - [ ] Educational explainers appear when the educational toggle is on
 
-## Analysis Tab
+## Analysis tab
 
-- [ ] Bitrate chart renders and reflects the loaded file
+- [ ] The bitrate chart renders and reflects the loaded file
 - [ ] Zoom/pan on the chart works smoothly
 - [ ] Chroma format, codec, and container details are shown correctly
 
-## Compare Tab
+## Compare tab
 
 - [ ] Two files can be loaded side-by-side (A/B panel)
-- [ ] Quality/size matrix populates correctly
-- [ ] Savings panel shows a sensible size/quality comparison
+- [ ] The quality/size matrix populates correctly
+- [ ] The savings panel shows a sensible size/quality comparison
 
-## Seek Tab
+## Seek tab
 
-- [ ] Seek test runs against a loaded file and produces a report
-- [ ] Segment run / timeline reflects seek results accurately
+- [ ] Running a seek test against a loaded file produces a report
+- [ ] The segment run / timeline reflects the seek results accurately
 
-## Encode Tab
+## Encode tab
 
-- [ ] In-browser encode (ffmpeg) runs to completion on a sample file
-- [ ] CLI command preview matches the selected encode settings
-- [ ] Encoded output can be downloaded/saved
-- [ ] Progress indicator updates during a long-running encode
+- [ ] An in-browser encode (ffmpeg) runs to completion on a sample file
+  - [ ] the progress indicator updates throughout
+- [ ] The CLI command preview matches the selected encode settings
+- [ ] The encoded output can be downloaded/saved
 
-## Demos Page
+## Demos page
 
 - [ ] Demo videos load and play
-- [ ] Demo archive download works
+- [ ] The demo archive download works
 
 ## Cross-cutting
 
-- [ ] App remains usable after loading several files in a row (no memory leak / crash)
+- [ ] The app remains usable after loading several files in a row (no memory leak or crash)
+- [ ] The app is usable in both light and dark OS/browser theme
+- [ ] Basic responsiveness: window resized narrower doesn't break layout or hide controls
 - [ ] Works in at least two browsers (e.g. Chrome and Firefox)
-- [ ] Responsive layout holds up at a narrower window width
