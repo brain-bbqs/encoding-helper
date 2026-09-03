@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BASE_CLI } from "../fixtures/state";
 import {
   bestReductionCell,
   buildMatrixCombos,
@@ -14,22 +15,7 @@ import {
   matrixProgress,
   retainedBytes,
 } from "../../src/lib/qualityMatrix";
-import type { CliState, MatrixCell, MatrixQuality, X264Preset } from "../../src/lib/types";
-
-const CLI: CliState = {
-  quality: "medium",
-  crf: 25,
-  preset: "superfast",
-  keyframeInterval: 1,
-  gopOverride: null,
-  noBFrames: true,
-  pad: true,
-  faststart: false,
-  audioMode: "copy",
-  fps: null,
-  scale: 1,
-  scaler: "lanczos",
-};
+import type { MatrixCell, MatrixQuality, X264Preset } from "../../src/lib/types";
 
 /** A finished square of `bytes`, optionally still holding the stretches it was measured over. */
 function done(quality: MatrixQuality, preset: X264Preset, bytes: number, held = true, scale = 1): MatrixCell {
@@ -99,19 +85,19 @@ describe("buildMatrixCombos", () => {
 describe("matrixCliState", () => {
   it("overrides only the swept fields", () => {
     const [combo] = buildMatrixCombos(["low"], ["veryslow"]);
-    const state = matrixCliState(CLI, combo);
+    const state = matrixCliState(BASE_CLI, combo);
     expect(state.quality).toBe("low");
     expect(state.crf).toBe(32);
     expect(state.preset).toBe("veryslow");
     expect(state.scale).toBe(1);
-    expect(state.keyframeInterval).toBe(CLI.keyframeInterval);
-    expect(state.audioMode).toBe(CLI.audioMode);
+    expect(state.keyframeInterval).toBe(BASE_CLI.keyframeInterval);
+    expect(state.audioMode).toBe(BASE_CLI.audioMode);
   });
 });
 
 describe("cliSettings", () => {
   it("resolves a named quality to its CRF", () => {
-    expect(cliSettings(CLI)).toEqual({
+    expect(cliSettings(BASE_CLI)).toEqual({
       quality: "medium",
       crf: 25,
       preset: "superfast",
@@ -122,11 +108,11 @@ describe("cliSettings", () => {
   });
 
   it("keeps the typed-in CRF when the quality is custom", () => {
-    expect(cliSettings({ ...CLI, quality: "custom", crf: 41 }).crf).toBe(41);
+    expect(cliSettings({ ...BASE_CLI, quality: "custom", crf: 41 }).crf).toBe(41);
   });
 
   it("carries the resolution and kernel the encode would be made at", () => {
-    const settings = cliSettings({ ...CLI, scale: 0.25, scaler: "bicubic" });
+    const settings = cliSettings({ ...BASE_CLI, scale: 0.25, scaler: "bicubic" });
     expect(settings.scale).toBe(0.25);
     expect(settings.scaler).toBe("bicubic");
   });

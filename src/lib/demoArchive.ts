@@ -18,9 +18,9 @@
 // costs a request per file — the reason the generator writes them into the index at all.
 
 /** The EMBER archive's DANDI API, and the dandiset scripts/upload-demos.sh publishes into. */
-export const EMBER_API = "https://api-dandi.emberarchive.org/api";
+const EMBER_API = "https://api-dandi.emberarchive.org/api";
 export const EMBER_DANDISET = "000527";
-export const EMBER_VERSION = "draft";
+const EMBER_VERSION = "draft";
 
 /** One demo file, as the demos page shows it before anyone opens its card. */
 export interface DemoFile {
@@ -55,7 +55,7 @@ export interface DemoSet {
  * starts — so they share a row, the recording first and the encode made from it second. Anything
  * the generator grows later still appears, at the end, under its own raw name.
  */
-export interface DemoGroup {
+interface DemoGroup {
   /** The generator's group names this heading covers, in the order their files should appear. */
   ids: readonly string[];
   title: string;
@@ -108,9 +108,12 @@ const VIDEO_PATH_RE = /(?:^|\/)ses-([A-Za-z0-9]+)\/[^/]+\/[^/]*_video\.([A-Za-z0
 
 const DESCRIPTION_PATH = "dataset_description.json";
 
+/** The archive's asset collection for the demo dataset, which every asset URL hangs off. */
+const ASSETS_URL = `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/`;
+
 /** Where the archive serves one asset's bytes. Redirects to storage, so it is fetchable directly. */
 export function assetDownloadUrl(assetId: string): string {
-  return `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/${assetId}/download/`;
+  return `${ASSETS_URL}${assetId}/download/`;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -120,9 +123,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function listAssets(): Promise<ArchiveAsset[]> {
-  const first =
-    `${EMBER_API}/dandisets/${EMBER_DANDISET}/versions/${EMBER_VERSION}/assets/` +
-    `?metadata=false&page_size=${ASSET_PAGE_SIZE}`;
+  const first = `${ASSETS_URL}?metadata=false&page_size=${ASSET_PAGE_SIZE}`;
   const out: ArchiveAsset[] = [];
   let next: string | null = first;
   for (let page = 0; next && page < MAX_ASSET_PAGES; page++) {
@@ -175,7 +176,7 @@ export function buildDemoSet(desc: DatasetDescription, assets: ArchiveAsset[]): 
 
   const demos: DemoFile[] = videos.map((video) => {
     const entry: SessionEntry = sessions[video.session] ?? {};
-    const fileName = video.path.split("/").pop() ?? video.path;
+    const fileName = video.path.slice(video.path.lastIndexOf("/") + 1);
     return {
       session: video.session,
       title: entry.title ?? fileName,

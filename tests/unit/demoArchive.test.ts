@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { demoVideoPath } from "../fixtures/demoPaths";
 import {
   assetDownloadUrl,
   buildDemoSet,
@@ -10,10 +11,6 @@ import {
 /** An asset listing entry, as the archive returns it with `metadata=false`. */
 function asset(path: string, assetId: string, size = 1024): Record<string, unknown> {
   return { asset_id: assetId, path, size };
-}
-
-function videoPath(session: string, ext: string): string {
-  return `sub-01/ses-${session}/beh/sub-01_ses-${session}_video.${ext}`;
 }
 
 const DESCRIPTION = {
@@ -34,15 +31,15 @@ const DESCRIPTION = {
 
 const ASSETS = [
   asset("dataset_description.json", "desc-id", 900),
-  asset(videoPath("original", "m4v"), "original-id", 5_000_000),
-  asset(videoPath("original", "json"), "original-json"),
-  asset(videoPath("reference", "mp4"), "reference-id", 3_000_000),
-  asset(videoPath("reference", "json"), "reference-json"),
-  asset(videoPath("matroska", "mkv"), "matroska-id", 2_000_000),
-  asset(videoPath("gopshort", "mp4"), "gopshort-id", 4_000_000),
-  asset(videoPath("gopshort", "json"), "gopshort-json"),
-  asset(videoPath("goplong", "mp4"), "goplong-id", 1_000_000),
-  asset(videoPath("goplong", "json"), "goplong-json"),
+  asset(demoVideoPath("original", "m4v"), "original-id", 5_000_000),
+  asset(demoVideoPath("original", "json"), "original-json"),
+  asset(demoVideoPath("reference", "mp4"), "reference-id", 3_000_000),
+  asset(demoVideoPath("reference", "json"), "reference-json"),
+  asset(demoVideoPath("matroska", "mkv"), "matroska-id", 2_000_000),
+  asset(demoVideoPath("gopshort", "mp4"), "gopshort-id", 4_000_000),
+  asset(demoVideoPath("gopshort", "json"), "gopshort-json"),
+  asset(demoVideoPath("goplong", "mp4"), "goplong-id", 1_000_000),
+  asset(demoVideoPath("goplong", "json"), "goplong-json"),
 ];
 
 describe("buildDemoSet", () => {
@@ -82,7 +79,7 @@ describe("buildDemoSet", () => {
   });
 
   it("still lists a published file the index says nothing about, after the groups it knows", () => {
-    const set = buildDemoSet(DESCRIPTION, [...ASSETS, asset(videoPath("brandnew", "mp4"), "brandnew-id", 7)]);
+    const set = buildDemoSet(DESCRIPTION, [...ASSETS, asset(demoVideoPath("brandnew", "mp4"), "brandnew-id", 7)]);
     const last = set.demos[set.demos.length - 1];
     expect(last.session).toBe("brandnew");
     expect(last.group).toBe("other");

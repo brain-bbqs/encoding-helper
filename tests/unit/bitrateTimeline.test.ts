@@ -1,18 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { evenSamples, sample } from "../fixtures/samples";
 import { computeBitrateTimeline, isEffectivelyConstant, MAX_BINS, MIN_BINS } from "../../src/lib/bitrateTimeline";
-import type { SampleInfo } from "../../src/lib/types";
-
-/** One frame, at `ctsSec` in presentation order, `size` bytes long. */
-function sample(ctsSec: number, size: number): SampleInfo {
-  return { offset: 0, size, cts: 0, dts: 0, ctsSec, dtsSec: ctsSec, is_sync: false, duration: 1 };
-}
-
-/** `count` evenly-spaced frames across `durationSec`, each of `size` bytes. */
-function evenSamples(count: number, durationSec: number, size: number | ((i: number) => number)): SampleInfo[] {
-  return Array.from({ length: count }, (_, i) =>
-    sample((durationSec * i) / count, typeof size === "number" ? size : size(i)),
-  );
-}
 
 describe("computeBitrateTimeline", () => {
   it("returns null with no samples", () => {

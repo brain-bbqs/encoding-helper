@@ -28,7 +28,7 @@ import type { ChunkedSource } from "./chunkedSource";
 import type { SampleWindow } from "./types";
 
 /** What one finished square is worth remembering: everything its table cell is drawn from. */
-export interface CachedMeasurement {
+interface CachedMeasurement {
   bytes: number;
   /** The output's measured playback length, which the projection is taken over. */
   segmentSeconds: number | null;
@@ -131,6 +131,23 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
   });
 }
 
+/** Drops the least recently used records of one store until it is back inside `keep`. */
+async function evictStore(db: IDBDatabase, name: string, keep: number): Promise<void> {
+  const counted = await requestToPromise(db.transaction(name, "readonly").objectStore(name).count());
+  if (counted <= keep) return;
+  let over = counted - keep;
+  const tx = db.transaction(name, "readwrite");
+  const cursorRequest = tx.objectStore(name).index(LAST_USED_INDEX).openCursor();
+  cursorRequest.onsuccess = () => {
+    const cursor = cursorRequest.result;
+    if (!cursor || over <= 0) return;
+    cursor.delete();
+    over--;
+    cursor.continue();
+  };
+  await transactionDone(tx);
+}
+
 /**
  * Opens the cache.
  *
@@ -185,23 +202,6 @@ export function openMatrixCache(options: MatrixCacheOptions = {}): MatrixCache {
       }
     });
     return writes;
-  }
-
-  /** Drops the least recently used records of one store until it is back inside `keep`. */
-  async function evictStore(db: IDBDatabase, name: string, keep: number): Promise<void> {
-    const counted = await requestToPromise(db.transaction(name, "readonly").objectStore(name).count());
-    if (counted <= keep) return;
-    let over = counted - keep;
-    const tx = db.transaction(name, "readwrite");
-    const cursorRequest = tx.objectStore(name).index(LAST_USED_INDEX).openCursor();
-    cursorRequest.onsuccess = () => {
-      const cursor = cursorRequest.result;
-      if (!cursor || over <= 0) return;
-      cursor.delete();
-      over--;
-      cursor.continue();
-    };
-    await transactionDone(tx);
   }
 
   async function evictIfDue(db: IDBDatabase): Promise<void> {
@@ -276,10 +276,11 @@ export function openMatrixCache(options: MatrixCacheOptions = {}): MatrixCache {
         );
         // Checked rather than trusted, for the same reason a measurement is: this came off a
         // database, not out of the run that wrote it.
-        const stretches = (record && Array.isArray(record.w) ? (record.w as unknown[]) : []).filter(
+        if (!record || !Array.isArray(record.w)) return null;
+        const stretches = (record.w as unknown[]).filter(
           (pair): pair is [number, number] => Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite),
         );
-        if (!record || !stretches.length || stretches.length !== record.w.length) return null;
+        if (!stretches.length || stretches.length !== record.w.length) return null;
         await touch(db, WINDOWS, [record]);
         return stretches.map(([startSeconds, length]) => ({ startSeconds, seconds: length }));
       } catch {
@@ -392,7 +393,7 @@ async function digestHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
     const digest = await subtle.digest("SHA-256", bytes);
     return "s" + hex(new Uint8Array(digest)).slice(0, 32);
   }
-  return "f" + fnv1a(bytes, 0x811c9dc5) + fnv1a(bytes, 0x01000193);
+  return "f" + fnv1a64(bytes);
 }
 
 function hex(bytes: Uint8Array): string {
@@ -410,9 +411,9 @@ function fnv1a(bytes: Uint8Array, seed: number): string {
   return hash.toString(16).padStart(8, "0");
 }
 
-/** The same, over text. */
-function hashText(text: string, seed: number): string {
-  return fnv1a(new TextEncoder().encode(text), seed);
+/** Two seeded FNV-1a passes concatenated: a 64-bit value out of a 32-bit hash. */
+function fnv1a64(bytes: Uint8Array): string {
+  return fnv1a(bytes, 0x811c9dc5) + fnv1a(bytes, 0x01000193);
 }
 
 /**
@@ -428,5 +429,5 @@ function hashText(text: string, seed: number): string {
 export function measurementKey(checksum: string, args: string[], windows: SampleWindow[]): string {
   const stretches = windows.map((w) => `${w.startSeconds.toFixed(3)}+${w.seconds.toFixed(3)}`).join(",");
   const text = `${args.join(" ")}|${stretches}`;
-  return `${checksum}:${hashText(text, 0x811c9dc5)}${hashText(text, 0x01000193)}`;
+  return `${checksum}:${fnv1a64(new TextEncoder().encode(text))}`;
 }

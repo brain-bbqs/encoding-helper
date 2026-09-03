@@ -610,12 +610,19 @@ label.field-label {
   flex: 1 0 100%;
   height: 0;
 }
+/* Every figure the app read out of the file gets a card of its own — the recessed panel the demo
+   tiles use, rather than the teach boxes' tinted, accent-edged callout, so a reading and an
+   explainer never read as the same kind of thing. */
 .grid .item {
   flex: 0 1 auto;
   /* A card may shrink below its content width — a long value wraps inside it rather than pushing
      the row past the panel's edge — but never grows past what it has to show. */
   min-width: 0;
   max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
 }
 .grid .item label {
   display: block;
@@ -623,15 +630,6 @@ label.field-label {
   color: var(--faint);
   text-transform: uppercase;
   margin-bottom: 2px;
-}
-/* Every figure the app read out of the file gets a card of its own — the recessed panel the demo
-   tiles use, rather than the teach boxes' tinted, accent-edged callout, so a reading and an
-   explainer never read as the same kind of thing. */
-.grid .item {
-  padding: 7px 10px;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  background: var(--sunken);
 }
 .grid .item .val {
   font-size: 16px;
@@ -651,9 +649,6 @@ label.field-label {
   font-family: Monaco, Consolas, monospace;
   font-weight: 400;
   color: var(--text);
-}
-.grid .item.wide {
-  grid-column: span 2;
 }
 /* Raw container tag names (©too, TIT2, ISFT) are case-sensitive, so they keep their own casing
    instead of the uppercase treatment the other labels get. */
@@ -815,15 +810,6 @@ label.field-label {
 .teach li {
   margin: 2px 0;
 }
-details.teach-more {
-  margin-top: 6px;
-}
-details.teach-more summary {
-  cursor: pointer;
-  color: var(--accent);
-  font-size: 12px;
-}
-
 /* Tabs, and the Full Analysis action that sits opposite them */
 .tab-bar {
   display: flex;
@@ -861,11 +847,6 @@ details.teach-more summary {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.tab-action.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
 .tab {
   display: inline-flex;
   align-items: center;
@@ -888,7 +869,8 @@ details.teach-more summary {
   border-color: var(--accent);
   color: var(--text-strong);
 }
-.tab.on {
+.tab.on,
+.tab-action.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
@@ -1151,16 +1133,20 @@ details.teach-more summary {
     -apple-system,
     sans-serif;
 }
-.seek-scatter .grid-line {
+.seek-scatter .grid-line,
+.bitrate-chart .grid-line {
   stroke: var(--chart-grid);
 }
-.seek-scatter .axis {
+.seek-scatter .axis,
+.bitrate-chart .axis {
   stroke: var(--border);
 }
-.seek-scatter .tick {
+.seek-scatter .tick,
+.bitrate-chart .tick {
   fill: var(--muted);
 }
-.seek-scatter .axis-title {
+.seek-scatter .axis-title,
+.bitrate-chart .axis-title {
   fill: var(--muted-2);
 }
 .seek-scatter .pt {
@@ -1187,18 +1173,6 @@ details.teach-more summary {
     system-ui,
     -apple-system,
     sans-serif;
-}
-.bitrate-chart .grid-line {
-  stroke: var(--chart-grid);
-}
-.bitrate-chart .axis {
-  stroke: var(--border);
-}
-.bitrate-chart .tick {
-  fill: var(--muted);
-}
-.bitrate-chart .axis-title {
-  fill: var(--muted-2);
 }
 .bitrate-chart .area {
   fill: var(--accent-tint);
@@ -1379,10 +1353,10 @@ details.teach-more summary {
   height: 8px;
   background: var(--muted);
 }
-.sample-tick-label {
+.sample-tick-label,
+.compare-reel-label {
   position: absolute;
   top: 10px;
-  font-family: var(--mono);
   font-size: 9px;
   line-height: 1;
   color: var(--muted);
@@ -1390,10 +1364,12 @@ details.teach-more summary {
   white-space: nowrap;
 }
 /* The end labels would hang off the track, so they align inwards instead of centring. */
-.sample-tick-label.at-start {
+.sample-tick-label.at-start,
+.compare-reel-label.at-start {
   transform: none;
 }
-.sample-tick-label.at-end {
+.sample-tick-label.at-end,
+.compare-reel-label.at-end {
   transform: translateX(-100%);
 }
 
@@ -1418,21 +1394,31 @@ details.teach-more summary {
      to say which way the bar will move, not just that it is a bar. */
   list-style: none;
 }
-.fold-summary::-webkit-details-marker {
+/* The three disclosure bars (folds, the output console, the sweep settings) share one caret. */
+.fold-summary::-webkit-details-marker,
+.log-summary::-webkit-details-marker,
+.matrix-settings > summary::-webkit-details-marker {
   display: none;
 }
-.fold-summary::before {
+.fold-summary::before,
+.log-summary::before,
+.matrix-settings > summary::before {
   content: "▸";
   font-size: 10px;
   color: var(--faint);
 }
-.fold[open] > .fold-summary::before {
+.fold[open] > .fold-summary::before,
+.log-details[open] > .log-summary::before,
+.matrix-settings[open] > summary::before {
   content: "▾";
 }
-.fold[open] > .fold-summary {
+.fold[open] > .fold-summary,
+.log-details[open] > .log-summary {
   border-bottom: 1px solid var(--border-soft);
 }
-.fold-summary:hover {
+.fold-summary:hover,
+.log-summary:hover,
+.matrix-settings > summary:hover {
   color: var(--text);
 }
 /* What is in there, so the bar says something while it is shut. */
@@ -1467,23 +1453,6 @@ details.teach-more summary {
   /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead — and it has
      to say which way the bar will move, not just that it is a bar. */
   list-style: none;
-}
-.log-summary::-webkit-details-marker {
-  display: none;
-}
-.log-summary::before {
-  content: "▸";
-  font-size: 10px;
-  color: var(--faint);
-}
-.log-details[open] > .log-summary::before {
-  content: "▾";
-}
-.log-details[open] > .log-summary {
-  border-bottom: 1px solid var(--border-soft);
-}
-.log-summary:hover {
-  color: var(--text);
 }
 .log-details > .log-console {
   margin-top: 0;
@@ -1821,23 +1790,6 @@ table.data th {
   height: 9px;
   background: var(--text);
 }
-.compare-reel-label {
-  position: absolute;
-  top: 10px;
-  font-family: var(--mono);
-  font-size: 9px;
-  line-height: 1;
-  color: var(--muted);
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-/* The end labels would hang off the bar, so they align inwards instead of centring. */
-.compare-reel-label.at-start {
-  transform: none;
-}
-.compare-reel-label.at-end {
-  transform: translateX(-100%);
-}
 
 .compare-controls {
   display: flex;
@@ -1965,20 +1917,6 @@ table.data.matrix-table th.matrix-group-head {
      to say which way the bar will move, not just that it is a bar. */
   list-style: none;
 }
-.matrix-settings > summary::-webkit-details-marker {
-  display: none;
-}
-.matrix-settings > summary::before {
-  content: "▸";
-  font-size: 10px;
-  color: var(--faint);
-}
-.matrix-settings[open] > summary::before {
-  content: "▾";
-}
-.matrix-settings > summary:hover {
-  color: var(--text);
-}
 .matrix-settings-gear {
   font-size: 14px;
 }
@@ -2037,16 +1975,14 @@ table.data.matrix-table th.matrix-group-head {
   white-space: nowrap;
 }
 /* The change as a factor, under (or beside) the percentage that says the same thing. */
-.savings-factor {
+.savings-factor,
+.matrix-summary-factor {
   color: var(--muted);
   font-size: 13px;
   font-weight: 500;
 }
 .matrix-summary-factor {
   margin-left: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
 }
 .matrix-summary {
   margin-bottom: 10px;
@@ -2055,12 +1991,6 @@ table.data.matrix-table th.matrix-group-head {
   display: flex;
   align-items: center;
   gap: 4px;
-}
-.matrix-summary-figure {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--accent);
 }
 .matrix-summary-sub {
   margin-top: 3px;
@@ -2199,7 +2129,8 @@ table.data.matrix-table th.matrix-row-head {
 .savings-figure {
   min-width: 190px;
 }
-.savings-headline {
+.savings-headline,
+.matrix-summary-figure {
   font-size: 22px;
   font-weight: 700;
   line-height: 1.2;
@@ -2209,11 +2140,6 @@ table.data.matrix-table th.matrix-row-head {
    reported in the same color as a saving. */
 .savings-headline.grew {
   color: var(--warn);
-}
-.savings-sub {
-  margin-top: 3px;
-  font-size: 12px;
-  color: var(--muted);
 }
 .savings-bars {
   flex: 1;

@@ -25,7 +25,7 @@ import { encodeTest, state } from "./state";
 import type { SampleInfo, SampleWindow } from "./types";
 
 /** How the cost of the sampled stretch in the *source* was arrived at. */
-export type SizeEstimateBasis =
+type SizeEstimateBasis =
   /** Summed out of the video sample table, so it is this stretch's real bytes, not an average. */
   | "sample-table"
   /** No sample table (or none covering the stretch): the file's bytes spread evenly over its time. */
@@ -63,7 +63,6 @@ export interface SizeEstimate {
   segmentSeconds: number;
   /** What the source spends on the sampled stretch, on the same terms as the encoded stretch. */
   originalSegmentBytes: number;
-  encodedSegmentBytes: number;
   /** Encoded ÷ original over the stretch. Below 1 the encode shrank it; above 1 it grew. */
   ratio: number;
   /** 1 − ratio: positive when the encode saves bytes, negative when it adds them. */
@@ -147,13 +146,13 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
   const windows: SampleWindow[] = input.windows?.length
     ? input.windows
     : [{ startSeconds: segmentStartSeconds, seconds: segmentSeconds }];
-  const sampledSeconds = windows.reduce((sum, w) => sum + w.seconds, 0);
+  const sampledSeconds = windowsSeconds(windows);
   if (!(sampledSeconds > 0)) return null;
 
   const sampledFraction = Math.min(1, sampledSeconds / totalSeconds);
   const samples = input.samples ?? [];
   const totalVideoBytes = samples.reduce((sum, s) => sum + s.size, 0);
-  const window = windows.reduce(
+  const sampled = windows.reduce(
     (acc, w) => {
       const got = windowBytes(samples, w.startSeconds, w.seconds);
       return { bytes: acc.bytes + got.bytes, count: acc.count + got.count };
@@ -167,10 +166,10 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
   // fresh container either way), so leaving them out of the original side would compare a snippet
   // with audio against a stretch without it.
   const nonVideoBytes = Math.max(0, originalTotalBytes - totalVideoBytes);
-  const useSampleTable = totalVideoBytes > 0 && window.count >= MIN_WINDOW_SAMPLES && window.bytes > 0;
+  const useSampleTable = totalVideoBytes > 0 && sampled.count >= MIN_WINDOW_SAMPLES && sampled.bytes > 0;
   const basis: SizeEstimateBasis = useSampleTable ? "sample-table" : "proportional";
   const originalSegmentBytes = useSampleTable
-    ? window.bytes + nonVideoBytes * sampledFraction
+    ? sampled.bytes + nonVideoBytes * sampledFraction
     : originalTotalBytes * sampledFraction;
   if (!(originalSegmentBytes > 0)) return null;
 
@@ -196,8 +195,7 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
       ? null
       : { low: Math.max(0, projectedTotalBytes * (1 - band)), high: projectedTotalBytes * (1 + band) };
 
-  const windowDifficulty =
-    useSampleTable && totalVideoBytes > 0 ? window.bytes / sampledSeconds / (totalVideoBytes / totalSeconds) : null;
+  const windowDifficulty = useSampleTable ? sampled.bytes / sampledSeconds / (totalVideoBytes / totalSeconds) : null;
 
   return {
     basis,
@@ -205,7 +203,6 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
     totalSeconds,
     segmentSeconds: sampledSeconds,
     originalSegmentBytes,
-    encodedSegmentBytes,
     ratio,
     savedFraction: 1 - ratio,
     segmentSavedBytes: originalSegmentBytes - encodedSegmentBytes,
@@ -259,7 +256,7 @@ export function windowsForRun(
 export function pickSampleWindows(totalSeconds: number, seconds: number, count: number): SampleWindow[] {
   if (!(totalSeconds > 0) || !(seconds > 0)) return [];
   const length = Math.min(seconds, totalSeconds);
-  const wanted = Math.min(Math.max(1, count), Math.max(1, Math.floor(totalSeconds / length)));
+  const wanted = Math.min(Math.max(1, count), Math.floor(totalSeconds / length));
   const band = totalSeconds / wanted;
   const windows: SampleWindow[] = [];
   for (let i = 0; i < wanted; i++) {
@@ -267,14 +264,40 @@ export function pickSampleWindows(totalSeconds: number, seconds: number, count: 
     // is clamped to leave the whole stretch inside the file.
     const room = Math.max(0, Math.min(band, totalSeconds - i * band) - length);
     const start = Math.min(i * band + Math.random() * room, totalSeconds - length);
-    windows.push({ startSeconds: Math.max(0, start), seconds: length });
+    windows.push({ startSeconds: start, seconds: length });
   }
   return windows;
 }
 
+/** The seconds a run's stretches add up to. */
+export function windowsSeconds(windows: SampleWindow[]): number {
+  return windows.reduce((sum, w) => sum + w.seconds, 0);
+}
+
+/**
+ * The projection for `windows` having encoded to `encodedBytes`, against the loaded file; null
+ * before a file is open. `fallbackStart` stands in for the first stretch's start when there is none.
+ */
+export function estimateForWindows(
+  windows: SampleWindow[],
+  encodedBytes: number,
+  fallbackStart = 0,
+): SizeEstimate | null {
+  if (!state.source) return null;
+  return estimateSizeSavings({
+    originalTotalBytes: state.source.size,
+    totalSeconds: state.duration ?? 0,
+    segmentStartSeconds: windows[0]?.startSeconds ?? fallbackStart,
+    segmentSeconds: windowsSeconds(windows),
+    windows,
+    encodedSegmentBytes: encodedBytes,
+    samples: state.samples,
+  });
+}
+
 /** The estimate for the comparison currently loaded in the Compare Quality tab, or null before one runs. */
 export function currentSizeEstimate(): SizeEstimate | null {
-  if (encodeTest.encodedSize == null || !state.source) return null;
+  if (encodeTest.encodedSize == null) return null;
   // Every stretch the run covered, not just the one the A/B window is showing: the bytes on the
   // other side of this ratio are all of them added together, so the source side has to cover all
   // of them too. Left as the shown stretch alone, a five-segment run measured five stretches of
@@ -291,15 +314,7 @@ export function currentSizeEstimate(): SizeEstimate | null {
           seconds: encodeTest.segDuration > 0 ? encodeTest.segDuration : encodeTest.duration,
         },
       ];
-  return estimateSizeSavings({
-    originalTotalBytes: state.source.size,
-    totalSeconds: state.duration ?? 0,
-    segmentStartSeconds: windows[0].startSeconds,
-    segmentSeconds: windows.reduce((sum, w) => sum + w.seconds, 0),
-    windows,
-    encodedSegmentBytes: encodeTest.encodedSize,
-    samples: state.samples,
-  });
+  return estimateForWindows(windows, encodeTest.encodedSize);
 }
 
 /** A percentage at a readable precision: tighter below 10%, where a whole point is a big relative move. */

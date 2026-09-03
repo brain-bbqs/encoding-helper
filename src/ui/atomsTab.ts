@@ -8,12 +8,25 @@
 // well as by hovering. The Full Analysis document draws the same map through renderStaticAtomMap
 // below, minus everything that needs a hand.
 
-import { layoutAtoms, placeAtoms, placementRange, type AtomRect, type AxisRange } from "../lib/atomLayout";
-import { h, teachBox } from "../lib/dom";
+import {
+  layoutAtoms,
+  placeAtoms,
+  placementRange,
+  type AtomRect,
+  type AxisRange,
+  type Placement,
+} from "../lib/atomLayout";
+import { button, h, section, teachBox } from "../lib/dom";
 import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
+
+/** One step of the zoom path: the crumb label and the byte range the map was narrowed to. */
+interface ZoomStep {
+  label: string;
+  range: AxisRange;
+}
 
 /** What the boxes worth calling out actually hold, named in the readout. */
 const BOX_ROLES: Record<string, string | undefined> = {
@@ -63,14 +76,13 @@ function familyClass(family: string | null): string {
 }
 
 export function renderAtomMap(panel: HTMLElement): void {
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "MP4 Box / Atom Structure"));
+  const sec = section("MP4 Box / Atom Structure");
   // Faststart is a statement about where two of these boxes sit relative to each other, so it is
   // read here, against the map that draws them, rather than up in the file overview.
   sec.append(faststartBadge());
 
   const placements = placeAtoms(state.boxes);
-  const zoom: { label: string; range: AxisRange }[] = [];
+  const zoom: ZoomStep[] = [];
   const body = h("div");
 
   const draw = (): void => {
@@ -99,12 +111,7 @@ function faststartBadge(): HTMLDivElement {
   return wrap;
 }
 
-function renderMap(
-  host: HTMLElement,
-  placements: ReturnType<typeof placeAtoms>,
-  zoom: { label: string; range: AxisRange }[],
-  redraw: () => void,
-): void {
+function renderMap(host: HTMLElement, placements: Placement[], zoom: ZoomStep[], redraw: () => void): void {
   const fullRange = placementRange(placements);
   const view = zoom.length > 0 ? zoom[zoom.length - 1].range : fullRange;
   const layout = layoutAtoms(placements, view);
@@ -174,13 +181,12 @@ export function renderStaticAtomMap(boxes: BoxNode[], widthPx: number): HTMLDivE
   return wrap;
 }
 
-function renderCrumbs(shown: number, zoom: { label: string; range: AxisRange }[], redraw: () => void): HTMLDivElement {
+function renderCrumbs(shown: number, zoom: ZoomStep[], redraw: () => void): HTMLDivElement {
   const crumbs = h("div", "atom-crumbs");
   crumbs.setAttribute("aria-label", "Zoom path");
   // Each crumb pops the zoom path back to the depth it names; the last one is where you already are.
   const jump = (depth: number, label: string): HTMLButtonElement => {
-    const btn = h("button", "crumb" + (depth === zoom.length ? " on" : ""), label);
-    btn.type = "button";
+    const btn = button("crumb" + (depth === zoom.length ? " on" : ""), label);
     btn.addEventListener("click", () => {
       zoom.length = depth;
       redraw();
@@ -239,7 +245,7 @@ function narrowsView(rect: AtomRect, view: AxisRange): boolean {
 function blockEl(
   rect: AtomRect,
   view: AxisRange,
-  zoom: { label: string; range: AxisRange }[],
+  zoom: ZoomStep[],
   redraw: () => void,
   readout: HTMLElement,
 ): HTMLButtonElement {

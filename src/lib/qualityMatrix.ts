@@ -17,7 +17,16 @@
 // winner marked rather than the winner alone — the eye in the A/B window is the quality half of the
 // judgement, and the grid is what tells you how much the next row down would have saved.
 
-import { CRF_MAP, DEFAULT_SCALER, isDownscale, SCALE_OPTIONS, SCALER_OPTIONS } from "./cliCommand";
+import {
+  CRF_MAP,
+  DEFAULT_SCALER,
+  effectiveCrf,
+  isDownscale,
+  SCALE_OPTIONS,
+  SCALER_OPTIONS,
+  scaledDimensions,
+  scalePercent,
+} from "./cliCommand";
 import { fmtRate } from "./format";
 import type { CliState, EncodeSettings, MatrixCell, MatrixCombo, MatrixQuality, Scaler, X264Preset } from "./types";
 
@@ -126,17 +135,26 @@ export function comboCrf(quality: MatrixQuality): number {
  * resolution the kernel names a choice that had no effect. */
 export function describeSettings(settings: EncodeSettings): string {
   const base = `${settings.quality} (CRF ${settings.crf}), ${settings.preset}`;
-  const scaled = isDownscale(settings.scale)
-    ? `${base}, ${Math.round(settings.scale * 100)}% ${settings.scaler}`
-    : base;
+  const scaled = isDownscale(settings.scale) ? `${base}, ${scalePercent(settings.scale)} ${settings.scaler}` : base;
   return settings.fps ? `${scaled}, ${fmtRate(settings.fps)} fps` : scaled;
+}
+
+/** The quality as the A/B summary and the document name it: the preset, or "Custom", with its CRF. */
+export function describeQuality(settings: EncodeSettings): string {
+  return settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`;
+}
+
+/** Source to encoded dimensions with the scale and kernel between them, e.g. "1920×1080 → 960×540 (50%, lanczos)". */
+export function describeResolutionChange(width: number, height: number, settings: EncodeSettings): string {
+  const out = scaledDimensions(width, height, settings.scale);
+  return `${width}×${height} → ${out.width}×${out.height} (${scalePercent(settings.scale)}, ${settings.scaler})`;
 }
 
 /** What the dropdowns currently come to, for labelling a single (non-matrix) run's encode. */
 export function cliSettings(cliState: CliState): EncodeSettings {
   return {
     quality: cliState.quality,
-    crf: cliState.quality === "custom" ? cliState.crf : CRF_MAP[cliState.quality],
+    crf: effectiveCrf(cliState),
     preset: cliState.preset,
     scale: cliState.scale,
     scaler: cliState.scaler,
@@ -275,9 +293,14 @@ function heldBytes(blobs: Blob[]): number {
   return blobs.reduce((sum, blob) => sum + blob.size, 0);
 }
 
+/** Bytes one cell is holding in memory: nothing once its stretches are dropped. */
+function heldCellBytes(cell: MatrixCell): number {
+  return cell.blobs ? (cell.bytes ?? heldBytes(cell.blobs)) : 0;
+}
+
 /** Bytes of encoded segments currently held in memory. */
 export function retainedBytes(cells: MatrixCell[]): number {
-  return cells.reduce((sum, c) => sum + (c.blobs ? (c.bytes ?? heldBytes(c.blobs)) : 0), 0);
+  return cells.reduce((sum, c) => sum + heldCellBytes(c), 0);
 }
 
 /**
@@ -298,7 +321,7 @@ export function evictBeyondBudget(cells: MatrixCell[], budgetBytes: number, keep
   const evicted: string[] = [];
   for (const cell of held) {
     if (total <= budgetBytes) break;
-    total -= cell.bytes ?? (cell.blobs ? heldBytes(cell.blobs) : 0);
+    total -= heldCellBytes(cell);
     cell.blobs = null;
     evicted.push(cell.combo.key);
   }

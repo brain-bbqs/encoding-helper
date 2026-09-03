@@ -1,7 +1,7 @@
 // I/O layer: unifies File / File System Access handle / remote URL into one
 // readChunk(offset, size) -> ArrayBuffer primitive.
 
-export type ChunkedSourceKind = "file" | "url";
+type ChunkedSourceKind = "file" | "url";
 
 export class ChunkedSource {
   kind: ChunkedSourceKind | null = null;

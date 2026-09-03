@@ -3,12 +3,10 @@
 // minimal surface this app actually uses (box tree + sample table), not the whole library.
 declare module "mp4box" {
   export interface MP4BoxSample {
-    offset: number;
     size: number;
     cts: number;
     dts: number;
     is_sync: boolean;
-    duration: number;
   }
 
   export interface MP4BoxTrackInfo {
@@ -18,16 +16,13 @@ declare module "mp4box" {
 
   export interface MP4BoxInfo {
     videoTracks: MP4BoxTrackInfo[];
-    audioTracks: MP4BoxTrackInfo[];
   }
 
   /** A raw parsed box as produced by mp4box's internal BoxParser; only the fields this app reads. */
   export interface MP4BoxBox {
     type?: string;
-    fourcc?: string;
     start?: number;
     size?: number;
-    hdr_size?: number;
     boxes?: MP4BoxBox[];
   }
 

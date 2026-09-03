@@ -5,8 +5,6 @@
 import { CONTAINER_KB } from "./explainers";
 import type { ContainerInfo } from "./types";
 
-export type { ContainerInfo };
-
 export function describeContainer(formatName: string | null | undefined): ContainerInfo | null {
   if (!formatName) return null;
   return CONTAINER_KB[formatName] ?? null;

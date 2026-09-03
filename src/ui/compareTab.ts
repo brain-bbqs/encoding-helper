@@ -7,8 +7,8 @@
 // command that setting comes to.
 
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
-import { cmdBlock, h, infoIcon } from "../lib/dom";
-import { fmtRate } from "../lib/format";
+import { button, cmdBlock, h, infoIcon, section } from "../lib/dom";
+import { errorMessage, fmtRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
@@ -28,11 +28,11 @@ import {
   matrixProgress,
 } from "../lib/qualityMatrix";
 import { drainWithPool } from "../lib/ffmpegPool";
-import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
-import { estimateSizeSavings, type SizeEstimate } from "../lib/sizeEstimate";
-import type { MatrixCell, MatrixQuality, SampleWindow, Scaler, TrackInfo, X264Preset } from "../lib/types";
+import { cli, currentVideoInfo, encodeTest, state, videoTrackInfo } from "../lib/state";
+import { estimateForWindows, type SizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
+import type { MatrixCell, MatrixCombo, MatrixQuality, SampleWindow, Scaler, TrackInfo, X264Preset } from "../lib/types";
 import { loadEncodedIntoAB, onAbDisplaced } from "./abPanel";
-import { logLine } from "./formControls";
+import { finishFill, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
 import {
   acquireWorkers,
@@ -64,15 +64,42 @@ interface MatrixUi extends RunUi {
 // from under whoever had it open.
 let matrixSettingsOpen = false;
 
+/** What the ticked axes come to, as the settings bar says it: the factors, and the runs they multiply to. */
+function axisCountLabel(): string {
+  const { qualities, presets, scales, scalers, fpsFractions } = encodeTest.matrix;
+  // The two outer axes are left out at one value each, where they multiply the sweep by one and
+  // saying so would only make the bar longer.
+  const counts = [qualities.length, presets.length];
+  if (scales.length > 1) counts.push(scales.length);
+  if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
+  if (fpsFractions.length > 1) counts.push(fpsFractions.length);
+  // The product is what the run costs, which is the number the factors are read for; a single
+  // axis is its own product, so it is left to stand alone.
+  const squares = counts.reduce((product, n) => product * n, 1);
+  const total = `${squares} run${squares === 1 ? "" : "s"}`;
+  return counts.length > 1 ? `${counts.join(" × ")} = ${total}` : total;
+}
+
 export function renderCompareTab(panel: HTMLElement): void {
   panel.innerHTML = "";
-  const vt = state.tracks?.find((t) => t.kind === "video");
+  const vt = videoTrackInfo();
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return;
 
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Compare Encoding Quality"));
+  const sec = section("Compare Encoding Quality");
 
   sec.append(sampleFields("et"));
+
+  const { nodes: runNodes, ui: runUi } = runControls(runActionLabel());
+  const matrixSec = h("div", "section matrix-section");
+  matrixSec.style.display = "none";
+  const resultSec = h("div", "section");
+  resultSec.style.display = "none";
+  const cmdSec = h("div", "section");
+  cmdSec.style.display = "none";
+  const ui: MatrixUi = { ...runUi, matrixSec, resultSec, cmdSec };
+  ui.syncRunAction = () => {
+    ui.runButton.textContent = runActionLabel();
+  };
 
   // Which values the sweep spans is a decision most runs never revisit, so the two tick lists fold
   // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled
@@ -86,22 +113,9 @@ export function renderCompareTab(panel: HTMLElement): void {
   axisSummary.append(h("span", "matrix-settings-gear", "⚙"), h("span", null, "Settings to sweep"));
   const axisCount = h("span", "matrix-settings-count");
   const refreshAxisCount = (): void => {
-    const { qualities, presets, scales, scalers, fpsFractions } = encodeTest.matrix;
-    // The two outer axes are left out at one value each, where they multiply the sweep by one and
-    // saying so would only make the bar longer.
-    const counts = [qualities.length, presets.length];
-    if (scales.length > 1) counts.push(scales.length);
-    if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
-    if (fpsFractions.length > 1) counts.push(fpsFractions.length);
-    // The product is what the run costs, which is the number the factors are read for; a single
-    // axis is its own product, so it is left to stand alone.
-    const squares = counts.reduce((product, n) => product * n, 1);
-    const total = `${squares} run${squares === 1 ? "" : "s"}`;
-    axisCount.textContent = counts.length > 1 ? `${counts.join(" × ")} = ${total}` : total;
+    axisCount.textContent = axisCountLabel();
   };
-  // `ui` is only assigned further down, once the sections an axis change needs to repaint exist —
-  // but nothing here runs until a checkbox fires, by which point it is. See resetStaleMatrix for why
-  // this has to happen at all.
+  // See resetStaleMatrix for why an axis change has to do more than recount.
   const onAxisChange = (): void => {
     refreshAxisCount();
     resetStaleMatrix(ui, vt);
@@ -175,8 +189,7 @@ export function renderCompareTab(panel: HTMLElement): void {
   refreshAxisCount();
   // One "select all" for the whole sweep rather than one per list: it ticks every value on every
   // axis, for the runs that want the full grid rather than the defaults.
-  const selectAll = h("button", "axis-select-all", "select all");
-  selectAll.type = "button";
+  const selectAll = button("axis-select-all", "select all");
   selectAll.title = "Tick every value on every axis";
   selectAll.addEventListener("click", () => {
     for (const list of axisSettings.querySelectorAll<HTMLDivElement>(".axis-list")) {
@@ -190,39 +203,22 @@ export function renderCompareTab(panel: HTMLElement): void {
   selectAllRow.append(selectAll);
   axisSettings.append(selectAllRow, axisRow, outerRow);
   sec.append(axisSettings);
-
-  const { nodes, ui: runUi } = runControls(runActionLabel());
-  sec.append(...nodes);
+  sec.append(...runNodes);
   panel.append(sec);
-
-  const matrixSec = h("div", "section matrix-section");
-  matrixSec.style.display = "none";
   panel.append(matrixSec);
-
-  const resultSec = h("div", "section");
-  resultSec.style.display = "none";
   panel.append(resultSec);
-
-  const cmdSec = h("div", "section");
-  cmdSec.style.display = "none";
   panel.append(cmdSec);
 
-  const ui: MatrixUi = { ...runUi, matrixSec, resultSec, cmdSec };
-  ui.syncRunAction = () => {
-    ui.runButton.textContent = runActionLabel();
-  };
   // A single run started on the other tab takes the A/B window over, so no square is showing here
   // anymore and the command under it is no longer the command for what is on screen.
   onAbDisplaced(resultSec, () => {
     encodeTest.matrix.selectedKey = null;
-    renderMatrixSection(matrixSec, vt, ui);
-    renderSelectedCommand(cmdSec);
+    repaintMatrix(vt, ui);
   });
 
   // Drawn from the state rather than only from a run, so a grid and the square showing in the A/B
   // window survive the panel being rebuilt.
-  renderMatrixSection(matrixSec, vt, ui);
-  renderSelectedCommand(cmdSec);
+  repaintMatrix(vt, ui);
 
   ui.runButton.addEventListener("click", () => {
     // Disabled here as well as by the run itself, so a second click cannot land in the gap before
@@ -293,13 +289,12 @@ function unmeasuredCells(): MatrixCell[] {
 function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
   const matrix = encodeTest.matrix;
   if (matrix.running || encodeTest.running || !unmeasuredCells().length) return;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers, matrixFps());
+  const combos = tickedCombos();
   const keys = new Set(combos.map((c) => c.key));
   if (combos.length === matrix.cells.length && matrix.cells.every((c) => keys.has(c.combo.key))) return;
   matrix.cells = [];
   matrix.selectedKey = null;
-  renderMatrixSection(ui.matrixSec, vt, ui);
-  renderSelectedCommand(ui.cmdSec);
+  repaintMatrix(vt, ui);
   ui.syncRunAction();
 }
 
@@ -322,7 +317,7 @@ function runActionLabel(): string {
 async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
   if (encodeTest.running) return;
   const matrix = encodeTest.matrix;
-  const combos = buildMatrixCombos(matrix.qualities, matrix.presets, matrix.scales, matrix.scalers, matrixFps());
+  const combos = tickedCombos();
   if (!combos.length) {
     ui.note.textContent = "Tick at least one quality level and one preset first.";
     return;
@@ -406,13 +401,7 @@ async function applyCachedMeasurements(queue: MatrixCell[], checksum: string, ui
       remaining.push(cell);
       continue;
     }
-    cell.status = "done";
-    cell.bytes = measurement.bytes;
-    cell.segmentSeconds = measurement.segmentSeconds;
-    cell.elapsedMs = measurement.elapsedMs;
-    cell.blobs = null;
-    cell.fromCache = true;
-    cell.error = null;
+    markMeasured(cell, measurement, null, true);
   }
   const reused = queue.length - remaining.length;
   if (reused) {
@@ -465,6 +454,31 @@ async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pro
   await encodeCells(cells, vt, ui);
 }
 
+/** Writes a square's measurement onto it, whether just encoded or read back from the cache. */
+function markMeasured(
+  cell: MatrixCell,
+  measured: { bytes: number; segmentSeconds: number | null; elapsedMs: number | null },
+  blobs: Blob[] | null,
+  fromCache: boolean,
+): void {
+  cell.status = "done";
+  cell.bytes = measured.bytes;
+  cell.segmentSeconds = measured.segmentSeconds;
+  cell.elapsedMs = measured.elapsedMs;
+  cell.blobs = blobs;
+  cell.fromCache = fromCache;
+  cell.error = null;
+}
+
+/** The line under the bar once a sweep ends: nothing when every square encoded, else what did not. */
+function sweepNote(progress: ReturnType<typeof matrixProgress>): string {
+  return progress.failed || progress.skipped
+    ? `${progress.done} of ${progress.total} encoded` +
+        (progress.failed ? `, ${progress.failed} failed` : "") +
+        (progress.skipped ? `, ${progress.skipped} skipped` : "")
+    : "";
+}
+
 /**
  * Encodes each of `queue` in turn, filling its square in as it goes, then puts the grid's largest
  * reduction in the A/B window.
@@ -477,7 +491,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
   matrix.running = true;
   activeQueue = queue;
   const fill = startRunUi(ui);
-  const repaint = (): void => renderMatrixSection(ui.matrixSec, vt, ui);
+  const repaint = (): void => renderMatrixSection(vt, ui);
   repaint();
 
   let inputs: RunInputs | null = null;
@@ -535,18 +549,19 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
               inFlight.set(cell.combo.key, fraction);
               showProgress();
             });
-            cell.elapsedMs = performance.now() - startedAt;
-            cell.bytes = encoded.bytes;
-            cell.blobs = encoded.blobs;
-            cell.segmentSeconds = encoded.measured.reduce((sum, w) => sum + w.seconds, 0);
-            cell.status = "done";
-            cell.fromCache = false;
+            const elapsedMs = performance.now() - startedAt;
+            markMeasured(
+              cell,
+              { bytes: encoded.bytes, segmentSeconds: windowsSeconds(encoded.measured), elapsedMs },
+              encoded.blobs,
+              false,
+            );
             rememberMeasurement(checksum, cell);
           } catch (err) {
             // A core terminated by Stop rejects whatever it was running; the square it was on was
             // never measured, which is what "skipped" already means for the ones never reached.
             cell.status = stopRequested() ? "skipped" : "failed";
-            cell.error = cell.status === "failed" ? (err instanceof Error ? err.message : String(err)) : null;
+            cell.error = cell.status === "failed" ? errorMessage(err) : null;
             if (cell.error) logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
           }
           inFlight.delete(cell.combo.key);
@@ -584,24 +599,11 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
         // which is a browser that will not decode what ffmpeg just wrote. Reporting that as the
         // run failing would throw away a grid full of good measurements.
         console.error("[encoding-helper] could not show the best square:", err);
-        logLine(
-          ui.log,
-          "Encoded fine, but could not be shown: " + (err instanceof Error ? err.message : String(err)),
-          "warn",
-        );
+        logLine(ui.log, "Encoded fine, but could not be shown: " + errorMessage(err), "warn");
       }
     }
-    if (fill) {
-      fill.style.width = "100%";
-      fill.classList.add("done");
-    }
-    const progress = matrixProgress(matrix.cells);
-    ui.note.textContent =
-      progress.failed || progress.skipped
-        ? `${progress.done} of ${progress.total} encoded` +
-          (progress.failed ? `, ${progress.failed} failed` : "") +
-          (progress.skipped ? `, ${progress.skipped} skipped` : "")
-        : "";
+    finishFill(fill);
+    ui.note.textContent = sweepNote(matrixProgress(matrix.cells));
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
@@ -639,8 +641,7 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
   matrix.selectedKey = cell.combo.key;
   selecting = true;
   ui.runButton.disabled = true;
-  renderMatrixSection(ui.matrixSec, vt, ui);
-  renderSelectedCommand(ui.cmdSec);
+  repaintMatrix(vt, ui);
   try {
     let blobs = cell.blobs;
     if (!blobs) {
@@ -658,12 +659,11 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
       cell.blobs = blobs;
       cell.bytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
     }
-    const heldBytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
     // The A/B window compares against the seconds the grid was measured over, which the start and
     // duration fields may have been moved off since.
     syncSegmentToMatrix();
     await loadEncodedIntoAB(blobs, cell.combo, vt, ui.resultSec, {
-      bytes: cell.bytes ?? heldBytes,
+      bytes: cell.bytes ?? blobs.reduce((sum, blob) => sum + blob.size, 0),
       windows: matrixCellWindows(cell),
     });
   } catch (err) {
@@ -673,26 +673,29 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
     selecting = false;
     // A sweep re-enables its own button when it ends; this only undoes the disabling above.
     if (!encodeTest.running) ui.runButton.disabled = false;
-    renderMatrixSection(ui.matrixSec, vt, ui);
-    renderSelectedCommand(ui.cmdSec);
+    repaintMatrix(vt, ui);
   }
 }
 
-/** The stretches the sweep covered, or the one segment it used before several were asked for. */
 /** What the ticked fractions come to for the loaded file: absolute rates, the source's own as null. */
 function matrixFps(): (number | null)[] {
-  const sourceFps = currentVideoInfo()?.fps ?? state.fps;
-  const values = encodeTest.matrix.fpsFractions.map((f) => fpsForFraction(f, sourceFps));
-  return values.length ? values : [null];
+  return encodeTest.matrix.fpsFractions.map((f) => fpsForFraction(f, state.fps));
+}
+
+/** The combinations the ticked axes currently ask for. */
+function tickedCombos(): MatrixCombo[] {
+  const m = encodeTest.matrix;
+  return buildMatrixCombos(m.qualities, m.presets, m.scales, m.scalers, matrixFps());
 }
 
 /** One tick's label: the source's own rate, or the rate the fraction comes to for this file. */
 function describeFpsFraction(fraction: number): string {
-  const rate = fpsForFraction(fraction, currentVideoInfo()?.fps ?? state.fps);
+  const rate = fpsForFraction(fraction, state.fps);
   if (rate == null) return "Source";
   return `${Math.round(fraction * 100)}% (${fmtRate(rate)} fps)`;
 }
 
+/** The stretches the sweep covered, or the one segment it used before several were asked for. */
 function matrixWindows(): SampleWindow[] {
   const matrix = encodeTest.matrix;
   if (matrix.windows.length) return matrix.windows;
@@ -719,7 +722,7 @@ function syncSegmentToMatrix(): void {
  */
 function matrixCellWindows(cell: MatrixCell): SampleWindow[] {
   const windows = matrixWindows();
-  const requested = windows.reduce((sum, w) => sum + w.seconds, 0);
+  const requested = windowsSeconds(windows);
   const measured = cell.segmentSeconds && cell.segmentSeconds > 0 ? cell.segmentSeconds : requested;
   const factor = requested > 0 ? measured / requested : 1;
   return windows.map((w) => ({ startSeconds: w.startSeconds, seconds: w.seconds * factor }));
@@ -727,20 +730,12 @@ function matrixCellWindows(cell: MatrixCell): SampleWindow[] {
 
 /** What a matrix square projects the whole file to, on the segments that square was encoded from. */
 function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
-  if (cell.bytes == null || !state.source) return null;
-  const windows = matrixCellWindows(cell);
-  return estimateSizeSavings({
-    originalTotalBytes: state.source.size,
-    totalSeconds: state.duration ?? 0,
-    segmentStartSeconds: windows[0]?.startSeconds ?? encodeTest.matrix.segmentStart,
-    segmentSeconds: windows.reduce((sum, w) => sum + w.seconds, 0),
-    windows,
-    encodedSegmentBytes: cell.bytes,
-    samples: state.samples,
-  });
+  if (cell.bytes == null) return null;
+  return estimateForWindows(matrixCellWindows(cell), cell.bytes, encodeTest.matrix.segmentStart);
 }
 
-function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: MatrixUi): void {
+function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
+  const sec = ui.matrixSec;
   const matrix = encodeTest.matrix;
   sec.innerHTML = "";
   if (!matrix.cells.length) {
@@ -780,12 +775,18 @@ function renderMatrixSection(sec: HTMLDivElement, vt: TrackInfo, ui: MatrixUi): 
         ? undefined
         : (cell) => void selectMatrixCell(cell, vt, ui).catch((err) => reportRunFailure(err, ui)),
       onRetry: matrix.running
-        ? (cell) => queueRetry(cell, ui, () => renderMatrixSection(sec, vt, ui))
+        ? (cell) => queueRetry(cell, ui, () => renderMatrixSection(vt, ui))
         : busy
           ? undefined
           : (cell) => void retryCells([cell], vt, ui),
     }),
   );
+}
+
+/** Redraws the grid and the command under it, which change together. */
+function repaintMatrix(vt: TrackInfo, ui: MatrixUi): void {
+  renderMatrixSection(vt, ui);
+  renderSelectedCommand(ui.cmdSec);
 }
 
 /**

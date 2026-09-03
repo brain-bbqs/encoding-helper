@@ -50,7 +50,14 @@ EMBER_API="https://api-dandi.emberarchive.org/api"
 EMBER_DANDISET="000527"
 ORIGINAL_SESSION="original"
 ORIGINAL_EXT="m4v"
-ORIGINAL_PATH="sub-01/ses-$ORIGINAL_SESSION/beh/sub-01_ses-${ORIGINAL_SESSION}_video.$ORIGINAL_EXT"
+
+# Where a session's video sits in the dataset, relative to its root: the layout
+# the header describes, spelled once so the archive fetch and the files this
+# run writes cannot drift apart.
+session_path() {
+  printf 'sub-01/ses-%s/beh/sub-01_ses-%s_video.%s' "$1" "$1" "$2"
+}
+ORIGINAL_PATH=$(session_path "$ORIGINAL_SESSION" "$ORIGINAL_EXT")
 
 while getopts "s:o:h" opt; do
   case $opt in
@@ -116,8 +123,8 @@ mkdir -p "$OUT"
 X264="-c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p"
 FS="-movflags +faststart"
 STRIP="-map_metadata -1" # do not inherit the source's own tags
+AAC96K="-c:a aac -b:a 96k" # the reference's audio, which most demos keep
 
-SESSION_COUNT=0
 SESSION_ENTRIES=()
 
 json_escape() {
@@ -134,19 +141,17 @@ json_escape() {
 # original) rather than recorded as an empty string.
 session_entry() {
   local label=$1 title=$2 group=$3 loads=$4 args=$5 desc=$6 entry
-  entry=$(printf '"%s": {"title": "%s", "group": "%s", "loads_in_app": %s' \
+  entry=$(printf '"%s": {"title": "%s", "group": "%s", "loads_in_app": %s, "description": "%s"' \
     "$(json_escape "$label")" "$(json_escape "$title")" "$(json_escape "$group")" \
-    "$([ "$loads" = yes ] && echo true || echo false)")
-  if [ -n "$desc" ]; then entry+=$(printf ', "description": "%s"' "$(json_escape "$desc")"); fi
+    "$([ "$loads" = yes ] && echo true || echo false)" "$(json_escape "$desc")")
   if [ -n "$args" ]; then entry+=$(printf ', "ffmpeg_args": "%s"' "$(json_escape "$args")"); fi
   SESSION_ENTRIES+=("$entry}")
-  SESSION_COUNT=$((SESSION_COUNT + 1))
 }
 
 # The path a session's video lands at, so the rotation demo can remux the
 # reference file after it exists.
 session_video() {
-  printf '%s/sub-01/ses-%s/beh/sub-01_ses-%s_video.%s' "$OUT" "$1" "$1" "$2"
+  printf '%s/%s' "$OUT" "$(session_path "$1" "$2")"
 }
 
 # The RFC 6381 codec parameter string for a video, or empty when it cannot be
@@ -256,7 +261,7 @@ session_entry "$ORIGINAL_SESSION" "The original recording, unmodified" original 
 demo reference yes reference mp4 \
   "Reference: H.264 High in MP4, faststart" \
   "The baseline of the demo set: H.264 High profile, CRF 23, 3-second GOP, AAC audio, moov before mdat. Every other demo file changes one thing from this." \
-  -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP $X264 -g 90 $AAC96K $FS
 
 # --- A recommended encode ----------------------------------------------------
 # The one file in the set that is a recommendation rather than a demonstration:
@@ -286,12 +291,12 @@ demo recommended yes recommended mp4 \
 demo layout yes nofaststart mp4 \
   "Not faststart: moov after mdat" \
   "Identical encode to the reference, but without +faststart the moov atom lands after mdat, so streaming playback cannot start until the whole file arrives. Compare the atom map and the faststart badge." \
-  -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k
+  -- -i "$SRC" $STRIP $X264 -g 90 $AAC96K
 
 demo layout yes fragmented mp4 \
   "Fragmented MP4: moof/mdat pairs" \
   "The same stream written as a fragmented MP4: an empty moov up front, then a moof/mdat pair per keyframe. The atom map shows many small fragments instead of one big mdat." \
-  -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k -movflags frag_keyframe+empty_moov
+  -- -i "$SRC" $STRIP $X264 -g 90 $AAC96K -movflags frag_keyframe+empty_moov
 
 # --- Containers --------------------------------------------------------------
 # Same H.264 stream in different boxes; the non-ISO ones double as
@@ -300,12 +305,12 @@ demo layout yes fragmented mp4 \
 demo container yes quicktime mov \
   "QuickTime container (.mov)" \
   "The reference encode muxed into a QuickTime .mov: the same atom grammar MP4 inherited, with QuickTime-flavoured metadata atoms. Compare the container card and atom map against the MP4 reference." \
-  -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP $X264 -g 90 $AAC96K $FS
 
 demo container no matroska mkv \
   "Matroska container (.mkv)" \
   "The reference H.264 stream in Matroska: EBML elements instead of MP4 atoms, so there is no moov/mdat and no faststart question. Currently fails the MP4 parse step, exercising the error path." \
-  -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k
+  -- -i "$SRC" $STRIP $X264 -g 90 $AAC96K
 
 demo container no webmvp9 webm \
   "WebM container: VP9 + Opus" \
@@ -322,27 +327,27 @@ demo container no avimpeg4 avi \
 demo codec yes h264baseline mp4 \
   "H.264 Constrained Baseline profile" \
   "The compatibility-first H.264 profile: no B-frames, CAVLC entropy coding. Larger than the High-profile reference at the same quality; compare the profile in the Video Track card and the frame types in the GOP view." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -profile:v baseline -pix_fmt yuv420p -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -profile:v baseline -pix_fmt yuv420p -g 90 $AAC96K $FS
 
 demo codec yes h264high10 mp4 \
   "H.264 High 10: 10-bit 4:2:0" \
   "Ten bits per sample instead of eight (yuv420p10le, High 10 profile). Many hardware decoders and browsers refuse it, which is exactly what makes it an interoperability test." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p10le -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p10le -g 90 $AAC96K $FS
 
 demo codec yes h264high444 mp4 \
   "H.264 High 4:4:4: no chroma subsampling" \
   "Full-resolution colour (yuv444p, High 4:4:4 Predictive profile) instead of the usual 4:2:0. Compare the chroma subsampling explainer; expect most browsers to fail to decode it." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv444p -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv444p -g 90 $AAC96K $FS
 
 demo codec yes hevc mp4 \
   "H.265/HEVC in MP4" \
   "The successor codec at similar quality in fewer bits, tagged hvc1 for Apple compatibility. Decode support varies by browser and platform: Safari yes, others it depends." \
-  -- -i "$SRC" $STRIP -c:v libx265 -preset fast -crf 26 -pix_fmt yuv420p -tag:v hvc1 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -c:v libx265 -preset fast -crf 26 -pix_fmt yuv420p -tag:v hvc1 $AAC96K $FS
 
 demo codec yes av1 mp4 \
   "AV1 in MP4" \
   "The royalty-free state of the art (SVT-AV1). Same MP4 atoms around a very different bitstream; modern browsers decode it, older hardware does not." \
-  -- -i "$SRC" $STRIP -c:v libsvtav1 -preset 8 -crf 35 -pix_fmt yuv420p -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -c:v libsvtav1 -preset 8 -crf 35 -pix_fmt yuv420p $AAC96K $FS
 
 demo codec no vp8 webm \
   "VP8 in WebM" \
@@ -366,39 +371,39 @@ demo codec no ffv1lossless mkv \
 demo gop yes gopshort mp4 \
   "Short GOP: keyframe every half second" \
   "A keyframe every 15 frames. Seeking lands close to everywhere (see the seeking test scatter), paid for in file size. Compare against the 300-frame GOP file." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -x264-params keyint=15:min-keyint=15:scenecut=0 -an $FS
+  -- -i "$SRC" $STRIP $X264 -x264-params keyint=15:min-keyint=15:scenecut=0 -an $FS
 
 demo gop yes goplong mp4 \
   "Long GOP: keyframe every ten seconds" \
   "A keyframe only every 300 frames. Small file, but seeking must decode up to ten seconds of frames to reach a target; the seeking test makes the cost measurable." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -x264-params keyint=300:min-keyint=300:scenecut=0 -an $FS
+  -- -i "$SRC" $STRIP $X264 -x264-params keyint=300:min-keyint=300:scenecut=0 -an $FS
 
 demo gop yes allintra mp4 \
   "All-intra: every frame a keyframe" \
   "GOP of one: every frame is an I-frame, like MJPEG but in H.264 syntax. Perfect seeking, maximum size; the far end of the keyframe-interval axis." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -g 1 -an $FS
+  -- -i "$SRC" $STRIP $X264 -g 1 -an $FS
 
 demo gop yes nobframes mp4 \
   "No B-frames: I and P only" \
   "B-frames disabled (-bf 0): decode order equals presentation order and every frame references only the past. Compare the frame-type pattern against the reference and the 8-B-frame file." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -g 90 -bf 0 -an $FS
+  -- -i "$SRC" $STRIP $X264 -g 90 -bf 0 -an $FS
 
 demo gop yes bframes8 mp4 \
   "Eight consecutive B-frames" \
   "Runs of eight B-frames between anchors (-bf 8, adaptive placement off), the compression-over-latency extreme. The GOP view shows long B runs; decode order diverges far from presentation order." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -g 90 -bf 8 -x264-params b-adapt=0 -an $FS
+  -- -i "$SRC" $STRIP $X264 -g 90 -bf 8 -x264-params b-adapt=0 -an $FS
 
 # --- Bitrate behaviour -------------------------------------------------------
 
 demo bitrate yes cbr800k mp4 \
   "Constant bitrate: 800 kb/s CBR" \
   "True CBR with HRD signalling: the encoder spends 800 kb/s whether the scene needs it or not. The bitrate-over-time plot flattens; compare its declared rate against the CRF-driven reference." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -b:v 800k -minrate 800k -maxrate 800k -bufsize 1600k -x264-params nal-hrd=cbr:force-cfr=1 -pix_fmt yuv420p -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -b:v 800k -minrate 800k -maxrate 800k -bufsize 1600k -x264-params nal-hrd=cbr:force-cfr=1 -pix_fmt yuv420p -g 90 $AAC96K $FS
 
 demo bitrate yes starved150k mp4 \
   "Starved bitrate: 150 kb/s cap" \
   "A hard 150 kb/s cap far below what the content needs: blocking and smearing wherever there is motion. Load it in the A/B window against the reference to see what a bitrate ceiling costs." \
-  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -b:v 150k -maxrate 150k -bufsize 300k -pix_fmt yuv420p -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -c:v libx264 -preset veryfast -b:v 150k -maxrate 150k -bufsize 300k -pix_fmt yuv420p -g 90 $AAC96K $FS
 
 # --- Track properties --------------------------------------------------------
 
@@ -418,19 +423,19 @@ demo track yes videoonly mp4 \
 demo track yes vfr mp4 \
   "Variable frame rate" \
   "Frames dropped irregularly and timestamps kept (variable frame rate), the way phone cameras and screen recorders write video. Frame-rate figures become averages, not a clock." \
-  -- -i "$SRC" $STRIP -vf "select='gt(random(1)\,0.3)'" -fps_mode vfr -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -an $FS
+  -- -i "$SRC" $STRIP -vf "select='gt(random(1)\,0.3)'" -fps_mode vfr $X264 -an $FS
 
 demo track yes halfres mp4 \
   "Half resolution" \
   "The reference downscaled to half its width and height, a quarter of the pixels. Resolution is the largest file-size lever there is, and the one CRF cannot pull." \
-  -- -i "$SRC" $STRIP -vf "scale=trunc(iw/4)*2:-2" $X264 -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -vf "scale=trunc(iw/4)*2:-2" $X264 -g 90 $AAC96K $FS
 
 # --- Metadata tags -----------------------------------------------------------
 
 demo metadata yes richtags mp4 \
   "Rich metadata tags" \
   "The reference carrying a full set of container tags. Every one of them shows up in the Metadata Tags section with its own explainer popover." \
-  -- -i "$SRC" $STRIP $X264 -g 90 -c:a aac -b:a 96k $FS \
+  -- -i "$SRC" $STRIP $X264 -g 90 $AAC96K $FS \
   -metadata artist="Encoding Helper demo set" \
   -metadata album="encoding-helper demos" \
   -metadata date="2026" \
@@ -442,7 +447,7 @@ demo metadata yes richtags mp4 \
 NO_META=1 demo metadata yes notags mp4 \
   "No metadata tags at all" \
   "The same encode with every tag stripped and the muxer's own fingerprints suppressed. The Metadata Tags section has nothing to show; compare against the rich-metadata file." \
-  -- -i "$SRC" $STRIP -fflags +bitexact $X264 -g 90 -c:a aac -b:a 96k $FS
+  -- -i "$SRC" $STRIP -fflags +bitexact $X264 -g 90 $AAC96K $FS
 
 # --- dataset_description.json ------------------------------------------------
 # The BIDS dataset root file, in the shape clip-extractor writes its own:
@@ -492,7 +497,7 @@ VERSION=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$SCRIPT_DIR/../package.jso
 } >"$OUT/dataset_description.json"
 
 echo
-echo "Wrote $SESSION_COUNT sessions (video + sidecar each) and dataset_description.json to $OUT/:"
+echo "Wrote ${#SESSION_ENTRIES[@]} sessions (video + sidecar each) and dataset_description.json to $OUT/:"
 find "$OUT/sub-01" -name '*_video.*' ! -name '*_video.json' | sort | while read -r f; do
   printf '  %8.1f MB  %s\n' "$(awk -v b="$(wc -c <"$f")" 'BEGIN{printf "%.1f", b/1048576}')" "${f#"$OUT"/}"
 done

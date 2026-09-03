@@ -13,9 +13,9 @@
 
 import { buildAnalysisDocument, renderSectionsToMarkdown, slugify, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
-import { buildFfmpegArgs, formatCliCommand, isDownscale, scaledDimensions } from "../lib/cliCommand";
+import { buildFfmpegArgs, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
 import { describeContainer } from "../lib/containerKb";
-import { copyToClipboard, h, teachBox } from "../lib/dom";
+import { button, copyToClipboard, h, section, teachBox } from "../lib/dom";
 import {
   ANALYSIS_PANEL_INTRO,
   ATOM_MAP_DOC_CAPTION,
@@ -43,18 +43,37 @@ import {
   TOO_FEW_FRAMES_NOTE,
   VIDEO_AVERAGE_INFO,
 } from "../lib/explainers";
-import { fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate } from "../lib/format";
+import {
+  describeColorSpace,
+  describeFrameCount,
+  describeFrameRate,
+  fmtBits,
+  fmtBytes,
+  fmtDur,
+  fmtMs,
+  fmtRate,
+  fmtSizeChangePct,
+} from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
-import { bestReductionCell, cliSettings, comboCrf, comboKey, matrixAxes } from "../lib/qualityMatrix";
-import { downloadBlob } from "../lib/save";
+import {
+  bestReductionCell,
+  cliSettings,
+  comboCrf,
+  comboKey,
+  describeQuality,
+  describeResolutionChange,
+  matrixAxes,
+} from "../lib/qualityMatrix";
+import { baseNameOf, downloadBlob } from "../lib/save";
+import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
-import { cli, currentVideoInfo, encodeTest, state } from "../lib/state";
+import { audioTrackInfo, cli, currentVideoInfo, encodeTest, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
 import { describeSampledStretches } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
-import { flattenMetadataTags } from "./inspectTab";
+import { flattenMetadataTags, overallBitrate, overviewTitle } from "./inspectTab";
 import { renderGopHistogram, renderSeekScatter } from "./seekTab";
 
 /** Printed in the document so a copy saved to disk still says where it came from. */
@@ -69,7 +88,7 @@ const DOCUMENT_WIDTH_PX = 772;
 
 /** The headline strip under the document title: what the file is, in one line. */
 function headlineFacts(): [string, string][] {
-  const vt = state.tracks?.find((t) => t.kind === "video");
+  const vt = videoTrackInfo();
   const facts: [string, string][] = [["Container", state.format || "–"]];
   if (vt) {
     facts.push(["Video Codec", vt.codecString || vt.codec]);
@@ -91,7 +110,7 @@ function documentMeta(): DocumentMeta {
 }
 
 function overviewSection(): AnalysisSection {
-  const fileBitrate = state.duration && state.source ? (state.source.size * 8) / state.duration : null;
+  const fileBitrate = overallBitrate();
   const info = describeContainer(state.format);
   const blocks: AnalysisBlock[] = [{ kind: "prose", html: CONTAINER_PREAMBLE }];
   // What this file's container is, which the page carries in this same card. It names the container
@@ -110,8 +129,7 @@ function overviewSection(): AnalysisSection {
     { kind: "prose", html: OVERALL_BITRATE_INFO },
     { kind: "prose", html: MIME_TYPE_INFO },
   );
-  const title = state.format ? `Video Container Overview: ${state.format}` : "Video Container Overview";
-  return { title, blocks };
+  return { title: overviewTitle(), blocks };
 }
 
 function videoTrackSection(vt: TrackInfo): AnalysisSection {
@@ -124,18 +142,10 @@ function videoTrackSection(vt: TrackInfo): AnalysisSection {
   if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
     items.push(["Display Size", `${vt.displayWidth ?? "?"}×${vt.displayHeight ?? "?"}`]);
   }
-  items.push(
-    ["Frame Rate", vt.packetRate != null ? fmtRate(vt.packetRate) + " fps" : "–"],
-    ["Frames", state.frameCount != null ? state.frameCount.toLocaleString() : "–"],
-  );
+  items.push(["Frame Rate", describeFrameRate(vt.packetRate)], ["Frames", describeFrameCount(state.frameCount)]);
   if (vt.rotation) items.push(["Rotation", vt.rotation + "°"]);
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
-  if (vt.colorSpace) {
-    items.push([
-      "Color Space",
-      [vt.colorSpace.primaries, vt.colorSpace.transfer, vt.colorSpace.matrix].filter(Boolean).join(" / ") || "–",
-    ]);
-  }
+  if (vt.colorSpace) items.push(["Color Space", describeColorSpace(vt.colorSpace)]);
   if (vt.hdr) items.push(["HDR", "Yes"]);
 
   const blocks: AnalysisBlock[] = [{ kind: "kv", items }];
@@ -259,9 +269,7 @@ function atomMapSection(): AnalysisSection | null {
 
 function gopSection(): AnalysisSection | null {
   if (!state.samples.length) return null;
-  const gop = state.gopLengths;
-  const avgGop = gop.length ? gop.reduce((a, b) => a + b, 0) / gop.length : 0;
-  const fps = state.fps || 30;
+  const { gop, avgGop, fps } = gopStats();
   const blocks: AnalysisBlock[] = [
     { kind: "prose", html: GOP_TEACH },
     {
@@ -269,7 +277,7 @@ function gopSection(): AnalysisSection | null {
       items: [
         ["Total Frames", state.samples.length.toLocaleString()],
         ["Keyframes", state.keyframeDecodeIndices.length.toLocaleString()],
-        ["Avg GOP", `${avgGop.toFixed(1)} frames (${(avgGop / fps).toFixed(2)} s)`],
+        ["Avg GOP", describeAvgGop(avgGop, fps)],
         ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : "–"],
       ],
     },
@@ -288,9 +296,7 @@ function gopSection(): AnalysisSection | null {
 function seekingSection(): AnalysisSection | null {
   const results = state.seekResults;
   if (!results || !results.length) return null;
-  const avgDist = results.reduce((a, r) => a + (r.dist ?? 0), 0) / results.length;
-  const avgDecode = results.reduce((a, r) => a + r.decodeMs, 0) / results.length;
-  const maxDecode = Math.max(...results.map((r) => r.decodeMs));
+  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
   const blocks: AnalysisBlock[] = [
     { kind: "prose", html: SEEK_TEST_INTRO },
     {
@@ -307,14 +313,8 @@ function seekingSection(): AnalysisSection | null {
   if (scatter) blocks.push({ kind: "figure", caption: SEEK_SCATTER_CAPTION, element: scatter });
   blocks.push({
     kind: "table",
-    headers: ["Timestamp", "Nearest Keyframe ≤ t", "Distance", "Distance (frames)", "Decode Time"],
-    rows: results.map((r) => [
-      r.t.toFixed(3) + "s",
-      r.kf != null ? r.kf.toFixed(3) + "s" : "–",
-      r.dist != null ? r.dist.toFixed(3) + "s" : "–",
-      r.distFrames != null ? String(r.distFrames) : "–",
-      fmtMs(r.decodeMs),
-    ]),
+    headers: SEEK_TABLE_HEADERS,
+    rows: results.map(seekResultRow),
   });
   return { title: "Empirical Seeking Test", blocks };
 }
@@ -343,23 +343,15 @@ function compareSection(): AnalysisSection | null {
   const settings = encodeTest.activeCombo ?? cliSettings(cli);
   const items: [string, string | number][] = [
     ["Segment", describeSampledStretches()],
-    [
-      "Quality",
-      settings.quality === "custom" ? `Custom (CRF ${settings.crf})` : `${settings.quality} (CRF ${settings.crf})`,
-    ],
+    ["Quality", describeQuality(settings)],
     ["Preset", settings.preset],
     ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
   ];
   // Only when it is not the source's: a resolution row reading "100%" on every document would say
   // nothing, but a comparison made at half resolution is not comparable to one that was not.
-  const vt = state.tracks?.find((t) => t.kind === "video");
+  const vt = videoTrackInfo();
   if (isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight) {
-    const out = scaledDimensions(vt.codedWidth, vt.codedHeight, settings.scale);
-    items.splice(3, 0, [
-      "Resolution",
-      `${vt.codedWidth}×${vt.codedHeight} → ${out.width}×${out.height} ` +
-        `(${Math.round(settings.scale * 100)}%, ${settings.scaler})`,
-    ]);
+    items.splice(3, 0, ["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
   }
   const blocks: AnalysisBlock[] = [{ kind: "prose", html: ENCODED_SEGMENT_NOTE }];
 
@@ -400,12 +392,12 @@ function matrixSection(): AnalysisSection | null {
     for (const scaler of isDownscale(scale) ? scalers : scalers.slice(0, 1)) {
       for (const quality of qualities) {
         const head = [`${quality} (CRF ${comboCrf(quality)})`];
-        if (swept) head.unshift(`${Math.round(scale * 100)}%${isDownscale(scale) ? ` ${scaler}` : ""}`);
+        if (swept) head.unshift(`${scalePercent(scale)}${isDownscale(scale) ? ` ${scaler}` : ""}`);
         rows.push([
           ...head,
           ...presets.map((preset) => {
             const cell = byKey.get(comboKey(quality, preset, scale, scaler));
-            if (!cell || cell.bytes == null) return "–";
+            if (!cell) return "–";
             const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
             const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
             return `${fmtBytes(cell.bytes)}${took}${mark}`;
@@ -434,7 +426,6 @@ function matrixSection(): AnalysisSection | null {
 function reencodeSection(): AnalysisSection | null {
   const result = state.reencodeResult;
   if (!result) return null;
-  const pct = (1 - result.encodedSize / result.originalSize) * 100;
   return {
     title: "In-Browser Reencode Result",
     blocks: [
@@ -443,7 +434,7 @@ function reencodeSection(): AnalysisSection | null {
         items: [
           ["Original Size", fmtBytes(result.originalSize)],
           ["Encoded Size", fmtBytes(result.encodedSize)],
-          ["Change", (pct >= 0 ? "-" : "+") + Math.abs(pct).toFixed(1) + "%"],
+          ["Change", fmtSizeChangePct(result.originalSize, result.encodedSize)],
         ],
       },
     ],
@@ -465,8 +456,8 @@ function stripEducationalBlocks(sections: AnalysisSection[]): AnalysisSection[] 
 
 function buildAnalysisSections(): AnalysisSection[] {
   if (!state.source) return [];
-  const vt = state.tracks?.find((t) => t.kind === "video");
-  const at = state.tracks?.find((t) => t.kind === "audio");
+  const vt = videoTrackInfo();
+  const at = audioTrackInfo();
   // Same reading order as the Inspect tab: the file overview and its tags, the video track, the box
   // layout, the keyframe structure that layout decides, the bitrate over time, then audio last.
   const sections: (AnalysisSection | null)[] = [
@@ -518,21 +509,16 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   const sections = stripEducationalBlocks(buildAnalysisSections());
   const meta = documentMeta();
   const documentHtml = buildAnalysisDocument(sections, meta);
-  const baseName = (state.source.name || "video").replace(/\.[^.]+$/, "");
+  const baseName = baseNameOf(state.source.name);
 
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "Full Analysis"));
+  const sec = section("Full Analysis");
   sec.append(teachBox(ANALYSIS_PANEL_INTRO, "📄"));
 
   const actions = h("div", "load-actions");
-  const pdfBtn = h("button", "btn", "Save as PDF");
-  pdfBtn.type = "button";
-  const htmlBtn = h("button", "btn sec", "Download HTML");
-  htmlBtn.type = "button";
-  const mdBtn = h("button", "btn sec", "Download Markdown");
-  mdBtn.type = "button";
-  const copyBtn = h("button", "btn sec", "Copy Markdown");
-  copyBtn.type = "button";
+  const pdfBtn = button("btn", "Save as PDF");
+  const htmlBtn = button("btn sec", "Download HTML");
+  const mdBtn = button("btn sec", "Download Markdown");
+  const copyBtn = button("btn sec", "Copy Markdown");
   actions.append(pdfBtn, htmlBtn, mdBtn, copyBtn);
   sec.append(actions);
   panel.append(sec);

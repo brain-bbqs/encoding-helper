@@ -11,7 +11,7 @@ interface CodecKbEntry {
   fullName: string;
   year: number | null;
   description: string;
-  parse: (codecString: string | null) => CodecDetail[];
+  parse?: (codecString: string | null) => CodecDetail[];
 }
 
 const AVC_PROFILES: Record<number, string> = {
@@ -41,36 +41,11 @@ const AAC_OTI: Record<number, string> = {
 
 // AV1's level field is an index into a fixed table, not level×10 like VP9 — levels 2.0-2.3, 3.0-3.3,
 // ... 7.0-7.3 map to consecutive indices 0-23.
-const AV1_LEVELS = [
-  "2.0",
-  "2.1",
-  "2.2",
-  "2.3",
-  "3.0",
-  "3.1",
-  "3.2",
-  "3.3",
-  "4.0",
-  "4.1",
-  "4.2",
-  "4.3",
-  "5.0",
-  "5.1",
-  "5.2",
-  "5.3",
-  "6.0",
-  "6.1",
-  "6.2",
-  "6.3",
-  "7.0",
-  "7.1",
-  "7.2",
-  "7.3",
-];
+const AV1_LEVELS = Array.from({ length: 24 }, (_, i) => `${2 + Math.floor(i / 4)}.${i % 4}`);
 
 const AV1_PROFILES = ["Main", "High", "Professional"];
 
-export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
+const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
   avc: {
     family: "H.264 / AVC",
     fullName: "Advanced Video Coding",
@@ -96,7 +71,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
       const m = /^(?:hev1|hvc1)\.[ABC]?(\d+)\.[0-9A-Fa-f]+\.([LH])(\d+)/.exec(cs || "");
       if (!m) return [];
       return [
-        { label: "Profile", value: HEVC_PROFILES[+m[1]] || `Profile ${m[1]}` },
+        { label: "Profile", value: HEVC_PROFILES[parseInt(m[1], 10)] || `Profile ${m[1]}` },
         { label: "Tier", value: m[2] === "H" ? "High" : "Main" },
         { label: "Level", value: (parseInt(m[3], 10) / 30).toFixed(1) },
       ];
@@ -126,7 +101,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
       const m = /^av01\.(\d)\.(\d{2})([MH])\.(\d{2})/.exec(cs || "");
       if (!m) return [];
       return [
-        { label: "Profile", value: AV1_PROFILES[+m[1]] || m[1] },
+        { label: "Profile", value: AV1_PROFILES[parseInt(m[1], 10)] || m[1] },
         { label: "Level", value: AV1_LEVELS[parseInt(m[2], 10)] || m[2] },
         { label: "Tier", value: m[3] === "M" ? "Main" : "High" },
         { label: "Bit depth", value: parseInt(m[4], 10) + "-bit" },
@@ -138,14 +113,12 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "VP8",
     year: 2008,
     description: CODEC_DESCRIPTIONS.vp8,
-    parse: () => [],
   },
   prores: {
     family: "Apple ProRes",
     fullName: "ProRes",
     year: 2007,
     description: CODEC_DESCRIPTIONS.prores,
-    parse: () => [],
   },
   aac: {
     family: "AAC",
@@ -155,7 +128,7 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     parse: (cs) => {
       const m = /^mp4a\.40\.(\d+)/.exec(cs || "");
       if (!m) return [];
-      return [{ label: "Profile", value: AAC_OTI[+m[1]] || `Object type ${m[1]}` }];
+      return [{ label: "Profile", value: AAC_OTI[parseInt(m[1], 10)] || `Object type ${m[1]}` }];
     },
   },
   opus: {
@@ -163,42 +136,36 @@ export const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     fullName: "Opus",
     year: 2012,
     description: CODEC_DESCRIPTIONS.opus,
-    parse: () => [],
   },
   mp3: {
     family: "MP3",
     fullName: "MPEG-1/2 Audio Layer III",
     year: 1993,
     description: CODEC_DESCRIPTIONS.mp3,
-    parse: () => [],
   },
   vorbis: {
     family: "Vorbis",
     fullName: "Ogg Vorbis",
     year: 2000,
     description: CODEC_DESCRIPTIONS.vorbis,
-    parse: () => [],
   },
   flac: {
     family: "FLAC",
     fullName: "Free Lossless Audio Codec",
     year: 2001,
     description: CODEC_DESCRIPTIONS.flac,
-    parse: () => [],
   },
   ac3: {
     family: "Dolby Digital (AC-3)",
     fullName: "Dolby Digital",
     year: 1991,
     description: CODEC_DESCRIPTIONS.ac3,
-    parse: () => [],
   },
   eac3: {
     family: "Dolby Digital Plus (E-AC-3)",
     fullName: "Enhanced AC-3",
     year: 2005,
     description: CODEC_DESCRIPTIONS.eac3,
-    parse: () => [],
   },
 };
 
@@ -220,6 +187,6 @@ export function describeCodec(shortCodec: string | null | undefined, codecString
     fullName: info.fullName,
     year: info.year,
     description: info.description,
-    details: info.parse(codecString),
+    details: info.parse?.(codecString) ?? [],
   };
 }

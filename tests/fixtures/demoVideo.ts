@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const FIXTURE_DIR = join(fileURLToPath(new URL(".", import.meta.url)), ".generated");
 
-export const FIXTURE_PATH = join(FIXTURE_DIR, "demo-reference.mp4");
+const FIXTURE_PATH = join(FIXTURE_DIR, "demo-reference.mp4");
 
 /** The fixture's length, which the bitrate plot's one-window-per-second binning is read against. */
 export const FIXTURE_SECONDS = 30;

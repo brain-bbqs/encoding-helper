@@ -9,14 +9,14 @@
 // Resolution and the kernel it resamples with stack as blocks of rows rather than widening the
 // table, so every block is the same width and reads exactly like the grid did before they existed.
 
-import { h } from "../lib/dom";
+import { button, h } from "../lib/dom";
 import { fmtBytes, fmtRate } from "../lib/format";
-import { isDownscale } from "../lib/cliCommand";
+import { isDownscale, scalePercent } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
 import type { MatrixCell, Scaler } from "../lib/types";
 
-export interface MatrixTableOptions {
+interface MatrixTableOptions {
   cells: MatrixCell[];
   /** The winning cell's key, marked ★ in place. */
   bestKey?: string | null;
@@ -61,8 +61,7 @@ interface CellFace {
 }
 
 /** A finished square: the change it came to, what that projects to, and what it cost to find out. */
-function doneFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
-  const bytes = cell.bytes ?? 0;
+function doneFace(cell: MatrixCell, bytes: number, est: SizeEstimate | null): CellFace {
   const change = est ? (est.ratio - 1 >= 0 ? "+" : "−") + fmtPct(Math.abs(est.ratio - 1)) : fmtBytes(bytes);
   const sub = [est ? fmtBytes(est.projectedTotalBytes) : fmtBytes(bytes)];
   // ↺ against the time, since the time is the figure the mark is about: the bytes are the same
@@ -94,37 +93,40 @@ function releasedNote(cell: MatrixCell): string {
 }
 
 function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
-  if (cell.status === "done" && cell.bytes != null) return doneFace(cell, est);
+  if (cell.status === "done" && cell.bytes != null) return doneFace(cell, cell.bytes, est);
   const settings = describeSettings(cell.combo);
   if (cell.status === "running") {
+    const text = `${settings} — encoding now`;
     return {
       main: "…",
       factor: "",
       sub: "encoding",
-      title: `${settings} — encoding now`,
-      label: `${settings} — encoding now`,
+      title: text,
+      label: text,
       pending: true,
       grew: false,
     };
   }
   if (cell.status === "failed") {
+    const text = `${settings} — ${cell.error ?? "failed"}. Click to try it again.`;
     return {
       main: "✕",
       factor: "",
       sub: "retry",
-      title: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
-      label: `${settings} — ${cell.error ?? "failed"}. Click to try it again.`,
+      title: text,
+      label: text,
       pending: false,
       grew: false,
     };
   }
   const skipped = cell.status === "skipped";
+  const text = `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`;
   return {
     main: "–",
     factor: "",
     sub: skipped ? "run it" : "queued",
-    title: `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`,
-    label: `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`,
+    title: text,
+    label: text,
     pending: true,
     grew: false,
   };
@@ -208,7 +210,7 @@ function blockTitleRow(
   const row = h("tr", "matrix-group-row" + band);
   const th = h("th", "matrix-group-head");
   th.colSpan = width + 1;
-  th.append(h("span", "matrix-group-title", opts.scaleLabel?.(block.scale) ?? `${Math.round(block.scale * 100)}%`));
+  th.append(h("span", "matrix-group-title", opts.scaleLabel?.(block.scale) ?? scalePercent(block.scale)));
   // The kernel and the rate are footnotes to the resolution rather than peers of it: one only
   // changes how the pixels were resampled, and at the source resolution it changed nothing at all;
   // the other is absent from every block of a sweep that left the rate alone.
@@ -223,14 +225,12 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   const est = opts.estimate?.(cell) ?? null;
   const isBest = opts.bestKey != null && cell.combo.key === opts.bestKey;
   const isSelected = opts.selectedKey != null && cell.combo.key === opts.selectedKey;
-  const btn = h(
-    "button",
+  const btn = button(
     "matrix-cell" +
       (isBest ? " best" : "") +
       (isSelected ? " selected" : "") +
       (cell.status === "failed" ? " failed" : ""),
   );
-  btn.type = "button";
 
   const face = cellFace(cell, est);
   btn.append(

@@ -5,8 +5,12 @@ export function extOf(name: string | null | undefined): string {
   return m ? m[0] : ".mp4";
 }
 
-export type SaveTarget =
-  { kind: "stream"; handle: FileSystemFileHandle; writable: FileSystemWritableFileStream } | { kind: "buffer" };
+/** The file's name without its extension, for naming what is derived from it; "video" when it has none. */
+export function baseNameOf(name: string | null | undefined): string {
+  return (name || "video").replace(/\.[^.]+$/, "");
+}
+
+type SaveTarget = { kind: "stream"; writable: FileSystemWritableFileStream } | { kind: "buffer" };
 
 export async function pickSaveTarget(suggestedName: string): Promise<SaveTarget | null> {
   if (window.showSaveFilePicker) {
@@ -16,7 +20,7 @@ export async function pickSaveTarget(suggestedName: string): Promise<SaveTarget 
         types: [{ description: "MP4 video", accept: { "video/mp4": [".mp4"] } }],
       });
       const writable = await handle.createWritable();
-      return { kind: "stream", handle, writable };
+      return { kind: "stream", writable };
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return null;
       console.warn("[encoding-helper] showSaveFilePicker failed, falling back to download:", e);

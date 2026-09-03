@@ -3,16 +3,16 @@
 // since how a file seeks is a consequence of its GOP structure rather than a separate thing to
 // go and look at.
 
-import { fold, gridItem, h, svgEl, teachBox } from "../lib/dom";
+import { button, dataTable, fold, gridItem, h, section, svgEl, svgText, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
-import { fmtMs } from "../lib/format";
+import { errorMessage, fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
+import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
-
-/** Caption for the GOP histogram, shared with the Full Analysis document. */
+import { progressBar } from "./formControls";
 
 /**
  * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
@@ -20,22 +20,17 @@ import type { SeekResult } from "../lib/types";
  */
 const DEFAULT_SEEK_SAMPLES = 100;
 
-/** Caption for the seeking scatter plot, shared with the Full Analysis document. */
-
 export function renderSeekTab(panel: HTMLElement): void {
-  const gop = state.gopLengths;
-  const avgGop = gop.length ? gop.reduce((a, b) => a + b, 0) / gop.length : 0;
+  const { gop, avgGop, fps } = gopStats();
   const minGop = gop.length ? Math.min(...gop) : 0;
   const maxGop = gop.length ? Math.max(...gop) : 0;
-  const fps = state.fps || 30;
 
-  const sec = h("div", "section");
-  sec.append(h("h2", null, "GOP / Keyframe Structure"));
+  const sec = section("GOP / Keyframe Structure");
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
     gridItem("Keyframes", state.keyframeDecodeIndices.length.toLocaleString()),
-    gridItem("Avg GOP", avgGop.toFixed(1) + " frames (" + (avgGop / fps).toFixed(2) + " s)"),
+    gridItem("Avg GOP", describeAvgGop(avgGop, fps)),
     gridItem("Min / Max GOP", `${minGop} / ${maxGop} frames`),
   );
   sec.append(g);
@@ -72,14 +67,11 @@ export function renderSeekTab(panel: HTMLElement): void {
   nField.append(nInput);
   controls.append(nField);
   sec.append(controls);
-  const runBtn = h("button", "btn", "Run Seeking Test");
-  runBtn.type = "button";
+  const runBtn = button("btn", "Run Seeking Test");
   runBtn.id = "runSeekBtn";
   sec.append(runBtn);
-  const seekProgress = h("div", "progress-wrap");
-  seekProgress.style.display = "none";
+  const { wrap: seekProgress, fill: seekFill } = progressBar();
   seekProgress.id = "seekProgress";
-  seekProgress.append(h("div", "fill"));
   sec.append(seekProgress);
   const seekResultsWrap = h("div", "seek-results");
   seekResultsWrap.id = "seekResultsWrap";
@@ -87,20 +79,21 @@ export function renderSeekTab(panel: HTMLElement): void {
   panel.append(sec);
 
   runBtn.addEventListener("click", () => {
-    void runSeekingTest(runBtn, seekProgress, seekResultsWrap, parseInt(nInput.value, 10) || DEFAULT_SEEK_SAMPLES);
+    const n = parseInt(nInput.value, 10) || DEFAULT_SEEK_SAMPLES;
+    void runSeekingTest(runBtn, seekProgress, seekFill, seekResultsWrap, n);
   });
 }
 
 async function runSeekingTest(
   btn: HTMLButtonElement,
   progress: HTMLDivElement,
+  fill: HTMLDivElement,
   resultsWrap: HTMLDivElement,
   n: number,
 ): Promise<void> {
-  const fill = progress.querySelector<HTMLDivElement>(".fill");
   btn.disabled = true;
   progress.style.display = "block";
-  if (fill) fill.style.width = "0%";
+  fill.style.width = "0%";
   resultsWrap.innerHTML = "";
   try {
     const mb = await ensureMediabunny();
@@ -116,7 +109,7 @@ async function runSeekingTest(
       await sink.getCanvas(t);
       const decodeMs = performance.now() - start;
       results.push({ t, kf, dist, distFrames: dist != null ? Math.round(dist * (state.fps || 30)) : null, decodeMs });
-      if (fill) fill.style.width = ((i + 1) / n) * 100 + "%";
+      fill.style.width = ((i + 1) / n) * 100 + "%";
     }
     state.seekResults = results;
     renderSeekResults(resultsWrap, results);
@@ -124,7 +117,7 @@ async function runSeekingTest(
     console.error("[encoding-helper] seeking test failed:", err);
     const el = document.getElementById("errorMsg");
     if (el) {
-      el.textContent = "Seeking test failed: " + (err instanceof Error ? err.message : String(err));
+      el.textContent = "Seeking test failed: " + errorMessage(err);
       el.style.display = "block";
     }
   } finally {
@@ -153,9 +146,7 @@ export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
 
 function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   wrap.innerHTML = "";
-  const avgDist = results.reduce((a, r) => a + (r.dist || 0), 0) / results.length;
-  const avgDecode = results.reduce((a, r) => a + r.decodeMs, 0) / results.length;
-  const maxDecode = Math.max(...results.map((r) => r.decodeMs));
+  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
   const g = h("div", "grid");
   g.append(
     gridItem("Avg Keyframe Distance", avgDist.toFixed(3) + " s"),
@@ -173,8 +164,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   // row count used to, on the right of that bar, rather than inside the folded body: it should be
   // reachable without opening the table it exports.
   const { wrap: tableFold, body: tableBody } = fold("Sampled timestamps");
-  const exportBtn = h("button", "btn sec sm", "Export table (TSV)");
-  exportBtn.type = "button";
+  const exportBtn = button("btn sec sm", "Export table (TSV)");
   // Stops the click from also toggling the <details> open, which it would otherwise do as it
   // bubbles up through the summary bar.
   exportBtn.addEventListener("click", (e) => {
@@ -184,30 +174,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   // Reuses the bar's own note slot (pushed to the right by its auto margin) rather than adding a
   // second one, since fold() always renders it even when there is no text to show.
   tableFold.querySelector(".fold-note")?.append(exportBtn);
-  const scroll = h("div", "scroll-x");
-  const table = h("table", "data");
-  const thead = h("thead");
-  const headRow = h("tr");
-  ["Timestamp", "Nearest Keyframe ≤ t", "Distance", "Distance (frames)", "Decode Time"].forEach((t) =>
-    headRow.append(h("th", null, t)),
-  );
-  thead.append(headRow);
-  table.append(thead);
-  const tbody = h("tbody");
-  results.forEach((r) => {
-    const tr = h("tr");
-    tr.append(
-      h("td", null, r.t.toFixed(3) + "s"),
-      h("td", null, r.kf != null ? r.kf.toFixed(3) + "s" : "–"),
-      h("td", null, r.dist != null ? r.dist.toFixed(3) + "s" : "–"),
-      h("td", null, r.distFrames != null ? String(r.distFrames) : "–"),
-      h("td", null, fmtMs(r.decodeMs)),
-    );
-    tbody.append(tr);
-  });
-  table.append(tbody);
-  scroll.append(table);
-  tableBody.append(scroll);
+  tableBody.append(dataTable(SEEK_TABLE_HEADERS, results.map(seekResultRow)));
   wrap.append(tableFold);
 }
 
@@ -266,49 +233,46 @@ export function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
     const gy = MT + (plotH * i) / STEPS;
     svg.append(svgEl("line", { class: "grid-line", x1: gx, y1: MT, x2: gx, y2: MT + plotH, "stroke-width": 1 }));
     svg.append(svgEl("line", { class: "grid-line", x1: ML, y1: gy, x2: ML + plotW, y2: gy, "stroke-width": 1 }));
-    const xLabel = svgEl("text", {
-      class: "tick",
-      x: gx,
-      y: MT + plotH + 16,
-      "font-size": 10,
-      "text-anchor": "middle",
-    });
-    xLabel.textContent = ((maxX * i) / STEPS).toFixed(2);
-    svg.append(xLabel);
-    const yLabel = svgEl("text", {
-      class: "tick",
-      x: ML - 8,
-      y: MT + plotH - (plotH * i) / STEPS + 3,
-      "font-size": 10,
-      "text-anchor": "end",
-    });
-    yLabel.textContent = String(Math.round((maxY * i) / STEPS));
-    svg.append(yLabel);
+    svg.append(
+      svgText(
+        "tick",
+        { x: gx, y: MT + plotH + 16, "font-size": 10, "text-anchor": "middle" },
+        ((maxX * i) / STEPS).toFixed(2),
+      ),
+    );
+    svg.append(
+      svgText(
+        "tick",
+        { x: ML - 8, y: MT + plotH - (plotH * i) / STEPS + 3, "font-size": 10, "text-anchor": "end" },
+        String(Math.round((maxY * i) / STEPS)),
+      ),
+    );
   }
   svg.append(svgEl("line", { class: "axis", x1: ML, y1: MT, x2: ML, y2: MT + plotH, "stroke-width": 1 }));
   svg.append(
     svgEl("line", { class: "axis", x1: ML, y1: MT + plotH, x2: ML + plotW, y2: MT + plotH, "stroke-width": 1 }),
   );
 
-  const xTitle = svgEl("text", {
-    class: "axis-title",
-    x: ML + plotW / 2,
-    y: H - 4,
-    "font-size": 11,
-    "text-anchor": "middle",
-  });
-  xTitle.textContent = "Keyframe distance (s)";
-  svg.append(xTitle);
-  const yTitle = svgEl("text", {
-    class: "axis-title",
-    x: 12,
-    y: MT + plotH / 2,
-    "font-size": 11,
-    "text-anchor": "middle",
-    transform: `rotate(-90 12 ${MT + plotH / 2})`,
-  });
-  yTitle.textContent = "Decode time (ms)";
-  svg.append(yTitle);
+  svg.append(
+    svgText(
+      "axis-title",
+      { x: ML + plotW / 2, y: H - 4, "font-size": 11, "text-anchor": "middle" },
+      "Keyframe distance (s)",
+    ),
+  );
+  svg.append(
+    svgText(
+      "axis-title",
+      {
+        x: 12,
+        y: MT + plotH / 2,
+        "font-size": 11,
+        "text-anchor": "middle",
+        transform: `rotate(-90 12 ${MT + plotH / 2})`,
+      },
+      "Decode time (ms)",
+    ),
+  );
 
   pts.forEach((r) => {
     const cx = xScale(r.dist);

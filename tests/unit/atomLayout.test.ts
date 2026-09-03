@@ -3,7 +3,7 @@ import { countAtoms, layoutAtoms, MIN_RECT_WIDTH, placeAtoms, placementRange } f
 import type { BoxNode } from "../../src/lib/types";
 
 function box(type: string, start: number, size: number, children: BoxNode[] = []): BoxNode {
-  return { type, start, size, hdrSize: 8, children };
+  return { type, start, size, children };
 }
 
 /** A plain, unfragmented file: ftyp, then a moov holding one trak, then the sample payload. */

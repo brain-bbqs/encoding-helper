@@ -2,7 +2,7 @@
 
 import type { ChromaFormat } from "./chromaFormat";
 
-import type { Input, InputAudioTrack, InputVideoTrack, MetadataTags } from "mediabunny";
+import type { CanvasSink, Input, InputVideoTrack, MetadataTags } from "mediabunny";
 import type { ChunkedSource } from "./chunkedSource";
 
 /** One row in a codec's parsed detail list (e.g. "Profile: High", "Level: 4.0"). */
@@ -26,7 +26,6 @@ export interface TrackInfo {
   codec: string;
   codecString: string | null;
   codecInfo: CodecInfo | null;
-  packetCount: number | null;
   packetRate: number | null;
   bitrate: number | null;
   // Video-only fields.
@@ -52,20 +51,16 @@ export interface MediabunnyMetadata {
   tags: MetadataTags | null;
   tracks: TrackInfo[];
   videoTrack: InputVideoTrack | null;
-  audioTrack: InputAudioTrack | null;
   fps: number | null;
 }
 
 /** One sample (frame) in decode order, as read out of mp4box's sample table. */
 export interface SampleInfo {
-  offset: number;
   size: number;
   cts: number;
   dts: number;
   ctsSec: number;
-  dtsSec: number;
   is_sync: boolean;
-  duration: number;
 }
 
 /**
@@ -83,7 +78,6 @@ export interface SampleAnalysis {
   keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
-  presentationOrder: SampleInfo[];
   keyframeTimestampsSec: number[];
 }
 
@@ -92,7 +86,6 @@ export interface BoxNode {
   type: string;
   start: number;
   size: number;
-  hdrSize: number;
   children: BoxNode[];
 }
 
@@ -106,7 +99,7 @@ export interface SeekResult {
 }
 
 /** Quality preset keys understood by both the ffmpeg CLI builder and the mediabunny fast engine. */
-export type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
+type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 
 /** x264 presets offered in the FFmpeg Command Builder and swept by the Compare Quality matrix. */
 export type X264Preset =
@@ -205,13 +198,13 @@ export interface AbSegment {
   /** Where the stretch sits in the source, which is what the original side is drawn from. */
   window: SampleWindow;
   /** The encoded copy, whose own timeline starts at zero however far into the source it came from. */
-  sink: import("mediabunny").CanvasSink;
+  sink: CanvasSink;
   /** That copy's measured length, which is the stretch of it there is anything to draw over. */
   seconds: number;
 }
 
 /** Mutable matrix-mode state: what the next sweep will cover, and what the last one found. */
-export interface MatrixState {
+interface MatrixState {
   /** Ticked quality levels, i.e. the rows the next sweep will run. */
   qualities: MatrixQuality[];
   /** Ticked presets, i.e. the columns the next sweep will run. */
@@ -256,7 +249,7 @@ export interface EncodeTestState {
   running: boolean;
   /** Set by the Stop button; a run checks it between (and inside) encodes. */
   cancelRequested: boolean;
-  originalSink: import("mediabunny").CanvasSink | null;
+  originalSink: CanvasSink | null;
   /** Every stretch the loaded comparison covers, in the order the window plays them. */
   abSegments: AbSegment[];
   /** The Inputs behind those sinks, held so they can be disposed when the next encode takes over. */
@@ -271,7 +264,6 @@ export interface EncodeTestState {
    * block per encoded pixel when false. A view preference, not part of any encode. */
   upscaleSmoothing: boolean;
   matrix: MatrixState;
-  zoom: ZoomPanState | null;
 }
 
 /** Shared pan/zoom transform for the A/B comparison canvases. */
@@ -282,7 +274,7 @@ export interface ZoomPanState {
 }
 
 /** Result of a completed in-browser reencode, kept so the Full Analysis document can report it. */
-export interface ReencodeResult {
+interface ReencodeResult {
   originalSize: number;
   encodedSize: number;
 }
@@ -293,7 +285,6 @@ export interface AppState {
   file: File | null;
   input: Input | null;
   videoTrack: InputVideoTrack | null;
-  audioTrack: InputAudioTrack | null;
   format: string | null;
   mimeType: string | null;
   duration: number | null;
@@ -305,11 +296,9 @@ export interface AppState {
   faststart: boolean | null;
   samples: SampleInfo[];
   declaredVideoBitrate: DeclaredBitrate | null;
-  timescale: number;
   keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
-  presentationOrder: SampleInfo[];
   keyframeTimestampsSec: number[];
   seekResults: SeekResult[] | null;
   reencodeResult: ReencodeResult | null;

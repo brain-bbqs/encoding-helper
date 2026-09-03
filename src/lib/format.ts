@@ -1,4 +1,5 @@
-// Formatting helpers for bytes, durations, bitrates, sample rates, and milliseconds.
+// Formatting helpers for bytes, durations, bitrates, sample rates, milliseconds, and the handful of
+// facts the Inspect tab and the Full Analysis document both print.
 
 export function fmtBytes(b: number | null | undefined): string {
   if (b == null) return "–";
@@ -28,4 +29,28 @@ export function fmtRate(hz: number | null | undefined): string {
 
 export function fmtMs(ms: number | null | undefined): string {
   return ms == null ? "–" : ms.toFixed(1) + " ms";
+}
+
+/** The message of whatever was thrown: an Error's own, or the value itself as text. */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** How much smaller (or larger) an encode came out, as a signed percentage: "-42.0%" for a saving. */
+export function fmtSizeChangePct(originalSize: number, encodedSize: number): string {
+  const pct = (1 - encodedSize / originalSize) * 100;
+  return (pct >= 0 ? "-" : "+") + Math.abs(pct).toFixed(1) + "%";
+}
+
+/** A track's colour space as "primaries / transfer / matrix", or "–" when the file states none of them. */
+export function describeColorSpace(cs: VideoColorSpaceInit): string {
+  return [cs.primaries, cs.transfer, cs.matrix].filter(Boolean).join(" / ") || "–";
+}
+
+export function describeFrameRate(packetRate: number | null | undefined): string {
+  return packetRate != null ? fmtRate(packetRate) + " fps" : "–";
+}
+
+export function describeFrameCount(count: number | null): string {
+  return count != null ? count.toLocaleString() : "–";
 }

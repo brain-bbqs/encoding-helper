@@ -7,14 +7,11 @@ function samples(durationSec: number, bytesAt: (second: number) => number): Samp
   return Array.from({ length: Math.round(durationSec * 30) }, (_, i) => {
     const ctsSec = i / 30;
     return {
-      offset: 0,
       size: bytesAt(Math.floor(ctsSec)) / 30,
       cts: 0,
       dts: 0,
       ctsSec,
-      dtsSec: ctsSec,
       is_sync: false,
-      duration: 1,
     };
   });
 }

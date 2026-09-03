@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BASE_CLI } from "../fixtures/state";
 import {
   buildFfmpegArgs,
   computeGop,
@@ -13,21 +14,7 @@ import {
 import type { CliState, VideoInfo } from "../../src/lib/types";
 
 function baseCli(overrides: Partial<CliState> = {}): CliState {
-  return {
-    quality: "medium",
-    crf: 25,
-    preset: "superfast",
-    keyframeInterval: 1,
-    gopOverride: null,
-    noBFrames: true,
-    pad: true,
-    faststart: false,
-    audioMode: "copy",
-    fps: null,
-    scale: 1,
-    scaler: "lanczos",
-    ...overrides,
-  };
+  return { ...BASE_CLI, ...overrides };
 }
 
 const info: VideoInfo = { fps: 30, width: 640, height: 480 };

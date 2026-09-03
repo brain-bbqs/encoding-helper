@@ -18,6 +18,7 @@
 // isn't a valid ES module (no `default` export), so that import silently resolves to `undefined`
 // and the worker throws "failed to import ffmpeg-core.js". The ESM build is a real module with a
 // `default` export, matching what `import()` expects.
+import { errorMessage } from "./format";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { toBlobURL } from "@ffmpeg/util";
 
@@ -25,8 +26,8 @@ import { toBlobURL } from "@ffmpeg/util";
 // SharedArrayBuffer support) — same constraint the original CDN version worked under.
 const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
 
-export type FfmpegLogHandler = (message: string) => void;
-export type FfmpegProgressHandler = (ratio: number) => void;
+type FfmpegLogHandler = (message: string) => void;
+type FfmpegProgressHandler = (ratio: number) => void;
 
 /**
  * What the core prints on its way out. ffmpeg finishes by calling `exit()`, which Emscripten
@@ -78,7 +79,7 @@ function loadCoreUrls(): Promise<{ coreURL: string; wasmURL: string }> {
   return coreUrls;
 }
 
-export interface FfmpegRunResult {
+interface FfmpegRunResult {
   data: Uint8Array<ArrayBuffer>;
 }
 
@@ -132,11 +133,35 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
     return ffmpeg;
   };
 
+  const deleteFile = async (name: string): Promise<void> => {
+    files.delete(name);
+    await instance?.deleteFile(name).catch(() => {});
+  };
+
   const reset = (): void => {
     instance?.terminate();
     instance = null;
     files.clear();
   };
+
+  /**
+   * One call into the core. Anything that rejects here reached us through the worker's catch-all,
+   * which means the call into wasm threw rather than ffmpeg merely exiting non-zero. The instance is
+   * not to be trusted afterwards, so it goes rather than being left to fail every later run.
+   */
+  const guarded = async <T>(attempt: () => Promise<T>): Promise<T> => {
+    try {
+      return await attempt();
+    } catch (err) {
+      reset();
+      throw new Error(describeFfmpegFailure(err));
+    }
+  };
+
+  // ffmpeg.wasm's FileData type is generically `Uint8Array<ArrayBufferLike> | string`; copying into a
+  // fresh Uint8Array guarantees a plain ArrayBuffer-backed view, which is what Blob/BlobPart expect.
+  const readCopy = async (ffmpeg: FFmpeg, name: string): Promise<Uint8Array<ArrayBuffer>> =>
+    new Uint8Array((await ffmpeg.readFile(name)) as Uint8Array);
 
   return {
     id,
@@ -167,42 +192,23 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
     },
     async run(args, outputName) {
       const ffmpeg = await ensureLoaded();
-      let data: Uint8Array<ArrayBuffer>;
-      try {
+      const data = await guarded(async () => {
         await ffmpeg.exec(args);
-        // ffmpeg.wasm's FileData type is generically `Uint8Array<ArrayBufferLike> | string`; copying
-        // into a fresh Uint8Array guarantees a plain ArrayBuffer-backed view, which is what
-        // Blob/BlobPart expect.
-        data = new Uint8Array((await ffmpeg.readFile(outputName)) as Uint8Array);
-      } catch (err) {
-        // Anything that rejects here reached us through the worker's catch-all, which means the call
-        // into wasm threw rather than ffmpeg merely exiting non-zero. The instance is not to be
-        // trusted afterwards, so it goes rather than being left to fail every later run.
-        reset();
-        throw new Error(describeFfmpegFailure(err));
-      }
+        return readCopy(ffmpeg, outputName);
+      });
       // Only on the way out of a healthy run: a dead instance has no filesystem left to tidy.
-      await this.deleteFile(outputName);
+      await deleteFile(outputName);
       return { data };
     },
     async runToFile(args, outputName) {
       const ffmpeg = await ensureLoaded();
-      try {
-        await ffmpeg.exec(args);
-      } catch (err) {
-        reset();
-        throw new Error(describeFfmpegFailure(err));
-      }
+      await guarded(() => ffmpeg.exec(args));
       files.add(outputName);
     },
     async readFile(name) {
-      const ffmpeg = await ensureLoaded();
-      return new Uint8Array((await ffmpeg.readFile(name)) as Uint8Array);
+      return readCopy(await ensureLoaded(), name);
     },
-    async deleteFile(name) {
-      files.delete(name);
-      await instance?.deleteFile(name).catch(() => {});
-    },
+    deleteFile,
     reset,
   };
 }
@@ -228,14 +234,6 @@ export async function ensureFfmpegLoaded(): Promise<void> {
 
 export async function ensureFfmpegInput(name: string, data: Uint8Array): Promise<void> {
   await defaultFfmpegWorker.ensureInput(name, data);
-}
-
-export function hasFfmpegFile(name: string): boolean {
-  return defaultFfmpegWorker.has(name);
-}
-
-export async function runFfmpegToFile(args: string[], outputName: string): Promise<void> {
-  await defaultFfmpegWorker.runToFile(args, outputName);
 }
 
 export async function deleteFfmpegFile(name: string): Promise<void> {
@@ -277,7 +275,7 @@ export async function runFfmpegEncode(
  * binary we did not build, so the useful part of the message is what to try instead.
  */
 function describeFfmpegFailure(err: unknown): string {
-  const raw = (err instanceof Error ? err.message : String(err)).trim();
+  const raw = errorMessage(err).trim();
   // The core's own words for running out of memory, which say nothing about what to do about it.
   if (/memory access out of bounds|out of memory|allocation failed/i.test(raw)) {
     return (

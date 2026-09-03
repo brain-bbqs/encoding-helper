@@ -8,12 +8,13 @@
 
 import { readFileSync } from "node:fs";
 import { expect, type Page, type Route } from "@playwright/test";
+import { demoVideoPath } from "../fixtures/demoPaths";
 import { buildFixtureVideo } from "../fixtures/demoVideo";
 
 const ASSETS_URL = "https://api-dandi.emberarchive.org/api/dandisets/000527/versions/draft/assets";
 
 /** The session the tests load unless they say otherwise: the set's baseline encode. */
-export const REFERENCE_SESSION = "reference";
+const REFERENCE_SESSION = "reference";
 export const REFERENCE_FILE_NAME = `sub-01_ses-${REFERENCE_SESSION}_video.mp4`;
 
 interface FakeDemo {
@@ -27,7 +28,7 @@ interface FakeDemo {
   sidecar?: boolean;
 }
 
-export const FAKE_DEMOS: FakeDemo[] = [
+const FAKE_DEMOS: FakeDemo[] = [
   {
     session: "original",
     ext: "m4v",
@@ -88,7 +89,7 @@ function assetId(session: string, kind: "video" | "sidecar"): string {
 }
 
 function videoPath(demo: FakeDemo): string {
-  return `sub-01/ses-${demo.session}/beh/sub-01_ses-${demo.session}_video.${demo.ext}`;
+  return demoVideoPath(demo.session, demo.ext);
 }
 
 function listing(videoSize: number): unknown {

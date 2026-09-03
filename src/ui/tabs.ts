@@ -8,10 +8,11 @@ import { DEFAULT_TAB, isTabId, readTabFromUrl, writeTabToUrl, type TabId } from 
 
 export function initTabs(onShowAnalysis: () => void): void {
   const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-tab]"));
+  const panels = Array.from(document.querySelectorAll<HTMLElement>(".tab-panel"));
 
   const show = (tab: TabId): void => {
     buttons.forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
-    document.querySelectorAll<HTMLElement>(".tab-panel").forEach((p) => p.classList.remove("on"));
+    panels.forEach((p) => p.classList.remove("on"));
     document.getElementById("panel-" + tab)?.classList.add("on");
     // Rebuilt on every visit (not just at load) since it gathers whatever the seeking test, Compare
     // Quality and the in-browser encoders have produced since the file was loaded.

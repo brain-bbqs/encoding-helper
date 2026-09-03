@@ -4,7 +4,6 @@
 import type { Input, InputTrack } from "mediabunny";
 import { describeChromaFormat } from "./chromaFormat";
 import { describeCodec } from "./codecKb";
-import { ensureMediabunny } from "./mediabunny";
 import type { MediabunnyMetadata, TrackInfo } from "./types";
 
 async function describeTrack(t: InputTrack): Promise<TrackInfo> {
@@ -14,10 +13,9 @@ async function describeTrack(t: InputTrack): Promise<TrackInfo> {
   ]);
   const d: TrackInfo = {
     kind: t.isVideoTrack() ? "video" : t.isAudioTrack() ? "audio" : "other",
-    codec: String(t.codec || "unknown"),
+    codec: t.codec || "unknown",
     codecString,
     codecInfo: describeCodec(t.codec, codecString),
-    packetCount: stats ? stats.packetCount : null,
     packetRate: stats ? stats.averagePacketRate : null,
     bitrate: stats ? stats.averageBitrate : null,
   };
@@ -46,7 +44,6 @@ async function describeTrack(t: InputTrack): Promise<TrackInfo> {
 }
 
 export async function loadMediabunnyMetadata(input: Input): Promise<MediabunnyMetadata> {
-  await ensureMediabunny();
   const [format, mimeType, duration, tracks, tags] = await Promise.all([
     input.getFormat(),
     input.getMimeType(),
@@ -55,7 +52,6 @@ export async function loadMediabunnyMetadata(input: Input): Promise<MediabunnyMe
     input.getMetadataTags(),
   ]);
   const videoTrack = tracks.find((t) => t.isVideoTrack()) || null;
-  const audioTrack = tracks.find((t) => t.isAudioTrack()) || null;
 
   const result: MediabunnyMetadata = {
     format: format.name,
@@ -64,7 +60,6 @@ export async function loadMediabunnyMetadata(input: Input): Promise<MediabunnyMe
     tags,
     tracks: [],
     videoTrack,
-    audioTrack,
     fps: null,
   };
 

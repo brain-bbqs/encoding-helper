@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MB_FILE_INPUT } from "../fixtures/sizeEstimate";
 import { buildMatrixCombos, comboKey, makeMatrixCells } from "../../src/lib/qualityMatrix";
 import { estimateSizeSavings, type SizeEstimate } from "../../src/lib/sizeEstimate";
 import type { MatrixCell } from "../../src/lib/types";
@@ -7,13 +8,7 @@ import { fmtElapsed, renderMatrixSummary, renderMatrixTable } from "../../src/ui
 /** A 1 MB, 100 s file whose sampled 10 s encoded down to `bytes`. */
 function estimateFor(cell: MatrixCell): SizeEstimate | null {
   if (cell.bytes == null) return null;
-  return estimateSizeSavings({
-    originalTotalBytes: 1_000_000,
-    totalSeconds: 100,
-    segmentStartSeconds: 0,
-    segmentSeconds: 10,
-    encodedSegmentBytes: cell.bytes,
-  });
+  return estimateSizeSavings({ ...MB_FILE_INPUT, encodedSegmentBytes: cell.bytes });
 }
 
 /** A two-by-two sweep, with the first two squares finished. */

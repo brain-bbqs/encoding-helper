@@ -7,7 +7,7 @@ import MP4Box, { type ISOFile, type MP4BoxBox, type MP4BoxInfo } from "mp4box";
 import type { ChunkedSource } from "./chunkedSource";
 import type { BoxNode, DeclaredBitrate, SampleAnalysis, SampleInfo } from "./types";
 
-export interface Mp4BoxParseResult {
+interface Mp4BoxParseResult {
   mp4boxFile: ISOFile;
   info: MP4BoxInfo;
 }
@@ -52,16 +52,15 @@ export async function parseWithMp4Box(
 // Flatten mp4box's box tree into a simple, serializable structure for rendering.
 export function extractBoxTree(mp4boxFile: ISOFile): BoxNode[] {
   const walk = (box: MP4BoxBox): BoxNode => ({
-    type: box.type || box.fourcc || "????",
+    type: box.type || "????",
     start: box.start || 0,
     size: box.size || 0,
-    hdrSize: box.hdr_size || 0,
     children: Array.isArray(box.boxes) ? box.boxes.map(walk) : [],
   });
   return mp4boxFile.boxes.map(walk);
 }
 
-export function findTopLevelBox(tree: BoxNode[], type: string): BoxNode | null {
+function findTopLevelBox(tree: BoxNode[], type: string): BoxNode | null {
   return tree.find((b) => b.type === type) || null;
 }
 
@@ -107,14 +106,11 @@ export function extractSampleAnalysis(mp4boxFile: ISOFile, videoTrackId: number,
   if (info.length === 0) throw new Error("No samples found in video track");
   const ts = timescale || 1;
   const samples: SampleInfo[] = info.map((s) => ({
-    offset: s.offset,
     size: s.size,
     cts: s.cts,
     dts: s.dts,
     ctsSec: s.cts / ts,
-    dtsSec: s.dts / ts,
     is_sync: !!s.is_sync,
-    duration: s.duration,
   }));
   const keyframeDecodeIndices: number[] = [];
   samples.forEach((s, i) => {
@@ -128,11 +124,11 @@ export function extractSampleAnalysis(mp4boxFile: ISOFile, videoTrackId: number,
   }
   const hasBFrames = samples.some((s) => s.cts !== s.dts);
 
-  // Presentation order (sorted by CTS) with keyframe timestamps, for nearest-keyframe lookups.
+  // Keyframe timestamps in presentation order (sorted by CTS), for nearest-keyframe lookups.
   const presentationOrder = samples.slice().sort((a, b) => a.ctsSec - b.ctsSec);
   const keyframeTimestampsSec = presentationOrder.filter((s) => s.is_sync).map((s) => s.ctsSec);
 
-  return { samples, keyframeDecodeIndices, gopLengths, hasBFrames, presentationOrder, keyframeTimestampsSec };
+  return { samples, keyframeDecodeIndices, gopLengths, hasBFrames, keyframeTimestampsSec };
 }
 
 // Binary search: largest keyframe timestamp <= t (or null if t is before the first keyframe).

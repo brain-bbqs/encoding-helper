@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate } from "../../src/lib/format";
+import { errorMessage, fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate, fmtSizeChangePct } from "../../src/lib/format";
 
 describe("fmtBytes", () => {
   it("returns the placeholder for null/undefined", () => {
@@ -82,5 +82,21 @@ describe("fmtMs", () => {
 
   it("formats milliseconds with one decimal", () => {
     expect(fmtMs(12.34)).toBe("12.3 ms");
+  });
+});
+
+describe("errorMessage", () => {
+  it("takes an Error's own message and stringifies anything else", () => {
+    expect(errorMessage(new Error("boom"))).toBe("boom");
+    expect(errorMessage("plain")).toBe("plain");
+    expect(errorMessage(42)).toBe("42");
+  });
+});
+
+describe("fmtSizeChangePct", () => {
+  it("reads a saving as a minus and growth as a plus, to one decimal", () => {
+    expect(fmtSizeChangePct(1000, 580)).toBe("-42.0%");
+    expect(fmtSizeChangePct(1000, 1250)).toBe("+25.0%");
+    expect(fmtSizeChangePct(1000, 1000)).toBe("-0.0%");
   });
 });

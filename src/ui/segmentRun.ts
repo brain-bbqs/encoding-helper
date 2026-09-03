@@ -7,9 +7,10 @@
 // came to — so both are run from here rather than from one tab that the other borrows from. What is
 // left in each tab is the controls it offers and what it does with the result.
 
+import { errorMessage } from "../lib/format";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
-import { h } from "../lib/dom";
+import { button, h } from "../lib/dom";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -18,7 +19,7 @@ import { extOf } from "../lib/save";
 import { windowsForRun } from "../lib/sizeEstimate";
 import { currentVideoInfo, encodeTest, state } from "../lib/state";
 import type { CliState, SampleWindow } from "../lib/types";
-import { clearLog, fieldNumber, logConsole, logLine } from "./formControls";
+import { clearLog, fieldNumber, logConsole, logLine, progressBar, resetProgressFill } from "./formControls";
 
 /** The controls a run drives: its buttons, its bar, the line under it and its console. */
 export interface RunUi {
@@ -39,7 +40,7 @@ export interface RunUi {
  * single-threaded in-browser core is already a long wait; past that the projection is barely
  * improving anyway, since the band narrows with √n.
  */
-export const MAX_SEGMENTS = 10;
+const MAX_SEGMENTS = 10;
 
 /** The source file's bytes, read once and passed down a sweep rather than re-read per combination. */
 interface SourceBytes {
@@ -48,7 +49,7 @@ interface SourceBytes {
 }
 
 /** The longest stretch worth asking for on the loaded file: ten seconds, or the file when shorter. */
-export function maxSampleDuration(): number {
+function maxSampleDuration(): number {
   return Math.max(1, Math.min(10, state.duration || 10));
 }
 
@@ -96,15 +97,11 @@ export function syncSampleFields(except?: HTMLElement | null): void {
 /** The run button, Stop beside it, the bar, the line under it and the console, as one block. */
 export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi } {
   const buttons = h("div", "compare-run-buttons");
-  const runButton = h("button", "btn", runLabel);
-  runButton.type = "button";
-  const stopButton = h("button", "btn sec", "Stop");
-  stopButton.type = "button";
+  const runButton = button("btn", runLabel);
+  const stopButton = button("btn sec", "Stop");
   stopButton.style.display = "none";
   buttons.append(runButton, stopButton);
-  const progress = h("div", "progress-wrap");
-  progress.style.display = "none";
-  progress.append(h("div", "fill"));
+  const { wrap: progress } = progressBar();
   const note = h("div", "progress-label");
   const { wrap: logWrap, log } = logConsole();
   const ui: RunUi = {
@@ -323,10 +320,11 @@ export async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[
   // Nothing to cut, so every core needs the whole video. That is the case a pool cannot help with
   // and should not be paid for, so it runs on one core alone.
   const source = await readSource();
-  await workers[0].ensureInput(inputNameFor(source), source.data);
+  const inputName = inputNameFor(source);
+  await workers[0].ensureInput(inputName, source.data);
   return {
     windows,
-    names: windows.map(() => inputNameFor(source)),
+    names: windows.map(() => inputName),
     data: windows.map(() => source.data),
     preCut: false,
     wholeFileOn: workers[0],
@@ -464,7 +462,7 @@ export function acquireWorkers(taskCount: number): FfmpegWorker[] {
 }
 
 /** A run ended because Stop was pressed, which is not a failure to report as one. */
-export class RunStopped extends Error {
+class RunStopped extends Error {
   constructor() {
     super("Stopped");
     this.name = "RunStopped";
@@ -481,7 +479,7 @@ export class RunStopped extends Error {
  * error handling it already has, and the next run builds a fresh core. What that costs is the cut
  * stretches the terminated core was holding, which the next run cuts again.
  */
-export function requestStop(ui: RunUi): void {
+function requestStop(ui: RunUi): void {
   if (!encodeTest.running) return;
   encodeTest.cancelRequested = true;
   ui.stopButton.disabled = true;
@@ -498,12 +496,7 @@ export function startRunUi(ui: RunUi): HTMLDivElement | null {
   // long enough to want out of.
   ui.stopButton.style.display = "";
   ui.stopButton.disabled = false;
-  ui.progress.style.display = "block";
-  const fill = ui.progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) {
-    fill.style.width = "0%";
-    fill.classList.remove("done");
-  }
+  const fill = resetProgressFill(ui.progress);
   clearLog(ui.log);
   return fill;
 }
@@ -523,8 +516,9 @@ export function reportRunFailure(err: unknown, ui: RunUi): void {
     return;
   }
   console.error("[encoding-helper] encode run failed:", err);
-  ui.note.textContent = "Failed: " + (err instanceof Error ? err.message : String(err));
-  logLine(ui.log, String(err instanceof Error ? err.message : err), "error");
+  const message = errorMessage(err);
+  ui.note.textContent = "Failed: " + message;
+  logLine(ui.log, message, "error");
   // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
   ui.progress.style.display = "none";
 }
