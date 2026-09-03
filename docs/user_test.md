@@ -5,7 +5,7 @@
 | **Tester** | <enter> |
 | **Date**   | <enter> |
 
-A basic manual pass through the app before a release or after a significant change. Run through this in a real browser against `npm run dev` or a deployed build.
+A basic manual pass through the app before a release or after a significant change.
 
 ## Loading a file
 
