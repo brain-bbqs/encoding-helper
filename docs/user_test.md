@@ -11,7 +11,6 @@ A basic manual pass through the app before a release or after a significant chan
 
 - [ ] Loading a sample video from the sample picker works
 - [ ] Loading a local video file via the file picker / drag-and-drop works
-- [ ] Loading an unsupported or corrupt file shows a clear error instead of failing silently
 - [ ] The educational toggle is visible and switching it on/off changes what's shown
 
 ## Inspect tab
