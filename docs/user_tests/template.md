@@ -55,3 +55,4 @@ A basic manual pass through the app before a release or after a significant chan
 - [ ] The app is usable in both light and dark OS/browser theme
 - [ ] Basic responsiveness: window resized narrower doesn't break layout or hide controls
 - [ ] Loading the page shows no errors in the browser console
+- [ ] Can navigate to all hyperlinks in the bottom-left
