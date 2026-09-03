@@ -2,7 +2,7 @@
   <img src="src/assets/encoding-helper-icon.svg" width="120" alt="Encoding Helper logo"/>
   <h1 align="center">Encoding Helper</h1>
   <p align="center">
-    <a href="https://codecov.io/github/brain-bbqs/encoding-helper?branch=main"><img src="https://codecov.io/github/brain-bbqs/encoding-helper/coverage.svg?branch=main" alt="codecov"></a>
+    <a href="https://codecov.io/gh/brain-bbqs/encoding-helper"><img src="https://codecov.io/gh/brain-bbqs/encoding-helper/branch/main/graph/badge.svg" alt="codecov"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License: MIT"></a>
     <a href="https://github.com/prettier/prettier"><img alt="code style: prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat"></a>
   </p>
