@@ -9,7 +9,6 @@ A basic manual pass through the app before a release or after a significant chan
 
 ## Loading a file
 
-- [ ] Loading the page shows no errors in the browser console
 - [ ] Loading a sample video from the sample picker works
 - [ ] Loading a local video file via the file picker / drag-and-drop works
 - [ ] Loading an unsupported or corrupt file shows a clear error instead of failing silently
@@ -56,4 +55,4 @@ A basic manual pass through the app before a release or after a significant chan
 - [ ] The app remains usable after loading several files in a row (no memory leak or crash)
 - [ ] The app is usable in both light and dark OS/browser theme
 - [ ] Basic responsiveness: window resized narrower doesn't break layout or hide controls
-- [ ] Works in at least two browsers (e.g. Chrome and Firefox)
+- [ ] Loading the page shows no errors in the browser console
