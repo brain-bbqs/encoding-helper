@@ -1,8 +1,8 @@
 # User Test Checklist
 
-|            |         |
-| ---------- | ------- |
-| **Tester** | Rahul |
+|            |        |
+| ---------- | ------ |
+| **Tester** | Rahul  |
 | **Date**   | 9/3/26 |
 
 A basic manual pass through the app before a release or after a significant change.
@@ -19,7 +19,7 @@ A basic manual pass through the app before a release or after a significant chan
 - [x] The atom/box tree renders for a loaded MP4
 - [x] Selecting an atom shows its details and jumps to the right spot in the tree
 - [x] Table of contents navigation matches the atom tree
-  - NOTE: probably no way to fix since window can't push down, but caused some confusion when could not navigate to 'Audio' section when partially in view at bottom 
+  - NOTE: probably no way to fix since window can't push down, but caused some confusion when could not navigate to 'Audio' section when partially in view at bottom
 - [x] Educational explainers appear when the educational toggle is on
 
 ## Analysis tab
