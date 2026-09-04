@@ -56,8 +56,6 @@ A basic manual pass through the app before a release or after a significant chan
 - [x] Loading the page shows no errors in the browser console
 - [x] Can navigate to all hyperlinks in the bottom-left
 
-
-
 ## Extra notes
 
 Scrolling into the playback window for reencoding page caused video zoom havoc; perhaps make it zoom through scroll only when enabled? [on hover delay (3s) or on click to activate]
