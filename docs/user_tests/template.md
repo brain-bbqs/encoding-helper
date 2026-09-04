@@ -23,7 +23,6 @@ A basic manual pass through the app before a release or after a significant chan
 ## Analysis tab
 
 - [ ] The bitrate chart renders and reflects the loaded file
-- [ ] Zoom/pan on the chart works smoothly
 - [ ] Chroma format, codec, and container details are shown correctly
 
 ## Compare tab
