@@ -1,9 +1,9 @@
 # User Test Checklist
 
-|            |         |
-| ---------- | ------- |
+|            |              |
+| ---------- | ------------ |
 | **Tester** | Erik Johnson |
-| **Date**   | 9/4/26 |
+| **Date**   | 9/4/26       |
 
 A basic manual pass through the app before a release or after a significant change.
 
