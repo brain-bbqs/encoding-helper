@@ -25,7 +25,6 @@ A basic manual pass through the app before a release or after a significant chan
 ## Analysis tab
 
 - [x] The bitrate chart renders and reflects the loaded file
-- [x] Zoom/pan on the chart works smoothly
 - [x] Chroma format, codec, and container details are shown correctly
 
 ## Compare tab
@@ -59,4 +58,8 @@ A basic manual pass through the app before a release or after a significant chan
 - [ ] Loading the page shows no errors in the browser console
 - [ ] Can navigate to all hyperlinks in the bottom-left
 
-NOTE: did not have time to test these
+## Extra notes
+
+See above
+
+Did not have time to test many items
