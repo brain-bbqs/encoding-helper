@@ -60,3 +60,16 @@ A basic manual pass through the app before a release or after a significant chan
 # Extra notes
 
 Scrolling into the playback window for reencoding page caused video zoom havoc; perhaps make it zoom through scroll only when enabled? [on hover delay (3s) or on click to activate]
+
+Dev console errors:
+
+```
+index-JK8hMqWJ.js:298 [encoding-helper] showSaveFilePicker failed, falling back to download: SecurityError: Failed to execute 'showSaveFilePicker' on 'Window': Must be handling a user gesture to show a file picker.
+    at gr (index-JK8hMqWJ.js:298:5443)
+    at oc (index-JK8hMqWJ.js:300:35195)
+```
+
+```
+gr @ index-JK8hMqWJ.js:298
+/?edu=0&tab=analysis:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+```
