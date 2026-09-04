@@ -59,4 +59,4 @@ A basic manual pass through the app before a release or after a significant chan
 
 # Extra notes
 
-Scrolling into the playback window for reencoding page caused video zoom havoc; perhaps make it zoom through scroll only when enabled?
+Scrolling into the playback window for reencoding page caused video zoom havoc; perhaps make it zoom through scroll only when enabled? [on hover delay (3s) or on click to activate]
