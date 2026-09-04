@@ -1,9 +1,9 @@
 # User Test Checklist
 
-|            |         |
-| ---------- | ------- |
+|            |              |
+| ---------- | ------------ |
 | **Tester** | Erik Johnson |
-| **Date**   | 9/4/26 |
+| **Date**   | 9/4/26       |
 
 A basic manual pass through the app before a release or after a significant change.
 
@@ -56,7 +56,6 @@ A basic manual pass through the app before a release or after a significant chan
 - [ ] Basic responsiveness: window resized narrower doesn't break layout or hide controls
 - [ ] Loading the page shows no errors in the browser console
 - [ ] Can navigate to all hyperlinks in the bottom-left
-
 
 # Extra notes
 
