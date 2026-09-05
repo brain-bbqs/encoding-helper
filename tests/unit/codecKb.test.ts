@@ -58,4 +58,55 @@ describe("describeCodec", () => {
     expect(info?.family).toBe("VP8");
     expect(info?.details).toEqual([]);
   });
+
+  it("parses VP9 profile, level and bit depth", () => {
+    const info = describeCodec("vp9", "vp09.02.10.10");
+    expect(info?.family).toBe("VP9");
+    expect(info?.details).toEqual([
+      { label: "Profile", value: 2 },
+      { label: "Level", value: "1.0" },
+      { label: "Bit depth", value: "10-bit" },
+    ]);
+  });
+
+  it("returns empty details for HEVC, VP9 and AV1 strings that do not fit their patterns", () => {
+    expect(describeCodec("hevc", "hvc1")?.details).toEqual([]);
+    expect(describeCodec("vp9", "vp09")?.details).toEqual([]);
+    expect(describeCodec("av1", "av01")?.details).toEqual([]);
+  });
+
+  it("returns empty details with no codec string at all", () => {
+    for (const codec of ["avc", "hevc", "vp9", "av1", "aac"]) {
+      expect(describeCodec(codec, null)?.details).toEqual([]);
+    }
+  });
+
+  // A profile number the table does not know is still a fact worth printing, as a number.
+  it("labels an unknown HEVC profile by number and reads the High tier", () => {
+    const info = describeCodec("hevc", "hev1.9.6.H150");
+    expect(info?.details).toEqual([
+      { label: "Profile", value: "Profile 9" },
+      { label: "Tier", value: "High" },
+      { label: "Level", value: "5.0" },
+    ]);
+  });
+
+  it("falls back to the raw AV1 profile and level fields when they are out of the tables", () => {
+    const info = describeCodec("av1", "av01.3.31H.12");
+    expect(info?.details).toEqual([
+      { label: "Profile", value: "3" },
+      { label: "Level", value: "31" },
+      { label: "Tier", value: "High" },
+      { label: "Bit depth", value: "12-bit" },
+    ]);
+  });
+
+  it("labels an unknown AAC object type by its number", () => {
+    expect(describeCodec("aac", "mp4a.40.99")?.details).toEqual([{ label: "Profile", value: "Object type 99" }]);
+  });
+
+  it("treats the telephony companding codecs as PCM too", () => {
+    expect(describeCodec("ulaw", null)?.family).toBe("PCM (uncompressed)");
+    expect(describeCodec("alaw", null)?.family).toBe("PCM (uncompressed)");
+  });
 });

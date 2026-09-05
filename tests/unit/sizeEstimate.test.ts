@@ -25,6 +25,32 @@ describe("estimateSizeSavings", () => {
     expect(estimateSizeSavings({ ...BASE, totalSeconds: NaN })).toBeNull();
   });
 
+  // A duration with no end, as a live stream reports, leaves the sampled stretch no share of the
+  // file, and a ratio over nothing is not a projection.
+  it("returns null when the stretch is no share of the file at all", () => {
+    expect(estimateSizeSavings({ ...BASE, totalSeconds: Infinity })).toBeNull();
+  });
+
+  // A sample table whose frames all sit past the last whole window leaves nothing to measure a
+  // spread across, so the stretch's own cost is still read from it but no band is claimed.
+  it("gives no band when the file's windows hold no frames to compare", () => {
+    const samples = [
+      { size: 1000, cts: 9, dts: 9, ctsSec: 9, is_sync: true },
+      { size: 1000, cts: 9.5, dts: 9.5, ctsSec: 9.5, is_sync: false },
+    ];
+    const est = estimateSizeSavings({
+      originalTotalBytes: 2000,
+      totalSeconds: 10,
+      segmentStartSeconds: 9,
+      segmentSeconds: 3,
+      encodedSegmentBytes: 1000,
+      samples,
+    })!;
+    expect(est.basis).toBe("sample-table");
+    expect(est.originalSegmentBytes).toBe(2000);
+    expect(est.projectedRange).toBeNull();
+  });
+
   it("spreads the file evenly over its running time when there is no sample table", () => {
     // 10 s of a 100 s, 1 MB file is 100 KB of source; 50 KB of encode halves it.
     const est = estimateSizeSavings(BASE);
@@ -416,5 +442,10 @@ describe("currentSizeEstimate", () => {
     encodeTest.windows = [];
     const est = currentSizeEstimate()!;
     expect(est.segmentSeconds).toBe(5);
+  });
+
+  it("has nothing to project before a comparison has run", () => {
+    encodeTest.encodedSize = null;
+    expect(currentSizeEstimate()).toBeNull();
   });
 });

@@ -104,6 +104,21 @@ describe("buildFfmpegArgs", () => {
     expect(args[args.indexOf("-c:a") + 1]).toBe("copy");
   });
 
+  // With no rate from the field or the file, the GOP is sized for the 30 fps a source usually is.
+  it("assumes 30 fps for the GOP when neither the field nor the file gives a rate", () => {
+    const args = buildFfmpegArgs(baseCli({ fps: null, keyframeInterval: 2, gopOverride: null }), {
+      ...info,
+      fps: null,
+    });
+    expect(args[args.indexOf("-g") + 1]).toBe("60");
+  });
+
+  it("forces the output frame rate only when one is set", () => {
+    const args = buildFfmpegArgs(baseCli({ fps: 24 }), info);
+    expect(args[args.indexOf("-r") + 1]).toBe("24");
+    expect(buildFfmpegArgs(baseCli({ fps: null }), info)).not.toContain("-r");
+  });
+
   it("uses provided input/output names, falling back to defaults", () => {
     expect(buildFfmpegArgs(baseCli(), info, "custom-in.mp4", "custom-out.mp4")).toEqual(
       expect.arrayContaining(["custom-in.mp4", "custom-out.mp4"]),
@@ -198,5 +213,14 @@ describe("formatCliCommand", () => {
     const formatted = formatCliCommand(["-i", "in.mp4", "out.mp4"]);
     const lines = formatted.split("\n");
     expect(lines[lines.length - 1].endsWith("\\")).toBe(false);
+  });
+
+  // With no arguments the loop never flushes a line, so the bare command still has to come out.
+  it("prints the bare command for an empty argument list", () => {
+    expect(formatCliCommand([])).toBe("ffmpeg");
+  });
+
+  it("escapes quotes and backslashes inside a quoted token", () => {
+    expect(formatCliCommand(['say "hi"\\now'])).toBe('ffmpeg "say \\"hi\\"\\\\now"');
   });
 });

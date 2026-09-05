@@ -1,5 +1,5 @@
-import { IDBFactory } from "fake-indexeddb";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { IDBDatabase, IDBFactory } from "fake-indexeddb";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import {
   MATRIX_CACHE_MAX_BYTES,
@@ -89,6 +89,50 @@ beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** Makes every transaction of `mode` fail before its requests run, the way a full disk or an
+ * evicted origin does: each pending request errors and the transaction aborts. */
+function abortTransactions(mode: IDBTransactionMode): void {
+  const real = IDBDatabase.prototype.transaction;
+  vi.spyOn(IDBDatabase.prototype, "transaction").mockImplementation(function (
+    this: IDBDatabase,
+    names,
+    txMode,
+    options,
+  ) {
+    const tx = real.call(this, names, txMode, options);
+    if ((txMode ?? "readonly") === mode) queueMicrotask(() => tx.abort());
+    return tx;
+  });
+}
+
+/** Puts a raw record into one of the test database's stores, as a hand-edited devtools session
+ * or an earlier version of the app might have. */
+function seed(store: string, record: object): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onerror = () => reject(request.error);
+    request.onupgradeneeded = () => {
+      for (const name of ["measurements", "windows"]) {
+        request.result.createObjectStore(name, { keyPath: "key" }).createIndex("lastUsed", "lastUsed");
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction(store, "readwrite");
+      tx.objectStore(store).put(record);
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+
 describe("videoChecksum", () => {
   it("is the same for the same bytes, whatever the file is called", async () => {
     const one = sourceOf(bytesOf(1, 2, 3, 4, 5));
@@ -137,6 +181,17 @@ describe("videoChecksum", () => {
     const first = await videoChecksum(source);
     expect(await videoChecksum(source)).toBe(first);
     expect(reads).toHaveLength(3);
+  });
+
+  // A read that failed says nothing about the next one, so the file is asked about again rather
+  // than remembered as unidentifiable.
+  it("asks again after a read of the file failed", async () => {
+    const source = sourceOf(bytesOf(1, 2, 3));
+    const working = source.readChunk;
+    source.readChunk = () => Promise.reject(new Error("read failed"));
+    await expect(videoChecksum(source)).rejects.toThrow("read failed");
+    source.readChunk = working;
+    expect(await videoChecksum(source)).toBe(await videoChecksum(sourceOf(bytesOf(1, 2, 3))));
   });
 });
 
@@ -260,6 +315,16 @@ describe("remembering where a run sampled", () => {
     await before.flush();
     expect(await open().recallWindows(checksum, 5, 2)).toEqual(WINDOWS);
   });
+
+  // A run with no stretches has nothing worth a record: remembering it would hand a later run an
+  // empty set to reuse instead of drawing its own.
+  it("records nothing for a run that sampled nowhere", async () => {
+    const cache = open();
+    cache.rememberWindows(checksum, 5, 0, []);
+    await cache.flush();
+    expect(await cache.recallWindows(checksum, 5, 0)).toBe(null);
+    expect(await storedKeys("windows")).toEqual([]);
+  });
 });
 
 describe("a store that cannot be trusted", () => {
@@ -284,6 +349,61 @@ describe("a store that cannot be trusted", () => {
     const held = await cache.readMeasurements(["good", "sizeless"]);
     expect(held.get("good")?.bytes).toBe(10);
     expect(held.has("sizeless")).toBe(false);
+  });
+
+  // A stretch list with a broken entry is a list that cannot be reused whole, and a partial reuse
+  // would measure different seconds from the run it came from.
+  it("has no stretches to offer from a record with a malformed one, or none at all", async () => {
+    await seed("windows", { key: "sabc:5.000x2", w: [[0, 5], [12.5]], lastUsed: 1 });
+    await seed("windows", { key: "sabc:5.000x0", w: [], lastUsed: 1 });
+    await seed("windows", { key: "sabc:5.000x1", w: "0+5", lastUsed: 1 });
+    const cache = open();
+    expect(await cache.recallWindows("sabc", 5, 2)).toBe(null);
+    expect(await cache.recallWindows("sabc", 5, 0)).toBe(null);
+    expect(await cache.recallWindows("sabc", 5, 1)).toBe(null);
+  });
+
+  // A database left at a later version by a newer build of the app cannot be opened at this one:
+  // the open fails, and the sweep runs as if there were no cache.
+  it("degrades to no cache when the database cannot be opened", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 2);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+    });
+    const cache = open();
+    cache.writeMeasurement("k", measurement(4096));
+    await expect(cache.flush()).resolves.toBeUndefined();
+    expect(await readOne(cache, "k")).toBe(null);
+    expect(await cache.recallWindows("sabc", 5, 2)).toBe(null);
+  });
+
+  // A write that fails partway is a write that did not happen, and the writes behind it still go.
+  it("drops a write whose transaction fails and carries on with the next", async () => {
+    const cache = open();
+    abortTransactions("readwrite");
+    cache.writeMeasurement("lost", measurement(1));
+    await expect(cache.flush()).resolves.toBeUndefined();
+    vi.restoreAllMocks();
+    cache.writeMeasurement("kept", measurement(2));
+    await cache.flush();
+    expect(await storedKeys("measurements")).toEqual(["kept"]);
+  });
+
+  // Touching a record is bookkeeping for eviction, not the read itself: a measurement found is a
+  // measurement handed back whether or not its timestamp could be refreshed.
+  it("still hands back what it read when refreshing the records fails", async () => {
+    const cache = open();
+    cache.writeMeasurement("k", measurement(4096));
+    cache.rememberWindows("sabc", 5, 2, WINDOWS);
+    await cache.flush();
+    abortTransactions("readwrite");
+    expect(await readOne(cache, "k")).toEqual(measurement(4096));
+    // The stretches are handed back only once they are touched, so a failed touch loses them.
+    expect(await cache.recallWindows("sabc", 5, 2)).toBe(null);
   });
 
   // A private window that refuses IndexedDB, or storage turned off: the sweep runs, it just has

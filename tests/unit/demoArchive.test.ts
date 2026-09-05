@@ -87,6 +87,28 @@ describe("buildDemoSet", () => {
     // Nothing known means nothing ruled out: the app offers to try rather than refusing.
     expect(last.loadsInApp).toBe(true);
   });
+
+  // The archive's listing can carry entries with nothing to load, which is not a file to show.
+  it("skips a listing entry with no path or no asset id", () => {
+    const set = buildDemoSet(DESCRIPTION, [
+      ...ASSETS,
+      { asset_id: "no-path-id", size: 5 },
+      { path: demoVideoPath("nopeid", "mp4"), size: 5 },
+    ]);
+    expect(set.demos.map((d) => d.session)).toEqual(["original", "reference", "matroska", "gopshort", "goplong"]);
+  });
+
+  // An index written before the generator carried its own section says nothing about any file.
+  it("lists every file under 'other' when the index has no encoding-helper section", () => {
+    const set = buildDemoSet({}, ASSETS);
+    expect(set.demos.map((d) => d.session)).toEqual(["original", "reference", "matroska", "gopshort", "goplong"]);
+    expect(set.demos.every((d) => d.group === "other" && d.loadsInApp && d.description === null)).toBe(true);
+  });
+
+  it("reads a missing size as zero rather than unknown", () => {
+    const set = buildDemoSet(DESCRIPTION, [{ asset_id: "sizeless-id", path: demoVideoPath("reference", "mp4") }]);
+    expect(set.demos[0].size).toBe(0);
+  });
 });
 
 describe("fetchDemoSet", () => {
@@ -131,6 +153,18 @@ describe("fetchDemoSet", () => {
   it("says so when the dandiset carries no dataset description", async () => {
     stubArchive([ASSETS.filter((a) => a.path !== "dataset_description.json")]);
     await expect(fetchDemoSet()).rejects.toThrow(/dataset_description\.json/);
+  });
+
+  it("reports the archive's status when a request fails", async () => {
+    vi.stubGlobal("fetch", () => Promise.resolve({ ok: false, status: 404, statusText: "Not Found" }));
+    await expect(fetchDemoSet()).rejects.toThrow("404 Not Found");
+  });
+
+  it("reads a listing page with no results as empty", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchDemoSet()).rejects.toThrow(/dataset_description\.json/);
+    expect(fetchMock.mock.calls.length).toBe(1);
   });
 
   it("says so when the dandiset carries no demo files yet", async () => {
