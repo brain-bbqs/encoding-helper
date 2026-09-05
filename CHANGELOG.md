@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1
+
+#### 🏠 Internal
+
+- Unit tests now cover file loading, the Full Analysis document, the sample picker, the in-browser encode, the mp4box feeding loop and several previously untested modules, taking coverage from 63% to 81% ([#44](https://github.com/brain-bbqs/encoding-helper/pull/44))
+
 ## 1.3.3
 
 #### 🚀 Enhancement
