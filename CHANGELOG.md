@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+
+#### 🏠 Internal
+
+- Removed Google Analytics and the cookie consent banner; the page no longer tracks usage or asks for consent (PR_LINK)
+
 ## 1.3.3
 
 #### 🚀 Enhancement
