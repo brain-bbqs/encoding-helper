@@ -2,7 +2,7 @@
 // HTML the panel is built from and the Markdown the two Markdown controls produce, rather than
 // against the rendered frame (jsdom runs no layout and loads no srcdoc).
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/qualityMatrix";
@@ -96,6 +96,10 @@ beforeEach(() => {
       }
     },
   );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("renderAnalysisTab", () => {
@@ -351,5 +355,326 @@ describe("renderAnalysisTab", () => {
     state.source = null;
     renderAnalysisTab(el);
     expect(el.innerHTML).toBe("");
+  });
+
+  it("spells out the rotation, codec details, color space and HDR a track carries", () => {
+    const el = panel();
+    loadClip({
+      tracks: [
+        {
+          ...VIDEO_TRACK,
+          rotation: 90,
+          codecInfo: {
+            family: "H.264",
+            fullName: "Advanced Video Coding",
+            year: 2003,
+            description: "The most widely supported video codec.",
+            details: [
+              { label: "Profile", value: "High" },
+              { label: "Level", value: "3.2" },
+            ],
+          },
+          colorSpace: { primaries: "bt709", transfer: "bt709", matrix: "bt709" },
+          hdr: true,
+        },
+      ],
+    });
+    renderAnalysisTab(el);
+    const md = markdown(el);
+
+    expect(md).toContain("| Rotation | 90° |");
+    expect(md).toContain("| Profile | High |");
+    expect(md).toContain("| Level | 3.2 |");
+    expect(md).toContain("| Color Space | bt709 / bt709 / bt709 |");
+    expect(md).toContain("| HDR | Yes |");
+    // The codec's explainer is prose, dropped with the rest of it.
+    expect(md).not.toContain("Advanced Video Coding");
+  });
+
+  it("leaves the frame rate out of the headline when the file does not state one", () => {
+    const el = panel();
+    loadClip({ tracks: [{ ...VIDEO_TRACK, packetRate: null }] });
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).not.toContain("**Frame Rate:**");
+    expect(md).toContain("| Frame Rate | – |");
+  });
+
+  it("reports a declared constant bitrate as one figure when the samples bear it out", () => {
+    const el = panel();
+    loadClip();
+    // 600 × 1000 bytes over 30 s = 160,000 bps, declared as both the average and the maximum.
+    state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Declared Bitrate | 160 kbps |");
+    expect(md).not.toContain("| Peak Window |");
+  });
+
+  // A declaration the sample table contradicts is noted, but the measured shape is what gets drawn.
+  it("measures the samples over a constant-bitrate declaration they contradict", () => {
+    const el = panel();
+    loadClip();
+    state.samples = evenSamples(
+      600,
+      30,
+      (i) => (i % 30 === 0 ? 20_000 : 1000),
+      (i) => i % 30 === 0,
+    );
+    state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Peak Window |");
+    expect(md).not.toContain("| Declared Bitrate |");
+  });
+
+  it("falls back to the track average when there are too few frames to bin", () => {
+    const el = panel();
+    loadClip();
+    state.samples = evenSamples(3, 30, 1000, (i) => i === 0);
+    state.keyframeDecodeIndices = [0];
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Average | 500 kbps |");
+    expect(md).not.toContain("| Peak Window |");
+  });
+
+  it("leaves out the sections a file with no sample table or box tree cannot fill", () => {
+    const el = panel();
+    loadClip();
+    state.samples = [];
+    state.keyframeDecodeIndices = [];
+    state.boxes = [];
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).not.toContain("## GOP / Keyframe Structure");
+    expect(md).not.toContain("## MP4 Atom Map");
+    expect(md).toContain("## Video Bitrate Over Time");
+  });
+
+  it("lists an audio codec's parsed details under its track", () => {
+    const el = panel();
+    loadClip({
+      tracks: [
+        VIDEO_TRACK,
+        {
+          ...AUDIO_TRACK,
+          codecInfo: {
+            family: "AAC",
+            fullName: "Advanced Audio Coding",
+            year: 1997,
+            description: "The default audio codec of MP4.",
+            details: [{ label: "Object Type", value: "AAC-LC" }],
+          },
+        },
+      ],
+    });
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Codec | mp4a.40.2 |");
+    expect(md).toContain("| Object Type | AAC-LC |");
+    expect(md).not.toContain("Advanced Audio Coding");
+  });
+
+  it("prints dashes for the audio facts a track does not state", () => {
+    const el = panel();
+    loadClip({
+      tracks: [{ kind: "audio", codec: "opus", codecString: null, codecInfo: null, packetRate: 50, bitrate: null }],
+    });
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Codec | opus |");
+    expect(md).toContain("| Sample Rate | – |");
+    expect(md).toContain("| Channels | – |");
+    expect(md).toContain("| Bitrate | – |");
+  });
+
+  // A comparison made at half resolution is not comparable to one made at the source's, so the
+  // change is stated; at the source resolution the row would say nothing and is left out.
+  it("states the resolution change when the compared encode was downscaled", () => {
+    const el = panel();
+    loadClip();
+    encodeTest.originalSink = {} as never;
+    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 5 } }] as never;
+    encodeTest.windows = [{ startSeconds: 0, seconds: 5 }];
+    encodeTest.encodedSize = 100_000;
+    encodeTest.activeCombo = { ...cliSettings(cli), scale: 0.5, scaler: "bicubic" };
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| Resolution | 640×480 → 320×240 (50%, bicubic) |");
+
+    encodeTest.activeCombo = { ...cliSettings(cli), scale: 1 };
+    renderAnalysisTab(el);
+    const ab = markdown(el).split("## Side-by-Side (A/B) Result")[1];
+    expect(ab).not.toContain("| Resolution |");
+  });
+
+  it("leads a sweep over more than one resolution with an output column", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos"]));
+    cells.forEach((c, i) => {
+      c.status = "done";
+      c.bytes = 100_000 - i * 10_000;
+    });
+    encodeTest.matrix.cells = cells;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+
+    expect(md).toContain("| Output | Quality | fast |");
+    expect(md).toContain("| 100% | high (CRF 18) | 97.7 KB |");
+    expect(md).toContain("| 50% lanczos | high (CRF 18) | 87.9 KB ★ |");
+  });
+
+  it("dashes the squares of a sweep that never finished, and drops the time of one not clocked", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["ultrafast", "fast"]));
+    cells.slice(0, 3).forEach((c, i) => {
+      c.status = "done";
+      c.bytes = 100_000 - i * 10_000;
+      c.elapsedMs = i === 0 ? null : 4200;
+    });
+    encodeTest.matrix.cells = cells;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+
+    expect(md).toContain("| high (CRF 18) | 97.7 KB | 87.9 KB / 4.2s |");
+    expect(md).toContain("| low (CRF 32) | 78.1 KB / 4.2s ★ | – |");
+  });
+
+  it("keeps the preview frame as tall as the document loaded into it", () => {
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = observe;
+        disconnect = disconnect;
+      },
+    );
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
+    const documentElement = { scrollHeight: 900 };
+    Object.defineProperty(frame, "contentDocument", {
+      value: { body: { scrollHeight: 1200 }, documentElement },
+      configurable: true,
+    });
+
+    frame.dispatchEvent(new Event("load"));
+    expect(frame.style.height).toBe("1200px");
+    expect(observe).toHaveBeenCalledWith(documentElement);
+
+    // The next visit rebuilds the panel, and the observer watching the old frame goes with it.
+    renderAnalysisTab(el);
+    expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("leaves the frame's height alone when it has no document to measure", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
+    Object.defineProperty(frame, "contentDocument", { value: null, configurable: true });
+
+    frame.dispatchEvent(new Event("load"));
+    expect(frame.style.height).toBe("");
+  });
+
+  // Not throwing is the behaviour: the button is a no-op until the frame has a window to print, and
+  // it does not fall back to printing the page around the frame.
+  it("ignores a print request while the frame has no window", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
+    Object.defineProperty(frame, "contentWindow", { value: null, configurable: true });
+    const pagePrint = vi.spyOn(window, "print").mockImplementation(() => undefined);
+
+    expect(() => clickButton(el, "Save as PDF")).not.toThrow();
+    expect(pagePrint).not.toHaveBeenCalled();
+    pagePrint.mockRestore();
+  });
+
+  it("prints placeholders for what a bare file does not say about itself", () => {
+    const el = panel();
+    loadClip({
+      tracks: [{ kind: "video", codec: "avc", codecString: null, codecInfo: null, packetRate: 30, bitrate: null }],
+    });
+    state.source = { kind: "file", size: 2_000_000 } as never;
+    state.format = "";
+    state.mimeType = "";
+    state.duration = null;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+
+    expect(md).toContain("# Encoding Helper analysis: video");
+    expect(md).toContain("**Container:** –");
+    expect(md).toContain("**Video Codec:** avc");
+    expect(md).toContain("**Resolution:** ?×?");
+    expect(md).toContain("| Duration | – |");
+    expect(md).toContain("| MIME Type | – |");
+    // No duration to bin the samples over, so the bitrate section falls back to the one figure.
+    expect(md).toContain("| Average | – |");
+  });
+
+  it("leaves a metadata tag's key bare when nothing is known about it", () => {
+    const el = panel();
+    loadClip();
+    state.tags = { raw: { "com.example.custom": "x" } } as never;
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| com.example.custom | x |");
+  });
+
+  it("notes B-frames, and a keyframe structure no GOP was measured for", () => {
+    const el = panel();
+    loadClip();
+    state.hasBFrames = true;
+    state.gopLengths = [];
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("**Uses B-frames (cts ≠ dts)**");
+    expect(md).toContain("| Min / Max GOP | – |");
+    expect(md).not.toContain("_Chart: GOP length per keyframe interval");
+  });
+
+  it("tables a single seek without the scatter plot two would make", () => {
+    const el = panel();
+    loadClip();
+    state.seekResults = [{ t: 1, kf: 0, dist: 1, distFrames: 20, decodeMs: 10 }];
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Timestamps Sampled | 1 |");
+    expect(md).not.toContain("_Chart: Keyframe distance vs. decode time");
+  });
+
+  it("states the comparison without a projection while the encode's size is unknown", () => {
+    const el = panel();
+    loadClip();
+    encodeTest.originalSink = {} as never;
+    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 5 } }] as never;
+    encodeTest.windows = [{ startSeconds: 0, seconds: 5 }];
+    encodeTest.encodedSize = null;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Encoded Segment Size | – |");
+    expect(md).not.toContain("| Projected Full File |");
+  });
+
+  // Sampling the whole file leaves nothing to be wrong about, so there is no range; and an encode
+  // that came out bigger is reported as bytes added, not saved.
+  it("reports bytes added, with no range, when the whole file was encoded and grew", () => {
+    const el = panel();
+    loadClip();
+    encodeTest.originalSink = {} as never;
+    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 30 } }] as never;
+    encodeTest.windows = [{ startSeconds: 0, seconds: 30 }];
+    encodeTest.encodedSize = 3_000_000;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("| Projected Full File | 2.9 MB |");
+    expect(md).toContain("| Projected Saving | 50% larger (≈ 976.6 KB added) |");
+    expect(md).not.toContain("| Projected Range |");
   });
 });

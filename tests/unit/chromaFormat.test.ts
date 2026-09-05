@@ -60,6 +60,45 @@ describe("chromaFromDescription", () => {
     expect(chromaFromDescription("avc", null)).toBeNull();
     expect(chromaFromDescription("prores", new Uint8Array([1, 2, 3]))).toBeNull();
   });
+
+  // A record from a broken muxer must not be read as a statement about the file.
+  it("rejects an avcC that is too short or not version 1", () => {
+    expect(chromaFromDescription("avc", new Uint8Array([1, 100, 0]))).toBeNull();
+    const version2 = avcC(66, null);
+    version2[0] = 2;
+    expect(chromaFromDescription("avc", version2)).toBeNull();
+  });
+
+  it("gives up on a High-profile avcC truncated inside its parameter sets", () => {
+    // Cut before the SPS length, after the SPS, and inside the PPS length, respectively.
+    const full = avcC(100, 1);
+    expect(chromaFromDescription("avc", full.slice(0, 7))).toBeNull();
+    expect(chromaFromDescription("avc", full.slice(0, 11))).toBeNull();
+    expect(chromaFromDescription("avc", full.slice(0, 12))).toBeNull();
+  });
+
+  it("rejects an hvcC that stops before its chroma field or is not version 1", () => {
+    expect(chromaFromDescription("hevc", new Uint8Array(16))).toBeNull();
+    const version0 = new Uint8Array(20);
+    version0[16] = 0xfc | 1;
+    expect(chromaFromDescription("hevc", version0)).toBeNull();
+  });
+
+  it("rejects an av1C without its marker bit or its flags byte", () => {
+    expect(chromaFromDescription("av1", new Uint8Array([0x01, 0x00, 0x0c]))).toBeNull();
+    expect(chromaFromDescription("av1", new Uint8Array([0x81, 0x00]))).toBeNull();
+  });
+
+  it("says nothing for a vpcC that is too short or carries a reserved subsampling code", () => {
+    expect(chromaFromDescription("vp9", new Uint8Array([0, 0]))).toBeNull();
+    expect(chromaFromDescription("vp9", new Uint8Array([0, 0, 4 << 1, 0]))).toBeNull();
+  });
+
+  // WebCodecs may hand the record over as a bare buffer rather than a view onto one.
+  it("reads a description given as an ArrayBuffer", () => {
+    const record = avcC(122, 2);
+    expect(chromaFromDescription("avc", record.buffer.slice(0, record.byteLength))).toBe("4:2:2");
+  });
 });
 
 describe("chromaFromCodecString", () => {
@@ -82,6 +121,16 @@ describe("chromaFromCodecString", () => {
 
   it("knows VP8 has only ever been 4:2:0", () => {
     expect(chromaFromCodecString("vp8", null)).toBe("4:2:0");
+  });
+
+  it("says nothing for a reserved VP9 subsampling code or an AV1 profile that does not exist", () => {
+    expect(chromaFromCodecString("vp9", "vp09.00.10.08.04")).toBeNull();
+    expect(chromaFromCodecString("av1", "av01.3.08M.08")).toBeNull();
+  });
+
+  it("says nothing without a codec string, or for a string it has no rule for", () => {
+    expect(chromaFromCodecString("avc", null)).toBeNull();
+    expect(chromaFromCodecString("hevc", "hvc1.1.6.L93.B0")).toBeNull();
   });
 });
 

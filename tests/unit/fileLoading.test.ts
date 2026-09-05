@@ -112,6 +112,13 @@ describe("loading a file", () => {
     expect(onLoaded).toHaveBeenCalledOnce();
   });
 
+  it("shows no size for an empty file rather than a zero", async () => {
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadFile(new File([], "empty.mp4", { type: "video/mp4" }));
+    expect(els.miniName.textContent).toBe("empty.mp4");
+    expect(els.miniSize.textContent).toBe("");
+  });
+
   it("collapses the drop zone down to the file's name and size", async () => {
     const loader = initFileLoadingUi(els, { onLoaded });
     await loader.loadFile(videoFile());
@@ -285,6 +292,13 @@ describe("the drop zone's controls", () => {
     await vi.waitFor(() => expect(fromUrl).toHaveBeenCalledWith("https://example.org/b.mp4", undefined));
   });
 
+  it("leaves any other key in the URL box alone", () => {
+    initFileLoadingUi(els, { onLoaded });
+    els.urlInput.value = "https://example.org/a.mp4";
+    els.urlInput.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+    expect(fromUrl).not.toHaveBeenCalled();
+  });
+
   it("does nothing for an empty URL box", () => {
     initFileLoadingUi(els, { onLoaded });
     els.urlInput.value = "   ";
@@ -346,6 +360,42 @@ describe("the file picker", () => {
     await vi.waitFor(() => expect(window.showOpenFilePicker).toHaveBeenCalled());
 
     expect(state.source).toBeNull();
+  });
+
+  // A picker that is there but broken (a sandboxed frame, say) is worth noting, not worth losing the
+  // file over.
+  it("falls back to the hidden file input when the picker fails for any other reason", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    Object.defineProperty(window, "showOpenFilePicker", {
+      value: vi.fn().mockRejectedValue(new Error("not allowed in this frame")),
+      configurable: true,
+    });
+    vi.spyOn(els.fileInput, "click").mockImplementation(() => {
+      Object.defineProperty(els.fileInput, "files", { value: [videoFile("fallback.mp4")], configurable: true });
+      els.fileInput.onchange!(new Event("change"));
+    });
+    initFileLoadingUi(els, { onLoaded });
+
+    els.pickFileBtn.click();
+    await vi.waitFor(() => expect(onLoaded).toHaveBeenCalled());
+
+    expect(state.source!.name).toBe("fallback.mp4");
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("loads nothing when the hidden file input comes back empty", async () => {
+    const click = vi.spyOn(els.fileInput, "click").mockImplementation(() => {
+      Object.defineProperty(els.fileInput, "files", { value: [], configurable: true });
+      els.fileInput.onchange!(new Event("change"));
+    });
+    initFileLoadingUi(els, { onLoaded });
+
+    els.pickFileBtn.click();
+    await vi.waitFor(() => expect(click).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(state.source).toBeNull();
+    expect(onLoaded).not.toHaveBeenCalled();
   });
 
   it("falls back to the hidden file input where there is no picker", async () => {

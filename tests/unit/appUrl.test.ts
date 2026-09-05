@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   isTabId,
   readDemosFromUrl,
+  readEducationalFromUrl,
   readSrcFromUrl,
   readTabFromUrl,
   writeDemosToUrl,
+  writeEducationalToUrl,
   writeSrcToUrl,
   writeTabToUrl,
 } from "../../src/lib/appUrl";
@@ -79,6 +81,21 @@ describe("appUrl", () => {
     expect(readSrcFromUrl()).toBeNull();
     setUrl("?src=blob%3Ahttps%3A%2F%2Fexample.com%2Fabc");
     expect(readSrcFromUrl()).toBeNull();
+  });
+
+  // A link someone wrote by hand can carry something the URL parser cannot make sense of at all.
+  it("reads an unparsable source as no source", () => {
+    setUrl("?src=http%3A%2F%2F");
+    expect(readSrcFromUrl()).toBeNull();
+  });
+
+  it("reads the Educational switch only when the URL states it", () => {
+    expect(readEducationalFromUrl()).toBeNull();
+    writeEducationalToUrl(true);
+    expect(window.location.search).toBe("?edu=1");
+    expect(readEducationalFromUrl()).toBe(true);
+    writeEducationalToUrl(false);
+    expect(readEducationalFromUrl()).toBe(false);
   });
 
   it("clears the source parameter when passed null, e.g. after a local file is loaded", () => {
