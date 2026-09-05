@@ -40,14 +40,16 @@ function track(o: TrackOptions): InputTrack {
     getColorSpace: () => reads(o.colorSpace ?? { primaries: "bt709" }),
     hasHighDynamicRange: () => reads(o.hdr ?? false),
     getDecoderConfig: () =>
-      o.description instanceof Error ? reads(o.description) : Promise.resolve({ description: o.description ?? AVC_DESCRIPTION }),
+      o.description instanceof Error
+        ? reads(o.description)
+        : Promise.resolve({ description: o.description ?? AVC_DESCRIPTION }),
   } as unknown as InputTrack;
 }
 
 function input(tracks: InputTrack[], over: Partial<Record<"format" | "mimeType", string>> = {}): Input {
   return {
     getFormat: () => Promise.resolve({ name: over.format ?? "MP4" }),
-    getMimeType: () => Promise.resolve(over.mimeType ?? "video/mp4; codecs=\"avc1.640020\""),
+    getMimeType: () => Promise.resolve(over.mimeType ?? 'video/mp4; codecs="avc1.640020"'),
     computeDuration: () => Promise.resolve(12.5),
     getTracks: () => Promise.resolve(tracks),
     getMetadataTags: () => Promise.resolve({ title: "Session 1" }),

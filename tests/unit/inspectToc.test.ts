@@ -87,11 +87,7 @@ describe("mountInspectToc", () => {
     const panel = panelWith(["Metadata", "Metadata", "Metadata"]);
     mountInspectToc(panel);
     expect(tocLinks(panel).map((a) => a.getAttribute("href"))).toEqual(["#metadata", "#metadata-2", "#metadata-3"]);
-    expect(Array.from(panel.querySelectorAll("h2")).map((h) => h.id)).toEqual([
-      "metadata",
-      "metadata-2",
-      "metadata-3",
-    ]);
+    expect(Array.from(panel.querySelectorAll("h2")).map((h) => h.id)).toEqual(["metadata", "metadata-2", "metadata-3"]);
   });
 
   it("leaves the panel alone when no file is loaded and there is nothing to link to", () => {

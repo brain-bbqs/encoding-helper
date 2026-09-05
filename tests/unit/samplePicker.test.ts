@@ -97,7 +97,9 @@ describe("samplePicker", () => {
 
   it("gradates the track, labelling the major marks only", () => {
     const { el } = picker();
-    expect(el.querySelectorAll(".sample-tick").length).toBeGreaterThan(el.querySelectorAll(".sample-tick.major").length);
+    expect(el.querySelectorAll(".sample-tick").length).toBeGreaterThan(
+      el.querySelectorAll(".sample-tick.major").length,
+    );
     expect(el.querySelectorAll(".sample-tick-label")).toHaveLength(el.querySelectorAll(".sample-tick.major").length);
     expect(el.querySelector(".sample-ruler")!.getAttribute("aria-hidden")).toBe("true");
   });
