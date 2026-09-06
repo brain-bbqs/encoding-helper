@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { VIDEO_TRACK as SHARED_VIDEO_TRACK } from "../fixtures/state";
 import { resetState, state } from "../../src/lib/state";
-import type { DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
+import type { CodecInfo, DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
 import { renderAtomMap } from "../../src/ui/atomsTab";
 import { renderBitrateTimelineSection, renderInspectHead, renderInspectTail } from "../../src/ui/inspectTab";
 import { renderSeekTab } from "../../src/ui/seekTab";
@@ -249,5 +249,249 @@ describe("the Inspect panel", () => {
     const panel = document.createElement("div");
     renderSeekTab(panel);
     expect(panel.querySelector<HTMLInputElement>("#seekN")?.value).toBe("100");
+  });
+});
+
+// The overview and the two track cards read the loaded file's tags and tracks straight off state,
+// so each of their optional rows is driven by loading a track that carries the field.
+describe("the overview and track cards", () => {
+  beforeEach(() => resetState());
+
+  /** An H.264 explainer with one parsed detail, the shape lib/codecKb resolves for a real track. */
+  const AVC_INFO: CodecInfo = {
+    family: "H.264",
+    fullName: "AVC / MPEG-4 Part 10",
+    year: 2003,
+    description: "The most widely supported video codec in existence.",
+    details: [{ label: "Profile", value: "High" }],
+  };
+
+  const AUDIO_TRACK: TrackInfo = {
+    kind: "audio",
+    codec: "aac",
+    codecString: "mp4a.40.2",
+    codecInfo: {
+      family: "AAC",
+      fullName: "Advanced Audio Coding",
+      year: 1997,
+      description: "The default audio codec paired with H.264.",
+      details: [{ label: "Object Type", value: "AAC-LC" }],
+    },
+    packetRate: null,
+    bitrate: 128_000,
+    sampleRate: 48_000,
+    channels: 2,
+  };
+
+  function labelsOf(panel: HTMLElement): (string | null)[] {
+    return Array.from(panel.querySelectorAll("label")).map((el) => el.textContent);
+  }
+
+  function itemOf(panel: HTMLElement, label: string): HTMLElement {
+    return Array.from(panel.querySelectorAll<HTMLElement>(".item")).find(
+      (el) => el.querySelector("label")?.textContent === label,
+    )!;
+  }
+
+  function valueOf(panel: HTMLElement, label: string): string | null | undefined {
+    return itemOf(panel, label).querySelector(".val")?.textContent;
+  }
+
+  it("renders nothing at all before a file is open", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    renderInspectTail(panel);
+    expect(panel.childElementCount).toBe(0);
+  });
+
+  it("lists the file's tags under readable labels, with the raw name kept for the unknown ones", () => {
+    loadClip();
+    state.tags = { title: "Session 1", raw: { "©too": "Lavf60.16.100", "com.example.custom": "x" } };
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(panel.querySelector("h3")?.textContent).toBe("Metadata Tags");
+    const labels = labelsOf(panel);
+    expect(labels).toContain("Title");
+    expect(labels).toContain("Encoding tool");
+    expect(labels).toContain("com.example.custom");
+    // Only the unknown tag keeps the container's own spelling as its label.
+    expect(itemOf(panel, "com.example.custom").querySelector("label")?.classList.contains("raw")).toBe(true);
+    expect(itemOf(panel, "Title").querySelector("label")?.classList.contains("raw")).toBe(false);
+    expect(itemOf(panel, "Encoding tool").querySelector(".val")?.textContent).toBe("Lavf60.16.100");
+    expect(panel.textContent).toContain("Hover the ⓘ on any tag");
+  });
+
+  // The popover names where the tag's spelling comes from, and reads the encoder signature out of
+  // its value where there is one; a tag the knowledge base does not know and whose value says
+  // nothing gets no popover.
+  it("explains a known tag and its encoder signature in the popover", () => {
+    loadClip();
+    state.tags = { title: "Session 1", raw: { "©too": "Lavf60.16.100", "com.example.custom": "x" } };
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    const pop = itemOf(panel, "Encoding tool").querySelector(".info-pop")!;
+    expect(pop.querySelector("code")?.textContent).toBe("©too");
+    expect(pop.querySelector(".info-pop-meta")?.textContent).toBe("MP4 / QuickTime atom");
+    expect(pop.textContent).toContain("libavformat 60.16.100");
+    const titlePop = itemOf(panel, "Title").querySelector(".info-pop")!;
+    expect(titlePop.querySelector(".info-pop-meta")?.textContent).toBe("Normalized by mediabunny");
+    expect(titlePop.querySelectorAll("p").length).toBe(1);
+    expect(itemOf(panel, "com.example.custom").querySelector(".info-pop")).toBeNull();
+  });
+
+  it("still explains the value of an unknown tag when it carries an encoder signature", () => {
+    loadClip();
+    state.tags = { raw: { "x-writer": "HandBrake 1.6.1" } };
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    const pop = itemOf(panel, "x-writer").querySelector(".info-pop")!;
+    expect(pop.querySelector(".info-pop-meta")).toBeNull();
+    expect(pop.textContent).toContain("Written by HandBrake 1.6.1");
+  });
+
+  // mediabunny leaves an optional tag as an empty string or an object (an image) rather than
+  // omitting it, and neither is a tag worth a row.
+  it("shows no tag list when every tag is empty or not a scalar", () => {
+    loadClip();
+    state.tags = { comment: "", images: [{ data: new Uint8Array(), mimeType: "image/png", kind: "coverFront" }] };
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(panel.querySelector("h3")).toBeNull();
+    expect(panel.textContent).not.toContain("Metadata Tags");
+  });
+
+  it("lists every optional video-track figure the file states", () => {
+    loadClip();
+    state.frameCount = 600;
+    state.tracks = [
+      {
+        ...VIDEO_TRACK,
+        codecInfo: AVC_INFO,
+        displayWidth: 853,
+        displayHeight: 480,
+        rotation: 90,
+        chroma: "4:2:2",
+        colorSpace: { primaries: "bt709", transfer: "bt709", matrix: "bt709" },
+        hdr: true,
+      },
+    ];
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    expect(values("Codec")).toBe("avc1.640020");
+    expect(values("Resolution")).toBe("640×480");
+    expect(values("Display Size")).toBe("853×480");
+    expect(values("Frame Rate")).toBe("20 fps");
+    expect(values("Frames")).toBe("600");
+    expect(values("Rotation")).toBe("90°");
+    expect(values("Profile")).toBe("High");
+    expect(values("Chroma")).toBe("4:2:2");
+    expect(values("Color Space")).toBe("bt709 / bt709 / bt709");
+    expect(values("HDR")).toBe("Yes");
+    // The codec explainer sits under the figures, followed by the chroma one for the format stated.
+    const teach = Array.from(panel.querySelectorAll(".section")[1]!.querySelectorAll(".teach")).map(
+      (el) => el.textContent ?? "",
+    );
+    expect(teach[0]).toContain("H.264 (2003), AVC / MPEG-4 Part 10");
+    expect(teach[1]).toContain("Chroma subsampling");
+  });
+
+  // A track that states nothing beyond its size gets no rows for what it does not state, and the
+  // chroma explainer says so rather than guessing on the card.
+  it("leaves out the rows a plainer video track has nothing to say for", () => {
+    loadClip();
+    state.tracks = [{ ...VIDEO_TRACK, displayWidth: 640, displayHeight: 480 }];
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    const labels = labelsOf(panel);
+    for (const absent of ["Display Size", "Rotation", "Chroma", "Color Space", "HDR"]) {
+      expect(labels).not.toContain(absent);
+    }
+    const videoCard = panel.querySelectorAll(".section")[1]!;
+    expect(videoCard.querySelectorAll(".teach").length).toBe(1);
+    expect(videoCard.textContent).toContain("This file does not state which it uses");
+  });
+
+  it("skips the video card for a track with no known dimensions", () => {
+    loadClip();
+    state.tracks = [{ ...VIDEO_TRACK, codedWidth: undefined, codedHeight: undefined }];
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual(["Video Container Overview"]);
+  });
+
+  it("describes the first video track when a file carries more than one", () => {
+    loadClip();
+    state.tracks = [VIDEO_TRACK, { ...VIDEO_TRACK, codedWidth: 1920, codedHeight: 1080 }];
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(panel.querySelectorAll("h2").length).toBe(2);
+    expect(itemOf(panel, "Resolution").querySelector(".val")?.textContent).toBe("640×480");
+  });
+
+  it("reports the audio track's figures and codec details after the bitrate card", () => {
+    loadClip();
+    state.tracks = [VIDEO_TRACK, AUDIO_TRACK];
+    const panel = document.createElement("div");
+    renderInspectTail(panel);
+    expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual([
+      "Video Bitrate Over Time",
+      "Audio Track",
+    ]);
+    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    expect(values("Codec")).toBe("mp4a.40.2");
+    expect(values("Sample Rate")).toBe("48,000 Hz");
+    expect(values("Channels")).toBe("2");
+    expect(values("Bitrate")).toBe("128 kbps");
+    expect(values("Object Type")).toBe("AAC-LC");
+    expect(panel.querySelectorAll(".section")[1]!.querySelector(".teach")?.textContent).toContain(
+      "AAC (1997), Advanced Audio Coding",
+    );
+  });
+
+  // An audio-only file has no bitrate-over-time card to lead with, and a track whose header gives
+  // no sample rate or channel count shows a dash rather than a made-up figure.
+  it("shows dashes for an audio track that states neither its sample rate nor its channels", () => {
+    loadClip();
+    state.tracks = [{ ...AUDIO_TRACK, codecString: null, codecInfo: null, sampleRate: undefined, channels: undefined }];
+    const panel = document.createElement("div");
+    renderInspectTail(panel);
+    expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual(["Audio Track"]);
+    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    expect(values("Codec")).toBe("aac");
+    expect(values("Sample Rate")).toBe("–");
+    expect(values("Channels")).toBe("–");
+    expect(panel.querySelector(".teach")).toBeNull();
+  });
+
+  it("names the video codec by its short id when the file gives no codec string", () => {
+    loadClip();
+    state.tracks = [{ ...VIDEO_TRACK, codecString: null }];
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(itemOf(panel, "Codec").querySelector(".val")?.textContent).toBe("avc");
+  });
+
+  // A file whose header gives no duration has no rate to divide by, so the overview and the bitrate
+  // card both show what they have rather than a figure over nothing.
+  it("shows dashes for the duration and overall bitrate of a file with no known duration", () => {
+    loadClip();
+    state.duration = null;
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    renderInspectTail(panel);
+    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    expect(values("Duration")).toBe("–");
+    expect(values("Overall Bitrate")).toBe("–");
+    expect(chartOf(panel.querySelector<HTMLDivElement>(".section:last-child"))).toBeNull();
+    expect(values("Average")).toBe("500 kbps");
+  });
+
+  it("appends no audio card to a file without an audio track", () => {
+    loadClip();
+    const panel = document.createElement("div");
+    renderInspectTail(panel);
+    expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual(["Video Bitrate Over Time"]);
   });
 });

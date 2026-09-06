@@ -5,6 +5,7 @@
 #### 🏠 Internal
 
 - Unit tests now cover file loading, the Full Analysis document, the sample picker, the in-browser encode, the mp4box feeding loop and several previously untested modules, taking coverage from 63% to 81% ([#44](https://github.com/brain-bbqs/encoding-helper/pull/44))
+- Unit tests now cover the sweep and sample-encode runners, seeking test, demos page, A/B panel and remaining modules, taking coverage from 81% to 99.9% ([#45](https://github.com/brain-bbqs/encoding-helper/pull/45))
 
 ## 1.3.3
 
