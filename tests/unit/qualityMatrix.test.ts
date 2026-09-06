@@ -5,6 +5,7 @@ import {
   buildMatrixCombos,
   cliSettings,
   comboKey,
+  describeResolutionChange,
   describeSettings,
   evictBeyondBudget,
   makeMatrixCells,
@@ -15,7 +16,7 @@ import {
   matrixProgress,
   retainedBytes,
 } from "../../src/lib/qualityMatrix";
-import type { MatrixCell, MatrixQuality, X264Preset } from "../../src/lib/types";
+import type { EncodeSettings, MatrixCell, MatrixQuality, X264Preset } from "../../src/lib/types";
 
 /** A finished square of `bytes`, optionally still holding the stretches it was measured over. */
 function done(quality: MatrixQuality, preset: X264Preset, bytes: number, held = true, scale = 1): MatrixCell {
@@ -132,6 +133,20 @@ describe("describeSettings", () => {
   });
 });
 
+describe("describeResolutionChange", () => {
+  it("names the source and encoded dimensions with the scale and kernel between them", () => {
+    const settings: EncodeSettings = {
+      quality: "high",
+      crf: 18,
+      preset: "veryfast",
+      scale: 0.5,
+      scaler: "lanczos",
+      fps: null,
+    };
+    expect(describeResolutionChange(1920, 1080, settings)).toBe("1920×1080 → 960×540 (50%, lanczos)");
+  });
+});
+
 describe("matrixAxes", () => {
   it("reports the axes the cells cover, in dropdown order", () => {
     const cells = makeMatrixCells(buildMatrixCombos(["low", "high"], ["fast", "ultrafast"]));
@@ -189,6 +204,17 @@ describe("evictBeyondBudget", () => {
     const cells = [done("high", "fast", 100), done("low", "fast", 200)];
     expect(evictBeyondBudget(cells, 1000)).toEqual([]);
     expect(retainedBytes(cells)).toBe(300);
+  });
+
+  // A cell still holding its stretches but without the sweep's figure for them is weighed by the
+  // stretches themselves, so it is not counted as free.
+  it("weighs held stretches themselves when a cell has no measured size", () => {
+    const [cell] = makeMatrixCells(buildMatrixCombos(["high"], ["fast"]));
+    cell.status = "done";
+    cell.blobs = [new Blob([new Uint8Array(300)]), new Blob([new Uint8Array(200)])];
+    expect(retainedBytes([cell])).toBe(500);
+    expect(evictBeyondBudget([cell], 400)).toEqual([comboKey("high", "fast")]);
+    expect(retainedBytes([cell])).toBe(0);
   });
 
   it("drops the largest outputs first, and only as many as it must", () => {

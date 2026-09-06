@@ -233,6 +233,39 @@ describe("samplePicker", () => {
     expect(canvas.width).toBe(2);
   });
 
+  // Without a 2D context there is nowhere to draw, so the frame is dropped rather than half shown.
+  it("leaves the preview blank when the canvas gives no drawing context", async () => {
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const p = picker();
+    const canvas = p.el.querySelector<HTMLCanvasElement>("canvas")!;
+    const untouchedWidth = canvas.width;
+
+    await vi.waitFor(() => expect(getContext).toHaveBeenCalled());
+    await Promise.resolve();
+
+    expect(p.el.querySelector(".sample-preview-wrap")!.classList.contains("has-frame")).toBe(false);
+    // The canvas is not resized to the frame it could not draw.
+    expect(canvas.width).toBe(untouchedWidth);
+  });
+
+  // A failure from a request the drag has already moved past says nothing about the frame now
+  // showing, so it is not reported over it.
+  it("ignores a decode failure from a frame the window has since moved off", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let failFirst: (err: Error) => void = () => {};
+    getCanvas.mockImplementationOnce(() => new Promise((_resolve, reject) => (failFirst = reject)));
+    const p = picker();
+
+    key(p.band, "ArrowRight");
+    await vi.waitFor(() => expect(p.el.querySelector(".sample-preview-wrap")!.classList).toContain("has-frame"));
+    failFirst(new Error("decoder gave up"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(p.note.textContent).toBe("");
+  });
+
   it("says there is no picture rather than failing when nothing can be decoded from", () => {
     state.videoTrack = null;
     const p = picker();

@@ -270,3 +270,65 @@ describe("the pixel grid", () => {
     expect(second.style.backgroundSize).toBe(first.style.backgroundSize);
   });
 });
+
+/** A canvas with no pane around it: nothing to measure a gesture against. */
+function orphanCanvas(): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 480;
+  return canvas;
+}
+
+// A canvas the comparison tore out of its pane (a re-render under a stray gesture) has no box to
+// anchor on, so the gesture is dropped rather than throwing partway through a transform.
+describe("attachSyncedZoomPan without a pane to measure", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("leaves the zoom alone when no pane can be measured", () => {
+    const stage = document.createElement("div");
+    document.body.append(stage);
+    const canvas = orphanCanvas();
+    const grid = document.createElement("div");
+    const zoomPan = attachSyncedZoomPan(stage, [canvas], [grid]);
+
+    wheel(stage, 200, 150, -1);
+    zoomPan.zoomBy(2);
+    zoomPan.actualSize();
+    expect(zoomPan.state).toEqual({ scale: 1, tx: 0, ty: 0 });
+
+    // A pan needs no pane to measure against, so it still lands on the canvas; only the grid, which
+    // is sized from the pane, is left alone.
+    drag(stage, [200, 150], [230, 130]);
+    expect(canvas.style.transform).toBe("translate(30px, -20px) scale(1)");
+    zoomPan.fit();
+    expect(canvas.style.transform).toBe("translate(0px, 0px) scale(1)");
+    expect(grid.classList.contains("visible")).toBe(false);
+    expect(grid.style.backgroundSize).toBe("");
+  });
+
+  it("anchors on a pane that is still there when the first has gone", () => {
+    const stage = document.createElement("div");
+    const pane = document.createElement("div");
+    pane.getBoundingClientRect = () =>
+      ({ left: 100, top: 50, right: 100 + PANE_W, bottom: 50 + PANE_H, width: PANE_W, height: PANE_H }) as DOMRect;
+    const inPane = orphanCanvas();
+    pane.append(inPane);
+    stage.append(pane);
+    document.body.append(stage);
+    const canvases = [orphanCanvas(), inPane];
+    const zoomPan = attachSyncedZoomPan(stage, canvases, [
+      document.createElement("div"),
+      document.createElement("div"),
+    ]);
+
+    const before = contentUnder(zoomPan.state, 100, 260, 170);
+    wheel(stage, 260, 170, -1);
+    expect(zoomPan.state.scale).toBeGreaterThan(1);
+    const after = contentUnder(zoomPan.state, 100, 260, 170);
+    expect(after.x).toBeCloseTo(before.x, 6);
+    expect(after.y).toBeCloseTo(before.y, 6);
+    expect(canvases[0].style.transform).toBe(inPane.style.transform);
+  });
+});

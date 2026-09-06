@@ -14,6 +14,16 @@ function headers(map: Record<string, string>): { get: (name: string) => string |
   return { get: (name: string) => map[name] ?? null };
 }
 
+/** A loaded file of exactly these bytes. jsdom's Blob cannot be read as an ArrayBuffer, so the
+ * slice a read takes is answered here rather than by a real File. */
+function fileOf(bytes: Uint8Array): File {
+  return {
+    name: "clip.mp4",
+    size: bytes.length,
+    slice: (start: number, end: number) => ({ arrayBuffer: () => Promise.resolve(bytes.slice(start, end).buffer) }),
+  } as unknown as File;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -96,5 +106,71 @@ describe("ChunkedSource.fromUrl", () => {
     stubFetch(() => ({ ok: true, status: 200, headers: headers({ "Content-Length": "1", "Accept-Ranges": "bytes" }) }));
     expect((await ChunkedSource.fromUrl("https://example.com/a/clip.mp4")).name).toBe("clip.mp4");
     expect((await ChunkedSource.fromUrl(URL_UNDER_TEST)).name).toBe("video");
+  });
+
+  // A HEAD that says nothing about the size has promised nothing about ranges either, and a download
+  // the server did not type is still a video as far as the app is concerned.
+  it("downloads a file whose HEAD carried no size, and types an untyped download as video", async () => {
+    const blob = new Blob([new Uint8Array(7)]);
+    stubFetch((_url, init) => {
+      if (init?.method === "HEAD") return { ok: true, status: 200, headers: headers({ "Accept-Ranges": "bytes" }) };
+      return { ok: true, status: 200, headers: headers({}), blob: () => Promise.resolve(blob) };
+    });
+    const source = await ChunkedSource.fromUrl(URL_UNDER_TEST, "clip.mp4");
+    expect(source.kind).toBe("file");
+    expect(source.size).toBe(7);
+    expect(source.supportsRange).toBe(false);
+    expect(source.file!.type).toBe("video/mp4");
+  });
+});
+
+describe("ChunkedSource.readChunk", () => {
+  it("reads a byte range from a server that advertised ranges", async () => {
+    const bytes = new Uint8Array([10, 11, 12, 13]);
+    const mock = stubFetch((_url, init) => {
+      if (init?.method === "HEAD") {
+        return { ok: true, status: 200, headers: headers({ "Content-Length": "4096", "Accept-Ranges": "bytes" }) };
+      }
+      return { ok: true, status: 200, headers: headers({}), arrayBuffer: () => Promise.resolve(bytes.buffer) };
+    });
+    const source = await ChunkedSource.fromUrl(URL_UNDER_TEST);
+    expect(new Uint8Array(await source.readChunk(100, 4))).toEqual(bytes);
+    // The range asked for is exactly the bytes wanted, inclusive at both ends.
+    expect(mock.mock.calls[1][1]).toEqual({ headers: { Range: "bytes=100-103" } });
+  });
+
+  it("reads the asked-for slice of a loaded file", async () => {
+    const source = ChunkedSource.fromFile(fileOf(new Uint8Array([1, 2, 3, 4, 5])));
+    expect(source.name).toBe("clip.mp4");
+    expect(new Uint8Array(await source.readChunk(1, 3))).toEqual(new Uint8Array([2, 3, 4]));
+    // A read running past the end is cut at the file's size rather than padded.
+    expect(new Uint8Array(await source.readChunk(3, 10))).toEqual(new Uint8Array([4, 5]));
+  });
+
+  // A parser probing past the end of the file gets nothing back, not an error and not a request.
+  it("hands back nothing for a read that starts at or past the end", async () => {
+    const mock = stubFetch(() => ({
+      ok: true,
+      status: 200,
+      headers: headers({ "Content-Length": "5", "Accept-Ranges": "bytes" }),
+    }));
+    const source = await ChunkedSource.fromUrl(URL_UNDER_TEST);
+    expect((await source.readChunk(5, 10)).byteLength).toBe(0);
+    expect((await source.readChunk(7, 1)).byteLength).toBe(0);
+    // Only the HEAD went out: neither read asked the server for anything.
+    expect(mock.mock.calls.length).toBe(1);
+  });
+
+  it("has nothing to read from a source with no file behind it", async () => {
+    const source = new ChunkedSource();
+    source.size = 10;
+    expect((await source.readChunk(0, 4)).byteLength).toBe(0);
+  });
+});
+
+describe("ChunkedSource.fromFile", () => {
+  it("calls a file with no name of its own something", () => {
+    expect(ChunkedSource.fromFile(new File([new Uint8Array(3)], "")).name).toBe("video");
+    expect(ChunkedSource.fromFile(new File([new Uint8Array(3)], "")).size).toBe(3);
   });
 });

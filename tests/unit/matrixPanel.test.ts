@@ -78,6 +78,15 @@ describe("renderMatrixTable", () => {
     expect(headers).toEqual(["Quality", "fast"]);
   });
 
+  // The rate only names a block when the sweep changed it: at the source's own rate there is
+  // nothing to say.
+  it("names the rate on a block encoded at one other than the source's", () => {
+    const swept = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [null, 15]));
+    const table = renderMatrixTable({ cells: swept });
+    expect(Array.from(table.querySelectorAll(".matrix-group-note")).map((e) => e.textContent)).toEqual(["15 fps"]);
+    expect(table.querySelectorAll(".matrix-group-head")).toHaveLength(2);
+  });
+
   it("shades consecutive blocks apart", () => {
     const swept = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1, 0.5]));
     const table = renderMatrixTable({ cells: swept });
@@ -91,6 +100,16 @@ describe("renderMatrixTable", () => {
     const table = renderMatrixTable({ cells: swept });
     expect(cellButtons(table)).toHaveLength(3);
     expect(table.querySelectorAll("td:empty")).toHaveLength(0);
+  });
+
+  // A combination the sweep has no cell for leaves its square empty rather than shifting the row.
+  it("keeps the grid's shape when a combination is missing from the cells", () => {
+    const table = renderMatrixTable({ cells: cells().slice(1) });
+    const rowHeads = Array.from(table.querySelectorAll(".matrix-row-head")).map((th) => th.textContent);
+    expect(rowHeads).toEqual(["high (CRF ?)", "low (CRF 32)"]);
+    expect(table.querySelectorAll("td")).toHaveLength(4);
+    expect(table.querySelectorAll("td:empty")).toHaveLength(1);
+    expect(cellButtons(table)).toHaveLength(3);
   });
 
   it("keeps the grid two-axis when the sweep covered one resolution and one kernel", () => {
@@ -116,6 +135,19 @@ describe("renderMatrixTable", () => {
     const change = cellButtons(table)[0].querySelector(".matrix-change")!;
     expect(change.textContent).toBe("+50%");
     expect(change.classList.contains("grew")).toBe(true);
+  });
+
+  // The tooltip is for what the face cannot say: a square still holding its video costs nothing to
+  // press, so there is nothing to add.
+  it("carries no tooltip or release note on a square that still holds its output", () => {
+    const held = cells();
+    held[0].blobs = [new Blob([new Uint8Array(8)])];
+    held[0].elapsedMs = null;
+    const table = renderMatrixTable({ cells: held });
+    const [button] = cellButtons(table);
+    expect(button.title).toBe("");
+    expect(button.getAttribute("aria-label")).toBe("high (CRF 18), ultrafast — segment 58.6 KB");
+    expect(button.querySelector(".matrix-sub")!.textContent).toBe("58.6 KB");
   });
 
   it("falls back to the segment's own size when the file cannot support a projection", () => {
@@ -221,5 +253,20 @@ describe("renderMatrixSummary", () => {
     const summary = renderMatrixSummary(cells()[1], estimateFor);
     expect(summary.querySelector(".matrix-summary-figure")!.textContent).toBe("60% smaller");
     expect(summary.querySelector(".matrix-summary-sub")).toBeNull();
+  });
+
+  it("names the winner without a figure when the file cannot support a projection", () => {
+    const summary = renderMatrixSummary(cells()[1]);
+    expect(summary.querySelector(".matrix-summary-figure")!.textContent).toBe("Best reduction");
+    expect(summary.querySelector(".matrix-summary-factor")).toBeNull();
+  });
+
+  // The best of a sweep can still be worse than the source; saying "smaller" of it would be a lie.
+  it("says the winner is larger when even the best square grew the file", () => {
+    const grown = cells();
+    grown[0].bytes = 150_000;
+    const summary = renderMatrixSummary(grown[0], estimateFor);
+    expect(summary.querySelector(".matrix-summary-figure")!.textContent).toBe("50% larger");
+    expect(summary.querySelector(".matrix-summary-factor")!.textContent).toBe("encoded 1.5× larger");
   });
 });

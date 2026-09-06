@@ -179,6 +179,16 @@ describe("layoutAtoms, files with more boxes than fit", () => {
     expect(layout.rects.filter((r) => r.kind === "box").map((r) => r.box?.type)).toContain("moof");
   });
 
+  // Drawing is capped so a pathological file cannot flood the map; the cap is reported rather than
+  // silently hit, so the tab can say the rest was left undrawn.
+  it("stops drawing at the rect cap and says so", () => {
+    const placements = placeAtoms(fragmentedFile(2000, 100000));
+    const layout = layoutAtoms(placements, placementRange(placements), 0);
+    expect(layout.truncated).toBe(true);
+    expect(layout.rects.length).toBe(4000);
+    expect(layout.rects.every((r) => r.kind === "box")).toBe(true);
+  });
+
   it("keeps a group's byte range and count, so a collapsed block still says what it holds", () => {
     const group = layOut(fragmentedFile(2000, 100000)).rects[0];
     expect(group.kind).toBe("group");

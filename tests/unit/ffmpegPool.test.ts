@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { drainWithPool, MAX_POOL_WORKERS, poolSizeFor } from "../../src/lib/ffmpegPool";
-import type { FfmpegWorker } from "../../src/lib/ffmpegEngine";
+import { drainWithPool, ffmpegPool, MAX_POOL_WORKERS, poolSizeFor } from "../../src/lib/ffmpegPool";
+import { defaultFfmpegWorker, type FfmpegWorker } from "../../src/lib/ffmpegEngine";
 
 vi.mock("@ffmpeg/util", () => ({ toBlobURL: () => Promise.resolve("blob:core") }));
 vi.mock("@ffmpeg/ffmpeg", () => ({ FFmpeg: class {} }));
@@ -26,6 +26,28 @@ describe("poolSizeFor", () => {
   it("still runs on a single-core machine, or one that will not say", () => {
     expect(poolSizeFor(10, 1)).toBe(1);
     expect(poolSizeFor(10, NaN)).toBe(1);
+  });
+});
+
+describe("ffmpegPool", () => {
+  it("starts with the app's own core and numbers the rest after it", () => {
+    const pool = ffmpegPool(3);
+    expect(pool[0]).toBe(defaultFfmpegWorker);
+    expect(pool.map((w) => w.id)).toEqual([0, 1, 2]);
+  });
+
+  // Loading a core is not free, and each keeps the stretches it was already handed, so the next
+  // run gets the same cores back rather than fresh ones.
+  it("hands the same extra cores back to a later run", () => {
+    const first = ffmpegPool(3);
+    const again = ffmpegPool(2);
+    expect(again).toHaveLength(2);
+    expect(again[1]).toBe(first[1]);
+    expect(ffmpegPool(3)[2]).toBe(first[2]);
+  });
+
+  it("is never fewer than the default core", () => {
+    expect(ffmpegPool(0)).toEqual([defaultFfmpegWorker]);
   });
 });
 

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { errorMessage, fmtBits, fmtBytes, fmtDur, fmtMs, fmtRate, fmtSizeChangePct } from "../../src/lib/format";
+import {
+  describeColorSpace,
+  describeFrameCount,
+  describeFrameRate,
+  errorMessage,
+  fmtBits,
+  fmtBytes,
+  fmtDur,
+  fmtMs,
+  fmtRate,
+  fmtSizeChangePct,
+} from "../../src/lib/format";
 
 describe("fmtBytes", () => {
   it("returns the placeholder for null/undefined", () => {
@@ -98,5 +109,32 @@ describe("fmtSizeChangePct", () => {
     expect(fmtSizeChangePct(1000, 580)).toBe("-42.0%");
     expect(fmtSizeChangePct(1000, 1250)).toBe("+25.0%");
     expect(fmtSizeChangePct(1000, 1000)).toBe("-0.0%");
+  });
+});
+
+describe("describeColorSpace", () => {
+  it("joins whichever of primaries, transfer and matrix the file states", () => {
+    expect(describeColorSpace({ primaries: "bt709", transfer: "bt709", matrix: "bt709" })).toBe(
+      "bt709 / bt709 / bt709",
+    );
+    expect(describeColorSpace({ primaries: "bt470bg", matrix: null })).toBe("bt470bg");
+  });
+
+  it("shows the placeholder when the file states none of them", () => {
+    expect(describeColorSpace({})).toBe("–");
+  });
+});
+
+describe("describeFrameRate", () => {
+  it("prints the packet rate in fps, or the placeholder without one", () => {
+    expect(describeFrameRate(29.97)).toBe("29.970 fps");
+    expect(describeFrameRate(null)).toBe("–");
+  });
+});
+
+describe("describeFrameCount", () => {
+  it("prints the count with thousands separators, or the placeholder without one", () => {
+    expect(describeFrameCount(12345)).toBe((12345).toLocaleString());
+    expect(describeFrameCount(null)).toBe("–");
   });
 });
