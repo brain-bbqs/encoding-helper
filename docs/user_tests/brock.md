@@ -1,9 +1,9 @@
 # User Test Checklist
 
-|            |         |
-| ---------- | ------- |
+|            |              |
+| ---------- | ------------ |
 | **Tester** | Brock Wester |
-| **Date**   | 9/9/26 |
+| **Date**   | 9/9/26       |
 
 A basic manual pass through the app before a release or after a significant change.
 
