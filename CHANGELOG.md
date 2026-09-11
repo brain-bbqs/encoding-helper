@@ -1,11 +1,5 @@
 # Changelog
 
-## 1.4.2
-
-#### 🏠 Internal
-
-- Bumped vitest to v5 and its coverage plugin to a matching version, fixing a dependency conflict that broke installs ([#47](https://github.com/brain-bbqs/encoding-helper/pull/47))
-
 ## 1.4.1
 
 #### 🏠 Internal
