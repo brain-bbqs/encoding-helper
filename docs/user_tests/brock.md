@@ -96,4 +96,4 @@ keep 'open in app' button clamped to be more visually obvious; viewer window is 
 
 consider interactions with EMBER
 
-attempt to create a pre-flight check for laod from URL (attempting to load 1 GB files stalled out but that was because it was an AVI from Mang's)
+attempt to create a pre-flight check for load from URL (attempting to load 1 GB files stalled out but that was because it was an AVI from Mang's)
