@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.4
+
+#### 🐛 Bug Fix
+
+- On a phone the title now sits on its own row under the logo and the two header controls, instead of the theme toggle hanging off the right edge of the page ([#51](https://github.com/brain-bbqs/encoding-helper/pull/51))
+
+#### 🏠 Internal
+
+- The Chromatic snapshots now capture each page at phone and tablet sizes in both orientations as well as desktop, and fail by naming any element that runs off the side of the screen ([#51](https://github.com/brain-bbqs/encoding-helper/pull/51))
+
 ## 1.4.1
 
 #### 🏠 Internal

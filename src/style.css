@@ -2331,6 +2331,26 @@ table.data.matrix-table th.matrix-row-head {
   body {
     padding: 12px 12px 90px;
   }
+  /* The header's three columns cannot hold the logo, the title and the two controls side by side
+     on a phone: the side columns will not shrink below their controls, so the grid overflowed and
+     the theme toggle hung off the right edge of the page, giving it a sideways scroll. As in
+     clip-extractor's header, the title drops to a full-width second row under the other two. */
+  .site-header {
+    grid-template-columns: auto 1fr;
+  }
+  .brand-logo {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .header-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .site-header h1 {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: center;
+  }
   .drop-zone {
     padding: 26px 12px;
   }
