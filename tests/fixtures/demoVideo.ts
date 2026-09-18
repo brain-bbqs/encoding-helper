@@ -52,6 +52,13 @@ export function buildFixtureVideo(): string {
         `sine=frequency=440:duration=${FIXTURE_SECONDS}`,
         "-c:v",
         "libx264",
+        // x264 splits a frame across its worker threads, and how it splits depends on how many
+        // there are, which is the runner's core count. Left to itself the same command re-encodes
+        // to different bytes on a differently-sized machine, and those bytes are on screen in the
+        // snapshots (box offsets, sizes, the bitrate plot's shape), so the run reads as a visual
+        // change with no code change behind it. One thread is slower and deterministic.
+        "-threads",
+        "1",
         "-preset",
         "veryfast",
         "-crf",
