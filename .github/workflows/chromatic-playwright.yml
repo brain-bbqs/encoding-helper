@@ -20,6 +20,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Report the runner image
+        # The ubuntu-24.04 label is not a fixed machine: the image behind it is rebuilt roughly
+        # weekly, and a new one brings new fonts and rasterizer libraries, which move text pixels
+        # on their own. Printed so a snapshot diff with no code change behind it can be checked
+        # against the image its baseline was drawn on.
+        run: |
+          echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+
+      - name: Report how far the branch is behind main
+        # Chromatic takes the branch's own last build as the baseline, so a branch that has not
+        # seen main in a week diffs against a week-old UI and reports main's changes as this
+        # branch's. Merge main in before reading the result.
+        if: github.ref != 'refs/heads/main'
+        run: |
+          git fetch --no-tags --quiet origin main
+          behind=$(git rev-list --count HEAD..origin/main)
+          if [ "$behind" -eq 0 ]; then
+            echo "Branch is up to date with main."
+          else
+            echo "::notice::This branch is $behind commit(s) behind main. Chromatic diffs it against the branch's own last build, so the changes it reports may be main's rather than this branch's; merge main in before reading them."
+          fi
+
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
@@ -46,6 +68,14 @@ jobs:
         run: npm run test:chromatic
         env:
           CHROMATIC_STATIC_VERSION: "true"
+
+      - name: Report the fixture video's hash
+        # The fixture is re-encoded on every run (tests/fixtures/demoVideo.ts) and its bytes reach
+        # the snapshots, so an encode that came out different is a visual change with nothing in
+        # the diff to explain it. Printed rather than asserted against a stored hash: the expected
+        # value would have to be re-pinned for every ffmpeg version.
+        if: always()
+        run: sha256sum tests/fixtures/.generated/* || echo "No generated fixture to hash."
 
       - name: Run Chromatic
         uses: chromaui/action@v18.8.0
