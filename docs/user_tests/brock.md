@@ -62,7 +62,7 @@ consider some kind of byte range portrayal on mp4 box; caused confusion since us
 
 reduce of hover text on bitrate over time; same for seeking test plot
 
-save icon for export table ; 
+save icon for export table ;
 
 CRF not defined in tooltip
 
@@ -80,7 +80,7 @@ triple check if tooltips are the same on matrix page as reeoncode page
 
 from reencoding page, selected particular non-default matrix settings such as 25% resolution and slow preset; wanted that to then be selected on the matrix page
 
-standardize play button icon for matrix page; caused confusion 
+standardize play button icon for matrix page; caused confusion
 
 full table of text for seeking values in full analysis pdf
 
@@ -97,5 +97,3 @@ keep 'open in app' button clamped to be more visually obvious; viewer window is 
 consider interactions with EMBER
 
 attempt to create a pre-flight check for laod from URL (attempting to load 1 GB files stalled out but that was because it was an AVI from Mang's)
-
-
