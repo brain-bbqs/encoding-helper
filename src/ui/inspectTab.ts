@@ -2,6 +2,7 @@
 // explainers and metadata tags here; the atom map (atomsTab.ts) and the GOP/seeking sections
 // (seekTab.ts) are appended after them into the same panel by main.ts.
 
+import { fmtBytes } from "@brain-bbqs/utils";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { describeContainer } from "../lib/containerKb";
 import { escapeHtml, gridItem, h, section, teachBox } from "../lib/dom";
@@ -22,7 +23,7 @@ import {
   TOO_FEW_FRAMES_NOTE,
   VIDEO_AVERAGE_INFO,
 } from "../lib/explainers";
-import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtBytes, fmtDur } from "../lib/format";
+import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur } from "../lib/format";
 import { describeMetadataTag, describeMetadataTagValue, type MetadataTagInfo } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { audioTrackInfo, state, videoTrackInfo } from "../lib/state";

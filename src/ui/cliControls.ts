@@ -1,6 +1,7 @@
 // CLI preview refresh + quality/preset control syncing for the FFmpeg Command Builder on the
 // Reencode with FFmpeg tab, which is the one place the shared `cli` state object is edited.
 
+import { fmtBytes } from "@brain-bbqs/utils";
 import {
   buildFfmpegArgs,
   DEFAULT_SCALER,
@@ -13,7 +14,7 @@ import {
 } from "../lib/cliCommand";
 import { gridItem, h } from "../lib/dom";
 import { RESOLUTION_INFO } from "../lib/explainers";
-import { fmtBytes, fmtSizeChangePct } from "../lib/format";
+import { fmtSizeChangePct } from "../lib/format";
 import { fmtChangeFactor } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, state } from "../lib/state";
 import type { Scaler } from "../lib/types";

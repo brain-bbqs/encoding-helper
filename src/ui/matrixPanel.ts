@@ -9,8 +9,9 @@
 // Resolution and the kernel it resamples with stack as blocks of rows rather than widening the
 // table, so every block is the same width and reads exactly like the grid did before they existed.
 
+import { fmtBytes } from "@brain-bbqs/utils";
 import { button, h } from "../lib/dom";
-import { fmtBytes, fmtRate } from "../lib/format";
+import { fmtRate } from "../lib/format";
 import { isDownscale, scalePercent } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";

@@ -7,8 +7,9 @@
 // to instead of only being spelled out beside it: an estimate from a few seconds of a long file has
 // a width, and a bar with a hard end would claim it does not.
 
+import { fmtBytes } from "@brain-bbqs/utils";
 import { gridItem, h } from "../lib/dom";
-import { fmtBytes, fmtDur } from "../lib/format";
+import { fmtDur } from "../lib/format";
 import { describeSavings, fmtChangeFactor, fmtPct, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
 
 /** One bar on the shared scale, optionally carrying the band its value could land anywhere in. */

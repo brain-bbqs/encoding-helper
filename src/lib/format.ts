@@ -1,15 +1,5 @@
-// Formatting helpers for bytes, durations, bitrates, sample rates, milliseconds, and the handful of
+// Formatting helpers for durations, bitrates, sample rates, milliseconds, and the handful of
 // facts the Inspect tab and the Full Analysis document both print.
-
-// Not @brain-bbqs/utils' fmtBytes: that one rounds a sub-KB count to whole bytes, and the size
-// estimates hand this fractional byte counts.
-export function fmtBytes(b: number | null | undefined): string {
-  if (b == null) return "–";
-  if (b < 1024) return b + " B";
-  if (b < 1048576) return (b / 1024).toFixed(1) + " KB";
-  if (b < 1073741824) return (b / 1048576).toFixed(1) + " MB";
-  return (b / 1073741824).toFixed(2) + " GB";
-}
 
 export function fmtDur(s: number | null | undefined): string {
   if (s == null) return "–";
