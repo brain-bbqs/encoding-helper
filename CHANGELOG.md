@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.6
+
+#### 🏠 Internal
+
+- Updated the shared `@brain-bbqs/config` package to 0.2.0 ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.4.5
 
 #### 🏠 Internal
