@@ -5,8 +5,9 @@
 // fetched from a foreign CDN origin) work as a same-origin blob: URL — see the app's git history for
 // the gory details. Now that `@ffmpeg/ffmpeg` is a proper ESM package dependency, Vite bundles its
 // worker as part of the app's own same-origin build output and handles worker loading itself
-// (`configs/vite.config.ts` sets `worker: { format: "es" }` for exactly this), so none of that is
-// needed anymore: `new FFmpeg()` + `ffmpeg.load()` just works.
+// (`createViteConfig` from @brain-bbqs/config, which configs/vite.config.ts builds on, sets
+// `worker: { format: "es" }` for exactly this), so none of that is needed anymore: `new FFmpeg()`
+// + `ffmpeg.load()` just works.
 //
 // The ffmpeg-core.js/.wasm binaries themselves are still fetched from the jsdelivr CDN at runtime
 // (via `@ffmpeg/util`'s `toBlobURL()`, the officially documented pattern) rather than bundled — they

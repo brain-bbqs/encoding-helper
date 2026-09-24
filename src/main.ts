@@ -1,5 +1,6 @@
 import "./style.css";
 import { onEducationalChange } from "./lib/educational";
+import { THEME_KEY } from "./lib/settings";
 import { teachBox } from "./lib/dom";
 import { APP_INTRO } from "./lib/explainers";
 import { matrixCache } from "./lib/matrixCache";
@@ -59,9 +60,8 @@ els.clearCacheBtn.addEventListener("click", () => {
 
 // Light/dark theme, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: the toggle
 // writes an explicit override to data-theme on <html> (pre-applied before first paint by the
-// inline script in index.html); with nothing stored, data-theme is unset and the OS preference
-// applies. Key kept in sync with that script.
-const THEME_KEY = "encoding-helper.theme";
+// script configs/vite.config.ts injects into index.html); with nothing stored, data-theme is unset
+// and the OS preference applies.
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 els.themeToggle.addEventListener("click", () => {

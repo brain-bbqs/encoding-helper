@@ -1,7 +1,13 @@
 import { defineConfig } from "@playwright/test";
-import { sharedConfig } from "./playwright.shared";
+import { createPlaywrightConfig } from "@brain-bbqs/config/playwright";
+import { fileURLToPath } from "node:url";
 
-export default defineConfig({
-  ...sharedConfig,
-  testDir: "../tests/chromatic",
-});
+export default defineConfig(
+  createPlaywrightConfig({
+    rootDir: new URL("..", import.meta.url),
+    testDir: "../tests/chromatic",
+    // Builds the video both runs load in place of the sample file this app used to ship with; see
+    // tests/fixtures/demoVideo.ts. Once per run, before any worker starts.
+    globalSetup: fileURLToPath(new URL("../tests/fixtures/globalSetup.ts", import.meta.url)),
+  }),
+);

@@ -10,14 +10,6 @@
     <link rel="shortcut icon" href="/src/assets/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/src/assets/encoding-helper-favicon-180.png" />
     <link rel="mask-icon" href="/src/assets/encoding-helper-favicon-mono.svg" color="#810915" />
-    <script>
-      // Applies the stored theme override before first paint so a saved dark/light choice doesn't
-      // flash the OS-preferred theme first. Key kept in sync with THEME_KEY in src/main.ts.
-      try {
-        var storedTheme = localStorage.getItem("encoding-helper.theme");
-        if (storedTheme === "light" || storedTheme === "dark") document.documentElement.dataset.theme = storedTheme;
-      } catch (e) {}
-    </script>
   </head>
   <body>
     <a

@@ -1,6 +1,6 @@
 {
   "name": "encoding-helper",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "A didactic, in-browser video encoding lab: inspect MP4/H.264 structure, learn how encoding works, run empirical seeking tests, and re-encode video directly in the browser.",
   "type": "module",
   "license": "MIT",
@@ -14,7 +14,8 @@
     "test:integration": "playwright test --config configs/playwright.config.ts",
     "test:chromatic": "playwright test --config configs/playwright.chromatic.config.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint --config configs/eslint.config.cjs .",
+    "lint": "eslint --config configs/eslint.config.js .",
+    "format:check": "prettier --config configs/prettier.config.js --check .",
     "storybook": "storybook dev -p 6006 --config-dir configs/storybook",
     "build-storybook": "storybook build --config-dir configs/storybook"
   },
@@ -25,6 +26,7 @@
     "mp4box": "^0.5.2"
   },
   "devDependencies": {
+    "@brain-bbqs/config": "^0.1.0",
     "@chromatic-com/playwright": "^0.14.11",
     "@eslint/js": "9.39.5",
     "@playwright/test": "^1.48.0",
@@ -35,6 +37,7 @@
     "eslint": "9.39.5",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^25.0.0",
+    "prettier": "^3.9.9",
     "storybook": "^10.5.3",
     "typescript": "^5.6.0",
     "typescript-eslint": "8.64.0",
