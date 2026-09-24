@@ -4,7 +4,7 @@
 
 #### 🏠 Internal
 
-- Moved the error-message helper and the layout and snapshot test helpers onto the shared `@brain-bbqs/utils` and `@brain-bbqs/test-utils` packages ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Moved the error-message helper and the layout and snapshot test helpers onto the shared `@brain-bbqs/utils` and `@brain-bbqs/test-utils` packages ([#55](https://github.com/brain-bbqs/encoding-helper/pull/55))
 
 ## 1.4.6
 
