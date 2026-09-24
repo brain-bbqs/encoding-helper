@@ -5,7 +5,7 @@
 // a ~30 MB download and single-threaded, which is the price of that guarantee and the reason the
 // command above stays the recommendation for a full-length recording or a whole dataset.
 
-import { errorMessage } from "../lib/format";
+import { errorMessage } from "@brain-bbqs/utils";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, encodedFileName } from "../lib/cliCommand";
 import { section } from "../lib/dom";

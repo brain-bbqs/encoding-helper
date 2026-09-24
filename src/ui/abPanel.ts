@@ -13,10 +13,11 @@
 // clears it when the other takes over, since the sinks behind the panes belong to one encode at a
 // time.
 
+import { errorMessage } from "@brain-bbqs/utils";
 import { button, gridItem, h, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
-import { errorMessage, fmtBytes } from "../lib/format";
+import { fmtBytes } from "../lib/format";
 import { describeQuality, describeResolutionChange } from "../lib/qualityMatrix";
 import { fmtClock } from "../lib/sampleTimeline";
 import { ensureMediabunny } from "../lib/mediabunny";

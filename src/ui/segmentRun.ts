@@ -7,7 +7,7 @@
 // came to — so both are run from here rather than from one tab that the other borrows from. What is
 // left in each tab is the controls it offers and what it does with the result.
 
-import { errorMessage } from "../lib/format";
+import { errorMessage } from "@brain-bbqs/utils";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
 import { button, h } from "../lib/dom";

@@ -6,9 +6,10 @@
 // which this tab used to offer as a mode — is the Reencode with FFmpeg tab's job now, beside the
 // command that setting comes to.
 
+import { errorMessage } from "@brain-bbqs/utils";
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { button, cmdBlock, h, infoIcon, section } from "../lib/dom";
-import { errorMessage, fmtRate } from "../lib/format";
+import { fmtRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {

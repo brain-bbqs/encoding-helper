@@ -3,7 +3,6 @@ import {
   describeColorSpace,
   describeFrameCount,
   describeFrameRate,
-  errorMessage,
   fmtBits,
   fmtBytes,
   fmtDur,
@@ -93,14 +92,6 @@ describe("fmtMs", () => {
 
   it("formats milliseconds with one decimal", () => {
     expect(fmtMs(12.34)).toBe("12.3 ms");
-  });
-});
-
-describe("errorMessage", () => {
-  it("takes an Error's own message and stringifies anything else", () => {
-    expect(errorMessage(new Error("boom"))).toBe("boom");
-    expect(errorMessage("plain")).toBe("plain");
-    expect(errorMessage(42)).toBe("42");
   });
 });
 

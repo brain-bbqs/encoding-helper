@@ -1,3 +1,4 @@
+import { jsonResponse } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoVideoPath } from "../fixtures/demoPaths";
 import {
@@ -120,17 +121,15 @@ describe("fetchDemoSet", () => {
   function stubArchive(pages: Record<string, unknown>[][]): ReturnType<typeof vi.fn> {
     const fetchMock = vi.fn((url: string) => {
       if (url === assetDownloadUrl("desc-id")) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(DESCRIPTION) });
+        return Promise.resolve(jsonResponse(DESCRIPTION));
       }
       const page = url.includes("page=2") ? 1 : 0;
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            results: pages[page],
-            next: page + 1 < pages.length ? "https://archive.test/assets/?page=2" : null,
-          }),
-      });
+      return Promise.resolve(
+        jsonResponse({
+          results: pages[page],
+          next: page + 1 < pages.length ? "https://archive.test/assets/?page=2" : null,
+        }),
+      );
     });
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
@@ -161,7 +160,7 @@ describe("fetchDemoSet", () => {
   });
 
   it("reads a listing page with no results as empty", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }));
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({})));
     vi.stubGlobal("fetch", fetchMock);
     await expect(fetchDemoSet()).rejects.toThrow(/dataset_description\.json/);
     expect(fetchMock.mock.calls.length).toBe(1);
@@ -182,16 +181,13 @@ describe("fetchDemoDescription", () => {
 
   it("reads the Description out of the BEP047 sidecar", async () => {
     vi.stubGlobal("fetch", () =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ Description: "The baseline of the demo set.", ImageWidth: 640 }),
-      }),
+      Promise.resolve(jsonResponse({ Description: "The baseline of the demo set.", ImageWidth: 640 })),
     );
     expect(await fetchDemoDescription(demo)).toBe("The baseline of the demo set.");
   });
 
   it("gives null when the sidecar carries no usable Description", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve({ ok: true, json: () => Promise.resolve({ VideoCodec: "ffv1" }) }));
+    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse({ VideoCodec: "ffv1" })));
     expect(await fetchDemoDescription(demo)).toBeNull();
   });
 

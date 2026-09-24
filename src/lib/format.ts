@@ -1,6 +1,8 @@
 // Formatting helpers for bytes, durations, bitrates, sample rates, milliseconds, and the handful of
 // facts the Inspect tab and the Full Analysis document both print.
 
+// Not @brain-bbqs/utils' fmtBytes: that one rounds a sub-KB count to whole bytes, and the size
+// estimates hand this fractional byte counts.
 export function fmtBytes(b: number | null | undefined): string {
   if (b == null) return "–";
   if (b < 1024) return b + " B";
@@ -29,11 +31,6 @@ export function fmtRate(hz: number | null | undefined): string {
 
 export function fmtMs(ms: number | null | undefined): string {
   return ms == null ? "–" : ms.toFixed(1) + " ms";
-}
-
-/** The message of whatever was thrown: an Error's own, or the value itself as text. */
-export function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /** How much smaller (or larger) an encode came out, as a signed percentage: "-42.0%" for a saving. */

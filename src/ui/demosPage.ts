@@ -16,6 +16,7 @@
 // panel: while it is up, the file picker, the URL box and any loaded file's tabs are all out of the
 // way, and picking a demo puts them back with that file loaded.
 
+import { errorMessage } from "@brain-bbqs/utils";
 import {
   DEMO_GROUPS,
   EMBER_DANDISET,
@@ -25,7 +26,7 @@ import {
   type DemoSet,
 } from "../lib/demoArchive";
 import { button, h } from "../lib/dom";
-import { errorMessage, fmtBytes } from "../lib/format";
+import { fmtBytes } from "../lib/format";
 import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
 import type { AppElements } from "./elements";
 

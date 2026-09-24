@@ -19,7 +19,7 @@
 // isn't a valid ES module (no `default` export), so that import silently resolves to `undefined`
 // and the worker throws "failed to import ffmpeg-core.js". The ESM build is a real module with a
 // `default` export, matching what `import()` expects.
-import { errorMessage } from "./format";
+import { errorMessage } from "@brain-bbqs/utils";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { toBlobURL } from "@ffmpeg/util";
 
