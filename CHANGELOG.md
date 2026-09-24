@@ -4,7 +4,7 @@
 
 #### 🏠 Internal
 
-- Updated the shared `@brain-bbqs/config` package to 0.2.0 ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Updated the shared `@brain-bbqs/config` package to 0.2.0 ([#54](https://github.com/brain-bbqs/encoding-helper/pull/54))
 
 ## 1.4.5
 
