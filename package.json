@@ -1,6 +1,6 @@
 {
   "name": "encoding-helper",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "description": "A didactic, in-browser video encoding lab: inspect MP4/H.264 structure, learn how encoding works, run empirical seeking tests, and re-encode video directly in the browser.",
   "type": "module",
   "license": "MIT",
@@ -26,7 +26,7 @@
     "mp4box": "^0.5.2"
   },
   "devDependencies": {
-    "@brain-bbqs/config": "^0.1.0",
+    "@brain-bbqs/config": "^0.2.0",
     "@chromatic-com/playwright": "^0.14.11",
     "@eslint/js": "9.39.5",
     "@playwright/test": "^1.48.0",
