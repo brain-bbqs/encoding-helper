@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.5
+
+#### 🏠 Internal
+
+- Moved the build, lint, test and Storybook configuration onto the shared `@brain-bbqs/config` package ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.4.4
 
 #### 🐛 Bug Fix
