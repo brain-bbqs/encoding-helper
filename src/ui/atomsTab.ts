@@ -8,6 +8,7 @@
 // well as by hovering. The Full Analysis document draws the same map through renderStaticAtomMap
 // below, minus everything that needs a hand.
 
+import { fmtBytes } from "@brain-bbqs/utils";
 import {
   layoutAtoms,
   placeAtoms,
@@ -18,7 +19,6 @@ import {
 } from "../lib/atomLayout";
 import { button, h, section, teachBox } from "../lib/dom";
 import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
-import { fmtBytes } from "../lib/format";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
 

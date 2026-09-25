@@ -3,37 +3,12 @@ import {
   describeColorSpace,
   describeFrameCount,
   describeFrameRate,
-  errorMessage,
   fmtBits,
-  fmtBytes,
   fmtDur,
   fmtMs,
   fmtRate,
   fmtSizeChangePct,
 } from "../../src/lib/format";
-
-describe("fmtBytes", () => {
-  it("returns the placeholder for null/undefined", () => {
-    expect(fmtBytes(null)).toBe("–");
-    expect(fmtBytes(undefined)).toBe("–");
-  });
-
-  it("formats bytes below 1 KB as bytes", () => {
-    expect(fmtBytes(512)).toBe("512 B");
-  });
-
-  it("formats kilobytes with one decimal", () => {
-    expect(fmtBytes(2048)).toBe("2.0 KB");
-  });
-
-  it("formats megabytes with one decimal", () => {
-    expect(fmtBytes(5 * 1048576)).toBe("5.0 MB");
-  });
-
-  it("formats gigabytes with two decimals", () => {
-    expect(fmtBytes(2.5 * 1073741824)).toBe("2.50 GB");
-  });
-});
 
 describe("fmtDur", () => {
   it("returns the placeholder for null/undefined", () => {
@@ -93,14 +68,6 @@ describe("fmtMs", () => {
 
   it("formats milliseconds with one decimal", () => {
     expect(fmtMs(12.34)).toBe("12.3 ms");
-  });
-});
-
-describe("errorMessage", () => {
-  it("takes an Error's own message and stringifies anything else", () => {
-    expect(errorMessage(new Error("boom"))).toBe("boom");
-    expect(errorMessage("plain")).toBe("plain");
-    expect(errorMessage(42)).toBe("42");
   });
 });
 

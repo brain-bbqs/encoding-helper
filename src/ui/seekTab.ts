@@ -3,9 +3,10 @@
 // since how a file seeks is a consequence of its GOP structure rather than a separate thing to
 // go and look at.
 
+import { errorMessage } from "@brain-bbqs/utils";
 import { button, dataTable, fold, gridItem, h, section, svgEl, svgText, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
-import { errorMessage, fmtMs } from "../lib/format";
+import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";

@@ -1,6 +1,6 @@
 {
   "name": "encoding-helper",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "A didactic, in-browser video encoding lab: inspect MP4/H.264 structure, learn how encoding works, run empirical seeking tests, and re-encode video directly in the browser.",
   "type": "module",
   "license": "MIT",
@@ -20,6 +20,7 @@
     "build-storybook": "storybook build --config-dir configs/storybook"
   },
   "dependencies": {
+    "@brain-bbqs/utils": "^0.2.0",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "mediabunny": "^1.50.8",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@brain-bbqs/config": "^0.2.0",
+    "@brain-bbqs/test-utils": "^0.2.0",
     "@chromatic-com/playwright": "^0.14.11",
     "@eslint/js": "9.39.5",
     "@playwright/test": "^1.48.0",

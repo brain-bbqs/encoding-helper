@@ -1,5 +1,6 @@
 // The module reads the URL and localStorage once, at import, so each case imports it fresh.
 
+import { throwingStorage } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type EducationalModule = typeof import("../../src/lib/educational");
@@ -19,7 +20,13 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-afterEach(() => vi.restoreAllMocks());
+let restoreStorage: (() => void) | null = null;
+
+afterEach(() => {
+  restoreStorage?.();
+  restoreStorage = null;
+  vi.restoreAllMocks();
+});
 
 describe("initial state", () => {
   it("defaults on, since a first-time visitor is who the explainers are for", async () => {
@@ -40,9 +47,7 @@ describe("initial state", () => {
   });
 
   it("defaults on when localStorage cannot be read at all", async () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
+    restoreStorage = throwingStorage("blocked");
     expect((await load()).isEducationalEnabled()).toBe(true);
   });
 });
@@ -74,9 +79,7 @@ describe("setEducationalEnabled", () => {
 
   it("still changes the switch when the choice cannot be stored", async () => {
     const { isEducationalEnabled, setEducationalEnabled } = await load();
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("full");
-    });
+    restoreStorage = throwingStorage("full");
     setEducationalEnabled(false);
     expect(isEducationalEnabled()).toBe(false);
   });

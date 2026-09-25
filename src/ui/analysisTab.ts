@@ -11,6 +11,7 @@
 // State-gathering lives here; how a section is drawn lives in lib/analysisDoc.ts. Sections are
 // rebuilt on every visit to the tab, since the seeking test and the two encode tabs add to them.
 
+import { fmtBytes } from "@brain-bbqs/utils";
 import { buildAnalysisDocument, renderSectionsToMarkdown, slugify, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
@@ -48,7 +49,6 @@ import {
   describeFrameCount,
   describeFrameRate,
   fmtBits,
-  fmtBytes,
   fmtDur,
   fmtMs,
   fmtRate,

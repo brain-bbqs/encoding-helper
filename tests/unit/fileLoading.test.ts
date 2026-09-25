@@ -2,15 +2,14 @@
 // drop zone and the address bar in step with where the load got to, and put what came back into
 // `state`. That sequencing is what these cases pin down.
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mountHtml, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initFileLoadingUi } from "../../src/ui/fileLoading";
 
-const INDEX_HTML = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+const INDEX_HTML = readIndexHtml();
 
 const parseWithMp4Box = vi.hoisted(() => vi.fn());
 const loadMediabunnyMetadata = vi.hoisted(() => vi.fn());
@@ -68,7 +67,7 @@ function setUrl(search: string): void {
 }
 
 function mountApp(): AppElements {
-  document.body.innerHTML = /<body[^>]*>([\s\S]*)<\/body>/.exec(INDEX_HTML)![1];
+  mountHtml(INDEX_HTML);
   return getElements();
 }
 

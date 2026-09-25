@@ -5,10 +5,10 @@
 // The demos page (ui/demosPage.ts) is a fourth way in and has no controls of its own here: it hands
 // a demo's URL to the FileLoader this module returns, which is the same path the URL box takes.
 
+import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
 import { resetIcon } from "../lib/dom";
 import { ChunkedSource } from "../lib/chunkedSource";
-import { errorMessage, fmtBytes } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { loadMediabunnyMetadata } from "../lib/mediabunnyMeta";
 import {

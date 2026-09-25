@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { jsonResponse, mountHtml, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { demoVideoPath } from "../fixtures/demoPaths";
 import { assetDownloadUrl, EMBER_DANDISET, type DemoFile, type DemoSet } from "../../src/lib/demoArchive";
@@ -158,9 +157,7 @@ describe("renderDemoBrowser", () => {
 
   // Only a dataset generated before the index carried descriptions leaves one to fetch.
   it("falls back to the sidecar for a file the index says nothing about, once per file", async () => {
-    const fetchMock = vi.fn(() =>
-      Promise.resolve({ ok: true, json: () => Promise.resolve({ Description: "Read from the sidecar." }) }),
-    );
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ Description: "Read from the sidecar." })));
     vi.stubGlobal("fetch", fetchMock);
     const older = { demos: SET.demos.map((d) => ({ ...d, description: null })) };
     renderDemoBrowser(container, older, OPTS);
@@ -188,7 +185,7 @@ describe("renderDemoBrowser", () => {
   });
 
   it("leaves the description blank when the sidecar carries none", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ VideoCodec: "h264" }) }));
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ VideoCodec: "h264" })));
     vi.stubGlobal("fetch", fetchMock);
     const older = { demos: SET.demos.map((d) => ({ ...d, description: null })) };
     renderDemoBrowser(container, older, OPTS);
@@ -274,7 +271,7 @@ describe("renderDemoBrowser notch", () => {
 });
 
 describe("initDemosPage", () => {
-  const INDEX_HTML = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+  const INDEX_HTML = readIndexHtml();
 
   const DESCRIPTION = {
     Name: "encoding-helper demos",
@@ -298,7 +295,7 @@ describe("initDemosPage", () => {
   function stubArchive(): ReturnType<typeof vi.fn> {
     const fetchMock = vi.fn((url: string) => {
       const body = url === assetDownloadUrl("desc-id") ? DESCRIPTION : { results: ASSETS, next: null };
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
+      return Promise.resolve(jsonResponse(body));
     });
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
@@ -322,7 +319,7 @@ describe("initDemosPage", () => {
     [...els.demosPage.querySelectorAll<HTMLElement>(".demo-tile")].map((t) => t.dataset.session ?? "");
 
   beforeEach(() => {
-    document.body.innerHTML = /<body[^>]*>([\s\S]*)<\/body>/.exec(INDEX_HTML)![1];
+    mountHtml(INDEX_HTML);
     window.history.replaceState({}, "", "/");
     els = getElements();
     loader = { loadUrl: vi.fn(() => Promise.resolve()) };
