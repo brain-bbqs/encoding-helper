@@ -33,14 +33,14 @@ test.describe("Encoding Helper shell", () => {
     await expect(versionLink).toHaveText(/^v\d+\.\d+\.\d+$/);
     await expect(versionLink).toHaveAttribute("href", "https://github.com/brain-bbqs/encoding-helper");
 
-    const conLink = page.locator('a.con-brand-link[href="https://centerforopenneuroscience.org"]');
-    const talmoLink = page.locator('a.talmo-brand-link[href="https://talmolab.org/"]');
+    const conLink = page.locator('a.footer-brand-link[href="https://centerforopenneuroscience.org"]');
+    const talmoLink = page.locator('a.footer-brand-link.captioned[href="https://talmolab.org/"]');
     await expect(conLink).toBeVisible();
     await expect(talmoLink).toBeVisible();
-    await expect(page.locator(".talmo-brand-name")).toHaveText("Talmo Lab");
+    await expect(talmoLink.locator(".footer-brand-name")).toHaveText("Talmo Lab");
     // Only the variant matching the active theme is rendered.
-    await expect(page.locator(".talmo-brand-logo.on-light")).toBeVisible();
-    await expect(page.locator(".talmo-brand-logo.on-dark")).toBeHidden();
+    await expect(talmoLink.locator(".footer-brand-logo.on-light")).toBeVisible();
+    await expect(talmoLink.locator(".footer-brand-logo.on-dark")).toBeHidden();
 
     // Talmo Lab sits to the left of CON, and both clear the centered page content.
     const talmoBox = (await talmoLink.boundingBox())!;
@@ -57,8 +57,8 @@ test.describe("Encoding Helper shell", () => {
     await page.goto("/");
     await page.locator("#themeToggle").click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(page.locator(".talmo-brand-logo.on-dark")).toBeVisible();
-    await expect(page.locator(".talmo-brand-logo.on-light")).toBeHidden();
+    await expect(page.locator(".footer-brand-link.captioned .footer-brand-logo.on-dark")).toBeVisible();
+    await expect(page.locator(".footer-brand-link.captioned .footer-brand-logo.on-light")).toBeHidden();
   });
 
   test("plots the loaded file's bitrate over time, one step per window", async ({ page }) => {
