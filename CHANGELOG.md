@@ -4,7 +4,7 @@
 
 #### 🏠 Internal
 
-- Took the theme toggle, version stamp and generic page-building helpers from the shared `@brain-bbqs/ui` package, with no visible change
+- Took the theme toggle, version stamp and generic page-building helpers from the shared `@brain-bbqs/ui` package, with no visible change ([#57](https://github.com/brain-bbqs/encoding-helper/pull/57))
 
 ## 1.4.8
 
