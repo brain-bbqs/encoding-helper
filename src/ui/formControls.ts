@@ -1,6 +1,7 @@
 // Small reusable form-field / engine-progress-box builders shared by the tabs that run an encode.
 
-import { button, h, infoIcon } from "../lib/dom";
+import { button, h } from "@brain-bbqs/ui";
+import { infoIcon } from "../lib/dom";
 
 /**
  * A field's label, with an ⓘ explainer beside it when there is one. Same shape as the grid cards'

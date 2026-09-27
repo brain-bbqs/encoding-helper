@@ -7,7 +7,8 @@
 // command over the whole file rather than a separate feature.
 
 import { CRF_MAP, isDownscale } from "../lib/cliCommand";
-import { cmdBlock, h, section, teachBox } from "../lib/dom";
+import { h } from "@brain-bbqs/ui";
+import { cmdBlock, section, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings } from "../lib/qualityMatrix";
 import { cli, encodeTest, state } from "../lib/state";

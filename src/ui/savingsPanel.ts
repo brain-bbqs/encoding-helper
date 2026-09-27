@@ -8,7 +8,8 @@
 // a width, and a bar with a hard end would claim it does not.
 
 import { fmtBytes } from "@brain-bbqs/utils";
-import { gridItem, h } from "../lib/dom";
+import { h } from "@brain-bbqs/ui";
+import { gridItem } from "../lib/dom";
 import { fmtDur } from "../lib/format";
 import { describeSavings, fmtChangeFactor, fmtPct, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
 

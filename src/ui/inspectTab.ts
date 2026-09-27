@@ -5,7 +5,8 @@
 import { fmtBytes } from "@brain-bbqs/utils";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { describeContainer } from "../lib/containerKb";
-import { escapeHtml, gridItem, h, section, teachBox } from "../lib/dom";
+import { escapeHtml, h } from "@brain-bbqs/ui";
+import { gridItem, section, teachBox } from "../lib/dom";
 import {
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,

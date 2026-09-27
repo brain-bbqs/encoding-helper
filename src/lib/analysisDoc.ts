@@ -11,7 +11,8 @@
 // surface is the wrong thing to send to a printer. Its stylesheet is inlined into the exported file
 // so the document keeps its look with no network and no app around it.
 
-import { dataTable, escapeHtml, gridItem, h, teachBox } from "./dom";
+import { escapeHtml, h } from "@brain-bbqs/ui";
+import { dataTable, gridItem, teachBox } from "./dom";
 import type { AnalysisBlock, AnalysisSection } from "./types";
 
 /** Anchor id for a section heading, used by the document's contents list. */

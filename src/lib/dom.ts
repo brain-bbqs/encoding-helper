@@ -1,24 +1,9 @@
-// Small DOM-building helpers shared across every tab renderer.
+// The DOM-building helpers that are this app's own: the ones that read the educational toggle, and
+// the card and table shapes only its tabs draw. The generic ones (h, button, svgEl, ...) come from
+// @brain-bbqs/ui.
 
+import { button, h, svgEl, writeClipboard } from "@brain-bbqs/ui";
 import { isEducationalEnabled } from "./educational";
-
-export function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  cls?: string | null,
-  text?: string | number | null,
-): HTMLElementTagNameMap[K] {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text != null) e.textContent = String(text);
-  return e;
-}
-
-/** A <button type="button">, which every button in the app is, since none sits in a form. */
-export function button(cls?: string | null, text?: string | number | null): HTMLButtonElement {
-  const b = h("button", cls, text);
-  b.type = "button";
-  return b;
-}
 
 /** A card with its heading, the unit every tab is built from. */
 export function section(title: string): HTMLDivElement {
@@ -164,60 +149,6 @@ export function dataTable(headers: string[], rows: string[][]): HTMLDivElement {
   return scroll;
 }
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-export function svgEl<K extends keyof SVGElementTagNameMap>(
-  tag: K,
-  attrs?: Record<string, string | number>,
-): SVGElementTagNameMap[K] {
-  const el = document.createElementNS(SVG_NS, tag);
-  if (attrs) {
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-  }
-  return el;
-}
-
-/** An SVG <text> node with its class, the rest of its attributes and its content in one call. */
-export function svgText(cls: string, attrs: Record<string, string | number>, content: string): SVGTextElement {
-  const el = svgEl("text", { class: cls, ...attrs });
-  el.textContent = content;
-  return el;
-}
-
-/**
- * The circular-arrow "start again" mark, as an inline SVG.
- *
- * Drawn rather than written as 🔄, matching brain-bbqs/bbqs-uploader's re-check button: Windows
- * gives the emoji colour presentation, while a stroked path stays monochrome and follows the theme
- * through currentColor.
- */
-export function resetIcon(size = 14): SVGSVGElement {
-  const svg = svgEl("svg", {
-    viewBox: "0 0 24 24",
-    width: size,
-    height: size,
-    fill: "none",
-    stroke: "currentColor",
-    "stroke-width": 2.5,
-    "stroke-linecap": "round",
-    "stroke-linejoin": "round",
-    "aria-hidden": "true",
-  });
-  svg.append(svgEl("polyline", { points: "23 4 23 10 17 10" }));
-  svg.append(svgEl("path", { d: "M20.49 15 A9 9 0 1 1 18.36 5.64 L23 10" }));
-  return svg;
-}
-
-/** Escapes text read out of a media file so it can be embedded in author-authored explainer markup. */
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 /**
  * A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup.
  * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
@@ -241,32 +172,6 @@ export function teachBox(html: string, mark = "💡"): HTMLDivElement {
   body.innerHTML = html;
   d.append(icon, body);
   return d;
-}
-
-/** Writes to the clipboard, falling back to a hidden textarea where the API is refused. */
-function writeClipboard(text: string, done: () => void): void {
-  navigator.clipboard
-    .writeText(text)
-    .then(done)
-    .catch(() => {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      done();
-    });
-}
-
-export function copyToClipboard(text: string, btn: HTMLButtonElement): void {
-  writeClipboard(text, () => {
-    const orig = btn.textContent;
-    btn.textContent = "Copied!";
-    setTimeout(() => {
-      btn.textContent = orig;
-    }, 1400);
-  });
 }
 
 /**

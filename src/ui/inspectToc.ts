@@ -4,7 +4,7 @@
 // a reader to lose their place in, so it is the only tab that gets one.
 
 import { slugify } from "../lib/analysisDoc";
-import { h } from "../lib/dom";
+import { h } from "@brain-bbqs/ui";
 
 let scrollSpyObserver: IntersectionObserver | null = null;
 

@@ -1,29 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  button,
-  closeInfoPopovers,
-  cmdBlock,
-  copyToClipboard,
-  dataTable,
-  escapeHtml,
-  fold,
-  gridItem,
-  infoIcon,
-  resetIcon,
-  section,
-  svgEl,
-  svgText,
-  teachBox,
-} from "../../src/lib/dom";
+import { button, copyToClipboard, escapeHtml, resetIcon } from "@brain-bbqs/ui";
+import { closeInfoPopovers, cmdBlock, dataTable, fold, gridItem, infoIcon, section, teachBox } from "../../src/lib/dom";
 import { setEducationalEnabled } from "../../src/lib/educational";
 
+// The generic helpers come from @brain-bbqs/ui, whose own tests cover them; what is pinned here is
+// what this app relies on and the package's tests leave open.
 describe("escapeHtml", () => {
-  it("escapes every character that could break out of an attribute or element", () => {
-    expect(escapeHtml(`<img src="x" onerror='alert(1)'>&`)).toBe(
-      "&lt;img src=&quot;x&quot; onerror=&#39;alert(1)&#39;&gt;&amp;",
-    );
-  });
-
   it("leaves ordinary tag names alone", () => {
     expect(escapeHtml("©too")).toBe("©too");
   });
@@ -208,16 +190,7 @@ describe("dataTable", () => {
   });
 });
 
-describe("svg helpers", () => {
-  it("builds namespaced elements with their attributes and text", () => {
-    const text = svgText("axis", { x: 4, y: "8" }, "0 s");
-    expect(text.namespaceURI).toBe("http://www.w3.org/2000/svg");
-    expect(text.getAttribute("class")).toBe("axis");
-    expect(text.getAttribute("x")).toBe("4");
-    expect(text.textContent).toBe("0 s");
-    expect(svgEl("g").attributes).toHaveLength(0);
-  });
-
+describe("resetIcon", () => {
   it("draws the reset mark at the asked size in the current colour", () => {
     const icon = resetIcon(20);
     expect(icon.getAttribute("width")).toBe("20");
@@ -227,12 +200,11 @@ describe("svg helpers", () => {
   });
 });
 
-describe("section and button", () => {
-  it("starts a card with its heading and makes buttons that never submit", () => {
-    expect(section("Metadata").querySelector("h2")?.textContent).toBe("Metadata");
-    const b = button("btn", "Run");
-    expect(b.type).toBe("button");
-    expect(b.textContent).toBe("Run");
+describe("section", () => {
+  it("starts a card with its heading", () => {
+    const sec = section("Metadata");
+    expect(sec.className).toBe("section");
+    expect(sec.querySelector("h2")?.textContent).toBe("Metadata");
   });
 });
 

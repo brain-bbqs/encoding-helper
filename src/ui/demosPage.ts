@@ -25,7 +25,7 @@ import {
   type DemoFile,
   type DemoSet,
 } from "../lib/demoArchive";
-import { button, h } from "../lib/dom";
+import { button, h } from "@brain-bbqs/ui";
 import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
 import type { AppElements } from "./elements";
 

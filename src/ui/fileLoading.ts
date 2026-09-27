@@ -7,7 +7,7 @@
 
 import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
-import { resetIcon } from "../lib/dom";
+import { resetIcon } from "@brain-bbqs/ui";
 import { ChunkedSource } from "../lib/chunkedSource";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { loadMediabunnyMetadata } from "../lib/mediabunnyMeta";
