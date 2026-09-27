@@ -12,7 +12,8 @@ import {
   SCALE_OPTIONS,
   SCALER_OPTIONS,
 } from "../lib/cliCommand";
-import { gridItem, h } from "../lib/dom";
+import { h } from "@brain-bbqs/ui";
+import { gridItem } from "../lib/dom";
 import { RESOLUTION_INFO } from "../lib/explainers";
 import { fmtSizeChangePct } from "../lib/format";
 import { fmtChangeFactor } from "../lib/sizeEstimate";

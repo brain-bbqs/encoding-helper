@@ -9,7 +9,7 @@
 // The frame under the band's start is decoded and shown above it, because scanning a recording means
 // looking at it: a time in seconds says nothing about whether the animal is in shot.
 
-import { h } from "../lib/dom";
+import { h } from "@brain-bbqs/ui";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { clampWindowStart, fmtClock, rulerMarks, SAMPLE_SECONDS } from "../lib/sampleTimeline";

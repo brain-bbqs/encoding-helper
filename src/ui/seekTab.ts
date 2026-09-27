@@ -4,7 +4,8 @@
 // go and look at.
 
 import { errorMessage } from "@brain-bbqs/utils";
-import { button, dataTable, fold, gridItem, h, section, svgEl, svgText, teachBox } from "../lib/dom";
+import { button, h, svgEl, svgText } from "@brain-bbqs/ui";
+import { dataTable, fold, gridItem, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";

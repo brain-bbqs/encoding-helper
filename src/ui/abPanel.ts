@@ -14,7 +14,8 @@
 // time.
 
 import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
-import { button, gridItem, h, infoIcon } from "../lib/dom";
+import { button, h } from "@brain-bbqs/ui";
+import { gridItem, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
 import { describeQuality, describeResolutionChange } from "../lib/qualityMatrix";

@@ -16,7 +16,8 @@ import { buildAnalysisDocument, renderSectionsToMarkdown, slugify, type Document
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
 import { describeContainer } from "../lib/containerKb";
-import { button, copyToClipboard, h, section, teachBox } from "../lib/dom";
+import { button, copyToClipboard, h } from "@brain-bbqs/ui";
+import { section, teachBox } from "../lib/dom";
 import {
   ANALYSIS_PANEL_INTRO,
   ATOM_MAP_DOC_CAPTION,

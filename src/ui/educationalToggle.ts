@@ -3,7 +3,7 @@
 // lib/educational when it is built and writes it on change; since it lives outside the panels that
 // a change rebuilds, it never needs to stay subscribed to later changes itself.
 
-import { h } from "../lib/dom";
+import { h } from "@brain-bbqs/ui";
 import { isEducationalEnabled, setEducationalEnabled } from "../lib/educational";
 
 export function renderEducationalToggle(): HTMLLabelElement {

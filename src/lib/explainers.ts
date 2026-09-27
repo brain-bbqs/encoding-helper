@@ -17,7 +17,7 @@
 // without going through escapeHtml first — the builders below that take file-derived numbers do
 // exactly that.
 import type { BitrateTimeline } from "./bitrateTimeline";
-import { escapeHtml } from "./dom";
+import { escapeHtml } from "@brain-bbqs/ui";
 import { fmtBits } from "./format";
 import type { SizeEstimate } from "./sizeEstimate";
 import type { ChromaFormat } from "./chromaFormat";

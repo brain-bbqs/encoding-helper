@@ -1,4 +1,5 @@
 import "./style.css";
+import { initThemeToggle, renderVersion } from "@brain-bbqs/ui";
 import { onEducationalChange } from "./lib/educational";
 import { THEME_KEY } from "./lib/settings";
 import { teachBox } from "./lib/dom";
@@ -39,8 +40,7 @@ function renderAll(): void {
   renderAnalysisTab(els.panels.analysis);
 }
 
-// Footer version stamp; the anchor itself already points at the source repository.
-els.versionIndicator.textContent = `v${__APP_VERSION__}`;
+renderVersion(els.versionIndicator, __APP_VERSION__);
 
 // Forgetting every sweep measurement kept for every file (see lib/matrixCache), beside the version
 // stamp as bbqs-uploader keeps its own cache control. The label reports what happened for a moment
@@ -58,22 +58,10 @@ els.clearCacheBtn.addEventListener("click", () => {
   });
 });
 
-// Light/dark theme, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: the toggle
-// writes an explicit override to data-theme on <html> (pre-applied before first paint by the
-// script configs/vite.config.ts injects into index.html); with nothing stored, data-theme is unset
-// and the OS preference applies.
-const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
-
-els.themeToggle.addEventListener("click", () => {
-  const current = document.documentElement.dataset.theme ?? (prefersDark.matches ? "dark" : "light");
-  const next = current === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = next;
-  try {
-    localStorage.setItem(THEME_KEY, next);
-  } catch (e) {
-    console.warn("Could not save theme preference:", e);
-  }
-});
+// Light/dark theme: the toggle writes an explicit override to data-theme on <html> (pre-applied
+// before first paint by the script configs/vite.config.ts injects into index.html); with nothing
+// stored, the OS preference applies.
+initThemeToggle(els.themeToggle, { storageKey: THEME_KEY });
 
 /**
  * What the app is for, above the file picker. It sits outside the tab panels, so it is rebuilt on

@@ -17,7 +17,8 @@ import {
   type AxisRange,
   type Placement,
 } from "../lib/atomLayout";
-import { button, h, section, teachBox } from "../lib/dom";
+import { button, h } from "@brain-bbqs/ui";
+import { section, teachBox } from "../lib/dom";
 import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";

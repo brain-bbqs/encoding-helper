@@ -10,7 +10,7 @@
 import { errorMessage } from "@brain-bbqs/utils";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
-import { button, h } from "../lib/dom";
+import { button, h } from "@brain-bbqs/ui";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";

@@ -8,7 +8,8 @@
 
 import { errorMessage } from "@brain-bbqs/utils";
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
-import { button, cmdBlock, h, infoIcon, section } from "../lib/dom";
+import { button, h } from "@brain-bbqs/ui";
+import { cmdBlock, infoIcon, section } from "../lib/dom";
 import { fmtRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";

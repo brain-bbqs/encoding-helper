@@ -6,7 +6,7 @@
 // plot answer the question the average alone cannot: how far the rate strays from it, and where.
 // Colors are CSS variables set in style.css, so the plot follows the light/dark theme.
 
-import { svgEl, svgText } from "../lib/dom";
+import { svgEl, svgText } from "@brain-bbqs/ui";
 import type { BitrateTimeline } from "../lib/bitrateTimeline";
 import { fmtBits } from "../lib/format";
 

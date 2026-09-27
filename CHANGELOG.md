@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.9
+
+#### 🏠 Internal
+
+- Took the theme toggle, version stamp and generic page-building helpers from the shared `@brain-bbqs/ui` package, with no visible change
+
 ## 1.4.8
 
 #### 🏠 Internal

@@ -10,7 +10,7 @@
 // table, so every block is the same width and reads exactly like the grid did before they existed.
 
 import { fmtBytes } from "@brain-bbqs/utils";
-import { button, h } from "../lib/dom";
+import { button, h } from "@brain-bbqs/ui";
 import { fmtRate } from "../lib/format";
 import { isDownscale, scalePercent } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";

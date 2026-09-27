@@ -1,10 +1,6 @@
 // Typed lookups for the static skeleton markup in index.html.
 
-function required<T extends Element>(id: string): T {
-  const el = document.getElementById(id);
-  if (!el) throw new Error(`Expected #${id} to exist in the document`);
-  return el as unknown as T;
-}
+import { required } from "@brain-bbqs/ui";
 
 export function getElements() {
   return {
