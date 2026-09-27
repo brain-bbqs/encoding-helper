@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.8
+
+#### 🏠 Internal
+
+- Moved the header, watermark, theme toggle and footer styles onto the shared `@brain-bbqs/ui` package, with no visible change ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.4.7
 
 #### 🏠 Internal

@@ -1,3 +1,15 @@
+/* The header, watermark, theme toggle and footer bar come from the shared BBQS shell; the palette,
+   the body layout and the controls below stay this app's own, and shell.css reads only tokens this
+   palette defines. CSS allows @import only at the top, so every rule here follows it. */
+@import "@brain-bbqs/ui/styles/shell.css";
+
+/* The shell's knobs, set to this app's sizes (see @brain-bbqs/ui's README). */
+:root {
+  --site-title-size: 2em;
+  --footer-bar-padding: 0 0.75rem 0.35rem 0.5rem;
+  --footer-brand-height: 60px;
+}
+
 /* Theme variables mirror brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: light by
    default, dark via the OS preference or the header toggle (which sets data-theme on <html> to
    override that preference). The dark values below are the app's original hardcoded palette apart
@@ -203,93 +215,14 @@ a:hover,
 a:focus-visible {
   color: var(--accent-hover);
 }
-/* Mirrors brain-bbqs/clip-extractor's header: equal 1fr side columns keep the title truly
-   centered on the page, with the logo pinned to the left of it and the theme toggle to the
-   right. */
+/* The header grid, watermark and theme toggle are the shared shell's; this app spaces the header a
+   little tighter and tucks the watermark closer into the corner. */
 .site-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
   gap: 12px;
 }
-.site-header h1 {
-  margin: 0;
-}
-.brand-logo {
-  justify-self: start;
-  width: 48px;
-  height: 48px;
-}
-/* Fixed corner watermark, mirroring brain-bbqs/bbqs-uploader: the BBQS org logo top-left,
-   diametrically opposed to the CON/Talmo Lab watermarks in the bottom-right (see .footer-brands).
-   It frames the page rather than joining the header, so it stays outside .site-header's grid. */
 .brand-watermark-link {
-  position: fixed;
   top: 2px;
   left: 6px;
-  z-index: 1;
-  line-height: 0;
-}
-/* The BBQS org logo is square with a lot of surrounding whitespace, so it is cropped to a circle
-   the same way bbqs-uploader crops it. */
-.brand-watermark-logo {
-  display: block;
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 50%;
-  opacity: 0.484;
-}
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  justify-self: end;
-}
-/* Same outlined circle as in clip-extractor/bbqs-uploader, where the toggle picks up its border
-   and card background from their base `button` rule; this app has no such rule, so they are
-   spelled out here. */
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Matches .brand-logo, so the two circles flanking the header are the same size. */
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--card);
-  color: var(--muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.theme-toggle:hover {
-  background: var(--accent-soft);
-  color: var(--text);
-}
-.theme-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-/* The moon (switch to dark) shows in light mode, the sun (switch to light) in dark mode, keyed
-   off the same data-theme/OS-preference combination that selects the theme variables above. */
-.theme-toggle-sun {
-  display: none;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .theme-toggle-sun {
-    display: block;
-  }
-  :root:not([data-theme="light"]) .theme-toggle-moon {
-    display: none;
-  }
-}
-:root[data-theme="dark"] .theme-toggle-sun {
-  display: block;
-}
-:root[data-theme="dark"] .theme-toggle-moon {
-  display: none;
 }
 h1 {
   text-align: center;
@@ -2193,130 +2126,10 @@ table.data.matrix-table th.matrix-row-head {
   border-right: 1px solid var(--accent-bright);
 }
 
-/* Fixed bottom-left links, mirroring brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader. The
-   rem lengths through this block are lifted verbatim from those two apps rather than converted to
-   the px this stylesheet otherwise uses, so the three footers stay pixel-identical and a future
-   diff against them is a straight read. */
-.page-footer-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0 0.75rem 0.35rem 0.5rem;
-  /* The bar spans the full viewport width but is mostly empty middle; without this, that empty
-     stretch swallows clicks aimed at page content behind it. Pointer events are re-enabled on the
-     bar's real contents below. */
-  pointer-events: none;
-}
-.page-footer-bar > * {
-  pointer-events: auto;
-}
-.footer-left {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
-}
-.footer-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-.footer-text-link {
-  color: var(--accent);
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-decoration: underline;
-}
-.version-link {
-  color: var(--muted);
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-decoration: underline;
-}
-/* Separates the version stamp from the control beside it, as in bbqs-uploader's footer. */
-.footer-dot {
-  color: var(--muted);
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-/* A button that reads as one of the footer's links rather than as a control: what it does is rare,
-   undoable only by sweeping again, and not what anyone came to the page for. */
-.footer-button-link {
-  font: inherit;
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--accent);
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.footer-button-link:disabled {
-  color: var(--muted);
-  cursor: default;
-}
-/* Supporting-institution watermarks, bottom-right: the Talmo Lab logo, then CON (as in
-   bbqs-uploader). Fading the whole link rather than just the image keeps the Talmo Lab name below
-   at the same weight as the name baked into the CON artwork. */
+/* The footer bar, its links and the brand marks are the shared shell's; this app sets its two marks
+   a little closer together. */
 .footer-brands {
-  display: flex;
-  align-items: flex-end;
   gap: 12px;
-}
-.footer-brands > a {
-  opacity: 0.312;
-}
-.footer-brands img {
-  display: block;
-  width: auto;
-}
-.con-brand-link img {
-  height: 60px;
-}
-/* Flask plus name, stacked, sized so the pair totals the 60px of the CON logo beside it. */
-.talmo-brand-link {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  text-decoration: none;
-}
-.talmo-brand-logo {
-  height: 44px;
-}
-.talmo-brand-name {
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-/* The Talmo Lab flask is drawn with a near-black outline in the lab's default logo and a white one
-   in the variant they use on dark backgrounds, so each theme loads the variant it can actually
-   see. The dark blocks below must stay in sync with the two dark palette blocks at the top of this
-   file. */
-.talmo-brand-logo.on-dark {
-  display: none;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .talmo-brand-logo.on-light {
-    display: none;
-  }
-  :root:not([data-theme="light"]) .talmo-brand-logo.on-dark {
-    display: block;
-  }
-}
-:root[data-theme="dark"] .talmo-brand-logo.on-light {
-  display: none;
-}
-:root[data-theme="dark"] .talmo-brand-logo.on-dark {
-  display: block;
 }
 
 @media (max-width: 700px) {
@@ -2330,26 +2143,6 @@ table.data.matrix-table th.matrix-row-head {
 @media (max-width: 600px) {
   body {
     padding: 12px 12px 90px;
-  }
-  /* The header's three columns cannot hold the logo, the title and the two controls side by side
-     on a phone: the side columns will not shrink below their controls, so the grid overflowed and
-     the theme toggle hung off the right edge of the page, giving it a sideways scroll. As in
-     clip-extractor's header, the title drops to a full-width second row under the other two. */
-  .site-header {
-    grid-template-columns: auto 1fr;
-  }
-  .brand-logo {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .header-actions {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .site-header h1 {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    text-align: center;
   }
   .drop-zone {
     padding: 26px 12px;
@@ -2381,7 +2174,8 @@ table.data.matrix-table th.matrix-row-head {
    scrolls (and the BBQS watermark goes entirely, since the header already sits top-left). Without
    this a 1440px laptop — the common case — would gain 20px and stay as cramped as before.
 
-   This block must stay after the max-width: 600px one above, whose body padding it overrides. */
+   This block must stay after the max-width: 600px one above, whose body padding it overrides. It
+   also takes over from the shared shell's own 1400px breakpoint, which it reaches first. */
 @media (max-width: 1560px) {
   body {
     max-width: min(1180px, calc(100vw - 40px));
