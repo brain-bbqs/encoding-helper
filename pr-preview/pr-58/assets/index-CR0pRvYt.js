@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{t}from"./mp4box-BgU8Uk
 
 #### 🚀 Enhancement
 
-- Added a What's New link to the footer listing recent changes ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Added a What's New link to the footer listing recent changes ([#58](https://github.com/brain-bbqs/encoding-helper/pull/58))
 
 ## 1.4.9
 
