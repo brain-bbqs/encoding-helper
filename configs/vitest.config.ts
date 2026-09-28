@@ -5,6 +5,5 @@ export default defineConfig(
   createVitestConfig({
     rootDir: new URL("..", import.meta.url),
     environment: "jsdom",
-    coverageExclude: ["src/main.ts"],
   }),
 );

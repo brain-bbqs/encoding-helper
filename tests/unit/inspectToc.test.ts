@@ -1,35 +1,8 @@
+import { installObserverStub, type ObserverStub } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mountInspectToc } from "../../src/ui/inspectToc";
 
-/** The observers built during a test, so a case can fire one and see what it lit up. */
-interface FakeObserver {
-  observed: Element[];
-  disconnected: boolean;
-  fire(entries: unknown[]): void;
-}
-
-let observers: FakeObserver[] = [];
-
-class StubIntersectionObserver implements FakeObserver {
-  observed: Element[] = [];
-  disconnected = false;
-  constructor(private callback: (entries: unknown[]) => void) {
-    observers.push(this);
-  }
-  observe(el: Element): void {
-    this.observed.push(el);
-  }
-  disconnect(): void {
-    this.disconnected = true;
-  }
-  unobserve(): void {}
-  takeRecords(): [] {
-    return [];
-  }
-  fire(entries: unknown[]): void {
-    this.callback(entries);
-  }
-}
+let stub: ObserverStub;
 
 /** A panel of `titles` sections, as the Inspect renderers leave it. */
 function panelWith(titles: string[]): HTMLElement {
@@ -51,13 +24,12 @@ function tocLinks(panel: HTMLElement): HTMLAnchorElement[] {
 }
 
 beforeEach(() => {
-  observers = [];
-  vi.stubGlobal("IntersectionObserver", StubIntersectionObserver);
+  stub = installObserverStub("IntersectionObserver");
 });
 
 afterEach(() => {
   document.body.innerHTML = "";
-  vi.unstubAllGlobals();
+  stub.restore();
   vi.restoreAllMocks();
 });
 
@@ -114,7 +86,7 @@ describe("mountInspectToc", () => {
       hd.getBoundingClientRect = () => ({ top: tops[i] }) as DOMRect;
     });
 
-    observers[0].fire([{}]);
+    stub.instances[0].fire([{}]);
 
     expect(tocLinks(panel).map((a) => a.classList.contains("on"))).toEqual([false, true, false]);
   });
@@ -125,20 +97,20 @@ describe("mountInspectToc", () => {
     for (const hd of panel.querySelectorAll<HTMLHeadingElement>("h2")) {
       hd.getBoundingClientRect = () => ({ top: 500 }) as DOMRect;
     }
-    observers[0].fire([{}]);
+    stub.instances[0].fire([{}]);
     expect(tocLinks(panel)[0].classList.contains("on")).toBe(true);
   });
 
   it("ignores an empty batch rather than moving the mark", () => {
     const panel = panelWith(["File Overview", "Atom Map"]);
     mountInspectToc(panel);
-    observers[0].fire([]);
+    stub.instances[0].fire([]);
     expect(tocLinks(panel).map((a) => a.classList.contains("on"))).toEqual([true, false]);
   });
 
   it("drops the previous build's observer when the panel is rebuilt", () => {
     mountInspectToc(panelWith(["File Overview"]));
     mountInspectToc(panelWith(["File Overview"]));
-    expect(observers.map((o) => o.disconnected)).toEqual([true, false]);
+    expect(stub.instances.map((o) => o.disconnected)).toEqual([true, false]);
   });
 });

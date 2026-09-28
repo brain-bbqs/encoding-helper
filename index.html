@@ -174,6 +174,9 @@
     <div class="page-footer-bar">
       <div class="footer-left">
         <div class="footer-row">
+          <button id="whats-new-button" class="whats-new-link" type="button">✨ What's New</button>
+        </div>
+        <div class="footer-row">
           <a
             class="footer-text-link"
             href="https://github.com/brain-bbqs/encoding-helper/issues/new?template=bug_report.yml"
@@ -248,6 +251,17 @@
         </a>
       </div>
     </div>
+
+    <!-- The changelog modal the footer's "What's New" link opens; src/main.ts fills
+         #whats-new-content from CHANGELOG.md. -->
+    <dialog id="whats-new-modal" class="whats-new-modal" aria-labelledby="whats-new-modal-title">
+      <div class="whats-new-modal-header">
+        <h2 id="whats-new-modal-title">What's New</h2>
+        <button id="whats-new-close" class="whats-new-close" type="button" aria-label="Close">&times;</button>
+      </div>
+      <div id="whats-new-content" class="whats-new-content"></div>
+      <button id="whats-new-show-more" class="whats-new-show-more" type="button" hidden>Show more</button>
+    </dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

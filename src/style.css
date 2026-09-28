@@ -1,13 +1,17 @@
-/* The header, watermark, theme toggle and footer bar come from the shared BBQS shell; the palette,
+/* The header, watermark, theme toggle, footer bar and What's New modal come from the shared BBQS
+   shell; the palette,
    the body layout and the controls below stay this app's own, and shell.css reads only tokens this
    palette defines. CSS allows @import only at the top, so every rule here follows it. */
 @import "@brain-bbqs/ui/styles/shell.css";
+@import "@brain-bbqs/ui/styles/whats-new.css";
 
 /* The shell's knobs, set to this app's sizes (see @brain-bbqs/ui's README). */
 :root {
   --site-title-size: 2em;
   --footer-bar-padding: 0 0.75rem 0.35rem 0.5rem;
   --footer-brand-height: 60px;
+  /* The dark --accent-soft sits too close to --card for a code span in What's New to show. */
+  --whats-new-code-bg: var(--chip-bg);
 }
 
 /* Theme variables mirror brain-bbqs/clip-extractor and brain-bbqs/bbqs-uploader: light by
@@ -197,8 +201,9 @@ body {
      .demos-page makes. */
   max-width: min(1180px, calc(100vw - 440px));
   margin: 0 auto;
-  /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar, whose tallest
-     column is the three rows of footer links at ~86px. */
+  /* Extra bottom padding keeps page content clear of the fixed .page-footer-bar. Only its last row
+     of links (the version and Clear sweep cache, ~30px) is wide enough to reach past the 220px
+     gutter into the column; the rows above it, ~114px of links in all, stay in the gutter. */
   padding: 20px 20px 100px;
   line-height: 1.6;
   background: var(--bg);
