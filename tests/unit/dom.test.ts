@@ -1,3 +1,9 @@
+import {
+  installExecCommand,
+  stubClipboard,
+  type ClipboardStub,
+  type ExecCommandStub,
+} from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { button, copyToClipboard, escapeHtml, resetIcon } from "@brain-bbqs/ui";
 import { closeInfoPopovers, cmdBlock, dataTable, fold, gridItem, infoIcon, section, teachBox } from "../../src/lib/dom";
@@ -216,20 +222,22 @@ async function settle(): Promise<void> {
 describe("clipboard", () => {
   let writeText: ReturnType<typeof vi.fn>;
   let execCommand: ReturnType<typeof vi.fn>;
+  let clipboard: ClipboardStub;
+  let execCommandStub: ExecCommandStub;
 
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.useFakeTimers();
     writeText = vi.fn();
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    clipboard = stubClipboard(writeText);
     // jsdom has no execCommand at all; the fallback path needs one to call.
     execCommand = vi.fn(() => true);
-    Object.defineProperty(document, "execCommand", { value: execCommand, configurable: true });
+    execCommandStub = installExecCommand(execCommand);
   });
 
   afterEach(() => {
-    delete (document as Partial<Document>).execCommand;
-    vi.unstubAllGlobals();
+    execCommandStub.restore();
+    clipboard.restore();
     vi.useRealTimers();
   });
 

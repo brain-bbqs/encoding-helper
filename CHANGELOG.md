@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+#### 🚀 Enhancement
+
+- Added a What's New link to the footer listing recent changes ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.4.9
 
 #### 🏠 Internal

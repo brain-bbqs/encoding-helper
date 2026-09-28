@@ -2,6 +2,7 @@
 // HTML the panel is built from and the Markdown the two Markdown controls produce, rather than
 // against the rendered frame (jsdom runs no layout and loads no srcdoc).
 
+import { stubClipboard } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
@@ -98,8 +99,12 @@ beforeEach(() => {
   );
 });
 
+let restoreClipboard: (() => void) | undefined;
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  restoreClipboard?.();
+  restoreClipboard = undefined;
 });
 
 describe("renderAnalysisTab", () => {
@@ -316,7 +321,7 @@ describe("renderAnalysisTab", () => {
     loadClip();
     renderAnalysisTab(el);
     const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    restoreClipboard = stubClipboard(writeText).restore;
 
     clickButton(el, "Copy Markdown");
 

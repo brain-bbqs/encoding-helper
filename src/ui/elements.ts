@@ -1,6 +1,6 @@
 // Typed lookups for the static skeleton markup in index.html.
 
-import { required } from "@brain-bbqs/ui";
+import { getWhatsNewElements, required } from "@brain-bbqs/ui";
 
 export function getElements() {
   return {
@@ -23,6 +23,7 @@ export function getElements() {
     versionIndicator: required<HTMLAnchorElement>("version-indicator"),
     clearCacheBtn: required<HTMLButtonElement>("clear-matrix-cache-btn"),
     eduToggleSlot: required<HTMLDivElement>("eduToggleSlot"),
+    whatsNew: getWhatsNewElements(),
     panels: {
       inspect: required<HTMLDivElement>("panel-inspect"),
       encode: required<HTMLDivElement>("panel-encode"),

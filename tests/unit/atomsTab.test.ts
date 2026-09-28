@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { installObserverStub, type ObserverStub } from "@brain-bbqs/test-utils/vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ATOM_MAP_READOUT_HINT } from "../../src/lib/explainers";
 import { resetState, state } from "../../src/lib/state";
 import type { BoxNode } from "../../src/lib/types";
@@ -136,45 +137,24 @@ describe("renderAtomMap", () => {
   });
 });
 
-/** A ResizeObserver that records what it was pointed at and lets a test fire it by hand. */
-class FakeResizeObserver {
-  static instances: FakeResizeObserver[] = [];
-  observed: Element[] = [];
-  disconnected = false;
-  readonly callback: ResizeObserverCallback;
-  constructor(callback: ResizeObserverCallback) {
-    this.callback = callback;
-    FakeResizeObserver.instances.push(this);
-  }
-  observe(el: Element): void {
-    this.observed.push(el);
-  }
-  unobserve(): void {}
-  disconnect(): void {
-    this.disconnected = true;
-  }
-  fire(): void {
-    this.callback([], this as unknown as ResizeObserver);
-  }
-}
-
 // Whether a label fits depends on the map's real width, which is zero while the Inspect tab is
 // hidden, so the labels are re-sized whenever the map's box changes rather than once at draw time.
 describe("renderAtomMap label sizing", () => {
+  let stub: ObserverStub;
+
   beforeEach(() => {
     document.body.innerHTML = "";
     resetState();
-    FakeResizeObserver.instances = [];
-    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    stub = installObserverStub("ResizeObserver");
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    stub.restore();
   });
 
   it("re-sizes the labels when the map is resized, and watches each redraw's map in turn", () => {
     const panel = render(progressiveFile());
-    const [observer] = FakeResizeObserver.instances;
+    const [observer] = stub.instances;
     const map = panel.querySelector<HTMLElement>(".atom-map")!;
     expect(observer.observed).toEqual([map]);
     // Drawn while hidden: no width, so no label size yet.
@@ -194,8 +174,8 @@ describe("renderAtomMap label sizing", () => {
     // Zooming builds a fresh map; the observer follows it and lets go of the old one.
     blockNamed(panel, "moov").click();
     expect(observer.disconnected).toBe(true);
-    expect(FakeResizeObserver.instances.length).toBe(2);
-    expect(FakeResizeObserver.instances[1].observed).toEqual([panel.querySelector(".atom-map")]);
+    expect(stub.instances.length).toBe(2);
+    expect(stub.instances[1].observed).toEqual([panel.querySelector(".atom-map")]);
   });
 });
 

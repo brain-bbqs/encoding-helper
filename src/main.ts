@@ -1,5 +1,6 @@
 import "./style.css";
-import { initThemeToggle, renderVersion } from "@brain-bbqs/ui";
+import changelog from "../CHANGELOG.md?raw";
+import { initThemeToggle, initWhatsNew, renderVersion } from "@brain-bbqs/ui";
 import { onEducationalChange } from "./lib/educational";
 import { THEME_KEY } from "./lib/settings";
 import { teachBox } from "./lib/dom";
@@ -41,6 +42,7 @@ function renderAll(): void {
 }
 
 renderVersion(els.versionIndicator, __APP_VERSION__);
+initWhatsNew(els.whatsNew, { changelog });
 
 // Forgetting every sweep measurement kept for every file (see lib/matrixCache), beside the version
 // stamp as bbqs-uploader keeps its own cache control. The label reports what happened for a moment
