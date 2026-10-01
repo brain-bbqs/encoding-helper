@@ -78,7 +78,7 @@ jobs:
         run: sha256sum tests/fixtures/.generated/* || echo "No generated fixture to hash."
 
       - name: Run Chromatic
-        uses: chromaui/action@v18.8.0
+        uses: chromaui/action@v18.10.1
         with:
           projectToken: ${{ secrets.CHROMATIC_PLAYWRIGHT_PROJECT_TOKEN }}
           playwright: true

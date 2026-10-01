@@ -52,7 +52,7 @@ jobs:
         run: npm ci
 
       - name: Run Chromatic
-        uses: chromaui/action@v18.8.0
+        uses: chromaui/action@v18.10.1
         env:
           CHROMATIC_STATIC_VERSION: "true"
         with:
