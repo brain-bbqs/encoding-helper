@@ -35,7 +35,7 @@ jobs:
         run: cat demo-out/dataset_description.json && find demo-out -type f | sort
 
       - name: Keep the demo set as a run artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demos
           path: demo-out/
