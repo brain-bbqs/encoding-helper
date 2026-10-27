@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+#### 🏠 Internal
+
+- Updated frontend build dependencies (npm group update) ([#64](https://github.com/brain-bbqs/encoding-helper/pull/64))
+
 ## 1.5.0
 
 #### 🚀 Enhancement
