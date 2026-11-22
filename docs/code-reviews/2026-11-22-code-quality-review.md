@@ -65,9 +65,6 @@ after that run ends (NV-4). Flipping the Educational switch rebuilds every panel
 A/B window's error banner can never be seen (NV-9). None of these was reproduced in a browser: each is a reading
 of the code, confirmed by at least two independent readings, with the quickest confirmation stated in the item.
 
-1 security-sensitive finding withheld; it is reported to the maintainer separately and is not described in this
-file.
-
 ### Findings by category
 
 | Category      | High confidence | Medium | Low   | Total  |
