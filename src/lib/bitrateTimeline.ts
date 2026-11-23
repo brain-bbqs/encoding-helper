@@ -2,7 +2,7 @@
 //
 // The Inspect tab reports one bitrate per track, and that number is an average: the track's bytes
 // times 8, divided by its duration. The average says nothing about where the bits went. A
-// variable-bitrate encode — which is what every CRF encode and every x264 default is — spends them
+// variable-bitrate encode (which is what every CRF encode and every x264 default is) spends them
 // where the picture is hard (a keyframe, a scene cut, fast motion) and saves them where it is easy,
 // so the rate one second at a time can sit several times above or below the average the whole file
 // reports. Every sample's size and presentation time is already in the sample table, so summing
@@ -22,7 +22,7 @@ interface BitrateBin {
 export interface BitrateTimeline {
   bins: BitrateBin[];
   binSeconds: number;
-  /** Across the whole track, so it matches the single Bitrate figure the track section reports. */
+  /** Across the whole track: its bytes times 8 over its duration. */
   averageBitrate: number;
   peakBitrate: number;
   minBitrate: number;
@@ -46,7 +46,7 @@ const MIN_SAMPLES_PER_BIN = 2;
  * How far above the average the busiest window may sit for the rate to still count as unmoving.
  * Not zero: even an encoder holding a rate constant does so across a buffer rather than exactly per
  * window, and a frame landing either side of a window boundary moves a window's total by itself.
- * Set tight, because the cost of the two mistakes is not symmetric — a plot of a nearly flat line
+ * Set tight, because the cost of the two mistakes is not symmetric: a plot of a nearly flat line
  * is still honest, while suppressing one hides real variation the file has.
  */
 const FLAT_PEAK_RATIO = 1.02;

@@ -120,7 +120,7 @@ describe("the core's virtual filesystem", () => {
 
   it("encodes the same input twice without its buffer being detached out from under it", async () => {
     // The failure this guards against: writeFile transfers the caller's buffer, so a second write
-    // of the same array threw "an ArrayBuffer is detached and could not be cloned" — which meant a
+    // of the same array threw "an ArrayBuffer is detached and could not be cloned", which meant a
     // matrix sweep produced one encode and 23 failures.
     const data = new Uint8Array([1, 2, 3, 4]);
     await runFfmpegEncode(ARGS, "in.mp4", data, "out.mp4");

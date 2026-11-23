@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.3
+
+#### 🏠 Internal
+
+- Corrected code comments that described removed features or the wrong behaviour, and brought the manual test checklist up to date with the app ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.2
 
 #### 🏠 Internal

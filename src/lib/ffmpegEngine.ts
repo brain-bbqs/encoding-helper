@@ -1,17 +1,17 @@
-// Exact engine: ffmpeg.wasm, lazy-loaded on first use, single-thread core.
+// The encoding engine: ffmpeg.wasm, lazy-loaded on first use, single-thread core.
 //
 // The original CDN-based version of this app loaded ffmpeg.wasm's UMD build via a raw <script> tag
 // and hand-rolled a `classWorkerURL`/`importScripts` polyfill to make its worker chunk (itself
-// fetched from a foreign CDN origin) work as a same-origin blob: URL — see the app's git history for
-// the gory details. Now that `@ffmpeg/ffmpeg` is a proper ESM package dependency, Vite bundles its
+// fetched from a foreign CDN origin) work as a same-origin blob: URL (see the app's git history for
+// the gory details). Now that `@ffmpeg/ffmpeg` is a proper ESM package dependency, Vite bundles its
 // worker as part of the app's own same-origin build output and handles worker loading itself
 // (`createViteConfig` from @brain-bbqs/config, which configs/vite.config.ts builds on, sets
 // `worker: { format: "es" }` for exactly this), so none of that is needed anymore: `new FFmpeg()`
 // + `ffmpeg.load()` just works.
 //
 // The ffmpeg-core.js/.wasm binaries themselves are still fetched from the jsdelivr CDN at runtime
-// (via `@ffmpeg/util`'s `toBlobURL()`, the officially documented pattern) rather than bundled — they
-// are ~30 MB and only needed by the minority of visits that actually run an "exact" encode.
+// (via `@ffmpeg/util`'s `toBlobURL()`, the officially documented pattern) rather than bundled: they
+// are ~30 MB and only needed by the minority of visits that actually run an encode.
 //
 // Must be the ESM core build, not the UMD one: @ffmpeg/ffmpeg's own worker (dist/esm/worker.js) is
 // bundled by Vite as a module worker (`worker: { format: "es" }`), where `importScripts()` throws
@@ -24,7 +24,7 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { toBlobURL } from "@ffmpeg/util";
 
 // GitHub Pages serves no COOP/COEP headers, so only the single-threaded core can be used (no
-// SharedArrayBuffer support) — same constraint the original CDN version worked under.
+// SharedArrayBuffer support), the same constraint the original CDN version worked under.
 const FFMPEG_CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm";
 
 type FfmpegLogHandler = (message: string) => void;
@@ -59,8 +59,8 @@ let logHandler: FfmpegLogHandler | null = null;
 
 /**
  * The core's two blob: URLs, shared by every instance. A crashed core has to be replaced by a fresh
- * one (see resetFfmpeg) and a pool runs several at once, and re-fetching ~30 MB for each would make
- * both prohibitive. The download happens once per page.
+ * one (see `guarded` below) and a pool runs several at once, and re-fetching ~30 MB for each would
+ * make both prohibitive. The download happens once per page.
  */
 let coreUrls: Promise<{ coreURL: string; wasmURL: string }> | null = null;
 
@@ -88,7 +88,7 @@ interface FfmpegRunResult {
  * One loaded ffmpeg.wasm core, with its own virtual filesystem and its own log/progress callbacks.
  *
  * The core is single-threaded WebAssembly, so one of these can only ever encode one thing at a
- * time — but a machine has more than one CPU, and several instances encode side by side on them.
+ * time, but a machine has more than one CPU, and several instances encode side by side on them.
  * Everything an instance needs is per-instance for that reason: two encodes running at once cannot
  * share a filesystem they both write outputs into, nor a progress callback that would report each
  * other's frames.
@@ -178,7 +178,7 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
     /**
      * A *copy* goes over, because `writeFile` posts the array to the worker with its buffer in the
      * transfer list, which detaches the caller's own array: without the copy, a second write of the
-     * same input fails with "an ArrayBuffer is detached and could not be cloned" — and a second
+     * same input fails with "an ArrayBuffer is detached and could not be cloned", and a second
      * write is exactly what a crashed core (replaced, with an empty filesystem), a fresh run, or a
      * second core in the pool asks for.
      */
@@ -216,8 +216,8 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
 
 /**
  * The core every part of the app reaches for by default, and the one a pool's extra cores are extra
- * to. The module-level functions below are its methods, kept as free functions because most of the
- * app has only ever needed the one core.
+ * to. The module-level functions below are its methods as free functions, for the whole-file encode
+ * (ui/inBrowserEncode), which runs on this core alone; sample runs and sweeps take pooled workers.
  */
 export const defaultFfmpegWorker = createFfmpegWorker(0);
 
@@ -242,11 +242,8 @@ export async function deleteFfmpegFile(name: string): Promise<void> {
 }
 
 /**
- * Runs `args` against files already in the core's filesystem, and reads `outputName` back out.
- *
- * Split out from `runFfmpegEncode` for runs that encode one input many times (the Compare Quality
- * matrix sweep): the input is the same every time, so it is written once and left in place rather
- * than sent across to the worker again for each set of settings.
+ * Runs `args` against files already in the core's filesystem, and reads `outputName` back out: the
+ * middle of `runFfmpegEncode`, which writes the input before it and deletes it after.
  */
 export async function runFfmpegArgs(args: string[], outputName: string): Promise<FfmpegRunResult> {
   return await defaultFfmpegWorker.run(args, outputName);
@@ -272,7 +269,7 @@ export async function runFfmpegEncode(
 
 /**
  * Turns a crash inside the core into something a reader can act on. Emscripten's `abort()` says
- * only "Aborted()" — the encode it was running is gone, and the reason for it is inside a 30 MB
+ * only "Aborted()": the encode it was running is gone, and the reason for it is inside a 30 MB
  * binary we did not build, so the useful part of the message is what to try instead.
  */
 function describeFfmpegFailure(err: unknown): string {

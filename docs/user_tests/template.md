@@ -9,44 +9,46 @@ A basic manual pass through the app before a release or after a significant chan
 
 ## Loading a file
 
-- [ ] Loading a sample video from the sample picker works
-- [ ] Loading a local video file via the file picker / drag-and-drop works
-- [ ] The educational toggle is visible and switching it on/off changes what's shown
+- [ ] Choose File opens the file picker and loads the chosen video
+- [ ] Dropping a video file on the drop zone loads it
+- [ ] Load from URL loads a video from a pasted link
+- [ ] The Educational switch is visible and switching it on/off changes what's shown
 
 ## Inspect tab
 
-- [ ] The atom/box tree renders for a loaded MP4
-- [ ] Selecting an atom shows its details and jumps to the right spot in the tree
-- [ ] Table of contents navigation matches the atom tree
-- [ ] Educational explainers appear when the educational toggle is on
-
-## Analysis tab
-
+- [ ] The overview, Video Track and (for a file with sound) Audio Track cards show the codec, chroma format and container details correctly
+- [ ] The atom map renders for a loaded MP4; hovering a block shows its details, and clicking one zooms into it
+- [ ] The "On this page" contents list links to each section of the tab
 - [ ] The bitrate chart renders and reflects the loaded file
-- [ ] Chroma format, codec, and container details are shown correctly
+- [ ] Running the seeking test in the GOP / Keyframe Structure card produces a scatter plot and a results table
+- [ ] Educational explainers appear when the Educational switch is on
 
-## Compare tab
+## Reencode with FFmpeg tab
 
-- [ ] Two files can be loaded side-by-side (A/B panel)
-- [ ] The quality/size matrix populates correctly
-- [ ] The savings panel shows a sensible size/quality comparison
-
-## Seek tab
-
-- [ ] Running a seek test against a loaded file produces a report
-- [ ] The segment run / timeline reflects the seek results accurately
-
-## Encode tab
-
-- [ ] An in-browser encode (ffmpeg) runs to completion on a sample file
+- [ ] The FFmpeg Command Builder's command matches the selected settings, and its copy button copies it
+- [ ] Run Comparison under Try It on a Sample runs to completion
   - [ ] the progress indicator updates throughout
-- [ ] The CLI command preview matches the selected encode settings
-- [ ] The encoded output can be downloaded/saved
+  - [ ] the A/B window then shows the encode against the same seconds of the original, with zoom and pan
+- [ ] Reencode and Save (Transcode and Save for a non-MP4 file) encodes the whole file and saves the output
+
+## Compare Quality tab
+
+- [ ] Run Matrix fills the grid for the ticked settings
+  - [ ] the progress indicator updates throughout
+- [ ] Clicking a square shows that encode against the original in the A/B window
+- [ ] The A/B window's savings figures show a sensible size comparison
+
+## Full Analysis
+
+- [ ] The Full Analysis button shows one document gathering what the tabs found
+- [ ] The bitrate chart and the codec and container details in the document match the Inspect tab
+- [ ] Save as PDF, Download HTML, Download Markdown and Copy Markdown each work
 
 ## Demos page
 
-- [ ] Demo videos load and play
-- [ ] The demo archive download works
+- [ ] Browse Demo Files opens the demos page, and pressing a tile opens that demo's card
+- [ ] Open in the app loads the demo into the app
+- [ ] Download saves the demo file
 
 ## Cross-cutting
 

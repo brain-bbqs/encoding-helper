@@ -1,6 +1,6 @@
 // The instantaneous-bitrate plot: one step per time window, drawn from a BitrateTimeline.
 //
-// A single series over time, so it is a step area chart against a zero baseline — the windows are
+// A single series over time, so it is a step area chart against a zero baseline: the windows are
 // buckets rather than sampled instants, and a step says that where a smoothed curve would invent
 // values between them. The one reference mark is the track average, dashed, which is what makes the
 // plot answer the question the average alone cannot: how far the rate strays from it, and where.

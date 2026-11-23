@@ -1,5 +1,5 @@
-// I/O layer: unifies File / File System Access handle / remote URL into one
-// readChunk(offset, size) -> ArrayBuffer primitive.
+// I/O layer: unifies a local File (a picked handle is turned into one before it gets here) and a
+// remote URL into one readChunk(offset, size) -> ArrayBuffer primitive.
 
 type ChunkedSourceKind = "file" | "url";
 
@@ -51,7 +51,7 @@ export class ChunkedSource {
     if (s.supportsRange) return s;
 
     // No answer, or an answer that did not promise ranges: fetch the whole thing. Ranges are only
-    // taken on a server that advertised them, never on a guess — a single byte range succeeding
+    // taken on a server that advertised them, never on a guess: a single byte range succeeding
     // says nothing about the parser's real reads, which go back through the archive's redirect to a
     // freshly signed URL every time, and mediabunny reads a URL source over ranges of its own that
     // this class never sees. A file that half-loads over ranges reaches the parser as rubble, which

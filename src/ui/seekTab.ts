@@ -1,6 +1,6 @@
 // The GOP/keyframe/B-frame structure and the empirical seeking test that measures it, with a
-// keyframe-distance-vs-decode-time scatter plot — one card, the last section of the Inspect tab,
-// since how a file seeks is a consequence of its GOP structure rather than a separate thing to
+// keyframe-distance-vs-decode-time scatter plot: one card, in the Inspect tab after the atom map
+// and before the bitrate and audio cards, since how a file seeks is a consequence of its GOP structure rather than a separate thing to
 // go and look at.
 
 import { errorMessage } from "@brain-bbqs/utils";
@@ -204,7 +204,7 @@ function seekResultsTsv(results: SeekResult[]): Blob {
 }
 
 // Scatter plot: keyframe distance (x) vs. decode time (y), one point per sampled timestamp. A
-// single series, so no legend is needed — the section title and axis labels already say what's
+// single series, so no legend is needed: the section title and axis labels already say what's
 // plotted. Exported so the Full Analysis document plots the same run rather than only tabulating it.
 export function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
   const pts = results.filter((r): r is SeekResult & { dist: number } => r.dist != null);

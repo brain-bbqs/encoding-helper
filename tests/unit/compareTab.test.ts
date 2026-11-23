@@ -409,7 +409,7 @@ describe("renderCompareTab", () => {
     expect(runButton(renderTab()).textContent).toBe("Run 2 unmeasured");
   });
 
-  // Stop (or a failed square) leaves holes the run button offers to fill back into the same grid —
+  // Stop (or a failed square) leaves holes the run button offers to fill back into the same grid,
   // but only while that grid is still what the checkboxes ask for. Once the sweep is edited, filling
   // the old holes back in would resume into a shape nobody ticked anymore.
   it("drops a stopped sweep's grid once the ticked axes move away from it, instead of resuming into the old shape", () => {

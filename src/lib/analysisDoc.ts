@@ -1,8 +1,8 @@
 // The Full Analysis document: how a list of AnalysisSections becomes something you can read, save
 // or hand to someone else.
 //
-// There is one document, rendered three ways from the same sections — the preview in the panel, the
-// .html file the Download button writes, and whatever the browser's print dialog turns that into —
+// There is one document, rendered three ways from the same sections (the preview in the panel, the
+// .html file the Download button writes, and whatever the browser's print dialog turns that into),
 // because the first two are literally the same string, and the third is the browser printing it.
 // The Markdown export is the one separate renderer, for pasting into an issue or a lab notebook.
 //
@@ -25,7 +25,7 @@ export function slugify(title: string): string {
   );
 }
 
-/** Long values get the smaller monospace treatment, the same threshold the app's cards use. */
+/** Long values get the smaller monospace treatment. The app's cards choose it field by field instead. */
 function isLongValue(value: string | number): boolean {
   return String(value).length > 18;
 }

@@ -18,7 +18,7 @@ export async function parseWithMp4Box(
 ): Promise<Mp4BoxParseResult> {
   const mp4boxFile = MP4Box.createFile();
   // A plain object (rather than two bare `let`s) so TypeScript can't over-narrow these away as
-  // "always null" between the onReady/onError closures being registered and later being read —
+  // "always null" between the onReady/onError closures being registered and later being read:
   // both are genuinely reassigned asynchronously by mp4box while appendBuffer() runs below.
   const ready: { info: MP4BoxInfo | null; error: string | null } = { info: null, error: null };
   mp4boxFile.onReady = (info) => {
@@ -72,7 +72,7 @@ export function detectFaststart(tree: BoxNode[]): boolean | null {
 }
 
 /**
- * The rates a track's sample entry declares in its `btrt` box, or null when it has none — which is
+ * The rates a track's sample entry declares in its `btrt` box, or null when it has none, which is
  * the common case, since `btrt` is optional and most encoders leave it out. Only the sample entries
  * of the requested track are read, so an audio track's declaration is never mistaken for a video
  * track's; the first entry that carries one wins, a file with several being one that switched codec

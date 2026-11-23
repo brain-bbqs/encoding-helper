@@ -44,8 +44,8 @@ OUT="demo-out"
 
 # Where the source recording lives on the archive: this dataset's own
 # ses-original session, which every run publishes alongside the demos. The
-# recording is deliberately not in this repository — a video blob would sit in
-# the git history forever — so a missing local copy is fetched from here.
+# recording is deliberately not in this repository (a video blob would sit in
+# the git history forever), so a missing local copy is fetched from here.
 EMBER_API="https://api-dandi.emberarchive.org/api"
 EMBER_DANDISET="000527"
 ORIGINAL_SESSION="original"
@@ -365,8 +365,8 @@ demo codec no ffv1lossless mkv \
   -- -t 10 -i "$SRC" $STRIP -c:v ffv1 -level 3 -c:a flac
 
 # --- GOP / keyframe structure ------------------------------------------------
-# Scenecut detection is disabled so the keyframe cadence is exactly the number
-# in the filename; audio is dropped so the video structure is all there is.
+# Scenecut detection is disabled so the keyframe cadence is exactly the keyint
+# each one sets; audio is dropped so the video structure is all there is.
 
 demo gop yes gopshort mp4 \
   "Short GOP: keyframe every half second" \
@@ -409,7 +409,7 @@ demo bitrate yes starved150k mp4 \
 
 # Rotation is a remux of the reference, not a re-encode: -display_rotation
 # rewrites the display matrix and the bitstream is untouched, which is itself
-# the point — rotation lives in the container, not the codec.
+# the point: rotation lives in the container, not the codec.
 demo track yes rotated90 mp4 \
   "Rotated 90 degrees in the display matrix" \
   "Byte-identical video bitstream to the reference, remuxed with a 90-degree display matrix. Players rotate at display time; the Video Track card shows the rotation the pixels do not have." \

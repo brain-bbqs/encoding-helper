@@ -1,6 +1,6 @@
 /**
- * Wraps a story element in a centered container so components render at a
- * realistic width against the app background, matching the real page shell.
+ * Wraps a story element in a centered container, 640px at most, so components
+ * render at a fixed width against the app background.
  */
 export function withCard(element: HTMLElement): HTMLDivElement {
   const wrapper = document.createElement("div");

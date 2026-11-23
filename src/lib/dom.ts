@@ -36,7 +36,7 @@ export function gridItem(label: string, value: string | number, opts: GridItemOp
   return d;
 }
 
-/** Closes every open info popover. Exported for the document-level dismiss handlers below. */
+/** Closes every open info popover, for the dismiss handlers and icons below. Exported for the tests. */
 export function closeInfoPopovers(): void {
   document.querySelectorAll<HTMLElement>(".info.open").forEach((wrap) => {
     wrap.classList.remove("open");
@@ -59,8 +59,8 @@ function bindInfoDismiss(): void {
 }
 
 /**
- * The "i" inside the ⓘ button, drawn rather than typed. A letter sits where its font puts it — an
- * italic serif "i" leans right of its advance box and hangs its dot high — so the glyph rode
+ * The "i" inside the ⓘ button, drawn rather than typed. A letter sits where its font puts it (an
+ * italic serif "i" leans right of its advance box and hangs its dot high), so the glyph rode
  * off-centre in the circle, differently on each platform's fallback font. Two shapes in a square
  * viewBox, with the ink spanning 2 to 8 either way, are centred wherever the icon is drawn.
  */
@@ -154,11 +154,9 @@ export function dataTable(headers: string[], rows: string[][]): HTMLDivElement {
  * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
  * every call site can keep appending its result unconditionally.
  *
- * `mark` is the emoji in the gutter: 💡 by default, the same one the Educational switch and the
- * "Learn more about codec parameters" goal carry, so an unmarked box still reads as tied back to
- * the control that hides it. A box about one particular thing says so instead — 🎥 for what this
- * file's container is, 🎨 for chroma subsampling — which gives a card of stacked boxes something
- * to tell them apart by at a glance.
+ * `mark` is the emoji in the gutter: 💡 by default. A box about one particular thing says so
+ * instead (🎥 for what this file's container is, 🎨 for chroma subsampling), which gives a card of
+ * stacked boxes something to tell them apart by at a glance.
  */
 export function teachBox(html: string, mark = "💡"): HTMLDivElement {
   const d = h("div", "teach");

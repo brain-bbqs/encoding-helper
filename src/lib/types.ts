@@ -43,7 +43,7 @@ export interface TrackInfo {
   channels?: number;
 }
 
-/** Result of loadMediabunnyMetadata(): everything the app reads off an mediabunny Input. */
+/** Result of loadMediabunnyMetadata(): everything the app reads off a mediabunny Input. */
 export interface MediabunnyMetadata {
   format: string;
   mimeType: string;
@@ -98,7 +98,7 @@ export interface SeekResult {
   decodeMs: number;
 }
 
-/** Quality preset keys understood by both the ffmpeg CLI builder and the mediabunny fast engine. */
+/** Quality preset keys understood by the ffmpeg command builder. */
 type QualityPreset = "lossless" | "high" | "medium" | "low" | "custom";
 
 /** x264 presets offered in the FFmpeg Command Builder and swept by the Compare Quality matrix. */
@@ -141,7 +141,7 @@ export interface VideoInfo {
 /** The two axes every matrix sweep covers: a quality level and an x264 preset. */
 export type MatrixQuality = Exclude<QualityPreset, "custom">;
 
-/** The settings one encode was made with, whichever mode produced it. */
+/** The settings one encode was made with, whichever tab produced it. */
 export interface EncodeSettings {
   quality: QualityPreset;
   /** The CRF actually used, i.e. the quality preset's own value unless the preset is "custom". */
@@ -155,9 +155,9 @@ export interface EncodeSettings {
   fps: number | null;
 }
 
-/** One square of the matrix — a pair of dropdown settings to encode the segment with. */
+/** One square of the sweep: the swept settings to encode the sampled stretches with. */
 export interface MatrixCombo extends EncodeSettings {
-  /** `quality:preset`, stable across runs. */
+  /** `quality:preset:scale:scaler:fps` (see comboKey), stable across runs. */
   key: string;
   quality: MatrixQuality;
 }
@@ -203,7 +203,7 @@ export interface AbSegment {
   seconds: number;
 }
 
-/** Mutable matrix-mode state: what the next sweep will cover, and what the last one found. */
+/** Mutable state of the Compare Quality sweep: what the next one will cover, and what the last one found. */
 interface MatrixState {
   /** Ticked quality levels, i.e. the rows the next sweep will run. */
   qualities: MatrixQuality[];
@@ -211,7 +211,7 @@ interface MatrixState {
   presets: X264Preset[];
   /** Ticked resolutions, which group the rows. One value keeps the grid two-axis. */
   scales: number[];
-  /** Ticked kernels, which group the columns. Only ever more than one when a downscale is ticked
+  /** Ticked kernels, which group the rows as resolutions do. Only ever more than one when a downscale is ticked
    * too, since nothing is resampled at the source's resolution. */
   scalers: Scaler[];
   /** Ticked frame rates, as fractions of the source's own: 1 is the source, 0.5 every other frame.
@@ -219,7 +219,8 @@ interface MatrixState {
   fpsFractions: number[];
   /** The last sweep's squares, in canonical order; empty before one has been started. */
   cells: MatrixCell[];
-  /** The segment the cells were encoded from, which the start/duration fields may have moved off. */
+  /** Where the sweep's first stretch started and how long each was asked to run, which the Duration
+   * field may have moved off since. */
   segmentStart: number;
   segmentLength: number;
   /** Every stretch each square covered, which is the one above unless the run sampled several. */
@@ -257,8 +258,7 @@ export interface EncodeTestState {
   /** The encoded stretches' lengths added together, i.e. how long the window's reel runs. */
   segDuration: number;
   encodedSize: number | null;
-  /** The settings the encode currently in the A/B window was made with — which in matrix mode is
-   * the winning cell's, not whatever the dropdowns say. */
+  /** The settings the encode currently in the A/B window was made with, whichever tab loaded it. */
   activeCombo: EncodeSettings | null;
   /** How a downscaled encode is drawn back at the source's geometry: interpolated when true, one
    * block per encoded pixel when false. A view preference, not part of any encode. */
@@ -318,7 +318,7 @@ export type AnalysisBlock =
       /** Keeps label casing as-is; set for blocks whose labels are container-native tag names. */
       rawLabels?: boolean;
     }
-  /** Trusted, author-authored explainer markup — never text read out of the file, unescaped. */
+  /** Trusted, author-authored explainer markup: never text read out of the file, unescaped. */
   | { kind: "prose"; html: string }
   | { kind: "badge"; text: string; tone: "good" | "bad" | "info" }
   | { kind: "code"; lang: string; content: string }
@@ -340,7 +340,7 @@ export interface ContainerInfo {
   extensions: string;
   /** Trusted, author-authored explainer markup. */
   description: string;
-  /** Video codecs the container commonly carries; empty for audio-only containers. */
+  /** Video codecs the container commonly carries; for audio-only containers, a sentence saying so. */
   video: string;
   audio: string;
   /** Playback/compatibility note. */

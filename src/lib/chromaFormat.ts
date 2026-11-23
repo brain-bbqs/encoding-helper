@@ -1,6 +1,6 @@
 // Works out a video track's chroma subsampling, rather than assuming it.
 //
-// The Inspect tab teaches what subsampling is, and used to name yuv420p while doing it — true of
+// The Inspect tab teaches what subsampling is, and used to name yuv420p while doing it: true of
 // nearly every delivery file and of everything this app encodes, but an assumption all the same,
 // and one the card had no business making beside a Color Space it reported as undeclared. So the
 // format is read where the file states it, and left unstated where it does not.
@@ -9,14 +9,14 @@
 //
 //  1. The codec configuration record the container carries (`avcC`, `hvcC`, `av1C`, `vpcC`), which
 //     the browser is handed as `VideoDecoderConfig.description`. Each states the format outright,
-//     in a handful of bytes at a fixed place — that is what is read here, rather than the sequence
+//     in a handful of bytes at a fixed place. That is what is read here, rather than the sequence
 //     parameter set inside it, which would mean an exp-Golomb decoder for one field.
 //  2. Failing that, the codec parameter string, which pins the format down for some codecs by
 //     itself: H.264 outside the High profiles cannot be anything but 4:2:0, AV1 states its profile,
 //     and VP9's long form carries the subsampling as a field.
 //
-// Anything else — no description, a truncated codec string, an `avcC` from a High-profile encoder
-// that left the optional trailing byte off — comes back null, which the copy then reads as "this
+// Anything else (no description, a truncated codec string, an `avcC` from a High-profile encoder
+// that left the optional trailing byte off) comes back null, which the copy then reads as "this
 // file does not say".
 
 /** The chroma formats a codec configuration can name. */
@@ -127,15 +127,15 @@ export function chromaFromCodecString(codec: string | null, codecString: string 
   if (codec === "vp8") return "4:2:0";
   if (!codecString) return null;
 
-  // avc1.PPCCLL — the two hex digits after the dot are profile_idc.
+  // avc1.PPCCLL: the two hex digits after the dot are profile_idc.
   const avc = /^avc[13]\.([0-9a-f]{2})/i.exec(codecString);
   if (avc) return AVC_PROFILES_WITH_CHROMA.has(parseInt(avc[1], 16)) ? null : "4:2:0";
 
-  // av01.P… — AV1's profile fixes the format: 0 is 4:2:0, 1 is 4:4:4, 2 is 4:2:2.
+  // av01.P…: AV1's profile fixes the format: 0 is 4:2:0, 1 is 4:4:4, 2 is 4:2:2.
   const av1 = /^av01\.(\d)/.exec(codecString);
   if (av1) return ({ 0: "4:2:0", 1: "4:4:4", 2: "4:2:2" } as Record<string, ChromaFormat>)[av1[1]] ?? null;
 
-  // vp09.PP.LL.DD.CC — the fifth field is the subsampling code, and is often left off.
+  // vp09.PP.LL.DD.CC: the fifth field is the subsampling code, and is often left off.
   const vp9 = /^vp09(?:\.\d+){3}\.(\d+)/.exec(codecString);
   if (vp9) return vp9ChromaFromCode(parseInt(vp9[1], 10));
   return null;

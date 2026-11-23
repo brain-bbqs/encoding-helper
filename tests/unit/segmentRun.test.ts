@@ -194,8 +194,8 @@ describe("sampleFields", () => {
     expect(row.querySelector<HTMLInputElement>("#etDuration")!.max).toBe("10");
   });
 
-  // Both tabs edit the same two numbers, so a copy on either says what the other was set to,
-  // except the one being typed in, which is left alone under the cursor.
+  // Every copy of the fields edits the same two numbers, so each says what the others were set
+  // to, except the one being typed in, which is left alone under the cursor.
   it("keeps every other copy of the fields at what was typed into one", () => {
     document.body.append(sampleFields("a"), sampleFields("b"));
     const aDuration = document.querySelector<HTMLInputElement>("#aDuration")!;

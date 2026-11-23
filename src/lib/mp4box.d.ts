@@ -1,4 +1,4 @@
-// mp4box (https://github.com/gpac/mp4box.js) ships no TypeScript types at all — its dist bundle is a
+// mp4box (https://github.com/gpac/mp4box.js) ships no TypeScript types at all: its dist bundle is a
 // plain UMD/CJS build that just assigns `exports.createFile = MP4Box.createFile`. This declares the
 // minimal surface this app actually uses (box tree + sample table), not the whole library.
 declare module "mp4box" {

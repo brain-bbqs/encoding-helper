@@ -1,4 +1,4 @@
-// Metadata tag knowledge base — turns the container's own tag names into readable labels. The tables
+// Metadata tag knowledge base: turns the container's own tag names into readable labels. The tables
 // it reads (the tag seeds and the encoder-signature hints) are prose, so they live with the rest of
 // the app's copy in lib/explainers; the lookup is what is left here.
 //
@@ -7,8 +7,8 @@
 // `©too`, `TIT2` or `ISFT` verbatim. Those are not typos: MP4/QuickTime tags are four-character
 // atom names where a leading © (byte 0xA9) marks a QuickTime text atom, MP3/ADTS use ID3v2 frame
 // ids, Ogg/FLAC/Matroska use Vorbis-style words, and WAVE uses RIFF INFO chunk ids. QuickTime has a
-// second naming scheme besides its atoms — the reverse-DNS keys Apple devices write through the
-// `mdta` handler — which is a table of its own in lib/explainers and an origin of its own here.
+// second naming scheme besides its atoms (the reverse-DNS keys Apple devices write through the
+// `mdta` handler), which is a table of its own in lib/explainers and an origin of its own here.
 
 import {
   ID3_ORIGIN,

@@ -1,9 +1,9 @@
-// Tab: Compare Quality — a sweep of the encoder settings, laid out as a grid, with the square you
+// The Compare Quality tab: a sweep of the encoder settings, laid out as a grid, with the square you
 // pick shown against the original in the A/B window below it.
 //
 // The settings ranking is a table's job, but whether the winner still looks acceptable is only ever
-// a question for the eye, and that is the window under the grid. Trying one setting on its own —
-// which this tab used to offer as a mode — is the Reencode with FFmpeg tab's job now, beside the
+// a question for the eye, and that is the window under the grid. Trying one setting on its own
+// (which this tab used to offer as a mode) is the Reencode with FFmpeg tab's job now, beside the
 // command that setting comes to.
 
 import { errorMessage } from "@brain-bbqs/utils";
@@ -61,7 +61,7 @@ interface MatrixUi extends RunUi {
 }
 
 // Whether the "Settings to sweep" <details> was left open, kept at module scope (rather than in
-// shared state) so it survives the full-panel rebuild the Educational toggle triggers — without it,
+// shared state) so it survives the full-panel rebuild the Educational toggle triggers: without it,
 // every renderCompareTab() call would start the details closed again, forcibly collapsing it out
 // from under whoever had it open.
 let matrixSettingsOpen = false;
@@ -69,7 +69,7 @@ let matrixSettingsOpen = false;
 /** What the ticked axes come to, as the settings bar says it: the factors, and the runs they multiply to. */
 function axisCountLabel(): string {
   const { qualities, presets, scales, scalers, fpsFractions } = encodeTest.matrix;
-  // The two outer axes are left out at one value each, where they multiply the sweep by one and
+  // The three outer axes are left out at one value each, where they multiply the sweep by one and
   // saying so would only make the bar longer.
   const counts = [qualities.length, presets.length];
   if (scales.length > 1) counts.push(scales.length);
@@ -103,7 +103,7 @@ export function renderCompareTab(panel: HTMLElement): void {
     ui.runButton.textContent = runActionLabel();
   };
 
-  // Which values the sweep spans is a decision most runs never revisit, so the two tick lists fold
+  // Which values the sweep spans is a decision most runs never revisit, so the five tick lists fold
   // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled
   // toggle: it opens on click, on Enter, and for a page search hitting text inside it.
   const axisSettings = h("details", "matrix-settings");
@@ -282,7 +282,7 @@ function unmeasuredCells(): MatrixCell[] {
  * it, so the run button offers a fresh sweep instead of resuming into a shape the checkboxes are not
  * asking for anymore.
  *
- * A finished grid — nothing left unmeasured — is left alone even once the axes move on: comparing it
+ * A finished grid (nothing left unmeasured) is left alone even once the axes move on: comparing it
  * while lining up the next sweep is the reason the table is drawn from the cells rather than from
  * the checkboxes in the first place (see matrixAxes), and "Run Matrix" already rebuilds it correctly
  * once pressed. It is only the half-run grid, offered back as something to resume, that has to match
@@ -313,7 +313,7 @@ function runActionLabel(): string {
  * the largest reduction into the A/B window.
  *
  * A failed combination is a result rather than the end of the sweep: the slowest presets can exhaust
- * the in-browser core (which then replaces itself — see resetFfmpeg), and the point of running the
+ * the in-browser core (which then replaces itself: see `guarded` in createFfmpegWorker), and the point of running the
  * grid is to find out what this file and this browser can actually do.
  */
 async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
@@ -341,8 +341,8 @@ async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
  * The stretches this sweep will cover.
  *
  * Where the fields still describe the stretches already in hand, those are what a run covers, as
- * they always have been. Where they do not — nothing sampled yet this session, or a duration or a
- * count that has moved — an earlier run of this same file at these same fields gets its stretches
+ * they always have been. Where they do not (nothing sampled yet this session, or a duration or a
+ * count that has moved), an earlier run of this same file at these same fields gets its stretches
  * taken up again instead of a fresh random draw, because its measurements were made over them and
  * two squares measured over different seconds are not comparable. Without this, a reloaded page
  * would sample somewhere else and every cached measurement of the file would be unreachable.
@@ -351,7 +351,7 @@ async function sweepWindows(): Promise<SampleWindow[]> {
   const checksum = await fileChecksum();
   const fresh = runWindows();
   // windowsForRun hands the stretches already in hand straight back when they still fit what the
-  // fields ask for, so anything else is a fresh random draw — which is exactly when an earlier
+  // fields ask for, so anything else is a fresh random draw, which is exactly when an earlier
   // run's stretches are worth taking up instead.
   const remembered =
     fresh !== encodeTest.sampled && checksum
@@ -388,7 +388,7 @@ function cellCacheKey(checksum: string, cell: MatrixCell): string | null {
 /**
  * Fills in every square this file has already been measured at, and hands back the rest.
  *
- * A square read back holds no output — only the numbers were kept — so it behaves exactly like one
+ * A square read back holds no output (only the numbers were kept), so it behaves exactly like one
  * whose output was evicted mid-run: it is in the table, and clicking it encodes that combination to
  * fill the A/B window.
  */
@@ -412,9 +412,7 @@ async function applyCachedMeasurements(queue: MatrixCell[], checksum: string, ui
   return remaining;
 }
 
-/** Remembers what a square just measured, so a later sweep of this file need not measure it again.
- * Written whatever the tick box says, so switching the reuse back on finds what the runs it was off
- * for measured. */
+/** Remembers what a square just measured, so a later sweep of this file need not measure it again. */
 function rememberMeasurement(checksum: string | null, cell: MatrixCell): void {
   if (!checksum || cell.bytes == null) return;
   const key = cellCacheKey(checksum, cell);
@@ -430,8 +428,8 @@ function rememberMeasurement(checksum: string | null, cell: MatrixCell): void {
 /**
  * The queue the run in progress is working through, or null between runs.
  *
- * Held so a square can be retried *during* a sweep. The loop below reads `queue.length` on every
- * pass: appending to the live queue puts the square at the back of the run that is already going,
+ * Held so a square can be retried *during* a sweep. drainWithPool (lib/ffmpegPool) reads
+ * `queue.length` on every pass: appending to the live queue puts the square at the back of the run that is already going,
  * which is what clicking a failed square while the sweep is still working now does.
  */
 let activeQueue: MatrixCell[] | null = null;
@@ -513,7 +511,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
     // rewrote itself every few seconds and shifted the grid below it down the page as it wrapped,
     // and counting them instead still left a line restating what the bar and the squares already
     // say: the squares themselves mark which ones are encoding, in the place the eye is already
-    // on. The note is kept for what the bar cannot say — loading, stopping, and what a finished
+    // on. The note is kept for what the bar cannot say: loading, stopping, and what a finished
     // sweep failed or skipped.
     const inFlight = new Map<string, number>();
     const showProgress = (): void => {
@@ -623,8 +621,8 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
 /**
  * Whether a square is on its way into the A/B window right now.
  *
- * Getting one there usually means encoding it again — most squares have had their outputs released
- * to stay inside the memory budget — and there is one encoder, so the grid takes no second click
+ * Getting one there usually means encoding it again (most squares have had their outputs released
+ * to stay inside the memory budget), and there is one encoder, so the grid takes no second click
  * while that is in flight, exactly as it takes none during a sweep.
  */
 let selecting = false;
@@ -647,10 +645,9 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
   try {
     let blobs = cell.blobs;
     if (!blobs) {
-      // Its outputs were dropped to stay inside the memory budget, so the square is encoded again —
+      // Its outputs were dropped to stay inside the memory budget, so the square is encoded again,
       // over the same stretches the sweep measured, which are usually still cut and waiting. All of
-      // them, not just one: the window plays every stretch the square was measured over. The bar
-      // below says a run is going; the note does not say it again.
+      // them, not just one: the window plays every stretch the square was measured over.
       const workers = acquireWorkers(matrixWindows().length);
       const inputs = await prepareRun(matrixWindows(), workers, ui);
       try {
@@ -661,8 +658,8 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
       cell.blobs = blobs;
       cell.bytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
     }
-    // The A/B window compares against the seconds the grid was measured over, which the start and
-    // duration fields may have been moved off since.
+    // The Duration field goes back to the length the grid was measured with, which it may have been
+    // moved off since. The A/B window draws the original from the windows passed below.
     syncSegmentToMatrix();
     await loadEncodedIntoAB(blobs, cell.combo, vt, ui.resultSec, {
       bytes: cell.bytes ?? blobs.reduce((sum, blob) => sum + blob.size, 0),
@@ -704,8 +701,9 @@ function matrixWindows(): SampleWindow[] {
   return [{ startSeconds: matrix.segmentStart, seconds: matrix.segmentLength }];
 }
 
-/** Puts the segment fields back to the stretch the sweep covered, so the A/B window's original side
- * shows the same seconds as the encode beside it. */
+/** Puts the start and duration back to what the sweep covered, so the Duration field shows the
+ * length the grid was measured with. The A/B window's original side follows the windows it is
+ * handed, not these. */
 function syncSegmentToMatrix(): void {
   const matrix = encodeTest.matrix;
   if (!(matrix.segmentLength > 0)) return;
@@ -750,8 +748,8 @@ function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
   const busy = sweeping || selecting;
   // Which combination wins is a statement about the whole sweep, so it waits for the whole sweep: a
   // ★ that hops from square to square as the grid fills in names the best of what has finished so
-  // far, which is not the question the grid is being run to answer. A square that failed has run —
-  // it produced no size, and it is not going to — so it does not hold the ranking up; one Stop left
+  // far, which is not the question the grid is being run to answer. A square that failed has run
+  // (it produced no size, and it is not going to), so it does not hold the ranking up; one Stop left
   // unmeasured does, until the button below has run it.
   const unrun = matrix.cells.some((c) => c.status !== "done" && c.status !== "failed");
   const best = unrun ? null : bestReductionCell(matrix.cells);
@@ -795,10 +793,10 @@ function repaintMatrix(vt: TrackInfo, ui: MatrixUi): void {
  * The ffmpeg command for the square currently in the A/B window, at the bottom of the page.
  *
  * A sweep is run to pick a setting, and the setting is only useful once it is applied to the whole
- * file — which is a job for ffmpeg on the machine holding the data, not for a browser tab. So the
+ * file, which is a job for ffmpeg on the machine holding the data, not for a browser tab. So the
  * winner (or whichever square was clicked instead of it) is written out as the command that
- * reproduces it, with everything the sweep does not touch — keyframe interval, B-frames, audio,
- * faststart — taken from the Reencode with FFmpeg tab as it stands.
+ * reproduces it, with everything the sweep does not touch (keyframe interval, B-frames, audio,
+ * faststart) taken from the Reencode with FFmpeg tab as it stands.
  */
 function renderSelectedCommand(sec: HTMLDivElement): void {
   sec.innerHTML = "";

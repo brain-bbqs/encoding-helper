@@ -106,8 +106,8 @@ export function parseScaler(value: string): Scaler {
   return SCALER_OPTIONS.includes(value as Scaler) ? (value as Scaler) : DEFAULT_SCALER;
 }
 
-// The quality, CRF, preset and resolution controls all bear on each other — a named quality hides
-// the CRF field, a full-resolution output hides the kernel — so every one of them refreshes the lot
+// The quality, CRF, preset and resolution controls all bear on each other (a named quality hides
+// the CRF field, a full-resolution output disables the kernel field), so every one of them refreshes the lot
 // rather than only the field it owns, and the command preview with them.
 export function syncQualityControls(): void {
   const qSel = document.getElementById("cliQuality") as HTMLSelectElement | null;

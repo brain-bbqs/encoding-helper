@@ -1,4 +1,4 @@
-// Codec knowledge base — infers codec family from mediabunny's short codec id (the same identifiers
+// Codec knowledge base: infers codec family from mediabunny's short codec id (the same identifiers
 // it accepts in Conversion's `codec:` option) and parses profile/level/tier out of the RFC 6381 codec
 // parameter string (e.g. "avc1.640028") when the format is known. What each codec *is* reads out of
 // CODEC_DESCRIPTIONS in lib/explainers, with the rest of the app's copy.
@@ -39,7 +39,7 @@ const AAC_OTI: Record<number, string> = {
   42: "xHE-AAC",
 };
 
-// AV1's level field is an index into a fixed table, not level×10 like VP9 — levels 2.0-2.3, 3.0-3.3,
+// AV1's level field is an index into a fixed table, not level×10 like VP9: levels 2.0-2.3, 3.0-3.3,
 // ... 7.0-7.3 map to consecutive indices 0-23.
 const AV1_LEVELS = Array.from({ length: 24 }, (_, i) => `${2 + Math.floor(i / 4)}.${i % 4}`);
 

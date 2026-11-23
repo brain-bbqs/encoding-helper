@@ -7,7 +7,8 @@
 // What it costs is memory. Each core compiles its own ~30 MB module and keeps its own heap and
 // filesystem, so the pool is small and deliberately leaves a CPU for the page itself. It is only
 // affordable at all because the stretches being encoded are cut out of the video beforehand (see
-// Compare Quality's snippet cutting): handing every core its own copy of a whole video would not be.
+// the snippet cutting in ui/segmentRun, which both encoding tabs run): handing every core its own
+// copy of a whole video would not be.
 //
 // Cores are kept between runs rather than built per run. Loading one is not free, and each carries
 // the cut stretches it has already been given, which is exactly what the next run over the same
@@ -50,7 +51,7 @@ export function ffmpegPool(count: number): FfmpegWorker[] {
  * Runs `work` over `queue` on every core at once, each taking the next item as it frees up.
  *
  * The queue is read live rather than sliced up front, so an item appended while the run is going
- * (a square retried mid-sweep) is picked up by whichever core reaches it — and the outer loop
+ * (a square retried mid-sweep) is picked up by whichever core reaches it, and the outer loop
  * catches the case where every core had already stopped when it arrived.
  *
  * An item that throws is that item's problem: `work` is expected to record the failure against it,

@@ -3,8 +3,8 @@
 // currently says, and the sweep under Compare Quality, which encodes the same stretches once per
 // combination.
 //
-// Both are the same job — cut a handful of seconds out of the file, encode them, measure what they
-// came to — so both are run from here rather than from one tab that the other borrows from. What is
+// Both are the same job (cut a handful of seconds out of the file, encode them, measure what they
+// came to), so both are run from here rather than from one tab that the other borrows from. What is
 // left in each tab is the controls it offers and what it does with the result.
 
 import { errorMessage } from "@brain-bbqs/utils";
@@ -54,11 +54,11 @@ function maxSampleDuration(): number {
 }
 
 /**
- * The two fields every run asks for: how long a stretch is, and how many of them.
+ * The two fields the Compare Quality sweep asks for: how long a stretch is, and how many of them.
  *
- * Built here rather than in each tab because both tabs edit the same numbers: a duration set on one
- * of them is the duration the other runs at, and the fields say so (see `syncSampleFields`) instead
- * of quietly disagreeing until the next run.
+ * Only that tab builds them; the Reencode tab's stretch has a fixed length (SAMPLE_SECONDS). When
+ * the state moves under them, `syncSampleFields` puts them back in step instead of leaving them to
+ * disagree until the next run.
  */
 export function sampleFields(idPrefix: string): HTMLDivElement {
   const maxDuration = maxSampleDuration();
@@ -163,7 +163,7 @@ function canCutSnippets(): boolean {
  * Named for the loaded file and the seconds it holds, so a later run over the same stretch finds it
  * already there, and a different video can never be handed one of the last one's cuts. Read off the
  * loaded source rather than off any bytes in hand, so the name is the same whether or not the file
- * has been fetched yet — which is what lets a run decide it needs no fetch at all.
+ * has been fetched yet, which is what lets a run decide it needs no fetch at all.
  */
 function snippetName(window: SampleWindow): string {
   const source = state.source;
@@ -185,7 +185,7 @@ function hashName(text: string): string {
  * This is the difference between a sweep that decodes the file from the beginning for every square
  * and one that does not. The cut itself is `-c copy`, so no decoding happens at all, and `-ss`
  * ahead of `-i` seeks rather than reading forward. Cuts already in the filesystem are left alone,
- * which is what lets a second run at another CRF start encoding immediately — and why a remote
+ * which is what lets a second run at another CRF start encoding immediately, and why a remote
  * source is not fetched again for it.
  */
 async function ensureSnippets(
@@ -198,8 +198,8 @@ async function ensureSnippets(
   const names = windows.map(snippetName);
   if (source) await cutSnippets(windows, names, source, cutter, ui);
   // Read out of the core and kept for the run. Every core encodes from its own filesystem, so each
-  // needs the cuts anyway; holding them here as well is what lets a core that crashed — and so
-  // came back with an empty filesystem — be handed them again instead of failing every square it
+  // needs the cuts anyway; holding them here as well is what lets a core that crashed (and so
+  // came back with an empty filesystem) be handed them again instead of failing every square it
   // is given afterwards. They are a few hundred KB apiece, which is the whole reason a pool is
   // affordable: a copy of the video per core would not be.
   const data: Uint8Array[] = [];
@@ -250,7 +250,7 @@ async function cutSnippets(
   await cutter.deleteFile(inputName);
 }
 
-/** The cut stretches this run needs, or null when every one of them is already in the filesystem —
+/** The cut stretches this run needs, or null when every one of them is already in the filesystem,
  * which is the case that spares a remote file from being downloaded again. */
 async function sourceForWindows(windows: SampleWindow[], cutter: FfmpegWorker): Promise<SourceBytes | null> {
   if (!state.source) throw new Error("No video loaded");
@@ -286,7 +286,7 @@ async function encodeSegment(
   const length = input.trim?.seconds ?? encodeTest.duration;
   if (input.trim) {
     // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
-    // preceding keyframe — the two sides need to show the same content, not just start "close
+    // preceding keyframe: the two sides need to show the same content, not just start "close
     // enough". Only reached when the stretch could not be cut out beforehand.
     const iIdx = args.indexOf("-i");
     args.splice(iIdx + 2, 0, "-ss", String(input.trim.startSeconds), "-t", String(input.trim.seconds));
@@ -317,8 +317,8 @@ export async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[
     const { names, data } = await ensureSnippets(windows, workers, ui);
     return { windows, names, data, preCut: true };
   }
-  // Nothing to cut, so every core needs the whole video. That is the case a pool cannot help with
-  // and should not be paid for, so it runs on one core alone.
+  // Nothing to cut, so every core needs the whole video. The first is given it here; any other core
+  // the caller passed is written its own copy when it takes a stretch (see encodeSegment).
   const source = await readSource();
   const inputName = inputNameFor(source);
   await workers[0].ensureInput(inputName, source.data);
@@ -347,7 +347,8 @@ export interface RunInputs {
   data: Uint8Array[];
   /** Whether those names are cut stretches (so no trim is needed) or the source itself. */
   preCut: boolean;
-  /** The core holding the whole video, when there was no cutting and only one core can be used. */
+  /** The core the whole video was written to up front when there was no cutting, and so the one it
+   * is deleted from once the run is over. */
   wholeFileOn?: FfmpegWorker;
 }
 
@@ -446,7 +447,8 @@ export async function dropWholeFileInput(inputs: RunInputs | null): Promise<void
 
 /**
  * Whether Stop has been pressed, read through a call: the button flips the flag while the run is
- * awaiting an encode, which a straight field read (assigned false on the line above) cannot see.
+ * awaiting an encode, and a call keeps type narrowing from treating the flag as whatever it was last
+ * assigned.
  */
 export function stopRequested(): boolean {
   return encodeTest.cancelRequested;
@@ -474,7 +476,7 @@ class RunStopped extends Error {
  *
  * The encode runs inside wasm, which offers no way to interrupt a call already in it, so waiting
  * for the encode in progress means waiting for exactly the slow combination Stop tends to be
- * pressed about — with the tab's buttons disabled and the bar still filling the whole time.
+ * pressed about, with the tab's buttons disabled and the bar still filling the whole time.
  * Terminating the core is the interrupt: its pending call rejects, the run unwinds through the
  * error handling it already has, and the next run builds a fresh core. What that costs is the cut
  * stretches the terminated core was holding, which the next run cuts again.

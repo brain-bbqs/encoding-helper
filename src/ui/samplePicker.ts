@@ -3,7 +3,7 @@
 // A track across the whole recording with the run's window drawn on it, modelled on
 // brain-bbqs/clip-extractor's trim timeline: the same 12px track, the same accent-filled band with
 // its two edges, the same ruler gradated into about six labelled divisions (see lib/sampleTimeline).
-// What is different is that the band cannot be resized — the run's length is fixed — so there is one
+// What is different is that the band cannot be resized (the run's length is fixed), so there is one
 // thing to do here, which is to say *where*.
 //
 // The frame under the band's start is decoded and shown above it, because scanning a recording means
@@ -30,7 +30,7 @@ interface SamplePicker {
  * The picker, or null when the file gives nothing to pick across.
  *
  * The start is kept in shared state rather than in the closure, so re-rendering the tab (a new file,
- * say) does not lose where the last one was pointed — and a run started from anywhere reads the same
+ * say) does not lose where the last one was pointed, and a run started from anywhere reads the same
  * seconds the track is showing.
  */
 export function samplePicker(): SamplePicker | null {
@@ -63,7 +63,7 @@ export function samplePicker(): SamplePicker | null {
     tick.style.left = left.toFixed(3) + "%";
     ruler.append(tick);
     if (!mark.major) continue;
-    // The end labels would hang off the track, so they align inwards instead of centring — the way
+    // The end labels would hang off the track, so they align inwards instead of centring, the way
     // clip-extractor's ruler handles its own ends.
     const atStart = left < 2 ? " at-start" : "";
     const atEnd = left > 98 ? " at-end" : "";
@@ -75,8 +75,8 @@ export function samplePicker(): SamplePicker | null {
   wrap.append(trackPad);
 
   const start = (): number => clampWindowStart(encodeTest.sampleStart, total, windowSeconds);
-  /** Where the encode actually begins: the cut is made at a keyframe, so the track says so rather
-   * than showing a start the run would quietly move. */
+  /** Where the encode actually begins: the cut is made at a keyframe. The preview frame and the run
+   * use this; the band and its readout still show the unsnapped start. */
   const snapped = (): number => {
     const from = start();
     return nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, from) ?? from;

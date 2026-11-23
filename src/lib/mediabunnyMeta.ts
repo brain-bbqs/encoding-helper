@@ -1,4 +1,4 @@
-// mediabunny metadata extraction: flattens an mediabunny Input's format/tracks/tags into the
+// mediabunny metadata extraction: flattens a mediabunny Input's format/tracks/tags into the
 // TrackInfo[] shape the Inspect tab and the Full Analysis document render.
 
 import type { Input, InputTrack } from "mediabunny";

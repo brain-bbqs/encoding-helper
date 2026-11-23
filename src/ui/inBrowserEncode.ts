@@ -27,7 +27,7 @@ export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
 }
 
 /**
- * What the button offers to do, named for what actually happens to this file — the same rule that
+ * What the button offers to do, named for what actually happens to this file, by the same rule that
  * names the output file, in cliCommand's encodedFileName: an MP4 that comes back an MP4 was
  * reencoded, and any other source changed container on the way, which is a transcode.
  */

@@ -77,7 +77,7 @@ rm -rf "$MIRROR"
 git clone --mirror "$REMOTE" "$MIRROR"
 
 # Mirroring an ordinary working clone rather than the canonical repository brings its
-# refs/remotes/* along, and those keep pointing at the pre-rewrite commits — which would leave the
+# refs/remotes/* along, and those keep pointing at the pre-rewrite commits, which would leave the
 # blob reachable after the filter and push stale branches back. A mirror of the real remote has
 # none of them, so dropping them costs nothing and makes both cases behave the same.
 git -C "$MIRROR" for-each-ref --format='%(refname)' refs/remotes |

@@ -2,7 +2,7 @@
 //
 // Compare Quality encodes a few seconds rather than the whole file, because minutes of waiting is a
 // bad way to answer "does CRF 28 still look fine?" when a snippet answers it. Size is the other half
-// of that question — quality is only ever traded against bytes — and the snippet's own byte count
+// of that question (quality is only ever traded against bytes), and the snippet's own byte count
 // cannot answer it alone: it says nothing about what the same stretch costs in the source, and
 // nothing about what either comes to across the full running time.
 //
@@ -114,8 +114,8 @@ function windowBytes(samples: SampleInfo[], startSec: number, lengthSec: number)
  * How much the file's own equal-length windows differ from one another, as a coefficient of
  * variation (standard deviation ÷ mean) of their video bytes.
  *
- * This stands in for the projection's error. It is not the same quantity — the projection already
- * divides out how busy the sampled window was — but a file whose windows all cost about the same is
+ * This stands in for the projection's error. It is not the same quantity (the projection already
+ * divides out how busy the sampled window was), but a file whose windows all cost about the same is
  * one where any window predicts any other, and a file whose windows swing wildly is one where the
  * encoder's behavior swings with them. Null when the file holds too few windows to say.
  */
@@ -160,8 +160,8 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
     { bytes: 0, count: 0 },
   );
 
-  // Everything that is not video sample data — the audio track, the container's headers and sample
-  // index — has no per-frame table to sum, so it is spread evenly over the running time. The
+  // Everything that is not video sample data (the audio track, the container's headers and sample
+  // index) has no per-frame table to sum, so it is spread evenly over the running time. The
   // encoded snippet carries its own share of both (ffmpeg copies or drops the audio and writes a
   // fresh container either way), so leaving them out of the original side would compare a snippet
   // with audio against a stretch without it.
@@ -248,8 +248,8 @@ export function windowsForRun(
  * and a size measured over a flattering moment is the one number this tab must not produce.
  *
  * The draw is random but *stratified*: the file is cut into as many equal bands as there are
- * stretches and one start is drawn inside each. Purely random starts clump — three uniform draws
- * land in the same half of a file often enough to matter — and clumped samples are the failure the
+ * stretches and one start is drawn inside each. Purely random starts clump (three uniform draws
+ * land in the same half of a file often enough to matter), and clumped samples are the failure the
  * extra encodes were meant to buy their way out of. One stretch is the same rule with a single
  * band, so it lands anywhere in the file.
  */
@@ -295,7 +295,7 @@ export function estimateForWindows(
   });
 }
 
-/** The estimate for the comparison currently loaded in the Compare Quality tab, or null before one runs. */
+/** The estimate for the comparison currently loaded in the A/B window, or null before one runs. */
 export function currentSizeEstimate(): SizeEstimate | null {
   if (encodeTest.encodedSize == null) return null;
   // Every stretch the run covered, not just the one the A/B window is showing: the bytes on the
@@ -303,9 +303,9 @@ export function currentSizeEstimate(): SizeEstimate | null {
   // of them too. Left as the shown stretch alone, a five-segment run measured five stretches of
   // output against one stretch of source and projected a file about five times too big.
   //
-  // The seconds are the measured output durations rather than the requested ones — a trim lands a
+  // The seconds are the measured output durations rather than the requested ones (a trim lands a
   // frame either side of the length asked for, and the ratio is only fair if both halves cover the
-  // same seconds — which is what the run stored on each window.
+  // same seconds), which is what the run stored on each window.
   const windows: SampleWindow[] = encodeTest.windows.length
     ? encodeTest.windows
     : [

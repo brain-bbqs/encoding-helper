@@ -121,7 +121,7 @@ export function readDemosFromUrl(): boolean {
 /**
  * Records whether the demos page is up, written bare (`?demos`) and first in the query string,
  * since that is the address someone would type. `push` adds a history entry, so back leaves the
- * demos page the way it arrived — use it for a click on the toggle, not for restoring from a link.
+ * demos page the way it arrived. Use it for a click on the toggle, not for restoring from a link.
  */
 export function writeDemosToUrl(on: boolean, push: boolean): void {
   const url = new URL(window.location.href);

@@ -1,10 +1,10 @@
-// The matrix-mode results grid under Compare Quality: one square per swept combination, filled in as
+// The results grid under Compare Quality's sweep: one square per swept combination, filled in as
 // the sweep reaches it.
 //
 // A grid rather than a ranked list, because the axes are not interchangeable: reading down a column
 // shows what CRF costs at a fixed effort, reading across a row shows what the preset buys at a fixed
 // quality, and a list sorted by size hides both. The winner is marked in place instead of being
-// lifted out for the same reason — what makes it useful is the squares around it.
+// lifted out for the same reason: what makes it useful is the squares around it.
 //
 // Resolution and the kernel it resamples with stack as blocks of rows rather than widening the
 // table, so every block is the same width and reads exactly like the grid did before they existed.
@@ -41,7 +41,7 @@ export function fmtElapsed(ms: number): string {
   return Math.floor(ms / 60_000) + "m " + Math.round((ms % 60_000) / 1000) + "s";
 }
 
-/** What a square says: the headline, the lines under it, and the tooltip spelling them all out. */
+/** What a square says: the headline, the lines under it, its tooltip and its accessible name. */
 interface CellFace {
   main: string;
   /** The same change as a factor, naming the larger of the two files, on its own line: the
@@ -137,9 +137,9 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
  * The grid itself: quality down the side, preset across the top, and one block of rows per output
  * the sweep produced.
  *
- * Both outer axes stack rather than widen. Resolution and kernel are properties of the *output*,
- * not of the encoder settings the columns describe, so they belong to a block of rows rather than
- * to a second tier of columns: a kernel spread across the header would double the table's width for
+ * The outer axes stack rather than widen. Resolution, kernel and frame rate are properties of the
+ * *output*, not of the encoder settings the columns describe, so they belong to a block of rows
+ * rather than to a second tier of columns: a kernel spread across the header would double the table's width for
  * a value that says nothing about any individual column, and push the far columns off the screen on
  * exactly the runs that need reading most. Stacked, every block is the same width and reads down a
  * column as CRF at a fixed effort, whatever the sweep covered.
@@ -253,7 +253,7 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   return btn;
 }
 
-/** The line above the grid: what the sweep found, or how far along it is. */
+/** The line above the grid: the winner's figure, or the caller's note while there is none. */
 export function renderMatrixSummary(
   best: MatrixCell | null,
   estimate?: (cell: MatrixCell) => SizeEstimate | null,

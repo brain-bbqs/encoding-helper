@@ -1,5 +1,5 @@
-// The estimated-data-savings readout under Compare Quality: a headline strip that goes above the
-// panes, and the detail block that follows the comparison.
+// The estimated-data-savings readout in the A/B window, which either encoding tab fills: a headline
+// strip that goes above the panes, and the detail block that follows the comparison.
 //
 // Two bars on one shared scale rather than two numbers to subtract, because the question the tab is
 // really being asked ("is this setting worth it?") is a comparison, and a comparison is what a
@@ -69,9 +69,8 @@ export function renderSavingsStrip(est: SizeEstimate): HTMLDivElement {
 }
 
 /**
- * The numbers behind the headline. How the estimate is arrived at, and where it can be wrong, is
- * left to the ⓘ on the figures it bears on rather than spelled out in prose under them; the Full
- * Analysis document, which nobody can hover, still writes it out.
+ * The numbers behind the headline, as figures alone: how the estimate is arrived at, and where it
+ * can be wrong, is not spelled out in prose under them.
  */
 export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
   const g = h("div", "grid");
