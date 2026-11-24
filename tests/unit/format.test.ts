@@ -13,6 +13,7 @@ import {
 describe("fmtDur", () => {
   it("returns the placeholder for null/undefined", () => {
     expect(fmtDur(null)).toBe("–");
+    expect(fmtDur(undefined)).toBe("–");
   });
 
   it("formats sub-minute durations in seconds", () => {
@@ -31,6 +32,7 @@ describe("fmtDur", () => {
 describe("fmtBits", () => {
   it("returns the placeholder for null/undefined/non-finite", () => {
     expect(fmtBits(null)).toBe("–");
+    expect(fmtBits(undefined)).toBe("–");
     expect(fmtBits(Infinity)).toBe("–");
   });
 
@@ -50,6 +52,7 @@ describe("fmtBits", () => {
 describe("fmtRate", () => {
   it("returns the placeholder for null/undefined", () => {
     expect(fmtRate(null)).toBe("–");
+    expect(fmtRate(undefined)).toBe("–");
   });
 
   it("rounds near-integer rates to a whole number", () => {
@@ -64,6 +67,7 @@ describe("fmtRate", () => {
 describe("fmtMs", () => {
   it("returns the placeholder for null/undefined", () => {
     expect(fmtMs(null)).toBe("–");
+    expect(fmtMs(undefined)).toBe("–");
   });
 
   it("formats milliseconds with one decimal", () => {

@@ -2,7 +2,7 @@
 // HTML the panel is built from and the Markdown the two Markdown controls produce, rather than
 // against the rendered frame (jsdom runs no layout and loads no srcdoc).
 
-import { stubClipboard } from "@brain-bbqs/test-utils/vitest";
+import { installObserverStub, stubClipboard } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
@@ -58,6 +58,15 @@ function loadClip(over: { tracks?: TrackInfo[] } = {}): void {
   state.faststart = true;
 }
 
+/** An A/B comparison loaded over the clip's first `seconds`, whose encode came to `encodedSize`
+ * bytes (null while that is unknown). */
+function loadComparison(seconds: number, encodedSize: number | null): void {
+  encodeTest.originalSink = {} as never;
+  encodeTest.abSegments = [{ window: { startSeconds: 0, seconds } }] as never;
+  encodeTest.windows = [{ startSeconds: 0, seconds }];
+  encodeTest.encodedSize = encodedSize;
+}
+
 function panel(): HTMLElement {
   const el = document.createElement("div");
   document.body.append(el);
@@ -100,11 +109,16 @@ beforeEach(() => {
 });
 
 let restoreClipboard: (() => void) | undefined;
+/** Puts back the ResizeObserver a test stubbed: the stub is a plain property, which
+ * vi.unstubAllGlobals() does not know to undo. */
+let restoreObserver: (() => void) | undefined;
 
 afterEach(() => {
   vi.unstubAllGlobals();
   restoreClipboard?.();
   restoreClipboard = undefined;
+  restoreObserver?.();
+  restoreObserver = undefined;
 });
 
 describe("renderAnalysisTab", () => {
@@ -175,14 +189,30 @@ describe("renderAnalysisTab", () => {
   it("states the results and not the teaching prose that goes with them on the tabs", () => {
     const el = panel();
     loadClip();
+    // Two GOPs either side of 30 frames, so the shortest and longest differ while the mean stays 30.
+    state.gopLengths = [20, 40, ...Array.from({ length: 18 }, () => 30)];
     renderAnalysisTab(el);
     const md = markdown(el);
 
+    // 2,000,000 bytes, which over 30 s is 533,333 bits a second.
+    expect(md).toContain("| File Size | 1.9 MB |");
+    expect(md).toContain("| Overall Bitrate | 533 kbps |");
+    expect(md).toContain("| Duration | 30.000 s |");
+    expect(md).toContain("| MIME Type | video/mp4 |");
+    expect(md).toContain("| Codec | avc1.640020 |");
+    expect(md).toContain("| Resolution | 640×480 |");
+    expect(md).toContain("| Frame Rate | 30 fps |");
+    expect(md).toContain("| Frames | 600 |");
+    // The audio track's own figures.
+    expect(md).toContain("| Sample Rate | 48,000 Hz |");
+    expect(md).toContain("| Channels | 2 |");
+    expect(md).toContain("| Bitrate | 128 kbps |");
     expect(md).toContain("| Total Frames | 600 |");
     expect(md).toContain("| Keyframes | 20 |");
     expect(md).toContain("| Avg GOP | 30.0 frames (1.50 s) |");
+    expect(md).toContain("| Min / Max GOP | 20 / 40 frames |");
     // The GOP explainer is prose, and prose is unconditionally dropped from the document.
-    expect(md).not.toContain("group of pictures");
+    expect(md).not.toContain("Group of Pictures");
   });
 
   it("marks a fast-start file as one", () => {
@@ -241,26 +271,31 @@ describe("renderAnalysisTab", () => {
   it("adds the A/B comparison and its projection once one has been run", () => {
     const el = panel();
     loadClip();
-    encodeTest.originalSink = {} as never;
-    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 5 } }] as never;
-    encodeTest.windows = [{ startSeconds: 0, seconds: 5 }];
-    encodeTest.segDuration = 5;
-    encodeTest.encodedSize = 100_000;
+    cli.quality = "custom";
+    cli.crf = 28;
+    loadComparison(5, 100_000);
     renderAnalysisTab(el);
     const md = markdown(el);
 
     expect(md).toContain("## Side-by-Side (A/B) Result");
+    expect(md).toContain("| Segment | 0.0s–5.0s |");
+    expect(md).toContain("| Quality | Custom (CRF 28) |");
     expect(md).toContain("| Encoded Segment Size | 97.7 KB |");
-    expect(md).toContain("| Projected Full File |");
+    // The first 5 s hold 100,000 bytes of video and a sixth of the 1,400,000 bytes that are not video,
+    // 333,333 in all; the encode is 0.3 of that, which projects 600,000 bytes for the 2,000,000-byte file.
+    expect(md).toContain("| Original Segment Size | 325.5 KB |");
+    expect(md).toContain("| Segment Change | -70% (original 3.3× larger) |");
+    expect(md).toContain("| Original File Size | 1.9 MB |");
+    expect(md).toContain("| Projected Full File | 585.9 KB |");
+    // Every 5 s window of the clip costs the same, so the band is the narrowest allowed: 3% either side.
+    expect(md).toContain("| Projected Range | 568.4 KB – 603.5 KB |");
+    expect(md).toContain("| Projected Saving | 70% smaller (≈ 1.3 MB saved) |");
   });
 
   it("names the winning square's settings, not the builder's, after a sweep", () => {
     const el = panel();
     loadClip();
-    encodeTest.originalSink = {} as never;
-    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 5 } }] as never;
-    encodeTest.windows = [{ startSeconds: 0, seconds: 5 }];
-    encodeTest.encodedSize = 100_000;
+    loadComparison(5, 100_000);
     encodeTest.activeCombo = { ...cliSettings(cli), preset: "slow", crf: 30, quality: "low" };
     renderAnalysisTab(el);
     expect(markdown(el)).toContain("| Preset | slow |");
@@ -300,6 +335,7 @@ describe("renderAnalysisTab", () => {
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("## In-Browser Reencode Result");
+    expect(md).toContain("| Original Size | 1.9 MB |");
     expect(md).toContain("| Encoded Size | 976.6 KB |");
     expect(md).toContain("| Change | -50.0% |");
   });
@@ -396,6 +432,23 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("Advanced Video Coding");
   });
 
+  // A track shown at the size it is coded at needs no second size; one stretched to another (non-square
+  // pixels) gets a row saying what it is shown at.
+  it("states the display size only when it differs from the coded one", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    expect(markdown(el)).not.toContain("Display Size");
+
+    loadClip({ tracks: [{ ...VIDEO_TRACK, displayWidth: 853, displayHeight: 480 }] });
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| Display Size | 853×480 |");
+
+    loadClip({ tracks: [{ ...VIDEO_TRACK, displayWidth: 640, displayHeight: 360 }] });
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| Display Size | 640×360 |");
+  });
+
   it("leaves the frame rate out of the headline when the file does not state one", () => {
     const el = panel();
     loadClip({ tracks: [{ ...VIDEO_TRACK, packetRate: null }] });
@@ -429,7 +482,12 @@ describe("renderAnalysisTab", () => {
     state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
     renderAnalysisTab(el);
     const md = markdown(el);
-    expect(md).toContain("| Peak Window |");
+    // 980,000 bytes over 30 s on average; a second holding a 20,000-byte keyframe carries 39,000
+    // bytes, and one without a keyframe 20,000.
+    expect(md).toContain("| Average | 261 kbps |");
+    expect(md).toContain("| Peak Window | 312 kbps |");
+    expect(md).toContain("| Quietest Window | 160 kbps |");
+    expect(md).toContain("| Peak ÷ Average | 1.19× |");
     expect(md).not.toContain("| Declared Bitrate |");
   });
 
@@ -499,10 +557,7 @@ describe("renderAnalysisTab", () => {
   it("states the resolution change when the compared encode was downscaled", () => {
     const el = panel();
     loadClip();
-    encodeTest.originalSink = {} as never;
-    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 5 } }] as never;
-    encodeTest.windows = [{ startSeconds: 0, seconds: 5 }];
-    encodeTest.encodedSize = 100_000;
+    loadComparison(5, 100_000);
     encodeTest.activeCombo = { ...cliSettings(cli), scale: 0.5, scaler: "bicubic" };
     renderAnalysisTab(el);
     expect(markdown(el)).toContain("| Resolution | 640×480 → 320×240 (50%, bicubic) |");
@@ -548,15 +603,8 @@ describe("renderAnalysisTab", () => {
   });
 
   it("keeps the preview frame as tall as the document loaded into it", () => {
-    const observe = vi.fn();
-    const disconnect = vi.fn();
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe = observe;
-        disconnect = disconnect;
-      },
-    );
+    const observers = installObserverStub("ResizeObserver");
+    restoreObserver = observers.restore;
     const el = panel();
     loadClip();
     renderAnalysisTab(el);
@@ -569,11 +617,12 @@ describe("renderAnalysisTab", () => {
 
     frame.dispatchEvent(new Event("load"));
     expect(frame.style.height).toBe("1200px");
-    expect(observe).toHaveBeenCalledWith(documentElement);
+    const [observer] = observers.instances;
+    expect(observer.observed).toEqual([documentElement]);
 
     // The next visit rebuilds the panel, and the observer watching the old frame goes with it.
     renderAnalysisTab(el);
-    expect(disconnect).toHaveBeenCalledOnce();
+    expect(observer.disconnected).toBe(true);
   });
 
   it("leaves the frame's height alone when it has no document to measure", () => {
@@ -587,8 +636,8 @@ describe("renderAnalysisTab", () => {
     expect(frame.style.height).toBe("");
   });
 
-  // Not throwing is the behaviour: the button is a no-op until the frame has a window to print, and
-  // it does not fall back to printing the page around the frame.
+  // The button is a no-op until the frame has a window to print, and it does not fall back to
+  // printing the page around the frame.
   it("ignores a print request while the frame has no window", () => {
     const el = panel();
     loadClip();
@@ -597,7 +646,7 @@ describe("renderAnalysisTab", () => {
     Object.defineProperty(frame, "contentWindow", { value: null, configurable: true });
     const pagePrint = vi.spyOn(window, "print").mockImplementation(() => undefined);
 
-    expect(() => clickButton(el, "Save as PDF")).not.toThrow();
+    clickButton(el, "Save as PDF");
     expect(pagePrint).not.toHaveBeenCalled();
     pagePrint.mockRestore();
   });
@@ -657,10 +706,7 @@ describe("renderAnalysisTab", () => {
   it("states the comparison without a projection while the encode's size is unknown", () => {
     const el = panel();
     loadClip();
-    encodeTest.originalSink = {} as never;
-    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 5 } }] as never;
-    encodeTest.windows = [{ startSeconds: 0, seconds: 5 }];
-    encodeTest.encodedSize = null;
+    loadComparison(5, null);
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("| Encoded Segment Size | – |");
@@ -672,10 +718,7 @@ describe("renderAnalysisTab", () => {
   it("reports bytes added, with no range, when the whole file was encoded and grew", () => {
     const el = panel();
     loadClip();
-    encodeTest.originalSink = {} as never;
-    encodeTest.abSegments = [{ window: { startSeconds: 0, seconds: 30 } }] as never;
-    encodeTest.windows = [{ startSeconds: 0, seconds: 30 }];
-    encodeTest.encodedSize = 3_000_000;
+    loadComparison(30, 3_000_000);
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("| Projected Full File | 2.9 MB |");

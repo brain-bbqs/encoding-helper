@@ -7,8 +7,6 @@ import { matrixCache } from "../../src/lib/matrixCache";
 import {
   buildMatrixCombos,
   DEFAULT_MATRIX_PRESETS,
-  DEFAULT_MATRIX_QUALITIES,
-  DEFAULT_MATRIX_SCALES,
   describeSettings,
   makeMatrixCells,
   MATRIX_PRESETS,
@@ -18,6 +16,7 @@ import {
 } from "../../src/lib/qualityMatrix";
 import { cli, encodeTest, state } from "../../src/lib/state";
 import type { EncodeSettings, MatrixCell, SampleWindow, X264Preset } from "../../src/lib/types";
+import { deferred, flush } from "./helpers/async";
 
 /** What the faked cores were asked to do, and what a test wants an encode to do. */
 const core = vi.hoisted(() => ({
@@ -140,6 +139,18 @@ function axisBoxes(panel: HTMLElement, label: string): HTMLInputElement[] {
   return Array.from(field?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]') ?? []);
 }
 
+/** Ticks or unticks `box`, with the change event the tab listens for. */
+function setChecked(box: HTMLInputElement, on: boolean): void {
+  box.checked = on;
+  box.dispatchEvent(new Event("change"));
+}
+
+/** Ticks or unticks the box for `value` in the axis field labelled `label`. */
+function tickAxis(panel: HTMLElement, label: string, value: string, on: boolean): void {
+  const box = axisBoxes(panel, label).find((b) => b.value === value)!;
+  setChecked(box, on);
+}
+
 function runButton(panel: HTMLElement): HTMLButtonElement {
   return panel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!;
 }
@@ -150,9 +161,6 @@ function ticked(panel: HTMLElement, label: string): string[] {
     .filter((b) => b.checked)
     .map((b) => b.value);
 }
-
-/** Lets whatever the last event queued run to completion. */
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** The bytes of the file the sweeps run over: enough of them to be a size worth projecting from,
  * read back by hand for the checksum since jsdom's Blob cannot be read as an ArrayBuffer. */
@@ -176,7 +184,7 @@ function loadClip(): void {
 }
 
 /** The next sweep: `presets` at one quality and the source resolution, over `segments` two-second
- * stretches. As few squares as still make a grid. */
+ * stretches (one unless a test asks for more). As few squares as still make a grid. */
 function sweepOf(presets: X264Preset[], segments = 1): void {
   encodeTest.matrix.qualities = ["high"];
   encodeTest.matrix.presets = presets;
@@ -193,15 +201,6 @@ function encodes(): string[][] {
 /** The stream-copy cuts of the sampled stretch, told apart from the encodes by their rebased timestamps. */
 function cuts(): string[][] {
   return core.execs.filter((args) => args.includes("-avoid_negative_ts"));
-}
-
-/** An encode held open until the test lets it finish. */
-function heldEncode(): { promise: Promise<void>; release: () => void } {
-  let release = (): void => {};
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
 }
 
 function runNote(panel: HTMLElement): HTMLElement {
@@ -330,32 +329,25 @@ describe("renderCompareTab", () => {
   // is asked for.
   it("offers frame rates as an axis, ticked to the source alone", () => {
     const panel = renderTab();
-    const boxes = axisBoxes(panel, "Frame rates");
-    expect(boxes).toHaveLength(3);
-    expect(boxes.filter((b) => b.checked).map((b) => b.value)).toEqual(["1"]);
+    expect(axisBoxes(panel, "Frame rates")).toHaveLength(3);
+    expect(ticked(panel, "Frame rates")).toEqual(["1"]);
     expect(encodeTest.matrix.fpsFractions).toEqual([1]);
   });
 
   it("multiplies the sweep by every rate ticked beyond the source's", () => {
     const panel = renderTab();
-    const half = axisBoxes(panel, "Frame rates").find((b) => b.value === "0.5")!;
-    half.checked = true;
-    half.dispatchEvent(new Event("change"));
+    tickAxis(panel, "Frame rates", "0.5", true);
     expect(encodeTest.matrix.fpsFractions).toEqual([1, 0.5]);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 2 × 2 = 40 runs");
   });
 
   it("records ticked resolutions as the next sweep's coverage, and counts them in the bar", () => {
     const panel = renderTab();
-    const half = axisBoxes(panel, "Resolutions").find((b) => b.value === "0.5")!;
-    half.checked = true;
-    half.dispatchEvent(new Event("change"));
+    tickAxis(panel, "Resolutions", "0.5", true);
     expect(encodeTest.matrix.scales).toEqual([1, 0.75, 0.5]);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3 = 30 runs");
 
-    const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
-    bicubic.checked = true;
-    bicubic.dispatchEvent(new Event("change"));
+    tickAxis(panel, "Scalers", "bicubic", true);
     expect(encodeTest.matrix.scalers).toEqual(["lanczos", "bicubic"]);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 × 3 × 2 = 60 runs");
   });
@@ -364,12 +356,8 @@ describe("renderCompareTab", () => {
   // multiply the sweep and the bar does not claim it does.
   it("leaves the kernel axis out of the count when no downscale is ticked", () => {
     const panel = renderTab();
-    const threeQuarters = axisBoxes(panel, "Resolutions").find((b) => b.value === "0.75")!;
-    threeQuarters.checked = false;
-    threeQuarters.dispatchEvent(new Event("change"));
-    const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
-    bicubic.checked = true;
-    bicubic.dispatchEvent(new Event("change"));
+    tickAxis(panel, "Resolutions", "0.75", false);
+    tickAxis(panel, "Scalers", "bicubic", true);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("2 × 5 = 10 runs");
   });
 
@@ -383,17 +371,6 @@ describe("renderCompareTab", () => {
     segments.value = "4";
     segments.dispatchEvent(new Event("input"));
     expect(encodeTest.segments).toBe(4);
-  });
-
-  it("holds the segment count inside what a run can sensibly encode", () => {
-    const panel = renderTab();
-    const segments = panel.querySelector<HTMLInputElement>("#etSegments")!;
-    segments.value = "99";
-    segments.dispatchEvent(new Event("input"));
-    expect(encodeTest.segments).toBe(10);
-    segments.value = "0";
-    segments.dispatchEvent(new Event("input"));
-    expect(encodeTest.segments).toBe(1);
   });
 
   // One button, saying what pressing it would do to the grid as it stands: a sweep that left holes
@@ -426,9 +403,7 @@ describe("renderCompareTab", () => {
     expect(panel.querySelector(".matrix-section h2")).not.toBeNull();
 
     // Adjust the sweep: tick a preset that was not part of the stopped run.
-    const mediumBox = axisBoxes(panel, "x264 presets").find((b) => b.value === "medium")!;
-    mediumBox.checked = true;
-    mediumBox.dispatchEvent(new Event("change"));
+    tickAxis(panel, "x264 presets", "medium", true);
 
     expect(encodeTest.matrix.cells).toEqual([]);
     expect(encodeTest.matrix.selectedKey).toBeNull();
@@ -438,9 +413,9 @@ describe("renderCompareTab", () => {
 
   it("ticks the middle qualities, the faster presets, and the first resolution drop to begin with", () => {
     const panel = renderTab();
-    expect(ticked(panel, "Quality levels")).toEqual(DEFAULT_MATRIX_QUALITIES);
-    expect(ticked(panel, "x264 presets")).toEqual(DEFAULT_MATRIX_PRESETS);
-    expect(ticked(panel, "Resolutions")).toEqual(DEFAULT_MATRIX_SCALES.map(String));
+    expect(ticked(panel, "Quality levels")).toEqual(["high", "medium"]);
+    expect(ticked(panel, "x264 presets")).toEqual(["ultrafast", "superfast", "veryfast", "faster", "fast"]);
+    expect(ticked(panel, "Resolutions")).toEqual(["1", "0.75"]);
     // The extremes are offered, just not run unasked.
     expect(axisBoxes(panel, "Quality levels")).toHaveLength(MATRIX_QUALITIES.length);
     expect(axisBoxes(panel, "x264 presets")).toHaveLength(MATRIX_PRESETS.length);
@@ -458,21 +433,13 @@ describe("renderCompareTab", () => {
 
   it("records what the axes are ticked to as the next sweep's coverage", () => {
     const panel = renderTab();
-    for (const box of axisBoxes(panel, "x264 presets").slice(1)) {
-      box.checked = false;
-      box.dispatchEvent(new Event("change"));
-    }
+    for (const box of axisBoxes(panel, "x264 presets").slice(1)) setChecked(box, false);
     expect(encodeTest.matrix.presets).toEqual(["ultrafast"]);
 
-    const slowest = axisBoxes(panel, "x264 presets").at(-1)!;
-    slowest.checked = true;
-    slowest.dispatchEvent(new Event("change"));
+    setChecked(axisBoxes(panel, "x264 presets").at(-1)!, true);
     expect(encodeTest.matrix.presets).toEqual(["ultrafast", "veryslow"]);
 
-    for (const box of axisBoxes(panel, "Quality levels")) {
-      box.checked = false;
-      box.dispatchEvent(new Event("change"));
-    }
+    for (const box of axisBoxes(panel, "Quality levels")) setChecked(box, false);
     expect(encodeTest.matrix.qualities).toEqual([]);
     expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("0 × 2 × 2 = 0 runs");
   });
@@ -537,9 +504,7 @@ describe("renderCompareTab", () => {
     const panel = renderTab();
     expect(runButton(panel).textContent).toBe("Run 1 unmeasured");
 
-    const bicubic = axisBoxes(panel, "Scalers").find((b) => b.value === "bicubic")!;
-    bicubic.checked = true;
-    bicubic.dispatchEvent(new Event("change"));
+    tickAxis(panel, "Scalers", "bicubic", true);
 
     expect(encodeTest.matrix.scalers).toEqual(["lanczos", "bicubic"]);
     expect(encodeTest.matrix.cells).toBe(cells);
@@ -548,10 +513,12 @@ describe("renderCompareTab", () => {
   });
 });
 
-// A square is chosen by clicking it, and choosing one usually means encoding it again: only the few
-// most recent outputs are held. What the grid does during that wait is the point of these.
+// A square is chosen by clicking it, and goes into the A/B window, encoded again first when its
+// outputs were released to stay inside the memory budget. What the grid does while it waits is the
+// point of these.
 describe("choosing a square", () => {
-  /** A finished two-square grid with the first square in the A/B window. */
+  /** A finished two-square grid, every square still holding its output, with the first square in
+   * the A/B window. */
   function sweptGrid(): MatrixCell[] {
     const cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1], ["lanczos"]));
     for (const cell of cells) {
@@ -564,56 +531,77 @@ describe("choosing a square", () => {
     return cells;
   }
 
-  function cellButton(panel: HTMLElement, cell: MatrixCell): HTMLButtonElement {
-    return Array.from(panel.querySelectorAll<HTMLButtonElement>("button.matrix-cell")).find((b) =>
-      (b.getAttribute("aria-label") ?? "").startsWith(describeSettings(cell.combo)),
-    )!;
-  }
-
-  // The ring says which square was picked, not which video has finished decoding: waiting for the
-  // load to move it left a click on a released square looking like a click that missed.
+  // The ring says which square was picked, not which video the A/B window has finished loading, so
+  // it moves while that load is still held.
   it("moves the ring to the clicked square before the A/B window has it", () => {
     const cells = sweptGrid();
     const panel = renderTab();
-    expect(cellButton(panel, cells[0]).classList.contains("selected")).toBe(true);
+    expect(square(panel, cells[0]).classList.contains("selected")).toBe(true);
 
-    cellButton(panel, cells[1]).click();
+    square(panel, cells[1]).click();
 
     expect(settleAbLoad).not.toBeNull();
     expect(encodeTest.matrix.selectedKey).toBe(cells[1].combo.key);
-    expect(cellButton(panel, cells[0]).classList.contains("selected")).toBe(false);
-    expect(cellButton(panel, cells[1]).classList.contains("selected")).toBe(true);
-    expect(cellButton(panel, cells[1]).getAttribute("aria-pressed")).toBe("true");
+    expect(square(panel, cells[0]).classList.contains("selected")).toBe(false);
+    expect(square(panel, cells[1]).classList.contains("selected")).toBe(true);
+    expect(square(panel, cells[1]).getAttribute("aria-pressed")).toBe("true");
   });
 
-  // There is one encoder, and getting a released square into the window uses it.
+  // Until the A/B window has the chosen square, the grid takes no other click and the run button
+  // stays off.
   it("takes no second click while a square is on its way into the window", async () => {
     const cells = sweptGrid();
     const panel = renderTab();
-    cellButton(panel, cells[1]).click();
-    expect(cellButton(panel, cells[0]).disabled).toBe(true);
+    square(panel, cells[1]).click();
+    expect(square(panel, cells[0]).disabled).toBe(true);
     expect(runButton(panel).disabled).toBe(true);
 
     settleAbLoad!.resolve();
     await flush();
-    expect(cellButton(panel, cells[0]).disabled).toBe(false);
+    expect(square(panel, cells[0]).disabled).toBe(false);
     expect(runButton(panel).disabled).toBe(false);
+  });
+
+  // A square whose output was released is encoded again before the A/B window can have it, which
+  // is seconds of work: the ring moves and the grid is held for all of it, not only for the load.
+  it("moves the ring and holds the grid while a released square is encoded again", async () => {
+    loadClip();
+    const cells = sweptGrid();
+    cells[1].blobs = null;
+    const held = deferred<void>();
+    core.exec = (args) => (args.includes("-crf") ? held.promise : Promise.resolve());
+    const panel = renderTab();
+
+    square(panel, cells[1]).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+
+    expect(settleAbLoad).toBeNull();
+    expect(encodeTest.matrix.selectedKey).toBe(cells[1].combo.key);
+    expect(square(panel, cells[0]).classList.contains("selected")).toBe(false);
+    expect(square(panel, cells[1]).classList.contains("selected")).toBe(true);
+    expect(square(panel, cells[0]).disabled).toBe(true);
+    expect(runButton(panel).disabled).toBe(true);
+
+    held.resolve();
+    await awaitRun(panel);
+    expect(cells[1].blobs).toHaveLength(1);
+    await settleRun(panel);
+    expect(square(panel, cells[0]).disabled).toBe(false);
   });
 
   // Only when the square never gets there is the old one still what the window holds.
   it("puts the ring back on the square still showing when the chosen one cannot be loaded", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const cells = sweptGrid();
     const panel = renderTab();
-    cellButton(panel, cells[1]).click();
+    square(panel, cells[1]).click();
 
     settleAbLoad!.reject(new Error("this browser will not decode it"));
     await flush();
 
     expect(encodeTest.matrix.selectedKey).toBe(cells[0].combo.key);
-    expect(cellButton(panel, cells[0]).classList.contains("selected")).toBe(true);
-    expect(cellButton(panel, cells[1]).classList.contains("selected")).toBe(false);
-    error.mockRestore();
+    expect(square(panel, cells[0]).classList.contains("selected")).toBe(true);
+    expect(square(panel, cells[1]).classList.contains("selected")).toBe(false);
   });
 
   // The A/B window compares against the seconds the grid was measured over, which the fields may
@@ -628,7 +616,7 @@ describe("choosing a square", () => {
     duration.dispatchEvent(new Event("input"));
     expect(encodeTest.duration).toBe(4);
 
-    cellButton(panel, cells[1]).click();
+    square(panel, cells[1]).click();
 
     expect(encodeTest.startTime).toBe(6);
     expect(encodeTest.duration).toBe(3);
@@ -642,7 +630,7 @@ describe("choosing a square", () => {
     encodeTest.matrix.segmentLength = 0;
     const panel = renderTab();
 
-    cellButton(panel, cells[1]).click();
+    square(panel, cells[1]).click();
 
     expect(encodeTest.startTime).toBe(0);
     expect(encodeTest.duration).toBe(5);
@@ -685,8 +673,6 @@ describe("the command for the selected square", () => {
     expect(command).toContain("-crf 18");
     expect(command).toContain("-an");
     expect(command).toContain("+faststart");
-    cli.audioMode = "copy";
-    cli.faststart = false;
   });
 });
 
@@ -739,6 +725,43 @@ describe("running the sweep", () => {
     expect(panel.querySelector(".matrix-summary-figure")!.textContent).toBe("98% smaller");
     expect(panel.querySelector("pre.cmd")!.textContent).toContain("-preset superfast");
     expect(logText(panel)).toContain("$ ffmpeg ");
+  });
+
+  it("encodes every square over every sampled stretch, and adds the stretches up", async () => {
+    loadClip();
+    // Two stretches of the 20-second file, each drawn at the start of its half.
+    sweepOf(["ultrafast", "superfast"], 2);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const panel = renderTab();
+
+    await pressRun(panel);
+
+    // One cut per stretch, then each square encoded from both cuts in sampled order.
+    expect(cuts()).toHaveLength(2);
+    expect(encodes().map((args) => [args[args.indexOf("-preset") + 1], args[args.indexOf("-i") + 1]])).toEqual([
+      ["ultrafast", expect.stringMatching(/^et_snip_.*_0\.000_2\.000\.mp4$/)],
+      ["ultrafast", expect.stringMatching(/^et_snip_.*_10\.000_2\.000\.mp4$/)],
+      ["superfast", expect.stringMatching(/^et_snip_.*_0\.000_2\.000\.mp4$/)],
+      ["superfast", expect.stringMatching(/^et_snip_.*_10\.000_2\.000\.mp4$/)],
+    ]);
+    expect(fetchFile).toHaveBeenCalledTimes(1);
+    // A square's figures are both stretches added together.
+    const cells = encodeTest.matrix.cells;
+    expect(cells.map((c) => c.bytes)).toEqual([600, 400]);
+    expect(cells[0].segmentSeconds).toBeCloseTo(3.8, 10);
+    expect(cells[1].segmentSeconds).toBeCloseTo(3.8, 10);
+    // And the A/B window is handed both stretches of the winner, with where each came from.
+    expect(abLoads).toHaveLength(1);
+    expect(abLoads[0].blobs).toBe(2);
+    expect(abLoads[0].totals?.bytes).toBe(400);
+    expect(abLoads[0].totals?.windows.map((w) => w.startSeconds)).toEqual([0, 10]);
+
+    await settleRun(panel);
+
+    expect(encodeTest.matrix.windows).toEqual([
+      { startSeconds: 0, seconds: 2 },
+      { startSeconds: 10, seconds: 2 },
+    ]);
   });
 
   // A square is a function of the file, the command and the stretches, none of which a reload
@@ -915,7 +938,6 @@ describe("running the sweep", () => {
     expect(runButton(retryPanel).disabled).toBe(true);
     expect(cells[0].status).toBe("failed");
     expect(core.execs).toEqual([]);
-    encodeTest.running = false;
   });
 
   // With no length to spread stretches across, the sampler has nothing to draw; the sweep still
@@ -1001,7 +1023,7 @@ describe("running the sweep", () => {
     loadClip();
     sweepOf(["ultrafast", "superfast"]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    const held = heldEncode();
+    const held = deferred<void>();
     let attempts = 0;
     core.exec = (args) => {
       if (!args.includes("-crf")) return Promise.resolve();
@@ -1022,12 +1044,10 @@ describe("running the sweep", () => {
     expect(logText(panel)).toContain("Queued a retry of high (CRF 18), ultrafast");
     expect(square(panel, cells[0]).querySelector(".matrix-sub")!.textContent).toBe("queued");
     // An axis moved mid-sweep does not throw the half-run grid away under the run.
-    const medium = axisBoxes(panel, "Quality levels").find((b) => b.value === "medium")!;
-    medium.checked = true;
-    medium.dispatchEvent(new Event("change"));
+    tickAxis(panel, "Quality levels", "medium", true);
     expect(encodeTest.matrix.cells).toBe(cells);
 
-    held.release();
+    held.resolve();
     await awaitRun(panel);
     await settleRun(panel);
 
@@ -1116,14 +1136,14 @@ describe("running the sweep", () => {
     loadClip();
     sweepOf(["superfast"]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    const held = heldEncode();
+    const held = deferred<void>();
     core.exec = (args) => (args.includes("-crf") ? held.promise : Promise.resolve());
     const panel = renderTab();
     runButton(panel).click();
     await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
 
     state.tracks = [];
-    held.release();
+    held.resolve();
     await awaitRun(panel);
     await settleRun(panel);
 

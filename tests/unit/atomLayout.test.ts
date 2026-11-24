@@ -1,22 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { box, progressiveFile } from "../fixtures/boxes";
 import { countAtoms, layoutAtoms, MIN_RECT_WIDTH, placeAtoms, placementRange } from "../../src/lib/atomLayout";
 import type { BoxNode } from "../../src/lib/types";
 
-function box(type: string, start: number, size: number, children: BoxNode[] = []): BoxNode {
-  return { type, start, size, children };
-}
-
-/** A plain, unfragmented file: ftyp, then a moov holding one trak, then the sample payload. */
-function progressiveFile(): BoxNode[] {
-  return [
-    box("ftyp", 0, 32),
-    box("moov", 32, 2000, [box("mvhd", 40, 108), box("trak", 148, 1800, [box("tkhd", 156, 92)])]),
-    box("mdat", 2032, 97968),
-  ];
-}
-
-/** `pairs` moof+mdat fragments, the shape a long recording actually takes. */
-function fragmentedFile(pairs: number, fragmentSize: number): BoxNode[] {
+/** `pairs` moof+mdat fragments of 100,000 bytes each, the shape a long recording actually takes. */
+function fragmentedFile(pairs: number): BoxNode[] {
+  const fragmentSize = 100000;
   const boxes: BoxNode[] = [];
   for (let i = 0; i < pairs; i++) {
     const at = i * fragmentSize;
@@ -142,7 +131,7 @@ describe("layoutAtoms", () => {
 
 describe("layoutAtoms, files with more boxes than fit", () => {
   it("collapses what will not fit into counted blocks rather than dropping it", () => {
-    const boxes = fragmentedFile(20000, 100000);
+    const boxes = fragmentedFile(20000);
     const layout = layOut(boxes);
     expect(boxes.reduce((n, b) => n + countAtoms(b), 0)).toBe(60000);
     // Bounded by how many blocks fit at the minimum width, not by how many boxes the file has.
@@ -155,7 +144,7 @@ describe("layoutAtoms, files with more boxes than fit", () => {
     // Every box of a heavily fragmented file is too narrow to draw. Merged into a single run they
     // would be one block spanning the whole map, which says nothing; cut into blocks the map shows
     // the fragmentation itself.
-    const layout = layOut(fragmentedFile(20000, 100000));
+    const layout = layOut(fragmentedFile(20000));
     expect(layout.rects.length).toBeGreaterThan(100);
     expect(layout.rects.every((r) => r.w >= MIN_RECT_WIDTH * 0.999)).toBe(true);
     // Each block is drawn in the color of whatever fills most of it rather than an anonymous grey.
@@ -164,7 +153,7 @@ describe("layoutAtoms, files with more boxes than fit", () => {
   });
 
   it("pulls the collapsed boxes apart once the view zooms in on them", () => {
-    const placements = placeAtoms(fragmentedFile(20000, 100000));
+    const placements = placeAtoms(fragmentedFile(20000));
     let layout = layoutAtoms(placements, placementRange(placements));
     expect(layout.rects.every((r) => r.kind === "group")).toBe(true);
 
@@ -182,7 +171,7 @@ describe("layoutAtoms, files with more boxes than fit", () => {
   // Drawing is capped so a pathological file cannot flood the map; the cap is reported rather than
   // silently hit, so the tab can say the rest was left undrawn.
   it("stops drawing at the rect cap and says so", () => {
-    const placements = placeAtoms(fragmentedFile(2000, 100000));
+    const placements = placeAtoms(fragmentedFile(2000));
     const layout = layoutAtoms(placements, placementRange(placements), 0);
     expect(layout.truncated).toBe(true);
     expect(layout.rects.length).toBe(4000);
@@ -190,7 +179,7 @@ describe("layoutAtoms, files with more boxes than fit", () => {
   });
 
   it("keeps a group's byte range and count, so a collapsed block still says what it holds", () => {
-    const group = layOut(fragmentedFile(2000, 100000)).rects[0];
+    const group = layOut(fragmentedFile(2000)).rects[0];
     expect(group.kind).toBe("group");
     expect(group.count).toBeGreaterThan(1);
     expect(group.byteStart).toBe(0);

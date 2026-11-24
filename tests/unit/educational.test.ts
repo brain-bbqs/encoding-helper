@@ -2,12 +2,9 @@
 
 import { throwingStorage } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setUrl } from "./helpers/url";
 
 type EducationalModule = typeof import("../../src/lib/educational");
-
-function setUrl(search: string): void {
-  window.history.replaceState({}, "", "/encoding-helper/" + search);
-}
 
 /** Loads lib/educational with the URL and stored value the test set. */
 async function load(): Promise<EducationalModule> {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { initTabs } from "../../src/ui/tabs";
+import { setUrl } from "./helpers/url";
 
 /** A reduced tab bar: the three tab buttons, one unknown tab, and the Full Analysis button, all in
  * one row (the page keeps that button outside it), with one panel each. */
@@ -10,7 +11,7 @@ function mountTabBar(): void {
       <button class="tab" data-tab="encode">Encode</button>
       <button class="tab" data-tab="compare">Compare</button>
       <button class="tab" data-tab="nope">Retired</button>
-      <button id="analysisBtn" data-tab="analysis">Full Analysis</button>
+      <button data-tab="analysis">Full Analysis</button>
     </div>
     <div id="panel-inspect" class="tab-panel on"></div>
     <div id="panel-encode" class="tab-panel"></div>
@@ -28,10 +29,6 @@ function shownPanel(): string | null {
 
 function litButtons(): (string | undefined)[] {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-tab].on")).map((b) => b.dataset.tab);
-}
-
-function setUrl(search: string): void {
-  window.history.replaceState({}, "", "/encoding-helper/" + search);
 }
 
 describe("initTabs", () => {

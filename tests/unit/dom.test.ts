@@ -81,12 +81,39 @@ describe("infoIcon", () => {
     expect(icon.classList.contains("open")).toBe(true);
   });
 
-  it("closes every open popover at once", () => {
+  it("closes on Escape but not on any other key", () => {
+    const icon = infoIcon("Explainer");
+    document.body.append(icon);
+    icon.querySelector<HTMLButtonElement>(".info-btn")?.click();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(icon.classList.contains("open")).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(icon.classList.contains("open")).toBe(false);
+    expect(icon.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  /** Two icons in the page, the first opened and then the second. */
+  function openFirstThenSecond(): { first: HTMLElement; second: HTMLElement } {
     const first = infoIcon("One");
     const second = infoIcon("Two");
     document.body.append(first, second);
     first.querySelector<HTMLButtonElement>(".info-btn")?.click();
     second.querySelector<HTMLButtonElement>(".info-btn")?.click();
+    return { first, second };
+  }
+
+  it("opens the second icon while closing the first", () => {
+    const { first, second } = openFirstThenSecond();
+    expect(first.classList.contains("open")).toBe(false);
+    expect(first.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("false");
+    expect(second.classList.contains("open")).toBe(true);
+    expect(second.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("closes every open popover at once", () => {
+    const { first, second } = openFirstThenSecond();
     // Opening the second one already dismissed the first.
     expect(first.classList.contains("open")).toBe(false);
 
@@ -108,37 +135,6 @@ describe("fold", () => {
 
   it("leaves the note empty when there is nothing to say about what is inside", () => {
     expect(fold("Details").wrap.querySelector(".fold-note")?.textContent).toBe("");
-  });
-});
-
-describe("infoIcon dismissal", () => {
-  beforeEach(() => {
-    document.body.innerHTML = "";
-  });
-
-  it("closes on Escape but not on any other key", () => {
-    const icon = infoIcon("Explainer");
-    document.body.append(icon);
-    icon.querySelector<HTMLButtonElement>(".info-btn")?.click();
-
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
-    expect(icon.classList.contains("open")).toBe(true);
-
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(icon.classList.contains("open")).toBe(false);
-    expect(icon.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("false");
-  });
-
-  it("opens the second icon while closing the first", () => {
-    const first = infoIcon("One");
-    const second = infoIcon("Two");
-    document.body.append(first, second);
-    first.querySelector<HTMLButtonElement>(".info-btn")?.click();
-    second.querySelector<HTMLButtonElement>(".info-btn")?.click();
-    expect(first.classList.contains("open")).toBe(false);
-    expect(first.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("false");
-    expect(second.classList.contains("open")).toBe(true);
-    expect(second.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("true");
   });
 });
 

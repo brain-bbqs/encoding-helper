@@ -76,8 +76,18 @@ describe("pickSaveTarget", () => {
 });
 
 describe("downloadBlob", () => {
+  // The URL static methods are real functions in this environment, so what the stubs replace is put back.
+  const urlOriginals = (["createObjectURL", "revokeObjectURL"] as const).map(
+    (name) => [name, Object.getOwnPropertyDescriptor(URL, name)] as const,
+  );
+  afterEach(() => {
+    for (const [name, desc] of urlOriginals) {
+      if (desc) Object.defineProperty(URL, name, desc);
+      else delete (URL as unknown as Record<string, unknown>)[name];
+    }
+  });
+
   it("clicks a named link and cleans up after itself", () => {
-    vi.useFakeTimers();
     const createObjectURL = vi.fn().mockReturnValue("blob:fake");
     const revokeObjectURL = vi.fn();
     Object.defineProperty(URL, "createObjectURL", { value: createObjectURL, configurable: true });
@@ -89,13 +99,17 @@ describe("downloadBlob", () => {
       expect(this.isConnected).toBe(true);
     });
 
-    downloadBlob(new Blob(["<html></html>"], { type: "text/html" }), "clip.analysis.html");
+    vi.useFakeTimers();
+    try {
+      downloadBlob(new Blob(["<html></html>"], { type: "text/html" }), "clip.analysis.html");
 
-    expect(click).toHaveBeenCalledOnce();
-    expect(document.querySelector("a")).toBeNull();
-    expect(revokeObjectURL).not.toHaveBeenCalled();
-    vi.runAllTimers();
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:fake");
-    vi.useRealTimers();
+      expect(click).toHaveBeenCalledOnce();
+      expect(document.querySelector("a")).toBeNull();
+      expect(revokeObjectURL).not.toHaveBeenCalled();
+      vi.runAllTimers();
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:fake");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

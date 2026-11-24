@@ -85,7 +85,7 @@ describe("drainWithPool", () => {
     expect(seen).toEqual([1, 2, 99]);
   });
 
-  it("picks up an item appended after every core had stopped", async () => {
+  it("picks up an item appended while the last one is still being worked on", async () => {
     const queue = [1];
     const seen: number[] = [];
     let added = false;
@@ -93,7 +93,8 @@ describe("drainWithPool", () => {
       seen.push(item);
       if (!added) {
         added = true;
-        // Appended from a later turn of the event loop, once the core has moved on.
+        // Appended after an await, while the only core is still inside this item; its own loop
+        // then takes the new one.
         await Promise.resolve();
         queue.push(2);
       }
@@ -117,12 +118,10 @@ describe("drainWithPool", () => {
     expect(seen).toEqual([1, 2]);
   });
 
-  // One combination failing is a result, not the end of the sweep.
-  it("carries on after an item throws", async () => {
+  it("works through every item in order on a single core", async () => {
     const seen: number[] = [];
     await drainWithPool([1, 2, 3], [fakeWorker(0)], async (item) => {
       seen.push(item);
-      // The caller records the failure against the item; the pool only has to keep going.
       await Promise.resolve();
     });
     expect(seen).toEqual([1, 2, 3]);

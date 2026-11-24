@@ -4,6 +4,9 @@ import { attachSyncedZoomPan, ZOOM_MAX, ZOOM_MIN } from "../../src/ui/zoomPan";
 const PANE_W = 400;
 const PANE_H = 300;
 const GAP = 8;
+// Where the first pane's top-left corner sits on the screen.
+const STAGE_LEFT = 100;
+const STAGE_TOP = 50;
 
 interface Rig {
   stage: HTMLDivElement;
@@ -12,28 +15,23 @@ interface Rig {
 }
 
 /** Two side-by-side panes at fixed screen positions; jsdom has no layout, so rects are stubbed. */
-function rig(stageLeft = 100, stageTop = 50): Rig {
-  return rigWithOnChange(document.createElement("div"), undefined, stageLeft, stageTop);
+function rig(): Rig {
+  return rigWithOnChange(document.createElement("div"));
 }
 
 /** The same rig, with a scale listener attached. */
-function rigWithOnChange(
-  stage: HTMLDivElement,
-  onChange?: (scale: number) => void,
-  stageLeft = 100,
-  stageTop = 50,
-): Rig {
+function rigWithOnChange(stage: HTMLDivElement, onChange?: (scale: number) => void): Rig {
   const canvases: HTMLCanvasElement[] = [];
   const grids: HTMLDivElement[] = [];
   [0, 1].forEach((i) => {
     const pane = document.createElement("div");
-    const left = stageLeft + i * (PANE_W + GAP);
+    const left = STAGE_LEFT + i * (PANE_W + GAP);
     pane.getBoundingClientRect = () =>
       ({
         left,
-        top: stageTop,
+        top: STAGE_TOP,
         right: left + PANE_W,
-        bottom: stageTop + PANE_H,
+        bottom: STAGE_TOP + PANE_H,
         width: PANE_W,
         height: PANE_H,
       }) as DOMRect;
@@ -56,7 +54,8 @@ function wheel(stage: HTMLDivElement, clientX: number, clientY: number, deltaY: 
 
 /**
  * Content coordinate (in untransformed pane px) currently rendered under a screen point, given the
- * `translate(tx, ty) scale(s)` the canvas carries with `transform-origin: 0 0`.
+ * `translate(tx, ty) scale(s)` the canvas carries with `transform-origin: 0 0`. Every pane's top is
+ * at STAGE_TOP, so only its left is asked for.
  */
 function contentUnder(
   zoom: { scale: number; tx: number; ty: number },
@@ -66,7 +65,7 @@ function contentUnder(
 ): { x: number; y: number } {
   return {
     x: (clientX - paneLeft - zoom.tx) / zoom.scale,
-    y: (clientY - 50 - zoom.ty) / zoom.scale,
+    y: (clientY - STAGE_TOP - zoom.ty) / zoom.scale,
   };
 }
 
@@ -77,10 +76,10 @@ describe("attachSyncedZoomPan wheel zoom", () => {
 
   it("keeps the point under the cursor fixed on the first wheel notch", () => {
     const { stage, zoomPan } = rig();
-    const before = contentUnder(zoomPan.state, 100, 260, 170);
+    const before = contentUnder(zoomPan.state, STAGE_LEFT, 260, 170);
     wheel(stage, 260, 170, -1);
     expect(zoomPan.state.scale).toBeGreaterThan(1);
-    const after = contentUnder(zoomPan.state, 100, 260, 170);
+    const after = contentUnder(zoomPan.state, STAGE_LEFT, 260, 170);
     expect(after.x).toBeCloseTo(before.x, 6);
     expect(after.y).toBeCloseTo(before.y, 6);
   });
@@ -94,16 +93,16 @@ describe("attachSyncedZoomPan wheel zoom", () => {
     zoomPan.state.tx -= 37;
     zoomPan.state.ty += 21;
 
-    const before = contentUnder(zoomPan.state, 100, 300, 200);
+    const before = contentUnder(zoomPan.state, STAGE_LEFT, 300, 200);
     wheel(stage, 300, 200, -1);
-    const after = contentUnder(zoomPan.state, 100, 300, 200);
+    const after = contentUnder(zoomPan.state, STAGE_LEFT, 300, 200);
     expect(after.x).toBeCloseTo(before.x, 6);
     expect(after.y).toBeCloseTo(before.y, 6);
   });
 
   it("anchors on the pane the cursor is over, not always the first one", () => {
     const { stage, zoomPan } = rig();
-    const secondPaneLeft = 100 + PANE_W + GAP;
+    const secondPaneLeft = STAGE_LEFT + PANE_W + GAP;
     const cursorX = secondPaneLeft + 90;
     const before = contentUnder(zoomPan.state, secondPaneLeft, cursorX, 200);
     wheel(stage, cursorX, 200, -1);
@@ -116,11 +115,11 @@ describe("attachSyncedZoomPan wheel zoom", () => {
     const { stage, zoomPan } = rig();
     wheel(stage, 200, 120, -1);
     wheel(stage, 200, 120, -1);
-    const before = contentUnder(zoomPan.state, 100, 340, 240);
+    const before = contentUnder(zoomPan.state, STAGE_LEFT, 340, 240);
     const scaleBefore = zoomPan.state.scale;
     wheel(stage, 340, 240, 1);
     expect(zoomPan.state.scale).toBeLessThan(scaleBefore);
-    const after = contentUnder(zoomPan.state, 100, 340, 240);
+    const after = contentUnder(zoomPan.state, STAGE_LEFT, 340, 240);
     expect(after.x).toBeCloseTo(before.x, 6);
     expect(after.y).toBeCloseTo(before.y, 6);
   });
@@ -312,7 +311,14 @@ describe("attachSyncedZoomPan without a pane to measure", () => {
     const stage = document.createElement("div");
     const pane = document.createElement("div");
     pane.getBoundingClientRect = () =>
-      ({ left: 100, top: 50, right: 100 + PANE_W, bottom: 50 + PANE_H, width: PANE_W, height: PANE_H }) as DOMRect;
+      ({
+        left: STAGE_LEFT,
+        top: STAGE_TOP,
+        right: STAGE_LEFT + PANE_W,
+        bottom: STAGE_TOP + PANE_H,
+        width: PANE_W,
+        height: PANE_H,
+      }) as DOMRect;
     const inPane = orphanCanvas();
     pane.append(inPane);
     stage.append(pane);
@@ -323,10 +329,10 @@ describe("attachSyncedZoomPan without a pane to measure", () => {
       document.createElement("div"),
     ]);
 
-    const before = contentUnder(zoomPan.state, 100, 260, 170);
+    const before = contentUnder(zoomPan.state, STAGE_LEFT, 260, 170);
     wheel(stage, 260, 170, -1);
     expect(zoomPan.state.scale).toBeGreaterThan(1);
-    const after = contentUnder(zoomPan.state, 100, 260, 170);
+    const after = contentUnder(zoomPan.state, STAGE_LEFT, 260, 170);
     expect(after.x).toBeCloseTo(before.x, 6);
     expect(after.y).toBeCloseTo(before.y, 6);
     expect(canvases[0].style.transform).toBe(inPane.style.transform);
