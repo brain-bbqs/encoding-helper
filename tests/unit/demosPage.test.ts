@@ -4,6 +4,7 @@ import { demoVideoPath } from "../fixtures/demoPaths";
 import { assetDownloadUrl, EMBER_DANDISET, type DemoFile, type DemoSet } from "../../src/lib/demoArchive";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initDemosPage, renderDemoBrowser } from "../../src/ui/demosPage";
+import { flush } from "./helpers/async";
 
 function demo(session: string, group: string, over: Partial<DemoFile> = {}): DemoFile {
   return {
@@ -35,9 +36,6 @@ const SET: DemoSet = {
 };
 
 const OPTS = { search: "", onOpen: (): void => {} };
-
-/** Lets a fetch that has already answered run its .then chain through. */
-const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 let container: HTMLDivElement;
 

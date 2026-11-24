@@ -1,20 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { seekResult } from "../fixtures/seekResult";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../../src/lib/seekReport";
 import { resetState, state } from "../../src/lib/state";
-import type { SeekResult } from "../../src/lib/types";
-
-function result(over: Partial<SeekResult> = {}): SeekResult {
-  return { t: 1.5, kf: 1, dist: 0.5, distFrames: 15, decodeMs: 12.34, ...over };
-}
 
 describe("seekResultRow", () => {
   it("prints one sampled timestamp in header order", () => {
-    expect(seekResultRow(result())).toEqual(["1.500s", "1.000s", "0.500s", "15", "12.3 ms"]);
-    expect(seekResultRow(result())).toHaveLength(SEEK_TABLE_HEADERS.length);
+    expect(seekResultRow(seekResult())).toEqual(["1.500s", "1.000s", "0.500s", "15", "12.3 ms"]);
+    expect(seekResultRow(seekResult())).toHaveLength(SEEK_TABLE_HEADERS.length);
   });
 
   it("dashes the columns a timestamp before the first keyframe has no answer for", () => {
-    expect(seekResultRow(result({ kf: null, dist: null, distFrames: null }))).toEqual([
+    expect(seekResultRow(seekResult({ kf: null, dist: null, distFrames: null }))).toEqual([
       "1.500s",
       "–",
       "–",
@@ -27,15 +23,16 @@ describe("seekResultRow", () => {
 describe("seekSummary", () => {
   it("averages the distances and decode times, and keeps the worst decode", () => {
     const summary = seekSummary([
-      result({ dist: 0.5, decodeMs: 10 }),
-      result({ dist: 1.5, decodeMs: 30 }),
-      result({ dist: 1, decodeMs: 20 }),
+      seekResult({ dist: 0.5, decodeMs: 10 }),
+      seekResult({ dist: 1.5, decodeMs: 30 }),
+      seekResult({ dist: 1, decodeMs: 20 }),
     ]);
     expect(summary).toEqual({ avgDist: 1, avgDecode: 20, maxDecode: 30 });
   });
 
   it("counts a timestamp with no keyframe before it as no distance rather than skipping it", () => {
-    expect(seekSummary([result({ dist: null, decodeMs: 10 }), result({ dist: 1, decodeMs: 10 })]).avgDist).toBe(0.5);
+    const summary = seekSummary([seekResult({ dist: null, decodeMs: 10 }), seekResult({ dist: 1, decodeMs: 10 })]);
+    expect(summary.avgDist).toBe(0.5);
   });
 });
 

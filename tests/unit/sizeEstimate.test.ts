@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { evenSamples } from "../fixtures/samples";
+import { evenSamples, sample } from "../fixtures/samples";
 import { MB_FILE_INPUT } from "../fixtures/sizeEstimate";
 import { encodeTest, resetState, state } from "../../src/lib/state";
 import {
@@ -34,10 +34,7 @@ describe("estimateSizeSavings", () => {
   // A sample table whose frames all sit past the last whole window leaves nothing to measure a
   // spread across, so the stretch's own cost is still read from it but no band is claimed.
   it("gives no band when the file's windows hold no frames to compare", () => {
-    const samples = [
-      { size: 1000, cts: 9, dts: 9, ctsSec: 9, is_sync: true },
-      { size: 1000, cts: 9.5, dts: 9.5, ctsSec: 9.5, is_sync: false },
-    ];
+    const samples = [sample(9, 1000, true), sample(9.5, 1000)];
     const est = estimateSizeSavings({
       originalTotalBytes: 2000,
       totalSeconds: 10,
@@ -320,13 +317,12 @@ describe("estimateSizeSavings over several windows", () => {
   it("narrows the band when a run samples more places", () => {
     // Frame sizes climb across the file, so its ten-second windows genuinely differ from each other
     // and there is a spread for the band to be derived from.
-    const samples = Array.from({ length: 100 }, (_, i) => ({
-      size: 1_000 + i * 500,
-      cts: i,
-      dts: i,
-      ctsSec: i,
-      is_sync: i % 10 === 0,
-    }));
+    const samples = evenSamples(
+      100,
+      100,
+      (i) => 1_000 + i * 500,
+      (i) => i % 10 === 0,
+    );
     const width = (r: { low: number; high: number } | null): number => (r ? r.high - r.low : 0);
     const one = estimateSizeSavings({
       ...BASE,

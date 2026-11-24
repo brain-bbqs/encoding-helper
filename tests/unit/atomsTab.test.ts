@@ -1,22 +1,10 @@
 import { installObserverStub, type ObserverStub } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { box, progressiveFile } from "../fixtures/boxes";
 import { ATOM_MAP_READOUT_HINT } from "../../src/lib/explainers";
 import { resetState, state } from "../../src/lib/state";
 import type { BoxNode } from "../../src/lib/types";
 import { renderAtomMap, renderStaticAtomMap } from "../../src/ui/atomsTab";
-
-function box(type: string, start: number, size: number, children: BoxNode[] = []): BoxNode {
-  return { type, start, size, children };
-}
-
-/** A plain, unfragmented file: ftyp, then a moov holding a header and one trak, then the payload. */
-function progressiveFile(): BoxNode[] {
-  return [
-    box("ftyp", 0, 32),
-    box("moov", 32, 2000, [box("mvhd", 40, 108), box("trak", 148, 1800, [box("tkhd", 156, 92)])]),
-    box("mdat", 2032, 97968),
-  ];
-}
 
 /** `pairs` moof+mdat fragments, the shape a long recording takes. */
 function fragmentedFile(pairs: number): BoxNode[] {

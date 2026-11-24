@@ -113,9 +113,7 @@ describe("parseFfmpegTimeSeconds", () => {
 describe("the core's virtual filesystem", () => {
   beforeEach(() => {
     resetFfmpeg();
-    core.writes = [];
-    core.execs = [];
-    core.files.clear();
+    resetCore();
   });
 
   it("encodes the same input twice without its buffer being detached out from under it", async () => {

@@ -332,20 +332,7 @@ describe("a store that cannot be trusted", () => {
     const cache = open();
     cache.writeMeasurement("good", measurement(10));
     await cache.flush();
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const db = request.result;
-        const tx = db.transaction("measurements", "readwrite");
-        tx.objectStore("measurements").put({ key: "sizeless", s: 1, ms: 2, lastUsed: 1 });
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => reject(tx.error);
-      };
-    });
+    await seed("measurements", { key: "sizeless", s: 1, ms: 2, lastUsed: 1 });
     const held = await cache.readMeasurements(["good", "sizeless"]);
     expect(held.get("good")?.bytes).toBe(10);
     expect(held.has("sizeless")).toBe(false);

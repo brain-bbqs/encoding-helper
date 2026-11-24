@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import type { FfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
 import { cli, encodeTest, state } from "../../src/lib/state";
 import type { SampleWindow } from "../../src/lib/types";
 import type { loadEncodedIntoAB } from "../../src/ui/abPanel";
-import type { encodeWindows, prepareRun, RunInputs } from "../../src/ui/segmentRun";
+import type { encodeWindows, prepareRun } from "../../src/ui/segmentRun";
+import { deferred, flush, type Deferred } from "./helpers/async";
 
 /** What the faked run was handed, and the hooks a test uses to settle its encode by hand. */
 const run = vi.hoisted(() => ({
@@ -167,18 +169,6 @@ function tick(panel: HTMLElement, id: string, checked: boolean): void {
 // Every field writes straight into the shared builder state and the command under it says so at
 // once; there is no Apply step between the two.
 describe("the command builder's fields", () => {
-  // The builder's settings survive resetState on purpose, so what these tests move is put back by
-  // hand for the tests after them.
-  afterEach(() => {
-    cli.keyframeInterval = 1;
-    cli.noBFrames = true;
-    cli.pad = true;
-    cli.faststart = false;
-    cli.audioMode = "copy";
-    cli.fps = null;
-    cli.customScale = 60;
-  });
-
   it("takes a custom CRF only once Custom is the quality picked", () => {
     const panel = renderTab();
     const crfField = panel.querySelector<HTMLElement>("#cliCrf")!.parentElement!;
@@ -307,36 +297,6 @@ describe("the command builder's fields", () => {
     expect(command(panel)).toContain("-g 30");
   });
 });
-
-/** A promise settled from outside, standing in for an encode still in flight. */
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-  reject: (err: Error) => void;
-}
-
-function deferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  let reject!: (err: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
-/** Inputs as prepareRun hands them over once the stretch is cut. */
-function cutInputs(windows: SampleWindow[]): RunInputs {
-  return {
-    windows,
-    names: windows.map((_, i) => `snip${i}.mp4`),
-    data: windows.map(() => new Uint8Array(4)),
-    preCut: true,
-  };
-}
-
-/** Lets whatever the last event queued run to completion. */
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** The run's controls as the tab put them in the page. */
 function sampleRun(panel: HTMLElement): {

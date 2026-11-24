@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VIDEO_TRACK } from "../fixtures/state";
 import { encodeTest, resetState, state } from "../../src/lib/state";
 import type { EncodeSettings } from "../../src/lib/types";
+import { flush } from "./helpers/async";
 
 /** The id of every Input the stub has seen disposed, so the test can check the old ones are let go
  * of. */
@@ -103,9 +104,6 @@ function reelLabels(host: HTMLDivElement): string[] {
 function scrubBar(host: HTMLDivElement): HTMLInputElement {
   return host.querySelector<HTMLInputElement>('.compare-scrub input[type="range"]')!;
 }
-
-/** Lets whatever the last event queued run to completion. */
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** A frame of the given size, for a sink to hand back. */
 function frameOf(width: number, height: number): FakeFrame {

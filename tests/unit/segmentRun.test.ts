@@ -4,6 +4,7 @@
 // has nothing to measure an encode's length with.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { defaultFfmpegWorker } from "../../src/lib/ffmpegEngine";
@@ -123,16 +124,6 @@ function controls(label = "Run Matrix"): RunUi {
   const { nodes, ui } = runControls(label);
   document.body.append(...nodes);
   return ui;
-}
-
-/** Inputs as prepareRun hands them over once the stretches are cut: one snippet per window. */
-function cutInputs(windows = WINDOWS): RunInputs {
-  return {
-    windows,
-    names: windows.map((_, i) => `snip${i}.mp4`),
-    data: windows.map(() => new Uint8Array(4)),
-    preCut: true,
-  };
 }
 
 /** What comes after `-i` in an encode's arguments: the input, and the trim when there is one. */
@@ -522,7 +513,7 @@ describe("encodeWindows", () => {
     const workers = acquireWorkers(1);
     const progress: number[] = [];
 
-    const result = await encodeWindows(cli, cutInputs(), workers, ui, (fraction) => progress.push(fraction));
+    const result = await encodeWindows(cli, cutInputs(WINDOWS), workers, ui, (fraction) => progress.push(fraction));
 
     expect(result.blobs.map((b) => b.size)).toEqual([3, 3]);
     expect(result.bytes).toBe(6);
@@ -583,7 +574,7 @@ describe("encodeWindows", () => {
       handle.log("frame=   90 fps=30 q=20.0 size=30kB time=00:00:03.00 bitrate=80kbits/s");
       return Promise.resolve();
     };
-    await encodeWindows(cli, cutInputs(), acquireWorkers(1), ui, (fraction) => progress.push(fraction));
+    await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, (fraction) => progress.push(fraction));
     expect(progress).toEqual([0.25, 0.5, 0.5, 0.75, 1, 1]);
     expect(ui.log.textContent).toContain("[libx264 @ 0x1] using SAR=1/1");
   });
@@ -596,7 +587,7 @@ describe("encodeWindows", () => {
       handle.log("frame=   30 fps=30 q=20.0 size=10kB time=00:00:01.00 bitrate=80kbits/s");
       return Promise.resolve();
     };
-    await encodeWindows(cli, cutInputs(), acquireWorkers(1), ui, (fraction) => progress.push(fraction));
+    await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, (fraction) => progress.push(fraction));
     expect(progress).toEqual([0.5, 1]);
   });
 
@@ -610,7 +601,7 @@ describe("encodeWindows", () => {
       return Promise.resolve();
     };
 
-    const { blobs } = await encodeWindows(cli, cutInputs(), workers, ui, () => {});
+    const { blobs } = await encodeWindows(cli, cutInputs(WINDOWS), workers, ui, () => {});
 
     expect(blobs).toHaveLength(2);
     expect(core.execs.map((args) => args.at(-1))).toEqual(["et_out_0.mp4", "et_out_1.mp4"]);
@@ -624,13 +615,13 @@ describe("encodeWindows", () => {
   it("falls back to the requested length when the encode's own cannot be measured", async () => {
     const ui = controls();
     mb.duration = new Error("undecodable");
-    let { measured } = await encodeWindows(cli, cutInputs(), acquireWorkers(1), ui, () => {});
+    let { measured } = await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {});
     expect(measured.map((w) => w.seconds)).toEqual([2, 2]);
     // The Input is let go of either way: leaked by the hundred, the browser stops decoding at all.
     expect(mb.disposed).toBe(2);
 
     mb.duration = 0;
-    ({ measured } = await encodeWindows(cli, cutInputs(), acquireWorkers(1), ui, () => {}));
+    ({ measured } = await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {}));
     expect(measured.map((w) => w.seconds)).toEqual([2, 2]);
   });
 
@@ -644,7 +635,7 @@ describe("encodeWindows", () => {
   it("refuses without a video track to build the command for", async () => {
     state.tracks = [];
     const ui = controls();
-    const run = encodeWindows(cli, cutInputs(), acquireWorkers(1), ui, () => {});
+    const run = encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {});
     await expect(run).rejects.toThrow("No video track loaded");
   });
 
@@ -655,7 +646,7 @@ describe("encodeWindows", () => {
       encodeTest.cancelRequested = true;
       return Promise.resolve();
     };
-    const err = await encodeWindows(cli, cutInputs(), acquireWorkers(1), ui, () => {}).catch((e: unknown) => e);
+    const err = await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {}).catch((e: unknown) => e);
     expect((err as Error).message).toBe("Stopped");
     // The second stretch was never handed out.
     expect(core.execs).toHaveLength(1);
@@ -673,7 +664,7 @@ describe("encodeWindows", () => {
     const workers = acquireWorkers(1);
     startRunUi(ui);
     core.exec = () => new Promise(() => {});
-    const run = encodeWindows(cli, cutInputs(), workers, ui, () => {});
+    const run = encodeWindows(cli, cutInputs(WINDOWS), workers, ui, () => {});
     await vi.waitFor(() => expect(core.execs).toHaveLength(1));
 
     ui.stopButton.click();

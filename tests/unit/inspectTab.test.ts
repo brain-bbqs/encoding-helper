@@ -6,6 +6,7 @@ import type { CodecInfo, DeclaredBitrate, SampleInfo, TrackInfo } from "../../sr
 import { renderAtomMap } from "../../src/ui/atomsTab";
 import { renderBitrateTimelineSection, renderInspectHead, renderInspectTail } from "../../src/ui/inspectTab";
 import { renderSeekTab } from "../../src/ui/seekTab";
+import { gridItem, gridValue } from "./helpers/grid";
 
 /** The shared track, at the 20 fps these tests read their figures against. */
 const VIDEO_TRACK: TrackInfo = { ...SHARED_VIDEO_TRACK, packetRate: 20 };
@@ -287,16 +288,6 @@ describe("the overview and track cards", () => {
     return Array.from(panel.querySelectorAll("label")).map((el) => el.textContent);
   }
 
-  function itemOf(panel: HTMLElement, label: string): HTMLElement {
-    return Array.from(panel.querySelectorAll<HTMLElement>(".item")).find(
-      (el) => el.querySelector("label")?.textContent === label,
-    )!;
-  }
-
-  function valueOf(panel: HTMLElement, label: string): string | null | undefined {
-    return itemOf(panel, label).querySelector(".val")?.textContent;
-  }
-
   it("renders nothing at all before a file is open", () => {
     loadFile({ durationSec: 30, samples: samples(600, 30, () => 1000) });
     const panel = document.createElement("div");
@@ -316,9 +307,9 @@ describe("the overview and track cards", () => {
     expect(labels).toContain("Encoding tool");
     expect(labels).toContain("com.example.custom");
     // Only the unknown tag keeps the container's own spelling as its label.
-    expect(itemOf(panel, "com.example.custom").querySelector("label")?.classList.contains("raw")).toBe(true);
-    expect(itemOf(panel, "Title").querySelector("label")?.classList.contains("raw")).toBe(false);
-    expect(itemOf(panel, "Encoding tool").querySelector(".val")?.textContent).toBe("Lavf60.16.100");
+    expect(gridItem(panel, "com.example.custom").querySelector("label")?.classList.contains("raw")).toBe(true);
+    expect(gridItem(panel, "Title").querySelector("label")?.classList.contains("raw")).toBe(false);
+    expect(gridItem(panel, "Encoding tool").querySelector(".val")?.textContent).toBe("Lavf60.16.100");
     expect(panel.textContent).toContain("Hover the ⓘ on any tag");
   });
 
@@ -330,14 +321,14 @@ describe("the overview and track cards", () => {
     state.tags = { title: "Session 1", raw: { "©too": "Lavf60.16.100", "com.example.custom": "x" } };
     const panel = document.createElement("div");
     renderInspectHead(panel);
-    const pop = itemOf(panel, "Encoding tool").querySelector(".info-pop")!;
+    const pop = gridItem(panel, "Encoding tool").querySelector(".info-pop")!;
     expect(pop.querySelector("code")?.textContent).toBe("©too");
     expect(pop.querySelector(".info-pop-meta")?.textContent).toBe("MP4 / QuickTime atom");
     expect(pop.textContent).toContain("libavformat 60.16.100");
-    const titlePop = itemOf(panel, "Title").querySelector(".info-pop")!;
+    const titlePop = gridItem(panel, "Title").querySelector(".info-pop")!;
     expect(titlePop.querySelector(".info-pop-meta")?.textContent).toBe("Normalized by mediabunny");
     expect(titlePop.querySelectorAll("p").length).toBe(1);
-    expect(itemOf(panel, "com.example.custom").querySelector(".info-pop")).toBeNull();
+    expect(gridItem(panel, "com.example.custom").querySelector(".info-pop")).toBeNull();
   });
 
   it("still explains the value of an unknown tag when it carries an encoder signature", () => {
@@ -345,7 +336,7 @@ describe("the overview and track cards", () => {
     state.tags = { raw: { "x-writer": "HandBrake 1.6.1" } };
     const panel = document.createElement("div");
     renderInspectHead(panel);
-    const pop = itemOf(panel, "x-writer").querySelector(".info-pop")!;
+    const pop = gridItem(panel, "x-writer").querySelector(".info-pop")!;
     expect(pop.querySelector(".info-pop-meta")).toBeNull();
     expect(pop.textContent).toContain("Written by HandBrake 1.6.1");
   });
@@ -378,7 +369,7 @@ describe("the overview and track cards", () => {
     ];
     const panel = document.createElement("div");
     renderInspectHead(panel);
-    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    const values = (label: string): string | null => gridValue(panel, label);
     expect(values("Codec")).toBe("avc1.640020");
     expect(values("Resolution")).toBe("640×480");
     expect(values("Display Size")).toBe("853×480");
@@ -401,7 +392,6 @@ describe("the overview and track cards", () => {
   // chroma explainer says so rather than guessing on the card.
   it("leaves out the rows a plainer video track has nothing to say for", () => {
     loadClip();
-    state.tracks = [{ ...VIDEO_TRACK, displayWidth: 640, displayHeight: 480 }];
     const panel = document.createElement("div");
     renderInspectHead(panel);
     const labels = labelsOf(panel);
@@ -427,7 +417,7 @@ describe("the overview and track cards", () => {
     const panel = document.createElement("div");
     renderInspectHead(panel);
     expect(panel.querySelectorAll("h2").length).toBe(2);
-    expect(itemOf(panel, "Resolution").querySelector(".val")?.textContent).toBe("640×480");
+    expect(gridItem(panel, "Resolution").querySelector(".val")?.textContent).toBe("640×480");
   });
 
   it("reports the audio track's figures and codec details after the bitrate card", () => {
@@ -439,7 +429,7 @@ describe("the overview and track cards", () => {
       "Video Bitrate Over Time",
       "Audio Track",
     ]);
-    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    const values = (label: string): string | null => gridValue(panel, label);
     expect(values("Codec")).toBe("mp4a.40.2");
     expect(values("Sample Rate")).toBe("48,000 Hz");
     expect(values("Channels")).toBe("2");
@@ -458,7 +448,7 @@ describe("the overview and track cards", () => {
     const panel = document.createElement("div");
     renderInspectTail(panel);
     expect(Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent)).toEqual(["Audio Track"]);
-    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    const values = (label: string): string | null => gridValue(panel, label);
     expect(values("Codec")).toBe("aac");
     expect(values("Sample Rate")).toBe("–");
     expect(values("Channels")).toBe("–");
@@ -470,7 +460,7 @@ describe("the overview and track cards", () => {
     state.tracks = [{ ...VIDEO_TRACK, codecString: null }];
     const panel = document.createElement("div");
     renderInspectHead(panel);
-    expect(itemOf(panel, "Codec").querySelector(".val")?.textContent).toBe("avc");
+    expect(gridItem(panel, "Codec").querySelector(".val")?.textContent).toBe("avc");
   });
 
   // A file whose header gives no duration has no rate to divide by, so the overview and the bitrate
@@ -481,7 +471,7 @@ describe("the overview and track cards", () => {
     const panel = document.createElement("div");
     renderInspectHead(panel);
     renderInspectTail(panel);
-    const values = (label: string): string | null | undefined => valueOf(panel, label);
+    const values = (label: string): string | null => gridValue(panel, label);
     expect(values("Duration")).toBe("–");
     expect(values("Overall Bitrate")).toBe("–");
     expect(chartOf(panel.querySelector<HTMLDivElement>(".section:last-child"))).toBeNull();

@@ -18,6 +18,7 @@ import {
 } from "../../src/lib/qualityMatrix";
 import { cli, encodeTest, state } from "../../src/lib/state";
 import type { EncodeSettings, MatrixCell, SampleWindow, X264Preset } from "../../src/lib/types";
+import { deferred, flush } from "./helpers/async";
 
 /** What the faked cores were asked to do, and what a test wants an encode to do. */
 const core = vi.hoisted(() => ({
@@ -151,9 +152,6 @@ function ticked(panel: HTMLElement, label: string): string[] {
     .map((b) => b.value);
 }
 
-/** Lets whatever the last event queued run to completion. */
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
-
 /** The bytes of the file the sweeps run over: enough of them to be a size worth projecting from,
  * read back by hand for the checksum since jsdom's Blob cannot be read as an ArrayBuffer. */
 const CLIP_BYTES = Uint8Array.from({ length: 100_000 }, (_, i) => i % 251);
@@ -193,15 +191,6 @@ function encodes(): string[][] {
 /** The stream-copy cuts of the sampled stretch, told apart from the encodes by their rebased timestamps. */
 function cuts(): string[][] {
   return core.execs.filter((args) => args.includes("-avoid_negative_ts"));
-}
-
-/** An encode held open until the test lets it finish. */
-function heldEncode(): { promise: Promise<void>; release: () => void } {
-  let release = (): void => {};
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
 }
 
 function runNote(panel: HTMLElement): HTMLElement {
@@ -685,8 +674,6 @@ describe("the command for the selected square", () => {
     expect(command).toContain("-crf 18");
     expect(command).toContain("-an");
     expect(command).toContain("+faststart");
-    cli.audioMode = "copy";
-    cli.faststart = false;
   });
 });
 
@@ -1001,7 +988,7 @@ describe("running the sweep", () => {
     loadClip();
     sweepOf(["ultrafast", "superfast"]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    const held = heldEncode();
+    const held = deferred<void>();
     let attempts = 0;
     core.exec = (args) => {
       if (!args.includes("-crf")) return Promise.resolve();
@@ -1027,7 +1014,7 @@ describe("running the sweep", () => {
     medium.dispatchEvent(new Event("change"));
     expect(encodeTest.matrix.cells).toBe(cells);
 
-    held.release();
+    held.resolve();
     await awaitRun(panel);
     await settleRun(panel);
 
@@ -1116,14 +1103,14 @@ describe("running the sweep", () => {
     loadClip();
     sweepOf(["superfast"]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    const held = heldEncode();
+    const held = deferred<void>();
     core.exec = (args) => (args.includes("-crf") ? held.promise : Promise.resolve());
     const panel = renderTab();
     runButton(panel).click();
     await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
 
     state.tracks = [];
-    held.release();
+    held.resolve();
     await awaitRun(panel);
     await settleRun(panel);
 

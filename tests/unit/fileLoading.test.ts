@@ -2,12 +2,14 @@
 // drop zone and the address bar in step with where the load got to, and put what came back into
 // `state`. That sequencing is what these cases pin down.
 
-import { mountHtml, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
+import { mountHtml, pickFiles, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initFileLoadingUi } from "../../src/ui/fileLoading";
+import { flush } from "./helpers/async";
+import { setUrl } from "./helpers/url";
 
 const INDEX_HTML = readIndexHtml();
 
@@ -60,10 +62,6 @@ function metadata(over: Record<string, unknown> = {}) {
     fps: 30,
     ...over,
   };
-}
-
-function setUrl(search: string): void {
-  window.history.replaceState({}, "", "/encoding-helper/" + search);
 }
 
 function mountApp(): AppElements {
@@ -369,10 +367,7 @@ describe("the file picker", () => {
       value: vi.fn().mockRejectedValue(new Error("not allowed in this frame")),
       configurable: true,
     });
-    vi.spyOn(els.fileInput, "click").mockImplementation(() => {
-      Object.defineProperty(els.fileInput, "files", { value: [videoFile("fallback.mp4")], configurable: true });
-      els.fileInput.onchange!(new Event("change"));
-    });
+    vi.spyOn(els.fileInput, "click").mockImplementation(() => pickFiles(els.fileInput, [videoFile("fallback.mp4")]));
     initFileLoadingUi(els, { onLoaded });
 
     els.pickFileBtn.click();
@@ -391,17 +386,14 @@ describe("the file picker", () => {
 
     els.pickFileBtn.click();
     await vi.waitFor(() => expect(click).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush();
 
     expect(state.source).toBeNull();
     expect(onLoaded).not.toHaveBeenCalled();
   });
 
   it("falls back to the hidden file input where there is no picker", async () => {
-    vi.spyOn(els.fileInput, "click").mockImplementation(() => {
-      Object.defineProperty(els.fileInput, "files", { value: [videoFile("input.mp4")], configurable: true });
-      els.fileInput.onchange!(new Event("change"));
-    });
+    vi.spyOn(els.fileInput, "click").mockImplementation(() => pickFiles(els.fileInput, [videoFile("input.mp4")]));
     initFileLoadingUi(els, { onLoaded });
 
     els.pickFileBtn.click();

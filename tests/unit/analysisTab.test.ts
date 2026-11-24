@@ -2,7 +2,7 @@
 // HTML the panel is built from and the Markdown the two Markdown controls produce, rather than
 // against the rendered frame (jsdom runs no layout and loads no srcdoc).
 
-import { stubClipboard } from "@brain-bbqs/test-utils/vitest";
+import { installObserverStub, stubClipboard } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
@@ -100,11 +100,16 @@ beforeEach(() => {
 });
 
 let restoreClipboard: (() => void) | undefined;
+/** Puts back the ResizeObserver a test stubbed: the stub is a plain property, which
+ * vi.unstubAllGlobals() does not know to undo. */
+let restoreObserver: (() => void) | undefined;
 
 afterEach(() => {
   vi.unstubAllGlobals();
   restoreClipboard?.();
   restoreClipboard = undefined;
+  restoreObserver?.();
+  restoreObserver = undefined;
 });
 
 describe("renderAnalysisTab", () => {
@@ -396,6 +401,23 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("Advanced Video Coding");
   });
 
+  // A track shown at the size it is coded at needs no second size; one stretched to another (non-square
+  // pixels) gets a row saying what it is shown at.
+  it("states the display size only when it differs from the coded one", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    expect(markdown(el)).not.toContain("Display Size");
+
+    loadClip({ tracks: [{ ...VIDEO_TRACK, displayWidth: 853, displayHeight: 480 }] });
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| Display Size | 853×480 |");
+
+    loadClip({ tracks: [{ ...VIDEO_TRACK, displayWidth: 640, displayHeight: 360 }] });
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| Display Size | 640×360 |");
+  });
+
   it("leaves the frame rate out of the headline when the file does not state one", () => {
     const el = panel();
     loadClip({ tracks: [{ ...VIDEO_TRACK, packetRate: null }] });
@@ -548,15 +570,8 @@ describe("renderAnalysisTab", () => {
   });
 
   it("keeps the preview frame as tall as the document loaded into it", () => {
-    const observe = vi.fn();
-    const disconnect = vi.fn();
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe = observe;
-        disconnect = disconnect;
-      },
-    );
+    const observers = installObserverStub("ResizeObserver");
+    restoreObserver = observers.restore;
     const el = panel();
     loadClip();
     renderAnalysisTab(el);
@@ -569,11 +584,12 @@ describe("renderAnalysisTab", () => {
 
     frame.dispatchEvent(new Event("load"));
     expect(frame.style.height).toBe("1200px");
-    expect(observe).toHaveBeenCalledWith(documentElement);
+    const [observer] = observers.instances;
+    expect(observer.observed).toEqual([documentElement]);
 
     // The next visit rebuilds the panel, and the observer watching the old frame goes with it.
     renderAnalysisTab(el);
-    expect(disconnect).toHaveBeenCalledOnce();
+    expect(observer.disconnected).toBe(true);
   });
 
   it("leaves the frame's height alone when it has no document to measure", () => {
