@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.4
+
+#### 🏠 Internal
+
+- Removed twelve unused icon files and some leftover tooling, and set one Node version (22) for every CI workflow ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.3
 
 #### 🏠 Internal

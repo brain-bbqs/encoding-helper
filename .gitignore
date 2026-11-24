@@ -12,3 +12,6 @@ scripts/data/
 
 # The video the integration tests load, built by tests/fixtures/demoVideo.ts
 tests/fixtures/.generated/
+
+# The demo set scripts/generate-demos.sh writes, and scripts/upload-demos.sh reads, by default
+demo-out/

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 // Boots the real src/main.ts against the real index.html with nothing loaded, and drives the page's
 // own wiring: the version stamp, the intro card and the Educational switch, the theme toggle, the
 // sweep-cache button and the What's New modal fed from the real CHANGELOG.md.

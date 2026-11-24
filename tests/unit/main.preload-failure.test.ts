@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 // main.ts preloads mediabunny at boot; a failed preload is logged and leaves the page usable.
 import { beforeAll, expect, it, vi } from "vitest";
 import { bootMain, el } from "./helpers/mainHarness";
