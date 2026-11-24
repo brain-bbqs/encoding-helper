@@ -4,6 +4,9 @@
   "description": "A didactic, in-browser video encoding lab: inspect MP4/H.264 structure, learn how encoding works, run empirical seeking tests, and re-encode video directly in the browser.",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": "^22.12.0"
+  },
   "scripts": {
     "dev": "vite --config configs/vite.config.ts",
     "build": "tsc && vite build --config configs/vite.config.ts",
