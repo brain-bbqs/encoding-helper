@@ -560,6 +560,8 @@ None: this is the first review of this repository.
 | `package.json:39` | `"chromatic": "^18.0.1",` in `devDependencies` | No script, workflow step or import runs the package; both Chromatic workflows call `chromaui/action` instead | remove it and refresh the lockfile | Medium |
 | `src/vite-env.d.ts:1` | `/// <reference types="vite/client" />` | The shared base config that `configs/tsconfig.json:2` extends already loads those types for the whole project | delete line 1 and the blank line after it | Medium |
 
+> **Since this review**, the `chromatic` row no longer applies: `.github/workflows/chromatic-publish.yml` now uploads both builds with that package's CLI, so it stays.
+
 - **Proposed change**: As in the table, with these details. Mock (`tests/integration/demoArchive.ts`): line
   163 and the `|| id === assetId(d.session, "sidecar")` half of line 161 must go together, because with
   only line 163 gone a sidecar request would fall through to the video bytes on line 172, and with both
