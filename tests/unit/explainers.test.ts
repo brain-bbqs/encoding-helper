@@ -21,7 +21,9 @@ describe("VALUE_HINTS", () => {
   });
 
   it("decodes FFmpeg's muxing and encoding libraries with their versions", () => {
-    expect(hint("Lavf60.16.100")).toContain("<b>libavformat 60.16.100</b>");
+    const lavf = hint("Lavf60.16.100");
+    expect(lavf).toContain("<b>libavformat 60.16.100</b>");
+    expect(lavf).toContain("FFmpeg");
     expect(hint("Lavc60.31.102 libx264")).toContain("<b>libavcodec 60.31.102</b>");
   });
 

@@ -148,9 +148,11 @@ describe("videoChecksum", () => {
     expect(one).not.toBe(other);
   });
 
+  // Every probe of either file reads a megabyte of zeros, so the bytes read are the same and only the
+  // length differs.
   it("tells two files apart on their size alone", async () => {
-    const one = await videoChecksum(sourceOf(bytesOf(1, 2, 3)));
-    const other = await videoChecksum(sourceOf(bytesOf(1, 2, 3, 0)));
+    const one = await videoChecksum(hugeSource(8 * MIB, []));
+    const other = await videoChecksum(hugeSource(16 * MIB, []));
     expect(one).not.toBe(other);
   });
 
@@ -251,7 +253,9 @@ describe("remembering what a square measured", () => {
   });
 
   it("asks for nothing when there is nothing to ask about", async () => {
+    const opening = vi.spyOn(indexedDB, "open");
     expect((await open().readMeasurements([])).size).toBe(0);
+    expect(opening).not.toHaveBeenCalled();
   });
 
   it("still has it after the page is loaded again", async () => {
@@ -332,32 +336,30 @@ describe("a store that cannot be trusted", () => {
     const cache = open();
     cache.writeMeasurement("good", measurement(10));
     await cache.flush();
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const db = request.result;
-        const tx = db.transaction("measurements", "readwrite");
-        tx.objectStore("measurements").put({ key: "sizeless", s: 1, ms: 2, lastUsed: 1 });
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => reject(tx.error);
-      };
-    });
+    await seed("measurements", { key: "sizeless", s: 1, ms: 2, lastUsed: 1 });
     const held = await cache.readMeasurements(["good", "sizeless"]);
     expect(held.get("good")?.bytes).toBe(10);
     expect(held.has("sizeless")).toBe(false);
   });
 
   // A stretch list with a broken entry is a list that cannot be reused whole, and a partial reuse
-  // would measure different seconds from the run it came from.
+  // would measure different seconds from the run it came from. The keys are written by hand, so a
+  // well-formed record under one is the control: it is recalled, so the three misses are the checks
+  // on the record and not keys the cache never looks up.
   it("has no stretches to offer from a record with a malformed one, or none at all", async () => {
+    await seed("windows", {
+      key: "sgood:5.000x2",
+      w: [
+        [0, 5],
+        [12.5, 5],
+      ],
+      lastUsed: 1,
+    });
     await seed("windows", { key: "sabc:5.000x2", w: [[0, 5], [12.5]], lastUsed: 1 });
     await seed("windows", { key: "sabc:5.000x0", w: [], lastUsed: 1 });
     await seed("windows", { key: "sabc:5.000x1", w: "0+5", lastUsed: 1 });
     const cache = open();
+    expect(await cache.recallWindows("sgood", 5, 2)).toEqual(WINDOWS);
     expect(await cache.recallWindows("sabc", 5, 2)).toBe(null);
     expect(await cache.recallWindows("sabc", 5, 0)).toBe(null);
     expect(await cache.recallWindows("sabc", 5, 1)).toBe(null);

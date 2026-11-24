@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import type { FfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
 import { cli, encodeTest, state } from "../../src/lib/state";
 import type { SampleWindow } from "../../src/lib/types";
 import type { loadEncodedIntoAB } from "../../src/ui/abPanel";
-import type { encodeWindows, prepareRun, RunInputs } from "../../src/ui/segmentRun";
+import type { encodeWindows, prepareRun } from "../../src/ui/segmentRun";
+import { deferred, flush, type Deferred } from "./helpers/async";
 
 /** What the faked run was handed, and the hooks a test uses to settle its encode by hand. */
 const run = vi.hoisted(() => ({
@@ -13,7 +15,7 @@ const run = vi.hoisted(() => ({
   encodeWindows: vi.fn<typeof encodeWindows>(),
   loadEncodedIntoAB: vi.fn<typeof loadEncodedIntoAB>(),
   /** The one core the faked pool hands out, which only has to load. */
-  worker: { id: 0, load: vi.fn(() => Promise.resolve()) },
+  worker: { load: vi.fn(() => Promise.resolve()) },
 }));
 
 // The A/B window decodes with mediabunny, which is not what a run of the builder's command is about
@@ -36,13 +38,18 @@ const { renderCompareTab } = await import("../../src/ui/compareTab");
 const { renderEncodeTab } = await import("../../src/ui/encodeTab");
 const realRun = await vi.importActual<typeof import("../../src/ui/segmentRun")>("../../src/ui/segmentRun");
 
-/** The tab, rendered over one loaded 20-second file. The panel goes into the document because the
- * tab binds its fields by id, the way the app's own panels are already in the page. */
-function renderTab(format = "MP4"): HTMLElement {
+/** One loaded 20-second file, as the tabs read it from the state. */
+function loadClip(format = "MP4"): void {
   state.tracks = [VIDEO_TRACK];
   state.duration = 20;
   state.fps = 30;
   state.format = format;
+}
+
+/** The tab, rendered over `loadClip`'s file. The panel goes into the document because the tab binds
+ * its fields by id, the way the app's own panels are already in the page. */
+function renderTab(format = "MP4"): HTMLElement {
+  loadClip(format);
   const panel = document.createElement("div");
   document.body.append(panel);
   renderEncodeTab(panel);
@@ -52,7 +59,6 @@ function renderTab(format = "MP4"): HTMLElement {
 beforeEach(() => {
   document.body.innerHTML = "";
   resetCliDefaults();
-  encodeTest.duration = 5;
 });
 
 describe("renderEncodeTab", () => {
@@ -65,21 +71,20 @@ describe("renderEncodeTab", () => {
 
   it("builds the command live from the fields above it", () => {
     const panel = renderTab();
-    expect(panel.querySelector("#cmdPre")!.textContent).toContain("-crf 25");
-    const quality = panel.querySelector<HTMLSelectElement>("#cliQuality")!;
-    quality.value = "low";
-    quality.dispatchEvent(new Event("change"));
-    expect(panel.querySelector("#cmdPre")!.textContent).toContain("-crf 32");
+    expect(command(panel)).toContain("-crf 25");
+    pick(panel, "cliQuality", "low");
+    expect(command(panel)).toContain("-crf 32");
   });
 
   // Trying one setting on a few seconds moved here from Compare Quality, where it sat beside a
   // sweep it had nothing to do with; here it is a run of the command directly above it.
   it("offers a run of the built command over one fixed stretch", () => {
     const panel = renderTab();
-    // The length and the count are fixed, so they are not on the page at all: where the stretch
-    // comes from is the only question, and the track below asks it.
-    expect(panel.querySelector("#sampleDuration")).toBeNull();
-    expect(panel.querySelector("#sampleSegments")).toBeNull();
+    // The length and the count are fixed, so the fields the sweep sets them with are not on the page
+    // at all, under whatever ids: where the stretch comes from is the only question, and the track
+    // below asks it.
+    expect(panel.querySelector(".sample-duration")).toBeNull();
+    expect(panel.querySelector(".sample-segments")).toBeNull();
     expect(panel.querySelector(".compare-run-buttons button")!.textContent).toBe("Run Comparison");
   });
 
@@ -123,18 +128,22 @@ describe("renderEncodeTab", () => {
   // The two tabs ask for different things now (one stretch here, a sampled spread there), so the
   // sweep's fields are its own rather than a second copy of these.
   it("leaves the Compare Quality tab's duration and segments alone", () => {
-    const panel = renderTab();
+    // The sweep is set up first, so that rendering this tab and moving its band are what could undo it.
+    loadClip();
     const comparePanel = document.createElement("div");
     document.body.append(comparePanel);
     renderCompareTab(comparePanel);
+    type(comparePanel, "etDuration", "8");
+    type(comparePanel, "etSegments", "2");
 
-    const sweepDuration = comparePanel.querySelector<HTMLInputElement>("#etDuration")!;
-    sweepDuration.value = "8";
-    sweepDuration.dispatchEvent(new Event("input"));
+    const band = renderTab().querySelector<HTMLElement>(".sample-band")!;
+    band.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", shiftKey: true, bubbles: true }));
+    expect(encodeTest.sampleStart).toBe(10);
+
+    expect(comparePanel.querySelector<HTMLInputElement>("#etDuration")!.value).toBe("8");
+    expect(comparePanel.querySelector<HTMLInputElement>("#etSegments")!.value).toBe("2");
     expect(encodeTest.duration).toBe(8);
-    // This tab's run is three seconds whatever the sweep is set to, which the band's width says.
-    const band = panel.querySelector<HTMLElement>(".sample-band")!;
-    expect(band.style.width).toBe(`${(SAMPLE_SECONDS / 20) * 100}%`);
+    expect(encodeTest.segments).toBe(2);
   });
 });
 
@@ -167,18 +176,6 @@ function tick(panel: HTMLElement, id: string, checked: boolean): void {
 // Every field writes straight into the shared builder state and the command under it says so at
 // once; there is no Apply step between the two.
 describe("the command builder's fields", () => {
-  // The builder's settings survive resetState on purpose, so what these tests move is put back by
-  // hand for the tests after them.
-  afterEach(() => {
-    cli.keyframeInterval = 1;
-    cli.noBFrames = true;
-    cli.pad = true;
-    cli.faststart = false;
-    cli.audioMode = "copy";
-    cli.fps = null;
-    cli.customScale = 60;
-  });
-
   it("takes a custom CRF only once Custom is the quality picked", () => {
     const panel = renderTab();
     const crfField = panel.querySelector<HTMLElement>("#cliCrf")!.parentElement!;
@@ -308,36 +305,6 @@ describe("the command builder's fields", () => {
   });
 });
 
-/** A promise settled from outside, standing in for an encode still in flight. */
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-  reject: (err: Error) => void;
-}
-
-function deferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  let reject!: (err: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
-/** Inputs as prepareRun hands them over once the stretch is cut. */
-function cutInputs(windows: SampleWindow[]): RunInputs {
-  return {
-    windows,
-    names: windows.map((_, i) => `snip${i}.mp4`),
-    data: windows.map(() => new Uint8Array(4)),
-    preCut: true,
-  };
-}
-
-/** Lets whatever the last event queued run to completion. */
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
-
 /** The run's controls as the tab put them in the page. */
 function sampleRun(panel: HTMLElement): {
   runButton: HTMLButtonElement;
@@ -380,11 +347,11 @@ describe("running the command on a sample", () => {
     run.loadEncodedIntoAB.mockReset().mockResolvedValue(undefined);
   });
 
-  // A run left in flight holds the tab's one encoder, which the next test would then find busy.
+  // A run left in flight is let finish, so it releases the tab's one encoder inside the test that
+  // started it.
   afterEach(async () => {
     encoded.resolve({ blobs: [], bytes: 0, measured: [] });
     await flush();
-    encodeTest.running = false;
     vi.restoreAllMocks();
   });
 

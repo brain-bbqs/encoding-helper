@@ -1,7 +1,10 @@
 import type { InputVideoTrack } from "mediabunny";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sample } from "../fixtures/samples";
+import { seekResult } from "../fixtures/seekResult";
 import { resetState, state } from "../../src/lib/state";
-import type { SeekResult } from "../../src/lib/types";
+import { flush } from "./helpers/async";
+import { gridValue } from "./helpers/grid";
 
 /** Every timestamp the run asked the sink to decode, in order. */
 const decodeRequests: number[] = [];
@@ -43,10 +46,6 @@ const { renderGopHistogram, renderSeekScatter, renderSeekTab } = await import(".
 /** Stands in for the loaded file's decodable track; the stub never reads it. */
 const VIDEO_TRACK = { id: "video" } as unknown as InputVideoTrack;
 
-function result(over: Partial<SeekResult> = {}): SeekResult {
-  return { t: 1.5, kf: 1, dist: 0.5, distFrames: 15, decodeMs: 12.34, ...over };
-}
-
 /** A 10-second file with a keyframe every 2 seconds, loaded and decodable. */
 function loadClip(): void {
   state.videoTrack = VIDEO_TRACK;
@@ -67,21 +66,11 @@ function renderTab(): HTMLElement {
   return panel;
 }
 
-/** Lets whatever the last event queued run to completion. */
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
-
 /** Sets the sample count and presses Run, then waits for the run to finish. */
 async function run(panel: HTMLElement, samples: string): Promise<void> {
   panel.querySelector<HTMLInputElement>("#seekN")!.value = samples;
   panel.querySelector<HTMLButtonElement>("#runSeekBtn")!.click();
   await flush();
-}
-
-function gridValue(wrap: Element, label: string): string | null {
-  const item = Array.from(wrap.querySelectorAll(".item")).find(
-    (el) => el.querySelector("label")?.textContent === label,
-  );
-  return item?.querySelector(".val")?.textContent ?? null;
 }
 
 function tableRows(wrap: Element): string[][] {
@@ -218,6 +207,21 @@ describe("the seeking test run", () => {
     expect(tableRows(wrap)).toHaveLength(3);
   });
 
+  // A run that fails never draws results of its own, so only the clear at its start takes the last
+  // run's off the screen.
+  it("clears the last run's results when the next run starts, even if that run then fails", async () => {
+    loadClip();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const panel = renderTab();
+    await run(panel, "5");
+    const wrap = panel.querySelector("#seekResultsWrap")!;
+    expect(tableRows(wrap)).toHaveLength(5);
+    refuseAt = 5;
+    await run(panel, "5");
+    expect(document.getElementById("errorMsg")!.textContent).toBe("Seeking test failed: no frame at 5");
+    expect(wrap.children).toHaveLength(0);
+  });
+
   it("reports a decoder that will not load in the page's error slot and lets the button go", async () => {
     loadClip();
     loadError = new Error("decoder unavailable");
@@ -235,7 +239,6 @@ describe("the seeking test run", () => {
   });
 
   it("refuses to run before a file with a video track is open", async () => {
-    state.duration = 10;
     vi.spyOn(console, "error").mockImplementation(() => {});
     const panel = renderTab();
     await run(panel, "5");
@@ -377,14 +380,14 @@ describe("renderSeekScatter", () => {
   // The plot needs two points with a distance to be a distribution; timestamps before the first
   // keyframe have none and are left out.
   it("draws nothing until two sampled timestamps have a keyframe distance", () => {
-    expect(renderSeekScatter([result({ dist: null }), result({ dist: null }), result()])).toBeNull();
+    expect(renderSeekScatter([seekResult({ dist: null }), seekResult({ dist: null }), seekResult()])).toBeNull();
   });
 
   it("plots one point per timestamp with a distance, scaled a little past the largest of each", () => {
     const svg = renderSeekScatter([
-      result({ t: 1, dist: 0.5, decodeMs: 10 }),
-      result({ t: 2, dist: 2, decodeMs: 100 }),
-      result({ t: 3, dist: null, decodeMs: 500 }),
+      seekResult({ t: 1, dist: 0.5, decodeMs: 10 }),
+      seekResult({ t: 2, dist: 2, decodeMs: 100 }),
+      seekResult({ t: 3, dist: null, decodeMs: 500 }),
     ])!;
     expect(svg.getAttribute("viewBox")).toBe("0 0 600 280");
     expect(svg.getAttribute("role")).toBe("img");
@@ -405,7 +408,7 @@ describe("renderSeekScatter", () => {
   });
 
   it("puts the largest point at the top right of the plot and a zero at its origin", () => {
-    const svg = renderSeekScatter([result({ dist: 0, decodeMs: 0 }), result({ dist: 2, decodeMs: 100 })])!;
+    const svg = renderSeekScatter([seekResult({ dist: 0, decodeMs: 0 }), seekResult({ dist: 2, decodeMs: 100 })])!;
     const pts = Array.from(svg.querySelectorAll("circle.pt"));
     expect([pts[0].getAttribute("cx"), pts[0].getAttribute("cy")]).toEqual(["56", "240"]);
     // 1/1.08 of the way across the plot's 528 px and up its 224 px.
@@ -416,7 +419,7 @@ describe("renderSeekScatter", () => {
   // Every seek landing on a keyframe and decoding instantly leaves nothing to scale by; the axes
   // then run to one rather than dividing by zero.
   it("gives an all-zero run unit axes instead of collapsing them", () => {
-    const svg = renderSeekScatter([result({ dist: 0, decodeMs: 0 }), result({ dist: 0, decodeMs: 0 })])!;
+    const svg = renderSeekScatter([seekResult({ dist: 0, decodeMs: 0 }), seekResult({ dist: 0, decodeMs: 0 })])!;
     const ticks = Array.from(svg.querySelectorAll("text.tick")).map((el) => el.textContent);
     expect(ticks).toEqual(["0.00", "0", "0.25", "0", "0.50", "1", "0.75", "1", "1.00", "1"]);
     const pts = Array.from(svg.querySelectorAll("circle.pt"));
@@ -439,7 +442,7 @@ describe("renderGopHistogram", () => {
 
 describe("renderSeekTab", () => {
   it("prints the keyframe structure of the loaded file above the test", () => {
-    state.samples = Array.from({ length: 90 }, () => ({ size: 1, cts: 0, dts: 0, ctsSec: 0, is_sync: false }));
+    state.samples = Array.from({ length: 90 }, () => sample(0, 1));
     state.keyframeDecodeIndices = [0, 30, 60];
     state.gopLengths = [30, 30, 30];
     state.fps = 30;
@@ -458,5 +461,10 @@ describe("renderSeekTab", () => {
     expect(gridValue(panel, "Min / Max GOP")).toBe("0 / 0 frames");
     expect(panel.querySelector(".badge")!.textContent).toBe("No B-frames");
     expect(panel.querySelector(".hist")).toBeNull();
+  });
+
+  it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
+    const panel = renderTab();
+    expect(panel.querySelector<HTMLInputElement>("#seekN")!.value).toBe("100");
   });
 });

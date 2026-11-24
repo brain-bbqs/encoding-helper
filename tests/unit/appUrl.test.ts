@@ -10,10 +10,7 @@ import {
   writeSrcToUrl,
   writeTabToUrl,
 } from "../../src/lib/appUrl";
-
-function setUrl(search: string): void {
-  window.history.replaceState({}, "", "/encoding-helper/" + search);
-}
+import { setUrl } from "./helpers/url";
 
 describe("appUrl", () => {
   beforeEach(() => setUrl(""));

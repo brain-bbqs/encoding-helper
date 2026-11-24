@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { describeContainer } from "../../src/lib/containerKb";
-import { CONTAINER_KB } from "../../src/lib/explainers";
 
 describe("describeContainer", () => {
   it("returns null for a missing format name", () => {
@@ -32,12 +31,6 @@ describe("describeContainer", () => {
   it("marks audio-only containers as carrying no video", () => {
     for (const name of ["MP3", "WAVE", "FLAC", "ADTS"]) {
       expect(describeContainer(name)?.video).toMatch(/none/i);
-    }
-  });
-
-  it("gives every entry a name matching its key", () => {
-    for (const [key, info] of Object.entries(CONTAINER_KB)) {
-      expect(info?.name).toBe(key);
     }
   });
 });

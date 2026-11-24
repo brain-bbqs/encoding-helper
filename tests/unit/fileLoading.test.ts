@@ -2,18 +2,29 @@
 // drop zone and the address bar in step with where the load got to, and put what came back into
 // `state`. That sequencing is what these cases pin down.
 
-import { mountHtml, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
+import { mountHtml, pickFiles, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initFileLoadingUi } from "../../src/ui/fileLoading";
+import { flush } from "./helpers/async";
+import { setUrl } from "./helpers/url";
 
 const INDEX_HTML = readIndexHtml();
 
 const parseWithMp4Box = vi.hoisted(() => vi.fn());
 const loadMediabunnyMetadata = vi.hoisted(() => vi.fn());
 const fromUrl = vi.hoisted(() => vi.fn());
+// The two mediabunny readers, held here so a test can say which one a load opened, and on what.
+const { BlobSource, UrlSource } = vi.hoisted(() => ({
+  BlobSource: class BlobSource {
+    constructor(public blob: Blob) {}
+  },
+  UrlSource: class UrlSource {
+    constructor(public url: string) {}
+  },
+}));
 
 vi.mock("../../src/lib/mp4boxParser", () => ({
   parseWithMp4Box,
@@ -35,12 +46,8 @@ vi.mock("../../src/lib/mediabunny", () => ({
   ensureMediabunny: () =>
     Promise.resolve({
       ALL_FORMATS: [],
-      BlobSource: class {
-        constructor(public blob: Blob) {}
-      },
-      UrlSource: class {
-        constructor(public url: string) {}
-      },
+      BlobSource,
+      UrlSource,
       Input: class {
         constructor(public options: unknown) {}
         dispose(): void {}
@@ -62,10 +69,6 @@ function metadata(over: Record<string, unknown> = {}) {
   };
 }
 
-function setUrl(search: string): void {
-  window.history.replaceState({}, "", "/encoding-helper/" + search);
-}
-
 function mountApp(): AppElements {
   mountHtml(INDEX_HTML);
   return getElements();
@@ -73,6 +76,11 @@ function mountApp(): AppElements {
 
 function videoFile(name = "clip.mp4"): File {
   return new File([new Uint8Array(1024)], name, { type: "video/mp4" });
+}
+
+/** The reader the last load handed to mediabunny's `Input`. */
+function mediabunnyReader(): unknown {
+  return (state.input as unknown as { options: { source: unknown } }).options.source;
 }
 
 let els: AppElements;
@@ -93,12 +101,14 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("loading a file", () => {
   it("fills in the state the tabs render from, and shows them", async () => {
+    const file = videoFile();
     const loader = initFileLoadingUi(els, { onLoaded });
 
-    await loader.loadFile(videoFile());
+    await loader.loadFile(file);
 
     expect(state.source!.name).toBe("clip.mp4");
-    expect(state.file).toBeInstanceOf(File);
+    expect(state.file).toBe(file);
+    expect(mediabunnyReader()).toStrictEqual(new BlobSource(file));
     expect(state.format).toBe("MP4");
     expect(state.duration).toBe(30);
     expect(state.fps).toBe(30);
@@ -127,19 +137,36 @@ describe("loading a file", () => {
     expect(els.miniSize.textContent).toBe("(1.0 KB)");
   });
 
+  // Read off the name slot as the load reaches the I/O layer, the box parser (before and after it
+  // reports progress) and the metadata reader.
   it("names each stage as it goes, including how far the parse has got", async () => {
     const stages: string[] = [];
+    const stage = (): number => stages.push(els.miniName.textContent!);
+    const fromFile = ChunkedSource.fromFile;
+    vi.spyOn(ChunkedSource, "fromFile").mockImplementation((file: File) => {
+      stage();
+      return fromFile(file);
+    });
     parseWithMp4Box.mockImplementation(async (_source: unknown, onProgress: (p: number) => void) => {
-      stages.push(els.miniName.textContent!);
+      stage();
       onProgress(0.5);
-      stages.push(els.miniName.textContent!);
+      stage();
       return { mp4boxFile: {}, info: { videoTracks: [{ id: 1, timescale: 600 }] } };
+    });
+    loadMediabunnyMetadata.mockImplementation(async () => {
+      stage();
+      return metadata();
     });
     const loader = initFileLoadingUi(els, { onLoaded });
 
     await loader.loadFile(videoFile());
 
-    expect(stages).toEqual(["Parsing MP4 structure (mp4box.js)…", "Parsing MP4 structure… 50%"]);
+    expect(stages).toEqual([
+      "Reading file…",
+      "Parsing MP4 structure (mp4box.js)…",
+      "Parsing MP4 structure… 50%",
+      "Reading metadata (mediabunny)…",
+    ]);
   });
 
   it("estimates a frame rate from the sample table when mediabunny reports none", async () => {
@@ -157,20 +184,27 @@ describe("loading a file", () => {
     expect(state.fps).toBeNull();
   });
 
+  // A URL is loaded first, so the address has a `src` for the file load to clear.
   it("leaves the address bar clean, since a local file cannot be shared by link", async () => {
+    fromUrl.mockResolvedValue(ChunkedSource.fromFile(videoFile("remote.mp4")));
     const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadUrl("https://example.org/remote.mp4");
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/remote.mp4");
+
     await loader.loadFile(videoFile());
+
     expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
   });
 });
 
 describe("loading a URL", () => {
+  // What the real factory hands back for a server that serves ranges: a URL source with no file.
   beforeEach(() => {
     fromUrl.mockImplementation((url: string, name?: string) => {
       const source = ChunkedSource.fromFile(videoFile(name ?? "remote.mp4"));
       source.kind = "url";
       source.url = url;
-      source.file = new Blob([new Uint8Array(1024)]);
+      source.file = null;
       return Promise.resolve(source);
     });
   });
@@ -189,11 +223,32 @@ describe("loading a URL", () => {
     expect(fromUrl).toHaveBeenCalledWith("https://example.org/download/", "session-1.mp4");
   });
 
+  it("has mediabunny read a URL served in ranges over the network, and keeps no file", async () => {
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadUrl("https://example.org/remote.mp4");
+
+    expect(mediabunnyReader()).toStrictEqual(new UrlSource("https://example.org/remote.mp4"));
+    expect(state.file).toBeNull();
+  });
+
+  // What the real factory hands back for a server that would not promise ranges: the whole file,
+  // downloaded.
+  it("has mediabunny read a URL that had to be downloaded from the downloaded file, and keeps that file", async () => {
+    const downloaded = videoFile("remote.mp4");
+    fromUrl.mockResolvedValue(ChunkedSource.fromFile(downloaded));
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadUrl("https://example.org/remote.mp4");
+
+    expect(mediabunnyReader()).toStrictEqual(new BlobSource(downloaded));
+    expect(state.file).toBe(downloaded);
+  });
+
   it("opens what a shared link names, without being asked", async () => {
     setUrl("?src=" + encodeURIComponent("https://example.org/shared.mp4"));
     initFileLoadingUi(els, { onLoaded });
     await vi.waitFor(() => expect(onLoaded).toHaveBeenCalled());
 
+    expect(fromUrl).toHaveBeenCalledWith("https://example.org/shared.mp4", undefined);
     expect(els.urlInput.value).toBe("https://example.org/shared.mp4");
     expect(els.urlRow.style.display).toBe("flex");
   });
@@ -261,12 +316,16 @@ describe("the drop zone's controls", () => {
     expect(els.dropZone.classList.contains("dragover")).toBe(false);
   });
 
+  // A load started on nothing would fail at once, leaving "Reading file…" in the name slot and the
+  // error slot shown; both start out empty.
   it("ignores a drop carrying nothing", () => {
     initFileLoadingUi(els, { onLoaded });
     const event = new Event("drop", { cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [] } });
     els.dropZone.dispatchEvent(event);
     expect(state.source).toBeNull();
+    expect(els.miniName.textContent).toBe("");
+    expect(els.errorMsg.style.display).toBe("");
   });
 
   it("shows and hides the URL box, focusing it when it appears", () => {
@@ -305,10 +364,15 @@ describe("the drop zone's controls", () => {
     expect(fromUrl).not.toHaveBeenCalled();
   });
 
+  // The tabs and the URL row both start out hidden, so they are shown first for Reset to hide.
   it("puts the whole page back when the loaded file is closed", async () => {
+    fromUrl.mockResolvedValue(ChunkedSource.fromFile(videoFile("remote.mp4")));
     const loader = initFileLoadingUi(els, { onLoaded });
-    await loader.loadUrl("https://example.org/remote.mp4").catch(() => {});
+    await loader.loadUrl("https://example.org/remote.mp4");
+    els.showUrlBtn.click();
     els.urlInput.value = "https://example.org/remote.mp4";
+    expect(els.app.style.display).toBe("block");
+    expect(els.urlRow.style.display).toBe("flex");
 
     els.resetBtn.click();
 
@@ -348,16 +412,23 @@ describe("the file picker", () => {
     expect(state.source!.name).toBe("picked.mp4");
   });
 
+  // A dismissal is the reader's answer rather than the picker failing, so nothing is warned about
+  // and the hidden file input is not tried in its place.
   it("loads nothing when the reader dismissed the picker", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     Object.defineProperty(window, "showOpenFilePicker", {
       value: vi.fn().mockRejectedValue(new DOMException("cancelled", "AbortError")),
       configurable: true,
     });
+    const click = vi.spyOn(els.fileInput, "click").mockImplementation(() => {});
     initFileLoadingUi(els, { onLoaded });
 
     els.pickFileBtn.click();
     await vi.waitFor(() => expect(window.showOpenFilePicker).toHaveBeenCalled());
+    await flush();
 
+    expect(warn).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
     expect(state.source).toBeNull();
   });
 
@@ -369,10 +440,7 @@ describe("the file picker", () => {
       value: vi.fn().mockRejectedValue(new Error("not allowed in this frame")),
       configurable: true,
     });
-    vi.spyOn(els.fileInput, "click").mockImplementation(() => {
-      Object.defineProperty(els.fileInput, "files", { value: [videoFile("fallback.mp4")], configurable: true });
-      els.fileInput.onchange!(new Event("change"));
-    });
+    vi.spyOn(els.fileInput, "click").mockImplementation(() => pickFiles(els.fileInput, [videoFile("fallback.mp4")]));
     initFileLoadingUi(els, { onLoaded });
 
     els.pickFileBtn.click();
@@ -382,6 +450,7 @@ describe("the file picker", () => {
     expect(warn).toHaveBeenCalledOnce();
   });
 
+  // As with an empty drop, a load started on nothing would show in the name and error slots.
   it("loads nothing when the hidden file input comes back empty", async () => {
     const click = vi.spyOn(els.fileInput, "click").mockImplementation(() => {
       Object.defineProperty(els.fileInput, "files", { value: [], configurable: true });
@@ -391,17 +460,16 @@ describe("the file picker", () => {
 
     els.pickFileBtn.click();
     await vi.waitFor(() => expect(click).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush();
 
     expect(state.source).toBeNull();
     expect(onLoaded).not.toHaveBeenCalled();
+    expect(els.miniName.textContent).toBe("");
+    expect(els.errorMsg.style.display).toBe("");
   });
 
   it("falls back to the hidden file input where there is no picker", async () => {
-    vi.spyOn(els.fileInput, "click").mockImplementation(() => {
-      Object.defineProperty(els.fileInput, "files", { value: [videoFile("input.mp4")], configurable: true });
-      els.fileInput.onchange!(new Event("change"));
-    });
+    vi.spyOn(els.fileInput, "click").mockImplementation(() => pickFiles(els.fileInput, [videoFile("input.mp4")]));
     initFileLoadingUi(els, { onLoaded });
 
     els.pickFileBtn.click();

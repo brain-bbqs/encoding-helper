@@ -67,18 +67,6 @@ describe("describeMetadataTagValue", () => {
     expect(describeMetadataTagValue("My Home Video")).toBeNull();
   });
 
-  it("decodes an FFmpeg libavformat signature", () => {
-    const hint = describeMetadataTagValue("Lavf60.16.100");
-    expect(hint).toContain("libavformat 60.16.100");
-    expect(hint).toContain("FFmpeg");
-  });
-
-  it("decodes other common encoder signatures", () => {
-    expect(describeMetadataTagValue("Lavc61.3.100")).toContain("libavcodec");
-    expect(describeMetadataTagValue("HandBrake 1.7.3")).toContain("HandBrake");
-    expect(describeMetadataTagValue("x264 core 164")).toContain("x264");
-  });
-
   it("only interpolates the matched version digits, never the whole value", () => {
     const hint = describeMetadataTagValue("Lavf60.16.100 <img src=x onerror=alert(1)>");
     expect(hint).not.toContain("<img");

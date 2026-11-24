@@ -6,6 +6,7 @@ import { resetCliDefaults } from "../fixtures/state";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
 import { encodeTest, state } from "../../src/lib/state";
 import { samplePicker } from "../../src/ui/samplePicker";
+import { deferred, flush } from "./helpers/async";
 
 const getCanvas = vi.hoisted(() => vi.fn());
 const ensureMediabunny = vi.hoisted(() => vi.fn());
@@ -218,11 +219,11 @@ describe("samplePicker", () => {
   });
 
   it("draws the frame the drag ended on, not whichever request came back last", async () => {
-    const frames = new Map([
-      [10, { canvas: { width: 1, height: 1 } }],
-      [20, { canvas: { width: 2, height: 2 } }],
-    ]);
-    getCanvas.mockImplementation((at: number) => Promise.resolve(frames.get(at)));
+    // The frame at 10 s is held back until the one at 20 s has been drawn, so it comes back last.
+    const late = deferred<{ canvas: { width: number; height: number } }>();
+    getCanvas.mockImplementation((at: number) =>
+      at === 10 ? late.promise : Promise.resolve(at === 20 ? { canvas: { width: 2, height: 2 } } : null),
+    );
     const p = picker();
     const canvas = p.el.querySelector<HTMLCanvasElement>("canvas")!;
 
@@ -230,6 +231,8 @@ describe("samplePicker", () => {
     key(p.band, "ArrowRight", true);
     await vi.waitFor(() => expect(canvas.width).toBe(2));
 
+    late.resolve({ canvas: { width: 1, height: 1 } });
+    await flush();
     expect(canvas.width).toBe(2);
   });
 

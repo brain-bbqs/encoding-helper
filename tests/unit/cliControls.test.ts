@@ -56,7 +56,6 @@ function loadVideo(): void {
 beforeEach(() => {
   document.body.innerHTML = "";
   resetCliDefaults();
-  cli.customScale = 60;
 });
 
 describe("refreshCliCommand", () => {

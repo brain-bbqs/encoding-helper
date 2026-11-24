@@ -1,10 +1,10 @@
 // Fixtures the unit tests share for the app's state: the video track most tabs are rendered over,
 // the command builder's defaults, and the reset that puts both back between tests.
 
-import { cli, encodeTest, resetState } from "../../src/lib/state";
+import { cli, resetState } from "../../src/lib/state";
 import type { CliState, TrackInfo } from "../../src/lib/types";
 
-/** A 640×480 H.264 track at 30 fps. */
+/** A 640×480 H.264 track at 30 fps, shown at the size it is coded at. */
 export const VIDEO_TRACK: TrackInfo = {
   kind: "video",
   codec: "avc",
@@ -14,33 +14,18 @@ export const VIDEO_TRACK: TrackInfo = {
   bitrate: 500_000,
   codedWidth: 640,
   codedHeight: 480,
+  displayWidth: 640,
+  displayHeight: 480,
 };
 
-/** The command builder as it starts up. */
-export const BASE_CLI: CliState = {
-  quality: "medium",
-  crf: 25,
-  preset: "superfast",
-  keyframeInterval: 1,
-  gopOverride: null,
-  noBFrames: true,
-  pad: true,
-  faststart: false,
-  audioMode: "copy",
-  fps: null,
-  scale: 1,
-  scaler: "lanczos",
-};
+/** The command builder as it starts up: a copy of the app's own `cli`, taken when this module loads
+ * and before any test has edited it, so there is no second list of defaults to fall out of step. */
+export const BASE_CLI: CliState = structuredClone(cli);
 
-/** resetState(), plus the command-builder fields the tab tests edit. */
+/** resetState(), plus every command-builder field put back to its default. */
 export function resetCliDefaults(): void {
   resetState();
-  // The CLI settings deliberately survive resetState (they are the user's, not the file's), so the
-  // ones the tab tests edit are put back by hand rather than leaking into the tests after them.
-  cli.quality = "medium";
-  cli.crf = 25;
-  cli.preset = "superfast";
-  cli.scale = 1;
-  cli.scaler = "lanczos";
-  encodeTest.segments = 5;
+  // The CLI settings deliberately survive resetState (they are the user's, not the file's), so all
+  // of them are put back from BASE_CLI rather than leaking into the tests after the one that edited them.
+  Object.assign(cli, BASE_CLI);
 }
