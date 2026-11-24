@@ -4,7 +4,7 @@
 // The shape is the archive's own: one paginated asset listing, one dataset_description.json whose
 // "encoding-helper" key indexes the sessions, one BEP047 sidecar per file, and the video bytes
 // behind each asset's download endpoint. Every demo serves the same generated video
-// (tests/fixtures/demoVideo.ts) — the point under test is the page, not the encodes.
+// (tests/fixtures/demoVideo.ts): the point under test is the page, not the encodes.
 
 import { readFileSync } from "node:fs";
 import { expect, type Page, type Route } from "@playwright/test";
@@ -180,7 +180,7 @@ export async function gotoDemos(page: Page, query = ""): Promise<void> {
   await expect(page.locator(".demo-tile").first()).toBeVisible();
 }
 
-/** Opens one demo's fold and loads it, leaving the app showing that file. */
+/** Opens one demo's card from its tile and loads it, leaving the app showing that file. */
 export async function loadDemo(page: Page, session = REFERENCE_SESSION, query = ""): Promise<void> {
   await gotoDemos(page, query);
   await page.locator(`.demo-tile[data-session="${session}"]`).click();

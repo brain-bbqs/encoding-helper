@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { initTabs } from "../../src/ui/tabs";
 
-/** The tab bar as index.html has it: the row of tab buttons, the Full Analysis button beside it,
- * and one panel each. */
+/** A reduced tab bar: the three tab buttons, one unknown tab, and the Full Analysis button, all in
+ * one row (the page keeps that button outside it), with one panel each. */
 function mountTabBar(): void {
   document.body.innerHTML = `
     <div class="tabs">

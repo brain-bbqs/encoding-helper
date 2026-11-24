@@ -3,12 +3,12 @@
 //
 // A run samples several stretches from across the file and measures all of them, so the window
 // plays all of them: the stretches run one after another as a single reel that loops back to the
-// first, and the line under the panes says which one is on screen. Judging the encode off whichever
-// stretch happened to be first told you about one place in the video while the size figures beside
-// it were about several.
+// first, and the lit band on the scrub bar says which one is on screen. Judging the encode off
+// whichever stretch happened to be first told you about one place in the video while the size
+// figures beside it were about several.
 //
-// Both encoding tabs put their result here — a single run under Reencode with FFmpeg, a chosen
-// square under Compare Quality — so the comparison reads the same whichever produced it. Only one
+// Both encoding tabs put their result here (a single run under Reencode with FFmpeg, a chosen
+// square under Compare Quality), so the comparison reads the same whichever produced it. Only one
 // of them is ever showing: the panel keeps a reference to whichever section it last drew into and
 // clears it when the other takes over, since the sinks behind the panes belong to one encode at a
 // time.
@@ -38,7 +38,7 @@ let activeHost: HTMLElement | null = null;
 /** What each tab wants done when its comparison is taken over by the other tab's. */
 const displacedHandlers = new WeakMap<HTMLElement, () => void>();
 
-/** Registers what to do when `host`'s comparison is replaced by one drawn somewhere else — the tab
+/** Registers what to do when `host`'s comparison is replaced by one drawn somewhere else: the tab
  * that owned it has more to put back than the markup, such as which square was showing. */
 export function onAbDisplaced(host: HTMLElement, handler: () => void): void {
   displacedHandlers.set(host, handler);
@@ -49,7 +49,7 @@ export function onAbDisplaced(host: HTMLElement, handler: () => void): void {
  * comparison.
  *
  * `blobs` is every stretch the run encoded, in the order it sampled them, and `totals.windows` says
- * where in the source each one came from — the two are read together, so the original side of the
+ * where in the source each one came from. The two are read together, so the original side of the
  * pane at any moment is the same seconds as the encoded side.
  */
 export async function loadEncodedIntoAB(
@@ -202,7 +202,7 @@ const LABELLED_BOUNDARIES = 6;
  * from clip-extractor.
  *
  * A band per stretch, alternating and held a hairline apart, laid where the bar's own track would
- * be — the slider is stripped down to its thumb (see `.has-reel` in the stylesheet), so what the
+ * be: the slider is stripped down to its thumb (see `.has-reel` in the stylesheet), so what the
  * playhead runs along is the run. Under it, a ticked boundary between each pair saying where in the
  * source that stretch was cut from.
  *
@@ -375,7 +375,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const controls = h("div", "compare-controls");
   // The bar gets a row of its own above the buttons. The ruler under it has to line up with the bar
   // it divides, which means sharing a wrapper, and a wrapper two elements tall in among the buttons
-  // would leave the bar itself sitting off the row's centre line — besides which the labels want
+  // would leave the bar itself sitting off the row's centre line, besides which the labels want
   // the width.
   const scrubWrap = h("div", "compare-scrub");
   const scrub = h("input");

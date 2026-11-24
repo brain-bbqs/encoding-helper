@@ -1,9 +1,9 @@
-// Full Analysis — everything the other tabs worked out about the loaded file, gathered into one
+// Full Analysis: everything the other tabs worked out about the loaded file, gathered into one
 // document.
 //
 // The tabs each answer their own question and drop the answer on the floor when you leave them;
-// this is where those answers are collected, in reading order — results and plots only, with the
-// "teach" prose the interactive tabs carry left out unconditionally (see stripEducationalBlocks
+// this is where those answers are collected, in reading order (results and plots only, with the
+// "teach" prose the interactive tabs carry left out unconditionally; see stripEducationalBlocks
 // below). What the panel shows is the document itself, rendered in an iframe from the same HTML the
 // Download button writes and the print dialog prints, so there is no "preview" that can disagree
 // with the file.
@@ -135,7 +135,7 @@ function overviewSection(): AnalysisSection {
 
 function videoTrackSection(vt: TrackInfo): AnalysisSection {
   // No Bitrate item: the track average heads the bitrate section below, with the plot the single
-  // number cannot draw — the same split the Inspect tab makes.
+  // number cannot draw, the same split the Inspect tab makes.
   const items: [string, string | number][] = [
     ["Codec", vt.codecString || vt.codec],
     ["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`],
@@ -243,13 +243,13 @@ function metadataTagsSection(): AnalysisSection | null {
   };
 }
 
+/** Named once: the container explainer above links to this section by its slugified title. */
+const ATOM_MAP_TITLE = "MP4 Atom Map";
+
 // The map is the whole of what this section says about the tree. The indented text listing the old
 // report printed is gone: it was pages of offsets that only ever restated what the map draws, and a
 // fragmented recording turned it into a hundred of them. Each block carries its own offset and size
 // as a title instead.
-/** Named once: the container explainer above links to this section by its slugified title. */
-const ATOM_MAP_TITLE = "MP4 Atom Map";
-
 function atomMapSection(): AnalysisSection | null {
   const map = renderStaticAtomMap(state.boxes, DOCUMENT_WIDTH_PX);
   if (!map) return null;
@@ -443,7 +443,7 @@ function reencodeSection(): AnalysisSection | null {
 }
 
 /**
- * Full Analysis is results and plots — kv grids, badges, figures, tables, the CLI command — never
+ * Full Analysis is results and plots (kv grids, badges, figures, tables, the CLI command), never
  * the "teach" prose that goes with them on the interactive tabs. That distinction is unconditional,
  * independent of the header's educational toggle: a document meant to be saved, printed or handed to
  * someone else states what the file *is* without re-teaching the reader how to read it. Sections

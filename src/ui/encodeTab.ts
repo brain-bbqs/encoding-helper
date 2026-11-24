@@ -1,8 +1,8 @@
-// Tab: Reencode with FFmpeg — everything about running one setting on this file, in the order the
+// The Reencode with FFmpeg tab: everything about running one setting on this file, in the order the
 // question is actually asked: build the command, try it on a few sampled seconds, then run it over
 // the whole video (here in the page, or by copying the command and running ffmpeg natively).
 //
-// The three belong on one page because they are one decision. Trying a setting on five seconds is
+// The three belong on one page because they are one decision. Trying a setting on a few seconds is
 // only useful next to the command that setting comes to, and the whole-file encode is that same
 // command over the whole file rather than a separate feature.
 
@@ -206,8 +206,8 @@ export function renderEncodeTab(panel: HTMLElement): void {
  *
  * A CRF is a number until you have seen what it does to your footage, and what it does depends on
  * the footage: the same 25 that is invisible on a static cage view smears a fast-moving animal.
- * Five seconds encoded here answers that in a few seconds, and the same run measures what the
- * setting would save across the whole file — both questions the command itself cannot answer, and
+ * A few seconds encoded here answer that in a few seconds, and the same run measures what the
+ * setting would save across the whole file: both questions the command itself cannot answer, and
  * both cheaper to ask here than by encoding a full recording to find out.
  */
 function sampleRunSection(vt: TrackInfo): HTMLElement {
@@ -257,7 +257,8 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     const workers = acquireWorkers(windows.length);
     await workers[0].load();
     inputs = await prepareRun(windows, workers, ui);
-    // The A/B window draws the original from startTime, so it follows the stretch actually shown.
+    // Records where the encoded stretch starts. The A/B window draws the original from the windows
+    // passed to it below, not from this.
     encodeTest.startTime = windows[0].startSeconds;
     ui.note.textContent = "Encoding test segment…";
     const { blobs, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {

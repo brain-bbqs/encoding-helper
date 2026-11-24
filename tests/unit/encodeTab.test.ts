@@ -120,7 +120,7 @@ describe("renderEncodeTab", () => {
     expect(buttons).not.toContain("Reencode and Save");
   });
 
-  // The two tabs ask for different things now — one stretch here, a sampled spread there — so the
+  // The two tabs ask for different things now (one stretch here, a sampled spread there), so the
   // sweep's fields are its own rather than a second copy of these.
   it("leaves the Compare Quality tab's duration and segments alone", () => {
     const panel = renderTab();
@@ -403,7 +403,7 @@ describe("running the command on a sample", () => {
     const windows: SampleWindow[] = [{ startSeconds: 10, seconds: SAMPLE_SECONDS }];
     expect(run.prepareRun.mock.calls[0][0]).toEqual(windows);
     expect(run.prepareRun.mock.calls[0][1]).toEqual([run.worker]);
-    // The A/B window draws the original from here, so it follows the stretch actually encoded.
+    // The start of the stretch actually encoded is recorded (the A/B module is mocked here).
     expect(encodeTest.startTime).toBe(10);
     expect(encodeTest.running).toBe(true);
     expect(ui.stopButton.style.display).toBe("");

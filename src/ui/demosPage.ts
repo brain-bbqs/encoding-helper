@@ -8,8 +8,8 @@
 // The set (see lib/demoArchive.ts) is a couple of dozen files that each vary exactly one thing, so
 // the page is laid out as a map of the set rather than a list of it: a card per theme holding that
 // theme's tiles, and one detail card that moves to sit directly under whichever theme was pressed.
-// The whole set is then visible at once, comparing two files — a short GOP against a long one, say,
-// which is what the set is built around — is a click rather than a scroll, and what the click did
+// The whole set is then visible at once, comparing two files (a short GOP against a long one, say,
+// which is what the set is built around) is a click rather than a scroll, and what the click did
 // is always next to the tile that did it rather than at the far end of the page.
 //
 // It replaces the drop zone rather than sitting beside it, which is what makes it a page and not a
@@ -105,7 +105,7 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
   container.replaceChildren(grid);
 
   // Descriptions normally ride in the set's index. Only a dataset generated before that carried
-  // them leaves one to fetch, and then only for the file actually being looked at — kept here so
+  // them leaves one to fetch, and then only for the file actually being looked at, and kept here so
   // pressing back and forth between two tiles costs one request each, not one per press.
   const fetched = new Map<string, string>();
   const tiles: HTMLButtonElement[] = [];
@@ -198,7 +198,7 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
     groupOfSession.set(demo.session, group);
     // What the theme asks for on its row: room for its own files, side by side. Flexbox then
     // shrinks the greedy ones until the row fits, wrapping their tiles rather than pushing a small
-    // theme onto a line of its own — which is what packs the set into a screen rather than a scroll.
+    // theme onto a line of its own, which is what packs the set into a screen rather than a scroll.
     group.style.setProperty("--tiles", String(row.childElementCount + 1));
     const tile = button("demo-tile");
     tile.dataset.session = demo.session;
@@ -320,7 +320,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
   };
 
   els.browseDemosBtn.addEventListener("click", (e) => {
-    // The drop zone under the button is itself a click target for the file picker.
+    // Keeps the click from reaching the drop zone under the button.
     e.stopPropagation();
     open(true);
   });

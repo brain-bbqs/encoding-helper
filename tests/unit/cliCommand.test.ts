@@ -80,7 +80,7 @@ describe("buildFfmpegArgs", () => {
     expect(args).not.toContain("-vf");
   });
 
-  // scale's `-2` already lands on even dimensions, so padding after it would be a no-op — and a
+  // scale's `-2` already lands on even dimensions, so padding after it would be a no-op, and a
   // second -vf would silently replace the first rather than adding to it.
   it("replaces the pad with the scale rather than emitting -vf twice", () => {
     const args = buildFfmpegArgs(baseCli({ scale: 0.5, pad: true }), info);

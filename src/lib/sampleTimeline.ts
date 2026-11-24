@@ -2,8 +2,8 @@
 //
 // The maths behind brain-bbqs/clip-extractor's trim timeline, in seconds rather than frames: this
 // app never needs to land on an exact frame, since the stretch it cuts starts at a keyframe anyway.
-// The ruler is the same idea — a step someone reads at a glance, about six labelled divisions across
-// whatever the recording runs — so the two apps' timelines are gradated the same way.
+// The ruler is the same idea (a step someone reads at a glance, about six labelled divisions across
+// whatever the recording runs), so the two apps' timelines are gradated the same way.
 
 /** How long the stretch a single run encodes is, in seconds.
  *
@@ -12,7 +12,7 @@
  * in-browser speed. Which three seconds is the question worth asking, and the track asks it. */
 export const SAMPLE_SECONDS = 3;
 
-// Gradations the ruler is allowed to divide a recording into, in seconds — clip-extractor's list.
+// Gradations the ruler is allowed to divide a recording into, in seconds: clip-extractor's list.
 // Every one of them is a step read at a glance; 3s or 7s marks would be arithmetic instead.
 const RULER_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200];
 
@@ -46,7 +46,7 @@ export function rulerMarks(totalSeconds: number): RulerMark[] {
  * A window start held inside the recording.
  *
  * The window keeps its length at either end rather than being trimmed to fit, so the stretch that
- * is encoded is the stretch the track drew — and a recording shorter than the window is covered
+ * is encoded is the stretch the track drew, and a recording shorter than the window is covered
  * whole, from zero.
  */
 export function clampWindowStart(start: number, totalSeconds: number, windowSeconds: number): number {

@@ -1,4 +1,4 @@
-// File loading orchestration: drag/drop, file picker, remote URL — parses the file with both
+// File loading orchestration: drag/drop, file picker, remote URL. Parses the file with both
 // mp4box.js (box tree + sample table) and mediabunny (metadata), then hands off to the per-tab
 // renderers.
 //
@@ -126,8 +126,8 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
 /**
  * Puts the page back to where it was before a file was loaded.
  *
- * The whole dropzone comes back rather than the file picker alone, so the sample and the URL box
- * are reachable again — this is the way back out of a loaded file, not a shortcut to loading
+ * The whole dropzone comes back rather than the file picker alone, so the demo browser and the URL
+ * box are reachable again: this is the way back out of a loaded file, not a shortcut to loading
  * another one. The parsed file goes with it: what the tabs were showing is about a file that is no
  * longer open, and the mediabunny inputs behind it hold decoders worth releasing.
  */
@@ -174,8 +174,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     });
   });
   els.resetBtn.addEventListener("click", (e) => {
-    // The zone under it is the drop target and the file picker; a click that reached it would
-    // re-open the picker the reset just backed out of.
+    // Keeps the click from reaching the drop zone under it.
     e.stopPropagation();
     resetToDropZone(els);
   });

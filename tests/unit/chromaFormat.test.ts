@@ -4,7 +4,7 @@ import { chromaFromCodecString, chromaFromDescription, describeChromaFormat } fr
 /**
  * An `avcC` record: version, profile, compatibility, level, length-size, then one SPS and one PPS of
  * `spsLen`/`ppsLen` bytes, and the optional trailing byte carrying chroma_format when `chroma` is
- * given — the layout fromAvcC walks to reach that byte.
+ * given: the layout fromAvcC walks to reach that byte.
  */
 function avcC(profile: number, chroma: number | null, spsLen = 3, ppsLen = 2): Uint8Array {
   const head = [1, profile, 0, 0x1f, 0xff, 0xe1, 0, spsLen, ...Array<number>(spsLen).fill(0x42)];
@@ -29,7 +29,7 @@ describe("chromaFromDescription", () => {
   });
 
   // Muxers may leave the trailing part off, and a High-profile file is 4:2:0 or monochrome either
-  // way — not something to state on the file's behalf.
+  // way, not something to state on the file's behalf.
   it("says nothing for a High-profile record that stops before its chroma field", () => {
     expect(chromaFromDescription("avc", avcC(100, null))).toBeNull();
   });

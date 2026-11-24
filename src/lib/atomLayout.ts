@@ -1,7 +1,7 @@
 // Geometry for the Atom Map's horizontal view.
 //
-// The indented tree grows one row per atom, so a long recording — especially a fragmented one,
-// where a moof+mdat pair repeats per fragment — runs to thousands of rows. This lays the same tree
+// The indented tree grows one row per atom, so a long recording (especially a fragmented one,
+// where a moof+mdat pair repeats per fragment) runs to thousands of rows. This lays the same tree
 // out along an axis instead: one lane per nesting depth, each atom drawn across its slice. Height
 // is then bounded by how deeply the file nests (a handful of lanes) no matter how long the video
 // is, and width is always the width of the panel.
@@ -50,11 +50,11 @@ export interface AtomRect {
   /** The atom itself on a "box" rect; null on a "group". */
   box: BoxNode | null;
   /** Type of the top-level atom this one descends from ("moov", "mdat", …). On a "group" holding a
-   *  mix, it is whichever family covers most of the block — so a fragmented file's collapsed runs
+   *  mix, it is whichever family covers most of the block, so a fragmented file's collapsed runs
    *  still read as the sample data they mostly are. Null only when there is nothing to name. */
   family: string | null;
   /** Atoms represented: 1 for a box (its children are drawn separately), the whole collapsed count
-   *  — subtrees included — for a group. */
+   *  (subtrees included) for a group. */
   count: number;
 }
 
@@ -164,7 +164,7 @@ function clipToView(siblings: Placement[], view: AxisRange): Clipped[] {
 
 /**
  * Places every atom visible in `view`. Anything too narrow to draw becomes a group block saying how
- * many atoms it stands for, and zooming to that block's range is what pulls them apart — so nothing
+ * many atoms it stands for, and zooming to that block's range is what pulls them apart, so nothing
  * is ever silently dropped.
  */
 export function layoutAtoms(placements: Placement[], view: AxisRange, minWidth: number = MIN_RECT_WIDTH): AtomLayout {
@@ -216,7 +216,7 @@ export function layoutAtoms(placements: Placement[], view: AxisRange, minWidth: 
       if (width < floor) {
         // A run of neighbours that are each too narrow to draw shares one block, and the run is cut
         // as soon as it is itself wide enough to draw. Without that cut, a file whose every atom is
-        // too narrow — a long fragmented recording, where all of them are — would merge into one
+        // too narrow (a long fragmented recording, where all of them are) would merge into one
         // block spanning the whole map, saying only how many boxes are somewhere inside it. Cut
         // this way it striates instead: a run of blocks whose density is the fragmentation.
         let end = i;

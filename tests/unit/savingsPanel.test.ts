@@ -116,8 +116,7 @@ describe("renderSavingsDetail", () => {
     expect(detail(est).textContent).toContain("Projected Range");
   });
 
-  // The figures are the card: no prose under them, and no ⓘ on them either — how the estimate is
-  // arrived at is the Full Analysis document's to write out, since nobody can hover that.
+  // The figures are the card: no prose under them, and no ⓘ on them either.
   it("states the numbers and nothing else", () => {
     const block = detail(estimate(50_000));
     expect(block.querySelector(".teach")).toBeNull();

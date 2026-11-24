@@ -67,7 +67,8 @@ describe("buildDemoSet", () => {
     const set = buildDemoSet(DESCRIPTION, ASSETS);
     const matroska = set.demos.find((d) => d.session === "matroska") as DemoFile;
     expect(matroska.loadsInApp).toBe(false);
-    // Uploaded without a sidecar of its own, which costs the fold its figures and nothing else.
+    // Uploaded without a sidecar of its own, which the app reads only for a description the index
+    // lacks.
     expect(matroska.sidecarUrl).toBeNull();
   });
 

@@ -24,7 +24,7 @@ const els = getElements();
 
 function renderAll(): void {
   // Inspect is what the file *is*: the metadata, the map of how it is laid out, and the structure
-  // that governs how it seeks. Reading order follows the file's own structure — overview cards, the
+  // that governs how it seeks. Reading order follows the file's own structure: overview cards, the
   // atom map, the GOP/keyframe structure the map's box order decides, then the bitrate over time,
   // with the audio track last since everything above it is about the video. Each renderer appends,
   // so the panel is emptied here rather than once per renderer.
@@ -33,7 +33,7 @@ function renderAll(): void {
   renderAtomMap(els.panels.inspect);
   renderSeekTab(els.panels.inspect);
   renderInspectTail(els.panels.inspect);
-  // Wraps whatever the three renderers above just appended into a content column beside an "On this
+  // Wraps whatever the four renderers above just appended into a content column beside an "On this
   // page" nav built from their own section headings; must run after them, not interleaved.
   mountInspectToc(els.panels.inspect);
   renderEncodeTab(els.panels.encode);
@@ -67,7 +67,7 @@ initThemeToggle(els.themeToggle, { storageKey: THEME_KEY });
 
 /**
  * What the app is for, above the file picker. It sits outside the tab panels, so it is rebuilt on
- * its own rather than by renderAll — and it is the one card a reader meets before loading anything,
+ * its own rather than by renderAll, and it is the one card a reader meets before loading anything,
  * which is why it is put up whether or not a file has been opened.
  */
 function syncIntroCard(): void {
@@ -75,7 +75,7 @@ function syncIntroCard(): void {
   els.introCard.append(teachBox(APP_INTRO, "🎓"));
 }
 
-// Teaching material — the "teach" boxes and the ⓘ info-icon popovers — is on by default and
+// Teaching material (the "teach" boxes and the ⓘ info-icon popovers) is on by default and
 // remembered across reloads. The switch sits in the header beside the light/dark toggle: one
 // preference control for the whole app, outside the panels it rebuilds, so it is mounted once here
 // rather than by renderAll.
@@ -97,7 +97,7 @@ initDemosPage(els, loader);
 initTabs(() => renderAnalysisTab(els.panels.analysis));
 
 // Preloaded (not deferred to first file drop) so the metadata read and the A/B window's decoding
-// don't stall on it later — matches the original CDN version's eager `ensureMediabunny()` call.
+// don't stall on it later, as the original CDN version's eager `ensureMediabunny()` call did.
 ensureMediabunny().catch((err: unknown) => {
   console.warn("[encoding-helper] mediabunny preload failed:", err);
 });

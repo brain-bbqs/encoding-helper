@@ -78,8 +78,7 @@ echo
 echo "==> Uploading to $INSTANCE, dandiset $DANDISET"
 cd "$DEST"
 # --allow-any-path: dandi only considers extensions it recognizes as assets,
-# which excludes the .webm demos and manifest.json. The flag is gated behind
-# DANDI_DEVEL.
+# which excludes the .webm demos. The flag is gated behind DANDI_DEVEL.
 DANDI_DEVEL=1 dandi upload --dandi-instance "$INSTANCE" --validation skip \
   --existing overwrite --allow-any-path
 echo "Done."

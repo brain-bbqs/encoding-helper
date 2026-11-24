@@ -3,7 +3,8 @@ import { VIDEO_TRACK } from "../fixtures/state";
 import { encodeTest, resetState, state } from "../../src/lib/state";
 import type { EncodeSettings } from "../../src/lib/types";
 
-/** Every Input the stub has handed out, so the test can check the old ones are let go of. */
+/** The id of every Input the stub has seen disposed, so the test can check the old ones are let go
+ * of. */
 const disposed: number[] = [];
 let openedInputs = 0;
 /** The Input the stub refuses to give a video track, standing in for a stretch that will not open. */
@@ -180,7 +181,8 @@ beforeEach(() => {
   openedInputs = 0;
   state.tracks = [VIDEO_TRACK];
   state.duration = 20;
-  // The panel refuses to draw without one; nothing here reads it, since the sinks are stubbed.
+  // The panel refuses to draw without one; `requestedSeconds` tells the original's frame requests
+  // apart by it, since the sinks are stubbed.
   state.videoTrack = {} as never;
 });
 

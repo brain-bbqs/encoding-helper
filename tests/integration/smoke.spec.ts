@@ -97,7 +97,7 @@ test.describe("Encoding Helper shell", () => {
     const covered = /(\d[\d,]*) box/.exec((await panel.locator(".crumb-range").textContent()) ?? "");
     expect(drawn).toBe(Number((covered?.[1] ?? "0").replace(/,/g, "")));
 
-    // The document draws that same map, block for block — it is the whole of what it says about the
+    // The document draws that same map, block for block: it is the whole of what it says about the
     // tree, so a box missing there is a box the reader never sees.
     await page.locator(".tab-action").click();
     const doc = page.frameLocator("#analysisDoc");
@@ -115,7 +115,7 @@ test.describe("Encoding Helper shell", () => {
 
     // The button is not one of the tabs, and sits against the right edge of the content column.
     // The bar is inside #app, which is display:none until a file loads, and an unrendered element
-    // has no box to measure — so wait for it to be on screen before asking where it is.
+    // has no box to measure, so wait for it to be on screen before asking where it is.
     const action = page.locator(".tab-action");
     await expect(page.locator("#app")).toBeVisible();
     await expect(action).toBeVisible();
@@ -155,7 +155,7 @@ test.describe("Encoding Helper shell", () => {
   });
 
   test("adds the seeking test to the document once it has been run", async ({ page }) => {
-    // The seeking test is the last section of Inspect; its old tab name still points at it.
+    // The seeking test is a section of Inspect; its old tab name still points at it.
     await loadDemo(page, "reference", "&tab=seek");
     await page.locator("#seekN").fill("5");
     await page.locator("#runSeekBtn").click();

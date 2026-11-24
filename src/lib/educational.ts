@@ -1,9 +1,8 @@
 // Whether the app's teaching material (the "teach" callout boxes and the ⓘ info-icon popovers next
 // to grid fields) is shown at all. Persisted two ways: in localStorage, so the choice survives a
 // reload, and in the `edu` URL parameter, so a link can point someone at the app with the switch
-// already in a given position — the `?edu=` in the address bar wins over the stored value on load,
-// the way `?tab=` wins over the last-visited tab. Defaults on, since a first-time visitor is exactly
-// who the explainers are for.
+// already in a given position: the `?edu=` in the address bar wins over the stored value on load.
+// Defaults on, since a first-time visitor is exactly who the explainers are for.
 //
 // A single module-scoped flag rather than per-tab state: the toggle in the header is one control for
 // every tab, matching how the theme toggle works, and the icon in front of it is the same icon used

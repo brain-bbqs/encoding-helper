@@ -176,7 +176,7 @@ describe("teachBox", () => {
     expect(box.querySelector(".teach-body")?.innerHTML).toBe("<b>Chroma</b> subsampling");
   });
 
-  it("marks an unspecific box with the same bulb the Educational switch carries", () => {
+  it("marks an unspecific box with the default bulb", () => {
     expect(teachBox("Anything").querySelector(".teach-icon")?.textContent).toBe("💡");
   });
 });

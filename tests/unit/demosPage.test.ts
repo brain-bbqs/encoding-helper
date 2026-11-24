@@ -344,8 +344,8 @@ describe("initDemosPage", () => {
     expect(window.location.search).toBe("");
   });
 
-  // The page replaces the drop zone, and the button that opens it sits inside the drop zone, which
-  // is itself a click target for the file picker.
+  // The page replaces the drop zone, and the button that opens it sits inside the drop zone. The
+  // test listens for clicks on the zone itself, so a click that reached it would show.
   it("opens over the file picker, records itself in the URL and reads the set from the archive", async () => {
     const pushState = vi.spyOn(window.history, "pushState");
     const pickerClick = vi.fn();

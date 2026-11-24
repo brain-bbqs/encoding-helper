@@ -1,6 +1,6 @@
-// Tab: Inspect — what the loaded file *is*. File overview, video/audio track details, codec
-// explainers and metadata tags here; the atom map (atomsTab.ts) and the GOP/seeking sections
-// (seekTab.ts) are appended after them into the same panel by main.ts.
+// The Inspect tab: what the loaded file *is*. File overview, video/audio track details, codec
+// explainers and metadata tags here; main.ts appends the atom map (atomsTab.ts) and the GOP/seeking
+// section (seekTab.ts) into the same panel, between the head and tail cards.
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
@@ -62,7 +62,7 @@ export function flattenMetadataTags(): Record<string, unknown> {
       } else if (
         // Object.entries() only yields entries for keys actually present on the object, so an
         // optional MetadataTags field being absent never surfaces here as an explicit undefined
-        // value — only its presence with a real (possibly object-typed, or empty-string) value does.
+        // value; only its presence with a real (possibly object-typed, or empty-string) value does.
         typeof v !== "object" &&
         v !== ""
       ) {

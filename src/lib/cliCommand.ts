@@ -1,4 +1,4 @@
-// CLI command builder — single source of truth, shared by the displayed command AND the args fed to
+// CLI command builder: single source of truth, shared by the displayed command AND the args fed to
 // ffmpeg.wasm.
 
 import type { CliState, MatrixQuality, Scaler, VideoInfo } from "./types";

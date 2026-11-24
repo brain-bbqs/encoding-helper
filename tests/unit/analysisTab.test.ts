@@ -416,7 +416,7 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("| Peak Window |");
   });
 
-  // A declaration the sample table contradicts is noted, but the measured shape is what gets drawn.
+  // A declaration the sample table contradicts is not what gets drawn: the measured shape is.
   it("measures the samples over a constant-bitrate declaration they contradict", () => {
     const el = panel();
     loadClip();
@@ -667,8 +667,8 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("| Projected Full File |");
   });
 
-  // Sampling the whole file leaves nothing to be wrong about, so there is no range; and an encode
-  // that came out bigger is reported as bytes added, not saved.
+  // One window gives no spread to build a range from; and an encode that came out bigger is
+  // reported as bytes added, not saved.
   it("reports bytes added, with no range, when the whole file was encoded and grew", () => {
     const el = panel();
     loadClip();

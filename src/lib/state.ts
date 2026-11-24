@@ -1,5 +1,5 @@
 // Shared, mutable, single-source-of-truth state objects. Every tab renderer reads and writes these
-// directly (no framework/store layer) — mirrors the original monolithic script's globals, just typed.
+// directly (no framework/store layer), mirroring the original monolithic script's globals, just typed.
 
 import {
   DEFAULT_MATRIX_FPS_FRACTIONS,

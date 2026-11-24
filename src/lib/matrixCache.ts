@@ -4,7 +4,7 @@
 // A sweep is minutes of in-browser encoding for a table of numbers, and those numbers are a function
 // of three things alone: the video, the encoder settings, and the stretches that were measured. None
 // of the three changes because a checkbox moved or the page was reloaded, so a square that has been
-// run once never has to be run again — ticking one more preset onto a finished grid encodes that
+// run once never has to be run again: ticking one more preset onto a finished grid encodes that
 // column and reads the rest back, and coming back to the same file tomorrow fills the grid in as
 // fast as it can be drawn.
 //
@@ -20,7 +20,7 @@
 //
 // IndexedDB rather than localStorage, on the same reasoning as bbqs-uploader's checksum cache: a
 // few megabytes is the whole of what localStorage offers, and it is spent synchronously on the main
-// thread. Here that ceiling is what would bind — a measurement is small, but the reader who benefits
+// thread. Here that ceiling is what would bind: a measurement is small, but the reader who benefits
 // most from this is the one sweeping many files over many sittings, and evicting their earliest work
 // to stay under five megabytes throws away exactly the runs the cache exists to keep.
 
@@ -45,7 +45,7 @@ const LAST_USED_INDEX = "lastUsed";
  * How much of the browser's storage the measurements may take up.
  *
  * Hygiene rather than a limit anyone will meet: a measurement is a fifty-character key and four
- * numbers, so this is millions of squares — more than a lifetime of sweeping — and the reader who
+ * numbers, so this is millions of squares (more than a lifetime of sweeping), and the reader who
  * comes back to a file a year later still finds it. IndexedDB is granted a share of free disk
  * rather than a fixed few megabytes, so the figure costs nothing until it is used.
  */
@@ -55,8 +55,8 @@ export const MATRIX_CACHE_MAX_BYTES = 500 * 2 ** 20;
  * What one stored measurement is taken to cost, for turning the budget above into a number of
  * records to keep.
  *
- * A count rather than a running total of real sizes, because these records are all the same shape —
- * unlike the variable-length digests bbqs-uploader's cache weighs — and a count is one indexed
+ * A count rather than a running total of real sizes, because these records are all the same shape
+ * (unlike the variable-length digests bbqs-uploader's cache weighs), and a count is one indexed
  * lookup where a total is either a scan of every record on open or a second number to keep true.
  */
 const MEASUREMENT_BYTES = 200;
@@ -165,7 +165,7 @@ export function openMatrixCache(options: MatrixCacheOptions = {}): MatrixCache {
   // interleave into one transaction, and `flush` is the end of the chain.
   let writes: Promise<void> = Promise.resolve();
   // Starts due, so the first write of a session pays for a pass over a store an earlier session may
-  // have left over the budget — and the periodic checks after it are the rest of that session's.
+  // have left over the budget, and the periodic checks after it are the rest of that session's.
   let writesSinceEvict = EVICT_EVERY_WRITES;
 
   function openDb(): Promise<IDBDatabase> {
@@ -334,12 +334,12 @@ const checksums = new WeakMap<ChunkedSource, Promise<string>>();
  *
  * Sampled rather than complete because a complete one cannot be had cheaply in a browser:
  * SubtleCrypto has no streaming digest, so hashing every byte means holding the entire video in
- * memory at once — gigabytes, for a file the page otherwise reads a few seconds of, and over range
+ * memory at once: gigabytes, for a file the page otherwise reads a few seconds of, and over range
  * requests for a file it never downloads at all. Three megabytes and the size tell two videos apart
  * in the only way that matters here, since the ways two files agree on all four (same length, same
  * head, same middle, same tail) are the ways they are the same file. The cost of being wrong is one
- * grid of numbers measured on other video, which pressing Run Matrix again with the reuse of
- * measurements switched off replaces.
+ * grid of numbers measured on other video, which clearing the cache from the footer button and
+ * running the sweep again replaces.
  *
  * Computed once per loaded source: it is the same answer every time, and a sweep asks for it once a
  * square.
@@ -383,7 +383,7 @@ function concat(parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   return all;
 }
 
-/** SHA-256 where the browser offers it, and a pair of FNV-1a passes where it does not — which is an
+/** SHA-256 where the browser offers it, and a pair of FNV-1a passes where it does not, which is an
  * insecure origin, where `crypto.subtle` is simply absent. Both are prefixed, so a cache written
  * under one is never read under the other. */
 async function digestHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -420,7 +420,7 @@ function fnv1a64(bytes: Uint8Array): string {
  * What a square is remembered under: the file it was measured on, the command it was measured with,
  * and the stretches it was measured over.
  *
- * The command rather than the four swept axes, because the sweep is not the only thing that decides
+ * The command rather than the five swept axes, because the sweep is not the only thing that decides
  * what ffmpeg is asked for: the keyframe interval, B-frames, audio and the rest come from the
  * Reencode with FFmpeg tab, and a grid measured before one of them moved is a grid of the wrong
  * numbers afterwards. Passing the built args in means every one of them is in the key, and any

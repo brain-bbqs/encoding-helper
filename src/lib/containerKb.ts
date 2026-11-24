@@ -1,4 +1,4 @@
-// Container knowledge base — maps mediabunny's input format name (what `Input.getFormat().name`
+// Container knowledge base: maps mediabunny's input format name (what `Input.getFormat().name`
 // returns) to the record describing that container. The records are prose, so they live with the
 // rest of the app's copy in lib/explainers; what is left here is the lookup.
 

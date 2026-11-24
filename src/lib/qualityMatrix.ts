@@ -1,5 +1,5 @@
-// Matrix mode: sweeping the Compare Quality tab's two dropdowns as a grid instead of one setting at
-// a time.
+// The Compare Quality sweep: every combination of the ticked settings, encoded over the same
+// stretch of video and laid out as a grid instead of one setting at a time.
 //
 // A single A/B run answers "what does *this* setting cost?", which is only half of the question
 // anyone actually has: the other half is what the settings either side of it cost, and answering it
@@ -7,14 +7,15 @@
 // the cartesian product of the swept settings over the same few seconds of video, so the trade is
 // read off one table rather than reconstructed from memory.
 //
-// Four axes: quality and preset, which every sweep covers, and resolution and its kernel, which
-// start at one value each and multiply the sweep when a second is ticked.
+// Five axes: quality and preset, which every sweep covers, and resolution, its kernel and frame
+// rate, which multiply the sweep by each value ticked (resolution starts at two values, the other
+// two at one).
 //
 // "Best" here means the largest byte reduction, and nothing else: no picture-quality metric is
 // computed, so a higher CRF wins every time it is offered, and once the resolution axis is ticked
 // past one value the smallest resolution wins outright, since it deletes bits faster than any
 // setting on the other axes can. That is precisely why the whole grid is kept on screen with the
-// winner marked rather than the winner alone — the eye in the A/B window is the quality half of the
+// winner marked rather than the winner alone: the eye in the A/B window is the quality half of the
 // judgement, and the grid is what tells you how much the next row down would have saved.
 
 import {
@@ -88,7 +89,7 @@ export const DEFAULT_MATRIX_SCALERS: Scaler[] = [DEFAULT_SCALER];
 /**
  * The frame-rate axis, as fractions of the source's own rate: a tick means the same thing whatever
  * file is loaded, the way the resolution axis is a fraction rather than a pixel count. Halving the
- * rate halves the frames there are to encode, which is a lever on size that no CRF reaches — and one
+ * rate halves the frames there are to encode, which is a lever on size that no CRF reaches, and one
  * with a real cost for anything tracked frame by frame, which is why it is offered rather than
  * assumed.
  */
@@ -115,7 +116,7 @@ export function fpsForFraction(fraction: number, sourceFps: number | null | unde
 export const MATRIX_RETAINED_BYTES = 192 * 1024 * 1024;
 
 /** Stable identity for a combination, used as the table's cell key and for the best/selected marks.
- * All four axes are in it, so two squares that differ only by resolution are still two squares. */
+ * All five axes are in it, so two squares that differ only by resolution are still two squares. */
 export function comboKey(
   quality: MatrixQuality,
   preset: X264Preset,
@@ -130,7 +131,7 @@ export function comboCrf(quality: MatrixQuality): number {
   return CRF_MAP[quality];
 }
 
-/** e.g. "medium (CRF 25), veryfast" — the same wording the single-run summary uses. The resolution
+/** In the wording the single-run summary uses, e.g. "medium (CRF 25), veryfast". The resolution
  * and its kernel join it only when something was actually resampled, since at the source's
  * resolution the kernel names a choice that had no effect. */
 export function describeSettings(settings: EncodeSettings): string {
@@ -163,7 +164,7 @@ export function cliSettings(cliState: CliState): EncodeSettings {
 }
 
 /**
- * The cartesian product of all four axes, in dropdown order whatever order the boxes were ticked
+ * The cartesian product of all five axes, in dropdown order whatever order the boxes were ticked
  * in, so the table's rows and columns do not depend on how the selection was made.
  *
  * Resolution nests outside quality and the kernel outside preset, so that a sweep at one resolution
@@ -190,7 +191,7 @@ export function buildMatrixCombos(
   const scaleAxis = MATRIX_SCALES.filter((s) => scales.includes(s));
   const scalerAxis = MATRIX_SCALERS.filter((s) => scalers.includes(s));
   const fpsAxis = fpsValues.length ? fpsValues : [null];
-  // One output per rate, resolution and kernel — the properties of the file a square produces, and
+  // One output per rate, resolution and kernel: the properties of the file a square produces, and
   // the blocks the grid stacks. At the source resolution every kernel is the same encode, so only
   // the first stands for them.
   const outputs = fpsAxis.flatMap((fps) =>
@@ -249,7 +250,7 @@ export function matrixAxes(cells: MatrixCell[]): {
 }
 
 /** The `cli` state a combination stands for: everything else about the encode is left as the user
- * set it, since the sweep is over these four fields alone. */
+ * set it, since the sweep sets these fields alone. */
 export function matrixCliState(base: CliState, combo: MatrixCombo): CliState {
   return {
     ...base,

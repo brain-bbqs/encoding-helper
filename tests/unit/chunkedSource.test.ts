@@ -73,7 +73,7 @@ describe("ChunkedSource.fromUrl", () => {
   });
 
   // A single byte range succeeding says nothing about the parser's real reads, and mediabunny reads
-  // a URL source over ranges this class never sees — so ranges are taken only when advertised.
+  // a URL source over ranges this class never sees, so ranges are taken only when advertised.
   it("does not take ranges on a server that never advertised them", async () => {
     const blob = new Blob([new Uint8Array(99)], { type: "video/mp4" });
     stubFetch((_url, init) => {

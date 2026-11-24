@@ -2,19 +2,20 @@
 //
 // Nothing here is written by a tab. A renderer that wants to teach something imports the copy from
 // here, so the whole of what the app says can be read, edited and kept consistent in one place
-// rather than being hunted for across the tab that happens to show it — and the page and the
-// exported document can never explain the same number two different ways, since they read the same
-// string. The knowledge bases' records live here too, the prose of them; what stays in lib/codecKb,
-// lib/containerKb and lib/metadataTagKb is the lookup and the parsing that reads these tables.
+// rather than being hunted for across the tab that happens to show it. The knowledge bases' records
+// live here too, the prose of them; what stays in lib/codecKb, lib/containerKb and lib/metadataTagKb
+// is the lookup and the parsing that reads these tables.
 //
 // Order follows the app, not the code: tab by tab left to right (Inspect, Reencode with FFmpeg,
-// Compare Quality, Full Analysis) and, within a tab, card by card down the page, so an entry is
-// found by remembering where it is read. Copy shown on two tabs sits where it first appears. What
-// stays with its renderer is the text that is not teaching: button labels, status and error lines.
+// Compare Quality, Full Analysis) and, within a tab, card by card down the page (except the GOP
+// and seeking block, which follows Bitrate and Audio although the page draws it before both), so an
+// entry is found by remembering where it is read. Copy shown on two tabs sits where it first
+// appears. What stays with its renderer is the text that is not teaching: button labels, status and
+// error lines.
 //
 // Every string here is trusted markup rendered through innerHTML (teachBox, info popovers, the
 // document's prose blocks), so nothing read out of a media file may be interpolated into one
-// without going through escapeHtml first — the builders below that take file-derived numbers do
+// without going through escapeHtml first: the builders below that take file-derived numbers do
 // exactly that.
 import type { BitrateTimeline } from "./bitrateTimeline";
 import { escapeHtml } from "@brain-bbqs/ui";
@@ -51,8 +52,8 @@ export const CONTAINER_PREAMBLE =
  * What this particular container is, and which codecs it can carry.
  *
  * `atomMapHref` turns the <b>Atom Map</b> a record mentions into a link to wherever the map is on
- * the page doing the rendering — a section of the Inspect tab, a section of the Full Analysis
- * document — since the two anchor it under different headings.
+ * the page doing the rendering (a section of the Inspect tab, a section of the Full Analysis
+ * document), since the two anchor it under different headings.
  */
 export function containerExplainer(info: ContainerInfo, atomMapHref: string): string {
   const description = info.description.replace("<b>Atom Map</b>", `<a href="${atomMapHref}"><b>Atom Map</b></a>`);
@@ -234,7 +235,7 @@ export const RIFF_ORIGIN = "RIFF INFO chunk (WAVE)";
 export const NORMALIZED_ORIGIN = "Normalized by mediabunny";
 
 // MP4/QuickTime `ilst` atoms. Four characters each, case-sensitive. The leading `©` on many of
-// them is byte 0xA9, QuickTime's text-atom marker — explained once in METADATA_TAGS_TEACH rather
+// them is byte 0xA9, QuickTime's text-atom marker, explained once in METADATA_TAGS_TEACH rather
 // than repeated on every entry below.
 export const QUICKTIME_TAGS: TagSeed[] = [
   // Work and release
@@ -460,7 +461,7 @@ export const PCM_DESCRIPTION =
 
 /**
  * What chroma subsampling is, and what this file's own format asks of its dimensions. The format is
- * not named here — the card lists it as a figure — except where the file states none at all, which
+ * not named here (the card lists it as a figure) except where the file states none at all, which
  * is the one case worth saying out loud. `chroma` is read out of the container's codec
  * configuration (see lib/chromaFormat), and is null for a file that states nothing.
  */
@@ -602,7 +603,7 @@ export const GOP_TEACH =
  */
 export const GOP_HISTOGRAM_CAPTION = "GOP length per keyframe interval";
 
-/** What the seeking test measures, above its controls on the page and in the document. */
+/** What the seeking test measures, above its controls on the page. */
 export const SEEK_TEST_INTRO =
   "Samples N evenly-spaced timestamps across the video and measures how far back the nearest keyframe is, " +
   "plus how long it takes to decode that frame.";
@@ -725,7 +726,7 @@ export const FRAME_RATE_INFO =
 
 // --- Full Analysis ---
 
-/** What the Full Analysis tab gathers, and what the two buttons under it write. */
+/** What the Full Analysis tab gathers, and what two of the four buttons under it write. */
 export const ANALYSIS_PANEL_INTRO =
   "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
   "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +

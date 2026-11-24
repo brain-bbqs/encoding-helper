@@ -3,7 +3,7 @@
 // metadata tags), generated and published by scripts/generate-demos.sh.
 //
 // They live on the EMBER archive rather than in this repository, because a video blob committed
-// once sits in the git history forever — the same reason the generator fetches its source recording
+// once sits in the git history forever, the same reason the generator fetches its source recording
 // from there instead of carrying it. So the app reads them over the network, from the BEP047
 // dataset the generator writes:
 //
@@ -15,7 +15,7 @@
 // are built from) and one fetch of dataset_description.json, whose "encoding-helper" key names
 // every session's title, group and description. A dataset written by a generator older than that
 // index carried no descriptions, so a demo without one falls back to its own BEP047 sidecar, which
-// costs a request per file — the reason the generator writes them into the index at all.
+// costs a request per file: the reason the generator writes them into the index at all.
 
 /** The EMBER archive's DANDI API, and the dandiset scripts/upload-demos.sh publishes into. */
 const EMBER_API = "https://api-dandi.emberarchive.org/api";
@@ -28,11 +28,11 @@ export interface DemoFile {
   session: string;
   title: string;
   group: string;
-  /** Whether mp4box.js can parse it at all — false for the Matroska/WebM/AVI files. */
+  /** Whether mp4box.js can parse it at all: false for the Matroska/WebM/AVI files. */
   loadsInApp: boolean;
   /** What the file demonstrates. Null when the index predates carrying it; see fetchDemoDescription. */
   description: string | null;
-  /** Path within the dataset, which is also the file name the app loads it under. */
+  /** Path within the dataset; the app loads the file under `fileName` below. */
   path: string;
   fileName: string;
   ext: string;
@@ -51,8 +51,8 @@ export interface DemoSet {
  *
  * A heading names its theme and nothing more: what a file is is the file's own business, and the
  * card that opens on a tile says it. A heading can cover more than one of the generator's group
- * names: the source recording and the baseline encode are one thing to a reader — where the set
- * starts — so they share a row, the recording first and the encode made from it second. Anything
+ * names: the source recording and the baseline encode are one thing to a reader (where the set
+ * starts), so they share a row, the recording first and the encode made from it second. Anything
  * the generator grows later still appears, at the end, under its own raw name.
  */
 interface DemoGroup {
@@ -66,8 +66,8 @@ export const DEMO_GROUPS: readonly DemoGroup[] = [
   { ids: ["recommended"], title: "A recommended encode" },
   // The themes from here down run outermost-in and most-consequential-first: the box the stream
   // sits in, how that box is laid out, the stream itself, and the structure inside the stream that
-  // decides how it seeks. What only describes a file rather than changing how it behaves — its
-  // track properties, its tags, the rate it was told to hit — comes after all of that.
+  // decides how it seeks. What only describes a file rather than changing how it behaves (its
+  // track properties, its tags, the rate it was told to hit) comes after all of that.
   { ids: ["container"], title: "Containers" },
   { ids: ["layout"], title: "Atom layout" },
   { ids: ["codec"], title: "Codecs and profiles" },
@@ -151,8 +151,8 @@ function groupRank(id: string): [number, number] {
 /**
  * Joins the archive's asset listing to dataset_description.json's index.
  *
- * The listing is the authority on what is actually published — a session named in the index whose
- * video never made it up is dropped — and the index is the authority on what each file is. A video
+ * The listing is the authority on what is actually published (a session named in the index whose
+ * video never made it up is dropped), and the index is the authority on what each file is. A video
  * the index says nothing about is still listed, under its own file name, so a demo added by a newer
  * generator run than the one that wrote the index does not simply vanish from the page.
  */

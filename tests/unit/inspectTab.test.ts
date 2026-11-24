@@ -101,7 +101,7 @@ describe("renderBitrateTimelineSection", () => {
 });
 
 // The atom map and the seeking test are sections of Inspect rather than tabs of their own, so the
-// three renderers share a panel and each one appends to what the last one left.
+// four renderers share a panel and each one appends to what the last one left.
 describe("the Inspect panel", () => {
   beforeEach(() => resetState());
 
@@ -120,7 +120,7 @@ describe("the Inspect panel", () => {
     const headings = Array.from(panel.querySelectorAll("h2")).map((el) => el.textContent);
     // Metadata first, then the map of where the bytes are, then the keyframe structure that map's
     // box order decides (with the seeking test folded into that same card), then the bitrate over
-    // time, and the audio track last.
+    // time. This clip has no audio track; the order with one is pinned further down.
     expect(headings).toEqual([
       "Video Container Overview: mp4",
       "Video Track",

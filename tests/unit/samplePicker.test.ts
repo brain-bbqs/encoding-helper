@@ -1,5 +1,5 @@
-// The decoder is stubbed (jsdom has none): what these cases pin down is the track — where the band
-// sits, what moves it, and what the run is told to encode — plus the preview's two failure notes.
+// The decoder is stubbed (jsdom has none): what these cases pin down is the track (where the band
+// sits, what moves it, and what the run is told to encode), plus the preview's two failure notes.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetCliDefaults } from "../fixtures/state";

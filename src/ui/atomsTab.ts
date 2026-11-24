@@ -1,4 +1,4 @@
-// The atom map — the MP4 box tree laid on its side — as a section of the Inspect tab.
+// The atom map (the MP4 box tree laid on its side) as a section of the Inspect tab.
 //
 // Left to right across the file, each row down one level of nesting, so the map stays the same
 // handful of lanes tall whether the video runs ten seconds or ten hours. Siblings split their
@@ -23,7 +23,7 @@ import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { state } from "../lib/state";
 import type { BoxNode } from "../lib/types";
 
-/** One step of the zoom path: the crumb label and the byte range the map was narrowed to. */
+/** One step of the zoom path: the crumb label and the range of atom slots the map was narrowed to. */
 interface ZoomStep {
   label: string;
   range: AxisRange;
@@ -155,7 +155,7 @@ function positionBlock(el: HTMLElement, rect: AtomRect, label: string): void {
 
 /**
  * The map as a picture rather than a control, for the Full Analysis document: the same lanes,
- * blocks, colors and legend, with the zoom, the breadcrumb and the hover readout left out — none of
+ * blocks, colors and legend, with the zoom, the breadcrumb and the hover readout left out: none of
  * them mean anything in a saved file. Each block keeps its detail as a `title`, which still works
  * on hover in the exported HTML and costs nothing on paper. `widthPx` is the width the map will be
  * read at, needed because the document runs no script to measure itself. Null for a file with no
@@ -230,7 +230,7 @@ function rectDetail(rect: AtomRect, zoomable = true): string {
 
 /**
  * Whether zooming to this block would show anything the view does not already. A zoomed-in view
- * still draws the ancestors of what was zoomed to — that is the context the map is read in — and
+ * still draws the ancestors of what was zoomed to (that is the context the map is read in), and
  * each of them spans the whole of it, so clicking one used to push a crumb for a view identical to
  * the one already on screen (or, for an ancestor whose own range is wider, quietly zoom back out).
  * Either way the breadcrumb grew without the map changing, which is how a file with one video track
@@ -270,7 +270,7 @@ function blockEl(
   el.addEventListener("focus", show);
   el.addEventListener("mouseleave", clear);
   el.addEventListener("blur", clear);
-  // Still hoverable and focusable when it fills the view — its offset and size are worth reading —
+  // Still hoverable and focusable when it fills the view (its offset and size are worth reading),
   // but not a way further in, since there is no further in to go.
   if (zoomable) {
     el.addEventListener("click", () => {
@@ -283,7 +283,7 @@ function blockEl(
 
 /**
  * The key to what is drawn, and only that: a progressive file has no `moof` to explain and, at forty
- * or so boxes, nothing narrow enough to collapse into a group either — rows for both would be
+ * or so boxes, nothing narrow enough to collapse into a group either, and rows for both would be
  * describing marks that are not on the map. Read off the rects, so it also follows a zoom into one
  * family's subtree.
  */
@@ -305,7 +305,7 @@ function renderLegend(rects: AtomRect[]): HTMLDivElement {
   return legend;
 }
 
-// Labels fit or they don't, and that depends on the panel's real width — which is zero while the
+// Labels fit or they don't, and that depends on the panel's real width, which is zero while the
 // tab is hidden. Observing the map covers both the first reveal and later window resizes.
 function bindLabelSizing(map: HTMLElement): void {
   const sizeLabels = (): void => {

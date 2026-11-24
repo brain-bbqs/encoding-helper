@@ -1,4 +1,4 @@
-// The Inspect tab's "On this page" sidebar — a sticky right-hand table of contents linking to each
+// The Inspect tab's "On this page" sidebar: a sticky right-hand table of contents linking to each
 // section's `<h2>`, in the same shape pydata-sphinx-theme's docs use, with the current section
 // picked out as you scroll. Inspect is the one tab long enough (metadata, atom map, GOP/seeking) for
 // a reader to lose their place in, so it is the only tab that gets one.
@@ -9,9 +9,9 @@ import { h } from "@brain-bbqs/ui";
 let scrollSpyObserver: IntersectionObserver | null = null;
 
 /**
- * Wraps whatever renderInspectHead/renderAtomMap/renderInspectTail/renderSeekTab already appended to
+ * Wraps whatever renderInspectHead/renderAtomMap/renderSeekTab/renderInspectTail already appended to
  * `panel` into a content column, and builds the nav beside it from each top-level section's own
- * heading — so the list of links can never drift out of sync with what is actually on the page.
+ * heading, so the list of links can never drift out of sync with what is actually on the page.
  * No-op (leaves the panel as-is) when there is nothing to link to, i.e. no file loaded yet.
  */
 export function mountInspectToc(panel: HTMLElement): void {

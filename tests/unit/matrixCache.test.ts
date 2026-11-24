@@ -206,7 +206,7 @@ describe("measurementKey", () => {
     expect(measurementKey("sffff", ARGS, WINDOWS)).not.toBe(measurementKey(checksum, ARGS, WINDOWS));
   });
 
-  // Everything the command carries, not just the four swept axes: a grid measured at one keyframe
+  // Everything the command carries, not just the five swept axes: a grid measured at one keyframe
   // interval is a grid of the wrong numbers once that interval moves.
   it("changes with anything in the command", () => {
     const otherCrf = ARGS.map((arg) => (arg === "25" ? "28" : arg));
@@ -271,7 +271,7 @@ describe("remembering what a square measured", () => {
   });
 
   // Storage is finite and this is the only thing here that grows, so the budget is what keeps a
-  // decade of sweeps from filling it — least-recently-*used*, so what goes is what nobody has come
+  // decade of sweeps from filling it: least-recently-*used*, so what goes is what nobody has come
   // back to rather than what was simply measured first.
   it("keeps the store inside its budget, dropping the squares nothing has looked at", async () => {
     // Three squares' worth, taken from the module's own per-record estimate rather than restated.

@@ -60,7 +60,7 @@ export function attachSyncedZoomPan(
   // so every anchor and grid measurement below is taken against the pane, never the canvas.
   const paneOf = (canvas: HTMLCanvasElement): HTMLElement | null => canvas.parentElement;
 
-  // The grid overlay is deliberately NOT css-transformed like the canvas — background-size/position
+  // The grid overlay is deliberately NOT css-transformed like the canvas: background-size/position
   // are computed fresh in raw CSS px on every change instead, so its hairlines stay a crisp 1
   // screen-px wide at any zoom level rather than fattening along with the content.
   const updateGrids = (): void => {

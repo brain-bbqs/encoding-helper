@@ -10,8 +10,8 @@ export default defineConfig(
     overrides: {
       plugins: [prePaintPlugin({ themeKey: THEME_KEY })],
       build: {
-        // ffmpeg.wasm/mediabunny/mp4box are already lazy-loaded on demand within
-        // the app; keep them as separate chunks so the initial page load stays small.
+        // Keep ffmpeg.wasm, mediabunny and mp4box as separate chunks. Only mediabunny is
+        // behind a dynamic import; the ffmpeg core itself loads from the CDN on demand.
         // Vite's bundler here (rolldown) only accepts a function for manualChunks, not the
         // classic Rollup object-map shorthand.
         rollupOptions: {
