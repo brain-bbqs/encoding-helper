@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 // A shared link to /#changelog opens What's New as the page boots.
 import { beforeAll, expect, it, vi } from "vitest";
 import { bootMain, el } from "./helpers/mainHarness";

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 // What main.ts does once a file has loaded: the file loader and the tab renderers are stubbed (each
 // has its own suite), so what is pinned here is main.ts's wiring between them. The loader it builds
 // is the one the demos page opens files through; a load draws every tab, the Inspect panel in the

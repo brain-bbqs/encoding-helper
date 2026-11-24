@@ -85,7 +85,7 @@ test.describe("Encoding Helper shell", () => {
   test("draws every box in the file, in the tab and in the document, none summarised away", async ({ page }) => {
     // ?tab=atoms is the map's old address, from when it was a tab of its own; it lands on Inspect,
     // where the map is now a section.
-    await loadDemo(page, "reference", "&tab=atoms");
+    await loadDemo(page, "&tab=atoms");
     await expect(page).toHaveURL(/tab=inspect/);
     const panel = page.locator("#panel-inspect");
     await expect(panel.locator(".atom-map")).toBeVisible();
@@ -156,7 +156,7 @@ test.describe("Encoding Helper shell", () => {
 
   test("adds the seeking test to the document once it has been run", async ({ page }) => {
     // The seeking test is a section of Inspect; its old tab name still points at it.
-    await loadDemo(page, "reference", "&tab=seek");
+    await loadDemo(page, "&tab=seek");
     await page.locator("#seekN").fill("5");
     await page.locator("#runSeekBtn").click();
 
