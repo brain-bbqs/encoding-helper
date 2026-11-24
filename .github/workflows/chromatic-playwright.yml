@@ -24,9 +24,12 @@ jobs:
         # The ubuntu-24.04 label is not a fixed machine: the image behind it is rebuilt roughly
         # weekly, and a new one brings new fonts and rasterizer libraries, which move text pixels
         # on their own. Printed so a snapshot diff with no code change behind it can be checked
-        # against the image its baseline was drawn on.
+        # against the image its baseline was drawn on. The CPU is printed too: the label lands on
+        # machines with and without AVX-512, which is what the fixture encode used to depend on.
         run: |
           echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          echo "CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs)"
+          if grep -qw avx512f /proc/cpuinfo; then echo "AVX-512: yes"; else echo "AVX-512: no"; fi
 
       - name: Report how far the branch is behind main
         # Chromatic takes the branch's own last build as the baseline, so a branch that has not

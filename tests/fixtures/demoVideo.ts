@@ -42,6 +42,11 @@ export function buildFixtureVideo(): string {
         "-loglevel",
         "error",
         "-y",
+        // FFmpeg's own SIMD in the AAC encoder rounds differently by CPU level (a runner without
+        // AVX2/FMA3 writes other audio bytes), and the audio's bytes move the file size and the
+        // atom offsets on screen. The plain C paths cost about a tenth of a second here.
+        "-cpuflags",
+        "0",
         "-f",
         "lavfi",
         "-i",
@@ -59,6 +64,12 @@ export function buildFixtureVideo(): string {
         // change with no code change behind it. One thread is slower and deterministic.
         "-threads",
         "1",
+        // x264 also picks some algorithms by CPU (its float mbtree propagation and an asm-only
+        // intra mode search), so an AVX-512 runner and an AVX2 one encoded different bytes and a
+        // few bitrate-plot steps moved between builds. This pins both to the portable versions,
+        // at no measurable cost; -cpuflags above does not reach x264, which detects the CPU itself.
+        "-x264-params",
+        "cpu-independent=1",
         "-preset",
         "veryfast",
         "-crf",
