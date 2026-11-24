@@ -72,10 +72,18 @@ jobs:
         # ship with; see tests/fixtures/demoVideo.ts. Version pinned (matching the
         # ubuntu-24.04 runner above): an apt-served point release re-encodes the fixture
         # to slightly different pixels, which show up as unrelated snapshot diffs since
-        # that video appears directly in the app's canvas/thumbnail previews.
+        # that video appears directly in the app's canvas/thumbnail previews. The libraries
+        # are pinned too, because the encode happens in them (libx264, the AAC encoder, the
+        # muxer) and the ffmpeg package asks only for "this version or newer" of each.
+        env:
+          FFMPEG: 7:6.1.1-3ubuntu5
+          X264: 2:0.164.3108+git31e19f9-1
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg=7:6.1.1-3ubuntu5
+          sudo apt-get install -y --no-install-recommends \
+            "ffmpeg=$FFMPEG" "libavcodec60=$FFMPEG" "libavdevice60=$FFMPEG" "libavfilter9=$FFMPEG" \
+            "libavformat60=$FFMPEG" "libavutil58=$FFMPEG" "libpostproc57=$FFMPEG" \
+            "libswresample4=$FFMPEG" "libswscale7=$FFMPEG" "libx264-164=$X264"
 
       - name: Install Playwright browsers
         # --with-deps installs system libraries and needs root, which the runner has and a
