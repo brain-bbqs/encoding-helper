@@ -51,6 +51,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Keep apt's downloads in a cacheable directory
+        # Some runs under this label land on AWS machines whose image points apt at a mirror that
+        # has served packages at 60-80 kB/s, which turned the two installs below into half an hour.
+        # The .deb files are kept between runs instead, in a directory apt's download user can
+        # reach (a home directory is not), and apt still checks each one against the package index
+        # and fetches only what is missing or newer. The key follows the runner image (rebuilt
+        # weekly), this file (which pins ffmpeg) and the Playwright version (which sets the
+        # browser's system packages); a new key starts from the newest older cache.
+        id: apt-cache
+        run: |
+          sudo install -d -o "$(id -un)" /var/cache/apt-ci
+          sudo install -d -o _apt -m 700 /var/cache/apt-ci/partial
+          printf '%s\n' \
+            'Dir::Cache::Archives "/var/cache/apt-ci/";' \
+            'APT::Keep-Downloaded-Packages "true";' \
+            'Binary::apt::APT::Keep-Downloaded-Packages "true";' |
+            sudo tee /etc/apt/apt.conf.d/99-ci-package-cache > /dev/null
+          playwright=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+          workflow=$(sha256sum .github/workflows/chromatic-playwright.yml | cut -c1-12)
+          echo "prefix=apt-${ImageOS}-" >> "$GITHUB_OUTPUT"
+          echo "key=apt-${ImageOS}-${ImageVersion}-${workflow}-playwright-${playwright}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore apt's downloads
+        uses: actions/cache@v6
+        with:
+          path: /var/cache/apt-ci/*.deb
+          key: ${{ steps.apt-cache.outputs.key }}
+          restore-keys: ${{ steps.apt-cache.outputs.prefix }}
+
       - name: Install ffmpeg
         # Builds the video the tests load in place of the sample file this app used to
         # ship with; see tests/fixtures/demoVideo.ts. Version pinned (matching the
@@ -62,7 +91,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends ffmpeg=7:6.1.1-3ubuntu5
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        # Chromium only, the one browser the suite runs: with no name, the system packages of
+        # Firefox and WebKit come too, 79 apt packages rather than 33 (the fonts are the same
+        # either way), and the browsers themselves.
+        run: npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
         run: npm run test:chromatic
