@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🏠 Internal
 
-- Removed twelve unused icon files and some leftover tooling, and set one Node version (22) for every CI workflow ([#73](https://github.com/brain-bbqs/encoding-helper/pull/73))
+- Removed twelve unused icon files and some leftover tooling, and set one Node version (22) for every CI workflow that installs Node ([#73](https://github.com/brain-bbqs/encoding-helper/pull/73))
 
 ## 1.5.3
 
