@@ -27,6 +27,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Keep apt's downloads in a cacheable directory
+        # Some runners get an apt mirror that serves packages at tens of kB/s; see the same step
+        # in chromatic-playwright.yml for why the .deb files are kept between runs, and where.
+        id: apt-cache
+        run: |
+          sudo install -d -o "$(id -un)" /var/cache/apt-ci
+          sudo install -d -o _apt -m 700 /var/cache/apt-ci/partial
+          printf '%s\n' \
+            'Dir::Cache::Archives "/var/cache/apt-ci/";' \
+            'APT::Keep-Downloaded-Packages "true";' \
+            'Binary::apt::APT::Keep-Downloaded-Packages "true";' |
+            sudo tee /etc/apt/apt.conf.d/99-ci-package-cache > /dev/null
+          playwright=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+          workflow=$(sha256sum .github/workflows/test.yml | cut -c1-12)
+          echo "prefix=apt-test-${ImageOS}-" >> "$GITHUB_OUTPUT"
+          echo "key=apt-test-${ImageOS}-${ImageVersion}-${workflow}-playwright-${playwright}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore apt's downloads
+        uses: actions/cache@v6
+        with:
+          path: /var/cache/apt-ci/*.deb
+          key: ${{ steps.apt-cache.outputs.key }}
+          restore-keys: ${{ steps.apt-cache.outputs.prefix }}
+
       - name: Install ffmpeg
         # Builds the video the tests load in place of the sample file this app used to
         # ship with; see tests/fixtures/demoVideo.ts.
