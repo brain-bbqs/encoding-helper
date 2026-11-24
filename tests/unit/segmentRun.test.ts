@@ -28,6 +28,7 @@ import {
   type RunInputs,
   type RunUi,
 } from "../../src/ui/segmentRun";
+import { deferred } from "./helpers/async";
 
 /** What the faked cores were asked to do, and what a test wants the next exec to do. */
 const core = vi.hoisted(() => ({
@@ -35,8 +36,8 @@ const core = vi.hoisted(() => ({
   writes: [] as string[],
   deletes: [] as string[],
   terminated: 0,
-  /** Bytes every readFile hands back, whatever the name. */
-  readSize: 3,
+  /** How many bytes a readFile hands back, read off the core's last exec, so outputs can differ. */
+  sizeOf: ((): number => 3) as (args: string[]) => number,
   /** Stands in for the encode itself; the default finishes at once with nothing said. */
   exec: null as ((args: string[], handle: { log(message: string): void }) => Promise<void>) | null,
 }));
@@ -51,6 +52,8 @@ vi.mock("@ffmpeg/util", () => ({ toBlobURL: () => Promise.resolve("blob:core"), 
 vi.mock("@ffmpeg/ffmpeg", () => {
   class FakeFFmpeg {
     private onLog: ((payload: { message: string }) => void) | null = null;
+    /** The command whose output the next read hands back. */
+    private lastExec: string[] = [];
     /** The execs still in flight, which terminate() fails the way the real core does. */
     private pending: ((err: Error) => void)[] = [];
     on(event: string, handler: (payload: { message: string }) => void): void {
@@ -72,6 +75,7 @@ vi.mock("@ffmpeg/ffmpeg", () => {
     }
     exec(args: string[]): Promise<void> {
       core.execs.push(args);
+      this.lastExec = args;
       const log = (message: string): void => this.onLog?.({ message });
       return new Promise<void>((resolve, reject) => {
         this.pending.push(reject);
@@ -79,7 +83,7 @@ vi.mock("@ffmpeg/ffmpeg", () => {
       });
     }
     readFile(): Promise<Uint8Array> {
-      return Promise.resolve(new Uint8Array(core.readSize));
+      return Promise.resolve(new Uint8Array(core.sizeOf(this.lastExec)));
     }
     deleteFile(path: string): Promise<void> {
       core.deletes.push(path);
@@ -109,19 +113,19 @@ const WINDOWS: SampleWindow[] = [
   { startSeconds: 6, seconds: 2 },
 ];
 
-/** A 20-second file with a keyframe every two seconds, loaded from disk. */
-function loadClip(name = "clip.mp4"): void {
+/** A 20-second file of `bytes` bytes with a keyframe every two seconds, loaded from disk. */
+function loadClip(name = "clip.mp4", bytes = 8): void {
   state.tracks = [VIDEO_TRACK];
   state.fps = 30;
   state.duration = 20;
-  state.file = new File([new Uint8Array(8)], name);
+  state.file = new File([new Uint8Array(bytes)], name);
   state.source = ChunkedSource.fromFile(state.file);
   state.keyframeTimestampsSec = Array.from({ length: 10 }, (_, i) => i * 2);
 }
 
 /** The run controls, in the page the way a tab puts them there. */
-function controls(label = "Run Matrix"): RunUi {
-  const { nodes, ui } = runControls(label);
+function controls(): RunUi {
+  const { nodes, ui } = runControls("Run Matrix");
   document.body.append(...nodes);
   return ui;
 }
@@ -147,7 +151,7 @@ beforeEach(() => {
   core.writes = [];
   core.deletes = [];
   core.terminated = 0;
-  core.readSize = 3;
+  core.sizeOf = () => 3;
   core.exec = null;
   mb.duration = 1.9;
   mb.disposed = 0;
@@ -158,7 +162,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 describe("sampleFields", () => {
@@ -208,6 +211,11 @@ describe("sampleFields", () => {
     document.body.append(sampleFields("a"), sampleFields("b"));
     const aSegments = document.querySelector<HTMLInputElement>("#aSegments")!;
     const bSegments = document.querySelector<HTMLInputElement>("#bSegments")!;
+    aSegments.value = "0";
+    aSegments.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(encodeTest.segments).toBe(1);
+    expect(bSegments.value).toBe("1");
+
     aSegments.value = "99";
     aSegments.dispatchEvent(new Event("input", { bubbles: true }));
     expect(encodeTest.segments).toBe(10);
@@ -247,7 +255,7 @@ describe("runControls", () => {
   });
 
   it("puts the run button's label back after a run changed it", () => {
-    const ui = controls("Run Matrix");
+    const ui = controls();
     ui.runButton.textContent = "Retry 1 failed";
     ui.syncRunAction();
     expect(ui.runButton.textContent).toBe("Run Matrix");
@@ -268,7 +276,6 @@ describe("runControls", () => {
     expect(stopRequested()).toBe(true);
     expect(ui.stopButton.disabled).toBe(true);
     expect(ui.note.textContent).toBe("Stopping…");
-    encodeTest.running = false;
   });
 });
 
@@ -416,9 +423,15 @@ describe("prepareRun", () => {
     const workers = acquireWorkers(WINDOWS.length);
     const first = await prepareRun(WINDOWS, workers, ui);
     loadClip("other.mp4");
-    const second = await prepareRun(WINDOWS, workers, ui);
-    expect(second.names[0]).not.toBe(first.names[0]);
+    const renamed = await prepareRun(WINDOWS, workers, ui);
+    expect(renamed.names[0]).not.toBe(first.names[0]);
     expect(core.execs).toHaveLength(4);
+
+    // Another video can carry the same name; its size still tells it apart.
+    loadClip("clip.mp4", 16);
+    const resized = await prepareRun(WINDOWS, workers, ui);
+    expect(resized.names[0]).not.toBe(first.names[0]);
+    expect(core.execs).toHaveLength(6);
   });
 
   it("stops before cutting anything when Stop has already been pressed", async () => {
@@ -591,19 +604,27 @@ describe("encodeWindows", () => {
     expect(progress).toEqual([0.5, 1]);
   });
 
-  it("spreads the stretches over the cores, and says in the console which one each line came from", async () => {
+  it("spreads the stretches over the cores, hands the results back in sampled order whichever finishes first, and says in the console which core each line came from", async () => {
     vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
     const ui = controls();
     const workers = acquireWorkers(WINDOWS.length);
     expect(workers.map((w) => w.id)).toEqual([0, 1]);
-    core.exec = (_args, handle) => {
+    // The first stretch's encode is held until the second has been encoded and measured, so the
+    // second finishes first; each stretch's output has its own size, so the blobs can be told apart.
+    const firstHeld = deferred<void>();
+    core.exec = (args, handle) => {
       handle.log("x264 says hello");
-      return Promise.resolve();
+      return args.includes("snip0.mp4") ? firstHeld.promise : Promise.resolve();
     };
+    core.sizeOf = (args) => (args.includes("snip0.mp4") ? 5 : 7);
 
-    const { blobs } = await encodeWindows(cli, cutInputs(WINDOWS), workers, ui, () => {});
+    const run = encodeWindows(cli, cutInputs(WINDOWS), workers, ui, () => {});
+    await vi.waitFor(() => expect(mb.disposed).toBe(1));
+    firstHeld.resolve();
+    const { blobs, measured } = await run;
 
-    expect(blobs).toHaveLength(2);
+    expect(blobs.map((b) => b.size)).toEqual([5, 7]);
+    expect(measured.map((w) => w.startSeconds)).toEqual([0, 6]);
     expect(core.execs.map((args) => args.at(-1))).toEqual(["et_out_0.mp4", "et_out_1.mp4"]);
     const lines = Array.from(ui.log.children).map((line) => line.textContent);
     expect(lines).toContain("x264 says hello");
@@ -682,8 +703,8 @@ describe("encodeWindows", () => {
 
 describe("acquireWorkers", () => {
   it("sizes the pool for the work, leaving a CPU to the page", () => {
-    vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(8);
-    expect(acquireWorkers(10).map((w) => w.id)).toEqual([0, 1, 2, 3]);
+    vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
+    expect(acquireWorkers(10).map((w) => w.id)).toEqual([0, 1, 2]);
     expect(acquireWorkers(2).map((w) => w.id)).toEqual([0, 1]);
     const [only] = acquireWorkers(1);
     expect(only).toBe(defaultFfmpegWorker);
@@ -732,7 +753,6 @@ describe("the run's user interface", () => {
     encodeTest.running = true;
     ui.stopButton.click();
     expect(core.terminated).toBe(0);
-    encodeTest.running = false;
   });
 
   // A sweep encodes on several cores at once, so the one already inside wasm is not the only one

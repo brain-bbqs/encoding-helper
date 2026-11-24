@@ -207,6 +207,21 @@ describe("the seeking test run", () => {
     expect(tableRows(wrap)).toHaveLength(3);
   });
 
+  // A run that fails never draws results of its own, so only the clear at its start takes the last
+  // run's off the screen.
+  it("clears the last run's results when the next run starts, even if that run then fails", async () => {
+    loadClip();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const panel = renderTab();
+    await run(panel, "5");
+    const wrap = panel.querySelector("#seekResultsWrap")!;
+    expect(tableRows(wrap)).toHaveLength(5);
+    refuseAt = 5;
+    await run(panel, "5");
+    expect(document.getElementById("errorMsg")!.textContent).toBe("Seeking test failed: no frame at 5");
+    expect(wrap.children).toHaveLength(0);
+  });
+
   it("reports a decoder that will not load in the page's error slot and lets the button go", async () => {
     loadClip();
     loadError = new Error("decoder unavailable");
@@ -224,7 +239,6 @@ describe("the seeking test run", () => {
   });
 
   it("refuses to run before a file with a video track is open", async () => {
-    state.duration = 10;
     vi.spyOn(console, "error").mockImplementation(() => {});
     const panel = renderTab();
     await run(panel, "5");
@@ -447,5 +461,10 @@ describe("renderSeekTab", () => {
     expect(gridValue(panel, "Min / Max GOP")).toBe("0 / 0 frames");
     expect(panel.querySelector(".badge")!.textContent).toBe("No B-frames");
     expect(panel.querySelector(".hist")).toBeNull();
+  });
+
+  it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
+    const panel = renderTab();
+    expect(panel.querySelector<HTMLInputElement>("#seekN")!.value).toBe("100");
   });
 });

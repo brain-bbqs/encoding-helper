@@ -46,10 +46,10 @@ function track(o: TrackOptions): InputTrack {
   } as unknown as InputTrack;
 }
 
-function input(tracks: InputTrack[], over: Partial<Record<"format" | "mimeType", string>> = {}): Input {
+function input(tracks: InputTrack[]): Input {
   return {
-    getFormat: () => Promise.resolve({ name: over.format ?? "MP4" }),
-    getMimeType: () => Promise.resolve(over.mimeType ?? 'video/mp4; codecs="avc1.640020"'),
+    getFormat: () => Promise.resolve({ name: "MP4" }),
+    getMimeType: () => Promise.resolve('video/mp4; codecs="avc1.640020"'),
     computeDuration: () => Promise.resolve(12.5),
     getTracks: () => Promise.resolve(tracks),
     getMetadataTags: () => Promise.resolve({ title: "Session 1" }),

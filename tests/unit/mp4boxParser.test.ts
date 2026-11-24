@@ -128,7 +128,7 @@ function source(size: number): ChunkedSource {
 }
 
 /** The parts of mp4box's file object parseWithMp4Box drives, recording what it was fed. */
-function stubMp4BoxFile(over: Partial<ISOFile> = {}): ISOFile & { appended: number[]; flushed: number } {
+function stubMp4BoxFile(): ISOFile & { appended: number[]; flushed: number } {
   const file = {
     appended: [] as number[],
     flushed: 0,
@@ -142,7 +142,6 @@ function stubMp4BoxFile(over: Partial<ISOFile> = {}): ISOFile & { appended: numb
     flush() {
       file.flushed++;
     },
-    ...over,
   } as unknown as ISOFile & { appended: number[]; flushed: number };
   return file;
 }

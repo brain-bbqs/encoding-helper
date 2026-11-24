@@ -83,6 +83,22 @@ describe("renderAtomMap", () => {
     expect(panel.querySelector(".crumb-range")!.textContent).toBe("6 boxes shown");
   });
 
+  // A zoomed view still draws the ancestors of what was zoomed to, each spanning the whole of it.
+  // Clicking one used to push a crumb for the view already on screen, so a file with one video track
+  // offered an endless path of traks.
+  it("stops zooming at a block that already fills the view", () => {
+    const panel = render([box("moov", 0, 900, [box("trak", 8, 800)]), box("mdat", 900, 1_100_000)]);
+    blockNamed(panel, "trak").click();
+    expect(crumbLabels(panel)).toEqual(["Whole file", "trak"]);
+
+    // Zoomed in, moov and trak both span the view: neither is a way further in, and clicking adds
+    // no crumb.
+    const filling = Array.from(panel.querySelectorAll<HTMLButtonElement>(".atom-block.filling"));
+    expect(filling.map((b) => b.textContent)).toEqual(["moov", "trak"]);
+    filling.forEach((b) => b.click());
+    expect(crumbLabels(panel)).toEqual(["Whole file", "trak"]);
+  });
+
   it("reads a block's offset and size into the readout while it is hovered or focused", () => {
     const panel = render(progressiveFile());
     expect(readout(panel)).toBe(ATOM_MAP_READOUT_HINT);
@@ -111,6 +127,12 @@ describe("renderAtomMap", () => {
   it("does not warn when everything fits on the map", () => {
     const panel = render(progressiveFile());
     expect(panel.textContent).not.toContain("nests further than the map draws");
+  });
+
+  // The legend is a key to what is on the map, so a progressive file gets no row for the fragment
+  // index it has none of, nor for the collapsed runs it is far too small to produce.
+  it("keys only the families the map actually drew", () => {
+    expect(legendLabels(render(progressiveFile()))).toEqual(["moov", "mdat", "other"]);
   });
 
   // A fragmented file's boxes are each too narrow to draw, so the map is all collapsed runs, and

@@ -65,7 +65,10 @@ vi.mock("@ffmpeg/ffmpeg", () => {
     }
     exec(args: string[]): Promise<void> {
       core.execs.push(args);
-      return core.execError ? Promise.reject(core.execError) : Promise.resolve();
+      if (core.execError) return Promise.reject(core.execError);
+      // A finished run leaves its output, the last argument, in the filesystem, as the real core does.
+      core.files.add(args[args.length - 1]);
+      return Promise.resolve();
     }
     readFile(): Promise<Uint8Array> {
       // A view into a larger buffer, as the real client may hand back: only a copy owns exactly its bytes.

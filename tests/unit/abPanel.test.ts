@@ -19,8 +19,9 @@ let stretchSeconds = 1;
 interface FakeFrame {
   canvas: HTMLCanvasElement;
 }
-/** What every sink answers a frame request with; null is "no frame at that time", the default. */
-let frameAt: (seconds: number) => Promise<FakeFrame | null> = async () => null;
+/** What a sink answers a frame request with, told the track of the sink that is asking (as in
+ * `frameRequests`); null is "no frame at that time", the default. */
+let frameAt: (seconds: number, track: unknown) => Promise<FakeFrame | null> = async () => null;
 /** Every frame the panel asked for, and the track it asked for it on: the original's is
  * `state.videoTrack`, each stretch's the encoded track the stub handed out. */
 const frameRequests: { track: unknown; seconds: number }[] = [];
@@ -45,7 +46,7 @@ vi.mock("../../src/lib/mediabunny", () => {
     constructor(private readonly track: unknown) {}
     getCanvas(seconds: number): Promise<FakeFrame | null> {
       frameRequests.push({ track: this.track, seconds });
-      return frameAt(seconds);
+      return frameAt(seconds, this.track);
     }
   }
   return {
@@ -113,6 +114,12 @@ function frameOf(width: number, height: number): FakeFrame {
   return { canvas };
 }
 
+/** Has the original's sink hand back `original` and every stretch's sink `encoded`, so that a pane
+ * drawn from the other side's frame shows in its size. */
+function answerEachSide(original: FakeFrame, encoded: FakeFrame): void {
+  frameAt = async (_seconds, track) => (track === state.videoTrack ? original : encoded);
+}
+
 /** jsdom has no 2D context; this stands one in that only remembers what was drawn on it. */
 function stubCanvasContext(): { drawImage: ReturnType<typeof vi.fn>; smoothing: boolean[] } {
   const drawImage = vi.fn();
@@ -177,7 +184,6 @@ beforeEach(() => {
   resetState();
   disposed.length = 0;
   openedInputs = 0;
-  state.tracks = [VIDEO_TRACK];
   state.duration = 20;
   // The panel refuses to draw without one; `requestedSeconds` tells the original's frame requests
   // apart by it, since the sinks are stubbed.
@@ -290,9 +296,8 @@ describe("loadEncodedIntoAB", () => {
     await loadSampled(host, 3);
     const scrub = scrubBar(host);
     // Half way along a three-second reel is a second and a half in, which is the second stretch.
-    scrub.value = "500";
-    scrub.dispatchEvent(new Event("input"));
-    expect(host.querySelector(".progress-label")!.textContent).toBe("1.50s");
+    scrubTo(host, 500);
+    expect(progressLabel(host)).toBe("1.50s");
     expect(currentBand(host)).toBe(1);
     // What the bands say, said in words: they sit under the slider and can carry no tooltip of
     // their own, and the slider's own value is a thousandth of a reel.
@@ -382,30 +387,36 @@ describe("the panes", () => {
 
   it("draws each decoded frame onto its pane at the frame's own size", async () => {
     const { drawImage } = stubCanvasContext();
-    const frame = frameOf(320, 240);
-    frameAt = async () => frame;
+    const original = frameOf(320, 240);
+    const encoded = frameOf(160, 120);
+    answerEachSide(original, encoded);
     const host = hostSection();
     await load(host);
     await flush();
     const [origCanvas, encCanvas] = Array.from(host.querySelectorAll("canvas"));
     expect([origCanvas.width, origCanvas.height]).toEqual([320, 240]);
-    expect([encCanvas.width, encCanvas.height]).toEqual([320, 240]);
+    expect([encCanvas.width, encCanvas.height]).toEqual([160, 120]);
     expect(drawImage).toHaveBeenCalledTimes(2);
-    expect(drawImage).toHaveBeenCalledWith(frame.canvas, 0, 0, 320, 240);
+    expect(drawImage).toHaveBeenCalledWith(original.canvas, 0, 0, 320, 240);
+    expect(drawImage).toHaveBeenCalledWith(encoded.canvas, 0, 0, 160, 120);
   });
 
   // A downscaled encode is drawn back at the source's geometry, so one zoom shows the same part of
   // the frame on each side; how it is drawn back up is the viewer's call.
   it("draws a downscaled encode back at the source's size, one block per pixel by default", async () => {
     const { drawImage, smoothing } = stubCanvasContext();
-    const frame = frameOf(320, 240);
-    frameAt = async () => frame;
+    // The source's own 640×480 against the half-size encode's 320×240.
+    const original = frameOf(640, 480);
+    const encoded = frameOf(320, 240);
+    answerEachSide(original, encoded);
     const host = hostSection();
     await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, scale: 0.5 }, VIDEO_TRACK, host);
     await flush();
-    const encCanvas = host.querySelectorAll("canvas")[1];
+    const [origCanvas, encCanvas] = Array.from(host.querySelectorAll("canvas"));
+    expect([origCanvas.width, origCanvas.height]).toEqual([640, 480]);
     expect([encCanvas.width, encCanvas.height]).toEqual([640, 480]);
-    expect(drawImage).toHaveBeenLastCalledWith(frame.canvas, 0, 0, 640, 480);
+    expect(drawImage).toHaveBeenCalledWith(original.canvas, 0, 0, 640, 480);
+    expect(drawImage).toHaveBeenLastCalledWith(encoded.canvas, 0, 0, 640, 480);
     expect(smoothing).toEqual([false, false]);
   });
 
@@ -580,25 +591,38 @@ describe("playback", () => {
 
   it("plays from the playhead at the source's frame rate, and pauses where it is", async () => {
     const host = hostSection();
-    await loadSampled(host, 2);
+    await loadSampled(host, 3);
+    // Parked half way through the second stretch, so a run that started anywhere but the playhead
+    // would show.
+    scrubTo(host, 500);
     frameRequests.length = 0;
     const play = playButton(host);
     play.click();
     expect(play.textContent).toBe("Pause");
     await vi.advanceTimersByTimeAsync(0);
-    expect(progressLabel(host)).toBe("0.00s");
+    expect(progressLabel(host)).toBe("1.50s");
     // Three frames of a 30 fps reel is a tenth of a second, each asked for at the second the clock
-    // had reached rather than the one after the last.
+    // had reached rather than the one after the last: 0.6s into the second stretch.
     await vi.advanceTimersByTimeAsync(100);
-    expect(progressLabel(host)).toBe("0.10s");
-    expect(requestedSeconds().encoded.at(-1)).toBe(0.1);
-    expect(currentBand(host)).toBe(0);
+    expect(progressLabel(host)).toBe("1.60s");
+    expect(requestedSeconds().encoded.at(-1)).toBeCloseTo(0.6);
+    expect(currentBand(host)).toBe(1);
     play.click();
     expect(play.textContent).toBe("Play");
     const drawn = frameRequests.length;
     await vi.advanceTimersByTimeAsync(500);
-    expect(progressLabel(host)).toBe("0.10s");
+    expect(progressLabel(host)).toBe("1.60s");
     expect(frameRequests).toHaveLength(drawn);
+  });
+
+  // A rate other than the fixture's 30, so a pace that ignored the track's own would show.
+  it("paces a 10 fps track a tenth of a second a frame", async () => {
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: 10 }, host);
+    frameRequests.length = 0;
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(requestedSeconds().encoded).toEqual([0, 0.1, 0.2]);
   });
 
   // The reel is every stretch end to end, played through and then back to the first, the way a
@@ -619,8 +643,10 @@ describe("playback", () => {
   it("starts the reel over when Play is pressed with the playhead parked at the end", async () => {
     const host = hostSection();
     await load(host);
-    scrubTo(host, 1000);
-    expect(progressLabel(host)).toBe("1.00s");
+    // Inside the last frame rather than on the very end, where the loop's own wrap would start the
+    // reel over whether or not Play did.
+    scrubTo(host, 990);
+    expect(progressLabel(host)).toBe("0.99s");
     playButton(host).click();
     await vi.advanceTimersByTimeAsync(0);
     expect(progressLabel(host)).toBe("0.00s");
@@ -671,11 +697,15 @@ describe("playback", () => {
     play.click();
     await vi.advanceTimersByTimeAsync(0);
     play.click();
+    frameRequests.length = 0;
     play.click();
     expect(play.textContent).toBe("Pause");
     await vi.advanceTimersByTimeAsync(200);
     expect(play.textContent).toBe("Pause");
     expect(progressLabel(host)).toBe("0.20s");
+    // One loop's frames: a stale loop still drawing would ask for each second a second time.
+    const encoded = requestedSeconds().encoded;
+    expect(encoded).toEqual([...new Set(encoded)]);
   });
 
   it("halts the run before it when a fresh comparison takes the window", async () => {
@@ -727,7 +757,7 @@ describe("the heading and labels", () => {
     expect(host.querySelector(".grid")!.textContent).not.toContain("Resolution");
   });
 
-  it("labels the ruler in the reel's own clock before the file's length is known", async () => {
+  it("still labels the ruler when the file's length is unknown", async () => {
     state.duration = null;
     const host = hostSection();
     await loadSampled(host, 2);

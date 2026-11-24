@@ -18,12 +18,12 @@ import {
 } from "../../src/lib/qualityMatrix";
 import type { EncodeSettings, MatrixCell, MatrixQuality, X264Preset } from "../../src/lib/types";
 
-/** A finished square of `bytes`, optionally still holding the stretches it was measured over. */
-function done(quality: MatrixQuality, preset: X264Preset, bytes: number, held = true, scale = 1): MatrixCell {
-  const [cell] = makeMatrixCells(buildMatrixCombos([quality], [preset], [scale]));
+/** A finished square of `bytes`, still holding the stretches it was measured over. */
+function done(quality: MatrixQuality, preset: X264Preset, bytes: number): MatrixCell {
+  const [cell] = makeMatrixCells(buildMatrixCombos([quality], [preset]));
   cell.status = "done";
   cell.bytes = bytes;
-  cell.blobs = held ? [new Blob([new Uint8Array(1)]), new Blob([new Uint8Array(1)])] : null;
+  cell.blobs = [new Blob([new Uint8Array(1)]), new Blob([new Uint8Array(1)])];
   return cell;
 }
 

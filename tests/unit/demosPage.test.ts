@@ -30,10 +30,16 @@ const SET: DemoSet = {
     demo("reference", "reference", { title: "Reference: H.264 High in MP4" }),
     demo("recommended", "recommended", { title: "Recommended: seekable, streamable and small" }),
     demo("matroska", "container", { title: "Matroska container", loadsInApp: false, ext: "mkv" }),
+    // Its group is in neither its title nor its session, so only the group can match it on "container".
+    demo("quicktime", "container", { title: "QuickTime movie", ext: "mov" }),
     demo("gopshort", "gop", { title: "Short GOP" }),
     demo("goplong", "gop", { title: "Long GOP" }),
   ],
 };
+
+// The same set from a dataset generated before the index carried descriptions, so every file has
+// one to fetch from its sidecar.
+const OLDER: DemoSet = { demos: SET.demos.map((d) => ({ ...d, description: null })) };
 
 const OPTS = { search: "", onOpen: (): void => {} };
 
@@ -54,7 +60,7 @@ afterEach(() => {
 describe("renderDemoBrowser", () => {
   it("draws one tile per file, under a heading per group", () => {
     renderDemoBrowser(container, SET, OPTS);
-    expect(container.querySelectorAll(".demo-tile").length).toBe(6);
+    expect(container.querySelectorAll(".demo-tile").length).toBe(7);
     const headings = [...container.querySelectorAll(".demos-group h2")].map((h) => h.textContent);
     expect(headings).toEqual([
       "Start here",
@@ -102,10 +108,17 @@ describe("renderDemoBrowser", () => {
   });
 
   it("narrows the grid to what the search matches, by title, session, group or extension", () => {
-    renderDemoBrowser(container, SET, { ...OPTS, search: "gop" });
-    expect(container.querySelectorAll(".demo-tile").length).toBe(2);
-    renderDemoBrowser(container, SET, { ...OPTS, search: "mkv" });
-    expect(container.querySelectorAll(".demo-tile").length).toBe(1);
+    const matching = (search: string): string[] => {
+      renderDemoBrowser(container, SET, { ...OPTS, search });
+      return [...container.querySelectorAll<HTMLElement>(".demo-tile")].map((t) => t.dataset.session ?? "");
+    };
+    expect(matching("gop")).toEqual(["gopshort", "goplong"]);
+    // Each of these is found in one field only: a title, a session, the QuickTime file's group (the
+    // Matroska file also has the word in its title) and an extension.
+    expect(matching("seekable")).toEqual(["recommended"]);
+    expect(matching("gopshort")).toEqual(["gopshort"]);
+    expect(matching("container")).toEqual(["matroska", "quicktime"]);
+    expect(matching("mkv")).toEqual(["matroska"]);
     // The card follows the filter down rather than holding a file no longer on screen.
     expect((container.querySelector(".demo-card") as HTMLElement).dataset.session).toBe("matroska");
   });
@@ -157,8 +170,7 @@ describe("renderDemoBrowser", () => {
   it("falls back to the sidecar for a file the index says nothing about, once per file", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ Description: "Read from the sidecar." })));
     vi.stubGlobal("fetch", fetchMock);
-    const older = { demos: SET.demos.map((d) => ({ ...d, description: null })) };
-    renderDemoBrowser(container, older, OPTS);
+    renderDemoBrowser(container, OLDER, OPTS);
     const card = container.querySelector(".demo-card") as HTMLElement;
     await vi.waitFor(() => expect(card.querySelector(".demo-desc")?.textContent).toBe("Read from the sidecar."));
 
@@ -173,8 +185,7 @@ describe("renderDemoBrowser", () => {
   it("leaves the card usable when the sidecar cannot be read either", async () => {
     vi.stubGlobal("fetch", () => Promise.resolve({ ok: false, status: 404, statusText: "Not Found" }));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const older = { demos: SET.demos.map((d) => ({ ...d, description: null })) };
-    renderDemoBrowser(container, older, OPTS);
+    renderDemoBrowser(container, OLDER, OPTS);
     const card = container.querySelector(".demo-card") as HTMLElement;
     expect(card.querySelector(".demo-open")?.textContent).toBe("Open in the app");
     await vi.waitFor(() => expect(warn.mock.calls.length).toBeGreaterThan(0));
@@ -185,8 +196,7 @@ describe("renderDemoBrowser", () => {
   it("leaves the description blank when the sidecar carries none", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ VideoCodec: "h264" })));
     vi.stubGlobal("fetch", fetchMock);
-    const older = { demos: SET.demos.map((d) => ({ ...d, description: null })) };
-    renderDemoBrowser(container, older, OPTS);
+    renderDemoBrowser(container, OLDER, OPTS);
     expect(fetchMock.mock.calls.length).toBe(1);
     await flush();
     expect(container.querySelector(".demo-desc")?.textContent).toBe("");
@@ -202,8 +212,7 @@ describe("renderDemoBrowser", () => {
         json: () => new Promise<Record<string, string>>((resolve) => answers.set(url, resolve)),
       }),
     );
-    const older = { demos: SET.demos.map((d) => ({ ...d, description: null })) };
-    renderDemoBrowser(container, older, OPTS);
+    renderDemoBrowser(container, OLDER, OPTS);
     container.querySelector<HTMLButtonElement>('.demo-tile[data-session="reference"]')?.click();
     await vi.waitFor(() => expect(answers.has("https://archive.test/original.json")).toBe(true));
 
@@ -500,12 +509,15 @@ describe("initDemosPage", () => {
     expect(shownSessions().length).toBe(3);
   });
 
-  // Landing on a URL without the flag while the page is already down has nothing to undo.
+  // Landing on a URL without the flag while the page is already down has nothing to undo. The
+  // address is a hand-typed link whose URL is not encoded, which a rewrite would change.
   it("leaves the address alone when told to close a page that is not up", () => {
+    window.history.replaceState({}, "", "/?src=https://example.org/a.mp4");
     init();
     const replaceState = vi.spyOn(window.history, "replaceState");
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(replaceState.mock.calls.length).toBe(0);
+    expect(window.location.search).toBe("?src=https://example.org/a.mp4");
     expect(els.demosPage.style.display).toBe("none");
   });
 

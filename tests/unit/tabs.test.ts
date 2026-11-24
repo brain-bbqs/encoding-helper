@@ -11,7 +11,7 @@ function mountTabBar(): void {
       <button class="tab" data-tab="encode">Encode</button>
       <button class="tab" data-tab="compare">Compare</button>
       <button class="tab" data-tab="nope">Retired</button>
-      <button id="analysisBtn" data-tab="analysis">Full Analysis</button>
+      <button data-tab="analysis">Full Analysis</button>
     </div>
     <div id="panel-inspect" class="tab-panel on"></div>
     <div id="panel-encode" class="tab-panel"></div>
