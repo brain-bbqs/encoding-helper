@@ -4,7 +4,7 @@ import { attachSyncedZoomPan, ZOOM_MAX, ZOOM_MIN } from "../../src/ui/zoomPan";
 const PANE_W = 400;
 const PANE_H = 300;
 const GAP = 8;
-/** Where the first pane's top-left corner sits on the screen. */
+// Where the first pane's top-left corner sits on the screen.
 const STAGE_LEFT = 100;
 const STAGE_TOP = 50;
 

@@ -197,9 +197,16 @@ describe("renderAnalysisTab", () => {
     // 2,000,000 bytes, which over 30 s is 533,333 bits a second.
     expect(md).toContain("| File Size | 1.9 MB |");
     expect(md).toContain("| Overall Bitrate | 533 kbps |");
+    expect(md).toContain("| Duration | 30.000 s |");
+    expect(md).toContain("| MIME Type | video/mp4 |");
     expect(md).toContain("| Codec | avc1.640020 |");
     expect(md).toContain("| Resolution | 640×480 |");
+    expect(md).toContain("| Frame Rate | 30 fps |");
     expect(md).toContain("| Frames | 600 |");
+    // The audio track's own figures.
+    expect(md).toContain("| Sample Rate | 48,000 Hz |");
+    expect(md).toContain("| Channels | 2 |");
+    expect(md).toContain("| Bitrate | 128 kbps |");
     expect(md).toContain("| Total Frames | 600 |");
     expect(md).toContain("| Keyframes | 20 |");
     expect(md).toContain("| Avg GOP | 30.0 frames (1.50 s) |");

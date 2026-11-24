@@ -309,6 +309,10 @@ describe("pickSampleWindows", () => {
       expect(w.startSeconds + w.seconds).toBeLessThanOrEqual((i + 1) * 25);
       expect(w.seconds).toBe(4);
     });
+
+    // And at the near end, where a stretch starts exactly on its band's edge.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    expect(pickSampleWindows(100, 4, 4).map((w) => w.startSeconds)).toEqual([0, 25, 50, 75]);
   });
 
   it("never runs a stretch off the end of the file", () => {
