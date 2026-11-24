@@ -183,14 +183,14 @@ function loadClip(): void {
   state.keyframeTimestampsSec = Array.from({ length: 10 }, (_, i) => i * 2);
 }
 
-/** The next sweep: `presets` at one quality and the source resolution, over one two-second stretch.
- * As few squares as still make a grid. */
-function sweepOf(presets: X264Preset[]): void {
+/** The next sweep: `presets` at one quality and the source resolution, over `segments` two-second
+ * stretches (one unless a test asks for more). As few squares as still make a grid. */
+function sweepOf(presets: X264Preset[], segments = 1): void {
   encodeTest.matrix.qualities = ["high"];
   encodeTest.matrix.presets = presets;
   encodeTest.matrix.scales = [1];
   encodeTest.duration = 2;
-  encodeTest.segments = 1;
+  encodeTest.segments = segments;
 }
 
 /** The encodes the cores were asked for, leaving the stream-copy cuts aside. */
@@ -725,6 +725,43 @@ describe("running the sweep", () => {
     expect(panel.querySelector(".matrix-summary-figure")!.textContent).toBe("98% smaller");
     expect(panel.querySelector("pre.cmd")!.textContent).toContain("-preset superfast");
     expect(logText(panel)).toContain("$ ffmpeg ");
+  });
+
+  it("encodes every square over every sampled stretch, and adds the stretches up", async () => {
+    loadClip();
+    // Two stretches of the 20-second file, each drawn at the start of its half.
+    sweepOf(["ultrafast", "superfast"], 2);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const panel = renderTab();
+
+    await pressRun(panel);
+
+    // One cut per stretch, then each square encoded from both cuts in sampled order.
+    expect(cuts()).toHaveLength(2);
+    expect(encodes().map((args) => [args[args.indexOf("-preset") + 1], args[args.indexOf("-i") + 1]])).toEqual([
+      ["ultrafast", expect.stringMatching(/^et_snip_.*_0\.000_2\.000\.mp4$/)],
+      ["ultrafast", expect.stringMatching(/^et_snip_.*_10\.000_2\.000\.mp4$/)],
+      ["superfast", expect.stringMatching(/^et_snip_.*_0\.000_2\.000\.mp4$/)],
+      ["superfast", expect.stringMatching(/^et_snip_.*_10\.000_2\.000\.mp4$/)],
+    ]);
+    expect(fetchFile).toHaveBeenCalledTimes(1);
+    // A square's figures are both stretches added together.
+    const cells = encodeTest.matrix.cells;
+    expect(cells.map((c) => c.bytes)).toEqual([600, 400]);
+    expect(cells[0].segmentSeconds).toBeCloseTo(3.8, 10);
+    expect(cells[1].segmentSeconds).toBeCloseTo(3.8, 10);
+    // And the A/B window is handed both stretches of the winner, with where each came from.
+    expect(abLoads).toHaveLength(1);
+    expect(abLoads[0].blobs).toBe(2);
+    expect(abLoads[0].totals?.bytes).toBe(400);
+    expect(abLoads[0].totals?.windows.map((w) => w.startSeconds)).toEqual([0, 10]);
+
+    await settleRun(panel);
+
+    expect(encodeTest.matrix.windows).toEqual([
+      { startSeconds: 0, seconds: 2 },
+      { startSeconds: 10, seconds: 2 },
+    ]);
   });
 
   // A square is a function of the file, the command and the stretches, none of which a reload

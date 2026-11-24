@@ -18,9 +18,10 @@ import {
 } from "../../src/lib/qualityMatrix";
 import type { EncodeSettings, MatrixCell, MatrixQuality, X264Preset } from "../../src/lib/types";
 
-/** A finished square of `bytes`, still holding the stretches it was measured over. */
-function done(quality: MatrixQuality, preset: X264Preset, bytes: number): MatrixCell {
-  const [cell] = makeMatrixCells(buildMatrixCombos([quality], [preset]));
+/** A finished square of `bytes`, still holding the stretches it was measured over, at the source's
+ * resolution unless `scale` says otherwise. */
+function done(quality: MatrixQuality, preset: X264Preset, bytes: number, scale = 1): MatrixCell {
+  const [cell] = makeMatrixCells(buildMatrixCombos([quality], [preset], [scale]));
   cell.status = "done";
   cell.bytes = bytes;
   cell.blobs = [new Blob([new Uint8Array(1)]), new Blob([new Uint8Array(1)])];
@@ -196,6 +197,15 @@ describe("bestReductionCell", () => {
   it("breaks a tie towards the better picture, then the faster preset", () => {
     const cells = [done("low", "fast", 500), done("high", "veryfast", 500), done("high", "ultrafast", 500)];
     expect(bestReductionCell(cells)!.combo.key).toBe(comboKey("high", "ultrafast"));
+  });
+
+  it("breaks a tie towards the larger resolution before the picture or the preset", () => {
+    // The full-resolution square has the worse picture and the slower preset, so only the
+    // resolution rule can pick it, in whichever order the two squares come.
+    const full = done("low", "fast", 500);
+    const reduced = done("high", "ultrafast", 500, 0.75);
+    expect(bestReductionCell([reduced, full])).toBe(full);
+    expect(bestReductionCell([full, reduced])).toBe(full);
   });
 });
 
