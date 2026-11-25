@@ -10,7 +10,7 @@ import { errorMessage } from "@brain-bbqs/utils";
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { button, h } from "@brain-bbqs/ui";
 import { cmdBlock, infoIcon, section } from "../lib/dom";
-import { fmtRate } from "../lib/format";
+import { describeFrameRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
@@ -19,6 +19,7 @@ import {
   describeSettings,
   evictBeyondBudget,
   fpsForFraction,
+  heldBytes,
   makeMatrixCells,
   MATRIX_FPS_FRACTIONS,
   MATRIX_PRESETS,
@@ -647,19 +648,20 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
       // them, not just one: the window plays every stretch the square was measured over.
       const workers = acquireWorkers(matrixWindows().length);
       const inputs = await prepareRun(matrixWindows(), workers, ui);
+      let bytes: number;
       try {
-        blobs = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {})).blobs;
+        ({ blobs, bytes } = await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {}));
       } finally {
         await dropWholeFileInput(inputs);
       }
       cell.blobs = blobs;
-      cell.bytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
+      cell.bytes = bytes;
     }
     // The Duration field goes back to the length the grid was measured with, which it may have been
     // moved off since. The A/B window draws the original from the windows passed below.
     syncSegmentToMatrix();
     await loadEncodedIntoAB(blobs, cell.combo, vt, ui.resultSec, {
-      bytes: cell.bytes ?? blobs.reduce((sum, blob) => sum + blob.size, 0),
+      bytes: cell.bytes ?? heldBytes(blobs),
       windows: matrixCellWindows(cell),
     });
   } catch (err) {
@@ -688,7 +690,7 @@ function tickedCombos(): MatrixCombo[] {
 function describeFpsFraction(fraction: number): string {
   const rate = fpsForFraction(fraction, state.fps);
   if (rate == null) return "Source";
-  return `${Math.round(fraction * 100)}% (${fmtRate(rate)} fps)`;
+  return `${Math.round(fraction * 100)}% (${describeFrameRate(rate)})`;
 }
 
 /** The stretches the sweep covered, or the one segment it used before several were asked for. */

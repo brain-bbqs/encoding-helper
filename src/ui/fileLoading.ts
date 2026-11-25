@@ -18,6 +18,7 @@ import {
   extractSampleAnalysis,
   parseWithMp4Box,
 } from "../lib/mp4boxParser";
+import { isPickerDismissed } from "../lib/save";
 import { resetState, state } from "../lib/state";
 import type { AppElements } from "./elements";
 
@@ -153,7 +154,7 @@ async function pickFile(els: AppElements): Promise<File | null> {
       });
       return await handle.getFile();
     } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return null;
+      if (isPickerDismissed(e)) return null;
       console.warn("[encoding-helper] File System Access API failed, falling back:", e);
     }
   }

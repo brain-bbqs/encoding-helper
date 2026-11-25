@@ -10,9 +10,9 @@ import { CRF_MAP, isDownscale } from "../lib/cliCommand";
 import { h } from "@brain-bbqs/ui";
 import { cmdBlock, section, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
-import { cliSettings } from "../lib/qualityMatrix";
-import { cli, encodeTest, state } from "../lib/state";
-import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
+import { cliSettings, MATRIX_PRESETS } from "../lib/qualityMatrix";
+import { cli, currentVideoInfo, encodeTest, videoTrackInfo } from "../lib/state";
+import type { SampleWindow, TrackInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
 import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
@@ -53,9 +53,9 @@ function checkField(id: string, label: string, checked: boolean): { field: HTMLD
 
 export function renderEncodeTab(panel: HTMLElement): void {
   panel.innerHTML = "";
-  const vt = state.tracks?.find((t) => t.kind === "video");
-  if (!vt || vt.codedWidth == null || vt.codedHeight == null) return;
-  const info: VideoInfo = { fps: state.fps, width: vt.codedWidth, height: vt.codedHeight };
+  const vt = videoTrackInfo();
+  const info = currentVideoInfo();
+  if (!vt || !info) return;
 
   const builderSec = section("FFmpeg Command Builder");
   builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
@@ -91,13 +91,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const scalerSelect = cliScalerField.querySelector("select")!;
   scalerSelect.toggleAttribute("disabled", !isDownscale(cli.scale));
   row1.append(cliScalerField);
-  const presetField = fieldSelect(
-    "cliPreset",
-    "x264 Preset",
-    ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"],
-    cli.preset,
-    X264_PRESET_INFO,
-  );
+  const presetField = fieldSelect("cliPreset", "x264 Preset", MATRIX_PRESETS, cli.preset, X264_PRESET_INFO);
   row1.append(presetField);
   const kfField = fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1);
   row1.append(kfField);

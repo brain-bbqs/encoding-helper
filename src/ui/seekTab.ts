@@ -14,7 +14,7 @@ import { downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
-import { progressBar } from "./formControls";
+import { fieldNumber, progressBar } from "./formControls";
 
 /**
  * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
@@ -58,15 +58,8 @@ export function renderSeekTab(panel: HTMLElement): void {
   sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
-  const nField = h("div", "field");
-  nField.append(h("label", "field-label", "Sample Count"));
-  const nInput = h("input");
-  nInput.type = "number";
-  nInput.min = "5";
-  nInput.max = "200";
-  nInput.value = String(DEFAULT_SEEK_SAMPLES);
-  nInput.id = "seekN";
-  nField.append(nInput);
+  const nField = fieldNumber("seekN", "Sample Count", DEFAULT_SEEK_SAMPLES, 5, 200, 1);
+  const nInput = nField.querySelector("input")!;
   controls.append(nField);
   sec.append(controls);
   const runBtn = button("btn", "Run Seeking Test");

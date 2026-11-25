@@ -14,7 +14,7 @@ import { button, h } from "@brain-bbqs/ui";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
-import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
+import { snapToKeyframe } from "../lib/mp4boxParser";
 import { extOf } from "../lib/save";
 import { windowsForRun } from "../lib/sizeEstimate";
 import { currentVideoInfo, encodeTest, state } from "../lib/state";
@@ -132,22 +132,11 @@ function inputNameFor(source: SourceBytes): string {
 }
 
 /** The stretches the next run covers: the last run's where they still fit what the fields ask for
- * (see windowsForRun), each snapped to a keyframe so it can be cut out by copy. */
+ * (see windowsForRun), each snapped to a keyframe so it can be cut out by copy. A file whose
+ * container gave no keyframe table keeps the unsnapped starts, and the old whole-file trim is used. */
 export function runWindows(): SampleWindow[] {
-  return windowsForRun(
-    encodeTest.sampled,
-    state.duration ?? 0,
-    encodeTest.duration,
-    encodeTest.segments,
-    snapToKeyframe,
-  );
-}
-
-/** The keyframe at or before `seconds`, or the time itself when the container gave us no table to
- * look in (in which case snippets cannot be cut by copy and the old whole-file trim is used). */
-function snapToKeyframe(seconds: number): number {
-  const at = nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, seconds);
-  return at == null ? seconds : at;
+  const snap = (seconds: number): number => snapToKeyframe(state.keyframeTimestampsSec, seconds);
+  return windowsForRun(encodeTest.sampled, state.duration ?? 0, encodeTest.duration, encodeTest.segments, snap);
 }
 
 /** Whether stretches can be cut out of the source ahead of encoding them. Needs the keyframe table:

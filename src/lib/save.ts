@@ -10,6 +10,11 @@ export function baseNameOf(name: string | null | undefined): string {
   return (name || "video").replace(/\.[^.]+$/, "");
 }
 
+/** Whether a File System Access picker failed because the visitor closed it without choosing. */
+export function isPickerDismissed(e: unknown): boolean {
+  return e instanceof DOMException && e.name === "AbortError";
+}
+
 type SaveTarget = { kind: "stream"; writable: FileSystemWritableFileStream } | { kind: "buffer" };
 
 export async function pickSaveTarget(suggestedName: string): Promise<SaveTarget | null> {
@@ -22,7 +27,7 @@ export async function pickSaveTarget(suggestedName: string): Promise<SaveTarget 
       const writable = await handle.createWritable();
       return { kind: "stream", writable };
     } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return null;
+      if (isPickerDismissed(e)) return null;
       console.warn("[encoding-helper] showSaveFilePicker failed, falling back to download:", e);
     }
   }

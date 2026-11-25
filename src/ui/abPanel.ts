@@ -18,8 +18,8 @@ import { button, h } from "@brain-bbqs/ui";
 import { gridItem, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
-import { describeQuality, describeResolutionChange } from "../lib/qualityMatrix";
-import { fmtClock } from "../lib/sampleTimeline";
+import { describeQuality, describeResolutionChange, heldBytes } from "../lib/qualityMatrix";
+import { fmtClock, rulerEdgeClass } from "../lib/sampleTimeline";
 import { ensureMediabunny } from "../lib/mediabunny";
 import type { Input } from "mediabunny";
 import { currentSizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
@@ -100,7 +100,7 @@ export async function loadEncodedIntoAB(
   encodeTest.segDuration = segments.reduce((sum, seg) => sum + seg.seconds, 0);
   // The bytes are the run's rather than these blobs' added up, so a square whose output was dropped
   // and re-encoded still reports what the sweep measured.
-  encodeTest.encodedSize = totals?.bytes ?? blobs.reduce((sum, blob) => sum + blob.size, 0);
+  encodeTest.encodedSize = totals?.bytes ?? heldBytes(blobs);
   encodeTest.windows = totals?.windows ?? segments.map((seg) => seg.window);
   encodeTest.activeCombo = settings;
   renderAbResult(host, vt, settings);
@@ -234,11 +234,10 @@ function appendReelRuler(wrap: HTMLElement, segments: AbSegment[], reelSpan: num
     tick.style.left = left.toFixed(3) + "%";
     ruler.append(tick);
     if (i % labelEvery !== 0 && !last) continue;
+    const seconds = last ? window.startSeconds + window.seconds : window.startSeconds;
     // The end labels would hang off the bar, so they align inwards instead of centring, the way the
     // sample picker's ruler handles its own ends.
-    const align = left < 2 ? " at-start" : left > 98 ? " at-end" : "";
-    const seconds = last ? window.startSeconds + window.seconds : window.startSeconds;
-    const label = h("div", "compare-reel-label" + align, fmtClock(seconds, state.duration ?? seconds));
+    const label = h("div", "compare-reel-label" + rulerEdgeClass(left), fmtClock(seconds, state.duration ?? seconds));
     label.style.left = left.toFixed(3) + "%";
     ruler.append(label);
   }

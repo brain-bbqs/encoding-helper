@@ -74,11 +74,13 @@ describe("setEducationalEnabled", () => {
     expect(new URL(window.location.href).searchParams.has("edu")).toBe(false);
   });
 
-  it("still changes the switch when the choice cannot be stored", async () => {
+  it("still changes the switch when the choice cannot be stored, without a warning", async () => {
     const { isEducationalEnabled, setEducationalEnabled } = await load();
     restoreStorage = throwingStorage("full");
+    const warn = vi.spyOn(console, "warn");
     setEducationalEnabled(false);
     expect(isEducationalEnabled()).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("replaces rather than pushes, so the back button does not walk the switch", async () => {

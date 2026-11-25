@@ -11,7 +11,7 @@
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { button, h } from "@brain-bbqs/ui";
-import { fmtRate } from "../lib/format";
+import { describeFrameRate } from "../lib/format";
 import { isDownscale, scalePercent } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
@@ -216,7 +216,7 @@ function blockTitleRow(
   // changes how the pixels were resampled, and at the source resolution it changed nothing at all;
   // the other is absent from every block of a sweep that left the rate alone.
   if (showScaler && isDownscale(block.scale)) th.append(h("span", "matrix-group-note", block.scaler));
-  if (block.fps != null) th.append(h("span", "matrix-group-note", `${fmtRate(block.fps)} fps`));
+  if (block.fps != null) th.append(h("span", "matrix-group-note", describeFrameRate(block.fps)));
   row.append(th);
   return row;
 }

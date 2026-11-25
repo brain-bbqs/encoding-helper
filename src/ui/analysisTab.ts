@@ -31,7 +31,6 @@ import {
   fmtBits,
   fmtDur,
   fmtMs,
-  fmtRate,
   fmtSizeChangePct,
 } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
@@ -73,7 +72,7 @@ function headlineFacts(): [string, string][] {
   if (vt) {
     facts.push(["Video Codec", vt.codecString || vt.codec]);
     facts.push(["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`]);
-    if (vt.packetRate != null) facts.push(["Frame Rate", fmtRate(vt.packetRate) + " fps"]);
+    if (vt.packetRate != null) facts.push(["Frame Rate", describeFrameRate(vt.packetRate)]);
   }
   facts.push(["Duration", fmtDur(state.duration)], ["File Size", fmtBytes(state.source?.size)]);
   return facts;
