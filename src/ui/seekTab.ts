@@ -22,7 +22,7 @@ import { fieldNumber, progressBar } from "./formControls";
  */
 const DEFAULT_SEEK_SAMPLES = 100;
 
-export function renderSeekTab(panel: HTMLElement): void {
+export function renderGopStructure(panel: HTMLElement): void {
   const { gop, avgGop, fps } = gopStats();
   const minGop = gop.length ? Math.min(...gop) : 0;
   const maxGop = gop.length ? Math.max(...gop) : 0;

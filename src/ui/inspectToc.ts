@@ -9,7 +9,7 @@ import { h } from "@brain-bbqs/ui";
 let scrollSpyObserver: IntersectionObserver | null = null;
 
 /**
- * Wraps whatever renderInspectHead/renderAtomMap/renderSeekTab/renderInspectTail already appended to
+ * Wraps whatever renderInspectHead/renderAtomMap/renderGopStructure/renderInspectTail already appended to
  * `panel` into a content column, and builds the nav beside it from each top-level section's own
  * heading, so the list of links can never drift out of sync with what is actually on the page.
  * No-op (leaves the panel as-is) when there is nothing to link to, i.e. no file loaded yet.
