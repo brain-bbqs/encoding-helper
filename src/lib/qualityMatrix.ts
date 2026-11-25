@@ -135,7 +135,7 @@ export function comboCrf(quality: MatrixQuality): number {
  * and its kernel join it only when something was actually resampled, since at the source's
  * resolution the kernel names a choice that had no effect. */
 export function describeSettings(settings: EncodeSettings): string {
-  const base = `${settings.quality} (CRF ${settings.crf}), ${settings.preset}`;
+  const base = `${describeQuality(settings)}, ${settings.preset}`;
   const scaled = isDownscale(settings.scale) ? `${base}, ${scalePercent(settings.scale)} ${settings.scaler}` : base;
   return settings.fps ? `${scaled}, ${describeFrameRate(settings.fps)}` : scaled;
 }
@@ -319,7 +319,7 @@ export function evictBeyondBudget(cells: MatrixCell[], budgetBytes: number, keep
   if (total <= budgetBytes) return [];
   const held = cells
     .filter((c) => c.blobs != null && c.combo.key !== keepKey)
-    .sort((a, b) => (b.bytes ?? 0) - (a.bytes ?? 0));
+    .sort((a, b) => heldCellBytes(b) - heldCellBytes(a));
   const evicted: string[] = [];
   for (const cell of held) {
     if (total <= budgetBytes) break;

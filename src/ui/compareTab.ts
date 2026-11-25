@@ -534,7 +534,8 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
       ui.note.textContent = "Loading ffmpeg.wasm…";
       const workers = acquireWorkers(pending.length);
       await workers[0].load();
-      inputs = await prepareRun(matrixWindows(), workers, ui);
+      const prepared = await prepareRun(matrixWindows(), workers, ui);
+      inputs = prepared;
       if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
       await drainWithPool(
         pending,
@@ -546,7 +547,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
           showProgress();
           const startedAt = performance.now();
           try {
-            const encoded = await encodeWindows(matrixCliState(cli, cell.combo), inputs!, [worker], ui, (fraction) => {
+            const encoded = await encodeWindows(matrixCliState(cli, cell.combo), prepared, [worker], ui, (fraction) => {
               inFlight.set(cell.combo.key, fraction);
               showProgress();
             });

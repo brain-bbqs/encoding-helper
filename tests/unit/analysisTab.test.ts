@@ -329,7 +329,7 @@ describe("renderAnalysisTab", () => {
   it("reports an in-browser reencode's result", () => {
     const el = panel();
     loadClip();
-    state.reencodeResult = { originalSize: 2_000_000, encodedSize: 1_000_000 } as never;
+    state.reencodeResult = { originalSize: 2_000_000, encodedSize: 1_000_000 };
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("## In-Browser Reencode Result");

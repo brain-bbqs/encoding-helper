@@ -70,8 +70,7 @@ export interface EngineBox {
 
 /**
  * The controls of a long-running encode: the button that starts it, the bar, the line under it, its
- * console, and the block its result lands in. The heading and the explainer above it belong to
- * whichever section is using it, so there is one explainer rather than two stacked.
+ * console, and the block its result lands in. The heading above it belongs to the section using it.
  */
 export function engineBox(buttonLabel: string): EngineBox {
   const el = h("div");
@@ -84,9 +83,8 @@ export function engineBox(buttonLabel: string): EngineBox {
   const note = h("div", "progress-label");
   note.style.marginTop = "4px";
   el.append(note);
-  const console_ = logConsole();
-  el.append(console_.wrap);
-  const log = console_.log;
+  const { wrap: logWrap, log } = logConsole();
+  el.append(logWrap);
   const result = h("div");
   result.style.marginTop = "8px";
   el.append(result);

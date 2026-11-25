@@ -121,9 +121,8 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function listAssets(): Promise<ArchiveAsset[]> {
-  const first = `${ASSETS_URL}?metadata=false&page_size=${ASSET_PAGE_SIZE}`;
   const out: ArchiveAsset[] = [];
-  let next: string | null = first;
+  let next: string | null = `${ASSETS_URL}?metadata=false&page_size=${ASSET_PAGE_SIZE}`;
   for (let page = 0; next && page < MAX_ASSET_PAGES; page++) {
     const body: AssetPage = await fetchJson<AssetPage>(next);
     out.push(...(body.results ?? []));

@@ -31,7 +31,7 @@ const HEVC_PROFILES: Record<number, string> = {
   4: "Range Extensions",
 };
 
-const AAC_OTI: Record<number, string> = {
+const AAC_OBJECT_TYPES: Record<number, string> = {
   2: "AAC-LC (Low Complexity)",
   5: "HE-AAC (SBR)",
   29: "HE-AAC v2 (SBR + PS)",
@@ -128,7 +128,7 @@ const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     parse: (cs) => {
       const m = /^mp4a\.40\.(\d+)/.exec(cs || "");
       if (!m) return [];
-      return [{ label: "Profile", value: AAC_OTI[parseInt(m[1], 10)] || `Object type ${m[1]}` }];
+      return [{ label: "Profile", value: AAC_OBJECT_TYPES[parseInt(m[1], 10)] || `Object type ${m[1]}` }];
     },
   },
   opus: {

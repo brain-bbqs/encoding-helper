@@ -10,6 +10,7 @@
 // looking at it: a time in seconds says nothing about whether the animal is in shot.
 
 import { h } from "@brain-bbqs/ui";
+import type { CanvasSink } from "mediabunny";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { snapToKeyframe } from "../lib/mp4boxParser";
 import { clampWindowStart, fmtClock, rulerEdgeClass, rulerMarks, SAMPLE_SECONDS } from "../lib/sampleTimeline";
@@ -77,6 +78,7 @@ export function samplePicker(): SamplePicker | null {
    * use this; the band and its readout still show the unsnapped start. */
   const snapped = (): number => snapToKeyframe(state.keyframeTimestampsSec, start());
 
+  let sink: CanvasSink | null = null;
   // Bumped per requested frame, so a drag that outruns the decoder draws the frame it ended on
   // rather than whichever request happens to come back last.
   let drawToken = 0;
@@ -110,7 +112,6 @@ export function samplePicker(): SamplePicker | null {
       }
     })();
   };
-  let sink: import("mediabunny").CanvasSink | null = null;
 
   const sync = (): void => {
     const from = start();

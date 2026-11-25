@@ -14,8 +14,8 @@ export function initTabs(onShowAnalysis: () => void): void {
     buttons.forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
     panels.forEach((p) => p.classList.remove("on"));
     document.getElementById("panel-" + tab)?.classList.add("on");
-    // Rebuilt on every visit (not just at load) since it gathers whatever the seeking test, Compare
-    // Quality and the in-browser encoders have produced since the file was loaded.
+    // Rebuilt on every visit (not just at load) since it gathers whatever the seeking test and the
+    // two encoding tabs have produced since the file was loaded.
     if (tab === "analysis") onShowAnalysis();
   };
 

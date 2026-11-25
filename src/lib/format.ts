@@ -1,4 +1,4 @@
-// Formatting helpers for durations, bitrates, sample rates, milliseconds, and the handful of
+// Formatting helpers for durations, bitrates, frame rates, milliseconds, and the handful of
 // facts the Inspect tab and the Full Analysis document both print.
 
 /** The dash shown in place of a value that is missing. */
@@ -21,8 +21,8 @@ export function fmtBits(bps: number | null | undefined): string {
   return (bps / 1e6).toFixed(2) + " Mbps";
 }
 
-export function fmtRate(hz: number | null | undefined): string {
-  return hz == null ? NO_VALUE : hz % 1 < 0.005 ? Math.round(hz).toString() : hz.toFixed(3);
+export function fmtRate(fps: number | null | undefined): string {
+  return fps == null ? NO_VALUE : fps % 1 < 0.005 ? Math.round(fps).toString() : fps.toFixed(3);
 }
 
 export function fmtMs(ms: number | null | undefined): string {

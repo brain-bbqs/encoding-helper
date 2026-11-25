@@ -503,15 +503,14 @@ export function endRunUi(ui: RunUi): void {
 }
 
 export function reportRunFailure(err: unknown, ui: RunUi): void {
+  // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
+  ui.progress.style.display = "none";
   if (err instanceof RunStopped) {
     ui.note.textContent = "Stopped.";
-    ui.progress.style.display = "none";
     return;
   }
   console.error("[encoding-helper] encode run failed:", err);
   const message = errorMessage(err);
   ui.note.textContent = "Failed: " + message;
   logLine(ui.log, message, "error");
-  // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
-  ui.progress.style.display = "none";
 }

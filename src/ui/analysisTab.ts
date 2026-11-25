@@ -282,14 +282,14 @@ function compareSection(): AnalysisSection | null {
     ["Segment", describeSampledStretches()],
     ["Quality", describeQuality(settings)],
     ["Preset", settings.preset],
-    ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
   ];
   // Only when it is not the source's: a resolution row reading "100%" on every document would say
   // nothing, but a comparison made at half resolution is not comparable to one that was not.
   const vt = videoTrackInfo();
   if (isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight) {
-    items.splice(3, 0, ["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
+    items.push(["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
   }
+  items.push(["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)]);
 
   const est = currentSizeEstimate();
   if (est) {
@@ -433,8 +433,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   sec.append(actions);
   panel.append(sec);
 
-  const frame = document.createElement("iframe");
-  frame.className = "doc-preview";
+  const frame = h("iframe", "doc-preview");
   frame.id = "analysisDoc";
   frame.title = `Full analysis of ${state.source.name}`;
   panel.append(frame);

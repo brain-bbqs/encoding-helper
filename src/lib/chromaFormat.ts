@@ -59,13 +59,13 @@ function fromAvcC(data: Uint8Array): ChromaFormat | null {
     at += 2 + ((data[at] << 8) | data[at + 1]);
   }
   // The trailing part is optional in practice: muxers that leave it off leave the format unstated.
-  return at < data.length ? (CHROMA_FORMAT_IDC[data[at] & 0x03] ?? null) : null;
+  return at < data.length ? CHROMA_FORMAT_IDC[data[at] & 0x03] : null;
 }
 
 /** `hvcC` states the format outright, at a fixed offset (ISO 14496-15 §8.3.3.1.2). */
 function fromHvcC(data: Uint8Array): ChromaFormat | null {
   if (data.length < 17 || data[0] !== 1) return null;
-  return CHROMA_FORMAT_IDC[data[16] & 0x03] ?? null;
+  return CHROMA_FORMAT_IDC[data[16] & 0x03];
 }
 
 /** `av1C`'s second byte carries the monochrome flag and the two subsampling bits (AV1-ISOBMFF §2.3). */

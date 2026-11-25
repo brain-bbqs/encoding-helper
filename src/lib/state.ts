@@ -1,6 +1,7 @@
 // Shared, mutable, single-source-of-truth state objects. Every tab renderer reads and writes these
 // directly (no framework/store layer), mirroring the original monolithic script's globals, just typed.
 
+import { DEFAULT_SCALER } from "./cliCommand";
 import {
   DEFAULT_MATRIX_FPS_FRACTIONS,
   DEFAULT_MATRIX_PRESETS,
@@ -90,7 +91,7 @@ export const cli: CliState = {
   audioMode: "copy",
   fps: null,
   scale: 1,
-  scaler: "lanczos",
+  scaler: DEFAULT_SCALER,
   customScale: 60,
 };
 
