@@ -1,7 +1,7 @@
 // src/style.css draws the page; src/lib/analysisDoc.ts inlines its own sheet into every exported Full Analysis
 // document, reusing the page's class names so one set of section builders serves both. A partial shared by the two
-// would reorder the page's cascade, and CSS cannot share one block between the page's two dark palettes, so nothing
-// but this file holds them equal (DUP-2 and DUP-3 in docs/code-reviews/2026-11-22-code-quality-review.md).
+// would reorder the page's cascade, and CSS cannot share one block between the page's two copies of its dark theme,
+// so nothing but this file holds them equal (DUP-2 and DUP-3 in docs/code-reviews/2026-11-22-code-quality-review.md).
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,7 @@ import { buildAnalysisDocument } from "../../src/lib/analysisDoc";
  */
 const INTENDED_DIFFERENCES: Readonly<Record<string, readonly string[]>> = {
   // Type and layout: the document is set for print, with its own monospace stack, sizes, spacing and a grid for its
-  // fields (see the docstring above ANALYSIS_DOC_CSS).
+  // fields.
   ".section h2": ["margin", "letter-spacing"],
   ".grid": ["display", "gap"],
   ".grid .item label": ["font-size"],
@@ -40,6 +40,34 @@ const INTENDED_DIFFERENCES: Readonly<Record<string, readonly string[]>> = {
   ".bitrate-chart .axis-title": ["fill"],
   ".seek-scatter .axis-title": ["fill"],
 };
+
+/**
+ * The selectors only the document styles: its header, contents list, badge rows and figures, which only the document
+ * draws. A shared selector renamed or dropped in one sheet would otherwise leave the comparison without a word.
+ */
+const DOCUMENT_ONLY: readonly string[] = [
+  ".doc",
+  ".doc-head",
+  ".doc-eyebrow",
+  ".doc-head h1",
+  ".doc-meta",
+  ".doc-facts",
+  ".fact",
+  ".fact-key",
+  ".fact-val",
+  ".doc-toc",
+  ".doc-toc h2",
+  ".doc-toc ol",
+  ".doc-toc li",
+  ".badge-row",
+  ".fig",
+  ".fig figcaption",
+];
+
+/** The dark theme for the OS preference sits in this media query; the header toggle's copy is at the top level. */
+const DARK_QUERY = /^@media \(prefers-color-scheme: ?dark\)$/;
+const FOR_PREFERENCE = ':root:not([data-theme="light"])';
+const FOR_TOGGLE = ':root[data-theme="dark"]';
 
 /** A declaration as [property, value], spacing and letter case normalised. */
 type Declaration = [property: string, value: string];
@@ -68,27 +96,37 @@ const PAGE = declarationsBySelector(PAGE_CSS);
 const DOCUMENT = declarationsBySelector(documentStylesheet());
 const SHARED = [...DOCUMENT.keys()].filter((selector) => PAGE.has(selector));
 
-describe("the page's dark palette", () => {
-  it("is the same for the OS preference as for the header toggle, property for property", () => {
-    const forPreference = customProperties(
-      topLevelBlocks(PAGE_CSS)
-        .filter((block) => block.prelude === "@media (prefers-color-scheme: dark)")
-        .flatMap((block) => styleRules(block.body)),
-      ':root:not([data-theme="light"])',
+describe("the page's dark theme", () => {
+  it("sets the same rules for the OS preference as for the header toggle, declaration for declaration", () => {
+    // The palette and every other rule written twice, each OS-preference copy given the toggle's selector.
+    const forPreference = topLevelBlocks(PAGE_CSS)
+      .filter((block) => DARK_QUERY.test(block.prelude))
+      .flatMap((block) => styleRules(block.body))
+      .filter((rule) => rule.selectors.some((selector) => selector.startsWith(FOR_PREFERENCE)))
+      .map((rule) => ({
+        ...rule,
+        selectors: rule.selectors.map((selector) => selector.replace(FOR_PREFERENCE, FOR_TOGGLE)),
+      }));
+    const forToggle = styleRules(PAGE_CSS).filter((rule) =>
+      rule.selectors.some((selector) => selector.startsWith(FOR_TOGGLE)),
     );
-    const forToggle = customProperties(styleRules(PAGE_CSS), ':root[data-theme="dark"]');
 
     // So that two lists the extraction left empty cannot pass as equal.
-    expect(forPreference.map(([property]) => property)).toContain("--accent");
-    expect(forToggle).toEqual(forPreference);
+    const properties = forPreference.flatMap((rule) => rule.declarations.map(([property]) => property));
+    expect(properties, `what ${FOR_PREFERENCE} sets for the OS preference`).toContain("--accent");
+    expect(forToggle, `the ${FOR_TOGGLE} rules, against their OS-preference copies`).toEqual(forPreference);
   });
 });
 
 describe("the page stylesheet and the Full Analysis document's stylesheet", () => {
   it("are each read to their last style rule", () => {
-    // A parser that stopped early, at an at-rule, a string or a brace it miscounted, would miss these.
+    // A parser that stopped early, at an at-rule or a brace it miscounted, would miss these.
     expect(PAGE.has(".demos-error-hint"), "the page's last rule").toBe(true);
     expect(DOCUMENT.has(".seek-scatter .pt"), "the document's last style rule").toBe(true);
+  });
+
+  it("share every selector the document styles bar DOCUMENT_ONLY, so none drops out of the comparison unseen", () => {
+    expect([...DOCUMENT.keys()].filter((selector) => !PAGE.has(selector))).toEqual(DOCUMENT_ONLY);
   });
 
   it("give each selector they share the same value for every property both declare, bar INTENDED_DIFFERENCES", () => {
@@ -187,8 +225,8 @@ function resolveVars(value: string, palette: Declarations): string {
 }
 
 // The parser. jsdom's CSSOM reads both sheets too, but moves `!important` out of the value and reports an error for
-// each of the page's @imports of a package path, so a few lines here do it instead: strip comments, match braces,
-// skip at-rules.
+// each of the page's @imports of a package path, so a few lines here do it instead: strip comments, match braces
+// outside strings, skip at-rules.
 
 /** The style rules at the top level of `css`; at-rules (@media, @supports, @keyframes) are skipped whole. */
 function styleRules(css: string): StyleRule[] {
@@ -215,12 +253,16 @@ function topLevelBlocks(css: string): Block[] {
   return blocks;
 }
 
-/** The index of the bracket that closes the one at `open`. */
+/** The index of the bracket that closes the one at `open`, skipping any in a string such as `content: "}"`. */
 function closingIndex(text: string, open: number, opener: string, closer: string): number {
   let depth = 0;
+  let quote = "";
   for (let i = open; i < text.length; i++) {
-    if (text[i] === opener) depth++;
-    else if (text[i] === closer && --depth === 0) return i;
+    const char = text[i];
+    if (quote) quote = char === quote ? "" : quote;
+    else if (char === '"' || char === "'") quote = char;
+    else if (char === opener) depth++;
+    else if (char === closer && --depth === 0) return i;
   }
   throw new Error(`Nothing closes the ${opener} at offset ${open}`);
 }
