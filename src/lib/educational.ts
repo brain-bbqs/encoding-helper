@@ -36,8 +36,8 @@ export function setEducationalEnabled(on: boolean): void {
   if (on === educational) return;
   educational = on;
   writeStorageItem(EDUCATIONAL_KEY, String(on), () => {
-    // Same best-effort handling as the theme toggle: a full localStorage or a privacy mode that
-    // blocks it just means the choice doesn't survive a reload.
+    // Silent, where the theme toggle warns: a full localStorage or a privacy mode that blocks it
+    // just means the choice doesn't survive a reload.
   });
   // Replaces rather than pushing a history entry: flipping the switch is a preference change, not a
   // place in the app to walk back to with the browser's back button (matches writeSrcToUrl).

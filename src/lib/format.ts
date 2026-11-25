@@ -1,5 +1,6 @@
 // Formatting helpers for durations, bitrates, frame rates, milliseconds, and the handful of
-// facts the Inspect tab and the Full Analysis document both print.
+// facts the Inspect tab and the Full Analysis document both print. Also the placeholder dash and
+// the fallback frame rate: this module imports nothing, so any file can use them without a cycle.
 
 /** The dash shown in place of a value that is missing. */
 export const NO_VALUE = "–";
