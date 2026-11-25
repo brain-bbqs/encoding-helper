@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.6
+
+#### 🏠 Internal
+
+- Removed style rules that changed nothing on screen or in the Full Analysis document, and gave the three disclosure bars one shared style ([#75](https://github.com/brain-bbqs/encoding-helper/pull/75))
+
 ## 1.5.5
 
 #### 🐛 Bug Fix
