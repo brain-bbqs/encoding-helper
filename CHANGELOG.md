@@ -4,7 +4,7 @@
 
 #### 🐛 Bug Fix
 
-- A/B playback no longer skips or repeats frames when started part-way through a frame, and steps at the encode's own frame rate when the run changed it ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- A/B playback no longer skips or repeats frames when started part-way through a frame, and steps at the encode's own frame rate when the run changed it ([#80](https://github.com/brain-bbqs/encoding-helper/pull/80))
 
 ## 1.5.7
 
