@@ -23,8 +23,9 @@ interface FakeFrame {
  * `frameRequests`); null is "no frame at that time", the default. */
 let frameAt: (seconds: number, track: unknown) => Promise<FakeFrame | null> = async () => null;
 /** Every frame the panel asked for, and the track it asked for it on: the original's is
- * `state.videoTrack`, each stretch's the encoded track the stub handed out. */
-const frameRequests: { track: unknown; seconds: number }[] = [];
+ * `state.videoTrack`, each stretch's the encoded track the stub handed out. `sink` is the sink that
+ * was asked, which tells the stretches apart. */
+const frameRequests: { track: unknown; seconds: number; sink: unknown }[] = [];
 
 // The panel only asks mediabunny to decode the encodes it was handed; what it does with the answers
 // is the part under test, so the decoder is stubbed rather than run.
@@ -45,7 +46,7 @@ vi.mock("../../src/lib/mediabunny", () => {
   class FakeCanvasSink {
     constructor(private readonly track: unknown) {}
     getCanvas(seconds: number): Promise<FakeFrame | null> {
-      frameRequests.push({ track: this.track, seconds });
+      frameRequests.push({ track: this.track, seconds, sink: this });
       return frameAt(seconds, this.track);
     }
   }
@@ -171,6 +172,27 @@ function requestedSeconds(): { original: number[]; encoded: number[] } {
     original: frameRequests.filter((r) => r.track === state.videoTrack).map((r) => r.seconds),
     encoded: frameRequests.filter((r) => r.track !== state.videoTrack).map((r) => r.seconds),
   };
+}
+
+/**
+ * The frames asked of the stretches' sinks, as `[stretch, frame]`, for an encode at `rate` frames a
+ * second.
+ *
+ * Read the way the sink under the panel would read them: a stretch's frames start at its own 0 and
+ * a frame apart, and mediabunny hands back the last frame starting at or before the time asked for,
+ * so the frame is the seconds into the stretch times the rate, rounded down. Nudged by a millionth
+ * of a frame first, since mediabunny rounds away the floating-point dust that can leave a whole
+ * number of frames a hair under itself.
+ */
+function encodedFrames(rate: number): [number, number][] {
+  return frameRequests
+    .filter((r) => r.track !== state.videoTrack)
+    .map((r) => [encodeTest.abSegments.findIndex((seg) => seg.sink === r.sink), Math.floor(r.seconds * rate + 1e-6)]);
+}
+
+/** `[stretch, frame]` for each of a stretch's frames from `first` to `last`, in order. */
+function framesOf(stretch: number, first: number, last: number): [number, number][] {
+  return Array.from({ length: last - first + 1 }, (_, i) => [stretch, first + i]);
 }
 
 beforeEach(() => {
@@ -660,6 +682,108 @@ describe("playback", () => {
     await vi.advanceTimersByTimeAsync(101);
     const frames = requestedSeconds().encoded.map((t) => Math.floor(t * 30 + 1e-6));
     expect(frames).toEqual([15, 16, 17, 18]);
+  });
+
+  // Each playhead is parked just short of the end of a frame. Wakes timed from there would each sit
+  // just short of a frame's end as well, where rounding the timer up to whole milliseconds carries
+  // some into the frame after and not others: one frame skipped, the next asked for twice.
+  it.each([
+    { at: "29.97 fps from 0.5s", rate: 30000 / 1001, seconds: 2, scrub: 250, first: 14, last: 26 },
+    { at: "59.94 fps from 0.5s", rate: 60000 / 1001, seconds: 2, scrub: 250, first: 29, last: 53 },
+    { at: "29.97 fps from 0.333s", rate: 30000 / 1001, seconds: 1, scrub: 333, first: 9, last: 21 },
+    { at: "30 fps from 0.033s", rate: 30, seconds: 1, scrub: 33, first: 0, last: 12 },
+  ])("asks for each frame once and in order at $at", async ({ rate, seconds, scrub, first, last }) => {
+    stretchSeconds = seconds;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: rate }, host);
+    scrubTo(host, scrub);
+    frameRequests.length = 0;
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(400);
+    expect(encodedFrames(rate)).toEqual(framesOf(0, first, last));
+  });
+
+  // A draw that runs past the next frame's start is followed at once by whichever frame the clock
+  // has reached; the waits after it still have to land at the start of each frame.
+  it("never asks for a frame twice or goes back when some draws take longer than a frame", async () => {
+    const host = hostSection();
+    await load(host);
+    // Half-way through the second frame of the 30 fps reel.
+    scrubTo(host, 50);
+    frameRequests.length = 0;
+    // Every other encoded frame takes 50 ms to come back, a frame and a half.
+    let asked = 0;
+    frameAt = (_seconds, track) =>
+      track === state.videoTrack || ++asked % 2 === 1
+        ? Promise.resolve(null)
+        : new Promise((resolve) => setTimeout(() => resolve(null), 50));
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(400);
+    const frames = encodedFrames(30).map(([, frame]) => frame);
+    // Each one later than the one before it: none asked for twice in a row, none gone back to.
+    expect(frames.filter((frame, i) => i > 0 && frame <= frames[i - 1])).toEqual([]);
+    // Still on the wall clock: 0.45s, which is in frame 13.
+    expect(frames.at(-1)).toBe(13);
+  });
+
+  // 300 thousandths of the three-second reel come to a hair under 0.9s in floating point, so the
+  // clock reaches the end of the first stretch a hair short of where the stretch says it ends.
+  it("starts the next stretch at its first frame, without repeating the last one before it", async () => {
+    const host = hostSection();
+    await loadSampled(host, 3);
+    scrubTo(host, 300);
+    frameRequests.length = 0;
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(encodedFrames(30)).toEqual([...framesOf(0, 27, 29), ...framesOf(1, 0, 6)]);
+    // At the very start of the second stretch, on both sides: it was cut from 4s into the source.
+    expect(requestedSeconds().encoded[3]).toBe(0);
+    expect(requestedSeconds().original[3]).toBe(4);
+  });
+
+  // Each stretch runs half a millisecond past its thirtieth frame, so a 31st would start in the last
+  // thousandth of it, which is never drawn: the next thing to show is the next stretch.
+  it("starts the next stretch rather than wait for a frame that would begin in this one's last thousandth", async () => {
+    stretchSeconds = 1.0005;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(2), SETTINGS, VIDEO_TRACK, host);
+    // Just past 0.9s into the reel.
+    scrubTo(host, 450);
+    frameRequests.length = 0;
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(encodedFrames(30)).toEqual([...framesOf(0, 27, 29), ...framesOf(1, 0, 1)]);
+  });
+
+  // Three stretches of 0.4s add up to a hair over 1.2s in floating point, so the clock reaches the
+  // end of the reel a hair short of where the stretches say it ends.
+  it("goes from the reel's last frame to its first without repeating the last", async () => {
+    stretchSeconds = 0.4;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(3), SETTINGS, { ...VIDEO_TRACK, packetRate: 25 }, host);
+    frameRequests.length = 0;
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(1300);
+    expect(encodedFrames(25)).toEqual([
+      ...framesOf(0, 0, 9),
+      ...framesOf(1, 0, 9),
+      ...framesOf(2, 0, 9),
+      ...framesOf(0, 0, 2),
+    ]);
+  });
+
+  // The encoded side is the one being judged, so it is stepped through a frame at a time at the rate
+  // it was encoded at, and the original is read at the same instants.
+  it("steps at the encode's own frame rate when the run changed it", async () => {
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, fps: 15 }, VIDEO_TRACK, host);
+    frameRequests.length = 0;
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(400);
+    expect(encodedFrames(15)).toEqual(framesOf(0, 0, 6));
+    // Every other frame of the 30 fps source.
+    const original = requestedSeconds().original.map((t) => Math.floor(t * 30 + 1e-6));
+    expect(original).toEqual([0, 2, 4, 6, 8, 10, 12]);
   });
 
   // The reel is every stretch end to end, played through and then back to the first, the way a

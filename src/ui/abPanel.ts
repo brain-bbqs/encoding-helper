@@ -155,6 +155,12 @@ function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeigh
  * has no frame at that timestamp to give back. */
 const STRETCH_END_MARGIN = 0.001;
 
+/** How far short of a stretch's end still counts as the end: a billionth of a second, far finer
+ * than any frame and far coarser than floating point's rounding. Playback wakes at a stretch's end,
+ * and the clock can come to a hair short of the end the durations add up to; without this it would
+ * ask for the stretch's last frame a second time. */
+const STRETCH_END_TOLERANCE = 1e-9;
+
 /** How long the loaded reel runs: every sampled stretch's encoded copy, added together. Falls back
  * to a second so the scrub bar has a range to be a fraction of before anything has loaded. */
 function reelSeconds(): number {
@@ -170,8 +176,10 @@ function locateInReel(relT: number): { index: number; offset: number } {
   let left = Math.max(0, relT);
   for (let i = 0; i < segments.length; i++) {
     const seconds = segments[i].seconds;
-    if (left < seconds || i === segments.length - 1) {
-      return { index: i, offset: Math.min(left, Math.max(0, seconds - STRETCH_END_MARGIN)) };
+    if (left < seconds - STRETCH_END_TOLERANCE || i === segments.length - 1) {
+      // Not below 0 either: a second taken as the end of the stretch before can be a hair short of
+      // this one's start.
+      return { index: i, offset: Math.max(0, Math.min(left, seconds - STRETCH_END_MARGIN)) };
     }
     left -= seconds;
   }
@@ -494,7 +502,12 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   // Playback decodes both panes per frame, so it is paced off the wall clock and asks for whichever
   // frame the elapsed time lands on: when decoding cannot keep up it drops frames rather than
   // drifting into slow motion, keeping the two sides on the same timeline.
-  const frameStep = 1 / (vt.packetRate && vt.packetRate > 0 ? vt.packetRate : 30);
+  //
+  // It steps at the encode's frame rate, which is the source's unless the run set one of its own.
+  // When they differ, the encoded side is the one being judged, so each of its frames is shown once
+  // and the original is read at the same instants, passing over the source frames the encode
+  // dropped (or showing one twice where the encode repeated it).
+  const frameStep = 1 / ([settings.fps, vt.packetRate].find((rate) => rate != null && rate > 0) ?? 30);
   let playing = false;
   let baseT = 0;
   let baseWall = 0;
@@ -513,21 +526,32 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const runPlayback = async (run: number): Promise<void> => {
     try {
       while (playing && run === playRun) {
-        let relT = baseT + (performance.now() - baseWall) / 1000;
+        let now = performance.now();
+        let relT = baseT + (now - baseWall) / 1000;
         // The reel is every sampled stretch end to end, so this runs through all of them and then
         // back to the first, the way a player set to repeat would: rebasing to 0 keeps the same
         // wall-clock pacing loop running instead of restarting it from Play.
-        if (relT >= shownSeconds) {
+        if (relT >= shownSeconds - STRETCH_END_TOLERANCE) {
           rebase(0);
           relT = 0;
+          now = baseWall;
         }
         showTime(relT);
         await drawAt(relT);
-        // Nudged by a billionth of a frame before rounding down: floating point can put a whole
-        // number of frames a hair under itself ((0.6 - 0.5) / (1/30) is 2.9999999999999996), which
-        // would schedule the frame just drawn again, with no wait, rather than the one after it.
-        const framesIn = Math.floor((relT - baseT) / frameStep + 1e-9);
-        const nextWall = baseWall + (framesIn + 1) * frameStep * 1000;
+        // Wakes where the stretch on screen starts its next frame. Its frames are a frame apart from
+        // its own offset 0, so that is where they change; timed from anywhere else, a wake can sit
+        // just short of a frame's end, where rounding the timer up to whole milliseconds carries some
+        // wakes into the frame after and not others, skipping one frame and asking for the next
+        // twice. Nudged by a billionth of a frame before rounding down, since floating point can put
+        // a whole number of frames a hair under itself.
+        const { index, offset } = locateInReel(relT);
+        const { seconds } = segments[index];
+        const nextFrame = (Math.floor(offset / frameStep + 1e-9) + 1) * frameStep;
+        // Nothing past the end margin is drawn, so a frame starting inside it is never shown: the
+        // next change is then the stretch's end, where the next one's first frame starts.
+        const untilNext = (nextFrame < seconds - STRETCH_END_MARGIN ? nextFrame : seconds) - offset;
+        // A stretch with no length has no next frame to wait for, and not waiting would spin.
+        const nextWall = now + (untilNext > 0 ? untilNext : frameStep) * 1000;
         const wait = nextWall - performance.now();
         // Rounded up: a timer's delay is whole milliseconds, so 33.3 would wake at 33, a fraction
         // before the next frame, and ask for the one just drawn a second time. Less a hair first, so
