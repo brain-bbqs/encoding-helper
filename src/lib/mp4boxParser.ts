@@ -96,7 +96,7 @@ export function extractDeclaredBitrate(mp4boxFile: ISOFile, trackId: number): De
  * including no `btrt` at all, leaves the question open, and the sample sizes are then the only
  * evidence of what the rate actually did.
  */
-export function declaresConstantBitrate(declared: DeclaredBitrate | null | undefined): boolean {
+export function declaresConstantBitrate(declared: DeclaredBitrate | null): boolean {
   return declared != null && declared.avgBitrate > 0 && declared.avgBitrate === declared.maxBitrate;
 }
 
@@ -107,8 +107,6 @@ export function extractSampleAnalysis(mp4boxFile: ISOFile, videoTrackId: number,
   const ts = timescale || 1;
   const samples: SampleInfo[] = info.map((s) => ({
     size: s.size,
-    cts: s.cts,
-    dts: s.dts,
     ctsSec: s.cts / ts,
     is_sync: !!s.is_sync,
   }));
@@ -122,7 +120,7 @@ export function extractSampleAnalysis(mp4boxFile: ISOFile, videoTrackId: number,
     const end = i + 1 < keyframeDecodeIndices.length ? keyframeDecodeIndices[i + 1] : samples.length;
     gopLengths.push(end - start);
   }
-  const hasBFrames = samples.some((s) => s.cts !== s.dts);
+  const hasBFrames = info.some((s) => s.cts !== s.dts);
 
   // Keyframe timestamps in presentation order (sorted by CTS), for nearest-keyframe lookups.
   const presentationOrder = samples.slice().sort((a, b) => a.ctsSec - b.ctsSec);

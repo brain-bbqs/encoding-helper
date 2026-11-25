@@ -250,6 +250,6 @@ describe("matrixProgress", () => {
     cells[0].status = "done";
     cells[1].status = "failed";
     cells[2].status = "skipped";
-    expect(matrixProgress(cells)).toEqual({ total: 4, finished: 3, done: 1, failed: 1, skipped: 1 });
+    expect(matrixProgress(cells)).toEqual({ total: 4, done: 1, failed: 1, skipped: 1 });
   });
 });

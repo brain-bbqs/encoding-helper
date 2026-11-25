@@ -408,12 +408,14 @@ export async function encodeWindows(
   );
 
   if (stopRequested()) throw new RunStopped();
-  if (!blobs.length || blobs.some((b) => b == null)) throw new Error("No stretch of video to encode");
-  return {
-    blobs: blobs as Blob[],
-    bytes: blobs.reduce((sum, b) => sum + (b?.size ?? 0), 0),
-    measured: measured as SampleWindow[],
-  };
+  if (!blobs.length || !allFilled(blobs) || !allFilled(measured)) throw new Error("No stretch of video to encode");
+  return { blobs, bytes: blobs.reduce((sum, b) => sum + b.size, 0), measured };
+}
+
+/** Whether every slot of a list filled in by index was filled. A drain that ran to the end with no
+ * stop fills every one, so this narrows the type rather than catching a run that came back short. */
+function allFilled<T>(list: (T | null)[]): list is T[] {
+  return list.every((item) => item != null);
 }
 
 /**
@@ -494,8 +496,8 @@ export function startRunUi(ui: RunUi): HTMLDivElement | null {
   encodeTest.running = true;
   encodeTest.cancelRequested = false;
   ui.runButton.disabled = true;
-  // Offered by both tabs: a single run is several stretches encoded one after another, which is
-  // long enough to want out of.
+  // Offered by both tabs: a sweep encodes several stretches for every square, and even the one
+  // stretch of a single run can take long enough to want out of.
   ui.stopButton.style.display = "";
   ui.stopButton.disabled = false;
   const fill = resetProgressFill(ui.progress);

@@ -45,7 +45,7 @@ function metadataTagInfoHtml(key: string, info: MetadataTagInfo | null, value: s
   return head + (valueHint ? `<p>${valueHint}</p>` : "");
 }
 
-function codecTeachBox(codecInfo: CodecInfo | null | undefined, mark: string): HTMLDivElement | null {
+function codecTeachBox(codecInfo: CodecInfo | null, mark: string): HTMLDivElement | null {
   const html = codecExplainer(codecInfo);
   return html ? teachBox(html, mark) : null;
 }
@@ -90,7 +90,7 @@ export function overallBitrate(): number | null {
 function renderOverviewSection(): HTMLDivElement {
   const overview = section(overviewTitle());
   const fileBitrate = overallBitrate();
-  const og = h("div", "grid overview-grid");
+  const og = h("div", "grid");
   og.append(
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),

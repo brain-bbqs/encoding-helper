@@ -303,7 +303,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     back.addEventListener("click", () => close(true));
     head.append(h("h1", "demos-title", "Demo files"), back);
 
-    browser = h("div", "demos-browser");
+    browser = h("div");
     page.replaceChildren(head, searchBox(), browser);
     load(browser);
   };

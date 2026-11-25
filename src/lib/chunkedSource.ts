@@ -5,11 +5,10 @@ type ChunkedSourceKind = "file" | "url";
 
 export class ChunkedSource {
   kind: ChunkedSourceKind | null = null;
-  file: File | Blob | null = null; // kind === 'file', or a downloaded url fallback
+  file: File | null = null; // kind === 'file', or a downloaded url fallback
   url: string | null = null;
   size = 0;
   name = "";
-  supportsRange = false;
 
   static fromFile(file: File): ChunkedSource {
     const s = new ChunkedSource();
@@ -38,17 +37,18 @@ export class ChunkedSource {
     // reliable one: an archive that hands out pre-signed storage URLs signs them for GET alone, so
     // HEAD comes back 403 on a file that is perfectly public (EMBER's DANDI download endpoint does
     // exactly this). A failed HEAD therefore means "no answer", not "no file".
+    let supportsRange = false;
     try {
       const head = await fetch(url, { method: "HEAD" });
       if (head.ok) {
         s.size = parseInt(head.headers.get("Content-Length") || "", 10) || 0;
-        s.supportsRange = head.headers.get("Accept-Ranges") === "bytes" && s.size > 0;
+        supportsRange = head.headers.get("Accept-Ranges") === "bytes" && s.size > 0;
       }
     } catch {
       // A network or CORS failure on the HEAD is one more way of not answering; the GET below is
       // what decides whether the file can be read at all.
     }
-    if (s.supportsRange) return s;
+    if (supportsRange) return s;
 
     // No answer, or an answer that did not promise ranges: fetch the whole thing. Ranges are only
     // taken on a server that advertised them, never on a guess: a single byte range succeeding

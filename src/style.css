@@ -1356,7 +1356,7 @@ label.field-label {
 .matrix-settings > summary:hover {
   color: var(--text);
 }
-/* What is in there, so the bar says something while it is shut. */
+/* The slot on the right of the bar, for what should stay in reach while it is shut. */
 .fold-note {
   margin-left: auto;
   font-variant-numeric: tabular-nums;

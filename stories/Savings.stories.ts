@@ -8,8 +8,6 @@ function samples(durationSec: number, bytesAt: (second: number) => number): Samp
     const ctsSec = i / 30;
     return {
       size: bytesAt(Math.floor(ctsSec)) / 30,
-      cts: 0,
-      dts: 0,
       ctsSec,
       is_sync: false,
     };

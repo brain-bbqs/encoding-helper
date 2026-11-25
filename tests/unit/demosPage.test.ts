@@ -13,7 +13,6 @@ function demo(session: string, group: string, over: Partial<DemoFile> = {}): Dem
     group,
     loadsInApp: true,
     description: `What ${session} demonstrates.`,
-    path: demoVideoPath(session, "mp4"),
     fileName: `sub-01_ses-${session}_video.mp4`,
     ext: "mp4",
     size: 1_048_576,

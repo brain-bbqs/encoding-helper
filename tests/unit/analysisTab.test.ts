@@ -186,7 +186,7 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("## Reencode CLI Command");
   });
 
-  it("states the results and not the teaching prose that goes with them on the tabs", () => {
+  it("states the results the tabs worked out", () => {
     const el = panel();
     loadClip();
     // Two GOPs either side of 30 frames, so the shortest and longest differ while the mean stays 30.
@@ -211,8 +211,6 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| Keyframes | 20 |");
     expect(md).toContain("| Avg GOP | 30.0 frames (1.50 s) |");
     expect(md).toContain("| Min / Max GOP | 20 / 40 frames |");
-    // The GOP explainer is prose, and prose is unconditionally dropped from the document.
-    expect(md).not.toContain("Group of Pictures");
   });
 
   it("marks a fast-start file as one", () => {
@@ -428,8 +426,6 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| Level | 3.2 |");
     expect(md).toContain("| Color Space | bt709 / bt709 / bt709 |");
     expect(md).toContain("| HDR | Yes |");
-    // The codec's explainer is prose, dropped with the rest of it.
-    expect(md).not.toContain("Advanced Video Coding");
   });
 
   // A track shown at the size it is coded at needs no second size; one stretched to another (non-square
@@ -536,7 +532,6 @@ describe("renderAnalysisTab", () => {
     const md = markdown(el);
     expect(md).toContain("| Codec | mp4a.40.2 |");
     expect(md).toContain("| Object Type | AAC-LC |");
-    expect(md).not.toContain("Advanced Audio Coding");
   });
 
   it("prints dashes for the audio facts a track does not state", () => {

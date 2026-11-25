@@ -118,16 +118,17 @@ export function infoIcon(html: string, label = "More information"): HTMLSpanElem
  * A closed disclosure fold with a summary bar, for detail that belongs with a result without
  * standing between the reader and it. <details> for the same reasons the output console and the
  * sweep settings use one: it opens on click, on Enter, and for a page search hitting text inside
- * it. `note` is the aside the bar carries while it is shut, so a closed fold still says what is in
- * there.
+ * it. `note` is the empty slot on the right of the bar, for the caller to fill with whatever should
+ * stay in reach while the fold is shut.
  */
-export function fold(label: string, note?: string): { wrap: HTMLDetailsElement; body: HTMLDivElement } {
+export function fold(label: string): { wrap: HTMLDetailsElement; note: HTMLSpanElement; body: HTMLDivElement } {
   const wrap = h("details", "fold");
   const summary = h("summary", "fold-summary");
-  summary.append(h("span", null, label), h("span", "fold-note", note ?? ""));
+  const note = h("span", "fold-note");
+  summary.append(h("span", null, label), note);
   const body = h("div", "fold-body");
   wrap.append(summary, body);
-  return { wrap, body };
+  return { wrap, note, body };
 }
 
 /** A table of text cells inside a horizontal scroller, as the seeking test and the document draw one. */
@@ -154,11 +155,11 @@ export function dataTable(headers: string[], rows: string[][]): HTMLDivElement {
  * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
  * every call site can keep appending its result unconditionally.
  *
- * `mark` is the emoji in the gutter: 💡 by default. A box about one particular thing says so
- * instead (🎥 for what this file's container is, 🎨 for chroma subsampling), which gives a card of
- * stacked boxes something to tell them apart by at a glance.
+ * `mark` is the emoji in the gutter, saying what the box is about (🎥 for what this file's
+ * container is, 🎨 for chroma subsampling), which gives a card of stacked boxes something to tell
+ * them apart by at a glance.
  */
-export function teachBox(html: string, mark = "💡"): HTMLDivElement {
+export function teachBox(html: string, mark: string): HTMLDivElement {
   const d = h("div", "teach");
   if (!isEducationalEnabled()) {
     d.classList.add("edu-off");

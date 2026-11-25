@@ -57,8 +57,6 @@ export interface MediabunnyMetadata {
 /** One sample (frame) in decode order, as read out of mp4box's sample table. */
 export interface SampleInfo {
   size: number;
-  cts: number;
-  dts: number;
   ctsSec: number;
   is_sync: boolean;
 }
@@ -115,8 +113,6 @@ export interface CliState {
   crf: number;
   preset: X264Preset;
   keyframeInterval: number;
-  /** Explicit GOP override in frames; when set, takes precedence over keyframeInterval × fps. */
-  gopOverride: number | null;
   noBFrames: boolean;
   pad: boolean;
   faststart: boolean;
@@ -306,10 +302,9 @@ export interface AppState {
 
 /**
  * One piece of content inside a Full Analysis section. A section is a list of these rather than a
- * single shape, so a section can say a thing the way the tab said it: numbers, then the explainer,
- * then the plot. Every renderer (the document, the Markdown export) handles all six kinds, so
- * adding content to the document is a matter of listing blocks, never of teaching a renderer a new
- * layout.
+ * single shape, so a section can say a thing the way the tab said it: numbers, then the plot.
+ * Every renderer (the document, the Markdown export) handles all five kinds, so adding content to
+ * the document is a matter of listing blocks, never of teaching a renderer a new layout.
  */
 export type AnalysisBlock =
   | {
@@ -318,8 +313,6 @@ export type AnalysisBlock =
       /** Keeps label casing as-is; set for blocks whose labels are container-native tag names. */
       rawLabels?: boolean;
     }
-  /** Trusted, author-authored explainer markup: never text read out of the file, unescaped. */
-  | { kind: "prose"; html: string }
   | { kind: "badge"; text: string; tone: "good" | "bad" | "info" }
   | { kind: "code"; lang: string; content: string }
   | { kind: "table"; headers: string[]; rows: string[][] }

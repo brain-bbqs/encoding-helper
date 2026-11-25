@@ -4,7 +4,7 @@ import type { SampleInfo } from "../../src/lib/types";
 
 /** One frame, presented at `ctsSec` and `size` bytes long. */
 export function sample(ctsSec: number, size: number, isSync = false): SampleInfo {
-  return { size, cts: 0, dts: 0, ctsSec, is_sync: isSync };
+  return { size, ctsSec, is_sync: isSync };
 }
 
 /** `count` evenly-spaced frames across `durationSec`, sized by `sizeAt` (a number, or a function of

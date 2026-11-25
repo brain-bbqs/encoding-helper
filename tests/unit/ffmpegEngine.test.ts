@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFfmpegWorker,
+  defaultFfmpegWorker,
   deleteFfmpegFile,
   ensureFfmpegInput,
   parseFfmpegTimeSeconds,
-  resetFfmpeg,
   runFfmpegArgs,
   runFfmpegEncode,
 } from "../../src/lib/ffmpegEngine";
@@ -115,7 +115,7 @@ describe("parseFfmpegTimeSeconds", () => {
 
 describe("the core's virtual filesystem", () => {
   beforeEach(() => {
-    resetFfmpeg();
+    defaultFfmpegWorker.reset();
     resetCore();
   });
 
@@ -143,7 +143,7 @@ describe("the core's virtual filesystem", () => {
     const data = new Uint8Array([1, 2, 3, 4]);
     await ensureFfmpegInput("in.mp4", data);
     // A crashed core is replaced by a fresh one, whose filesystem holds nothing.
-    resetFfmpeg();
+    defaultFfmpegWorker.reset();
     await ensureFfmpegInput("in.mp4", data);
     expect(core.writes).toEqual(["in.mp4", "in.mp4"]);
   });
@@ -369,7 +369,7 @@ describe("the default core", () => {
     engine.setFfmpegHandlers(log, null);
     await engine.ensureFfmpegLoaded();
     await engine.createFfmpegWorker(1).load();
-    engine.resetFfmpeg();
+    engine.defaultFfmpegWorker.reset();
     await engine.ensureFfmpegLoaded();
     expect(core.built).toBe(3);
     expect(core.blobUrls).toBe(2);

@@ -332,7 +332,6 @@ export function evictBeyondBudget(cells: MatrixCell[], budgetBytes: number, keep
 /** How far along a sweep is, for the progress readout and the run summary. */
 export function matrixProgress(cells: MatrixCell[]): {
   total: number;
-  finished: number;
   done: number;
   failed: number;
   skipped: number;
@@ -341,5 +340,5 @@ export function matrixProgress(cells: MatrixCell[]): {
   const done = count("done");
   const failed = count("failed");
   const skipped = count("skipped");
-  return { total: cells.length, finished: done + failed + skipped, done, failed, skipped };
+  return { total: cells.length, done, failed, skipped };
 }

@@ -32,8 +32,6 @@ export interface DemoFile {
   loadsInApp: boolean;
   /** What the file demonstrates. Null when the index predates carrying it; see fetchDemoDescription. */
   description: string | null;
-  /** Path within the dataset; the app loads the file under `fileName` below. */
-  path: string;
   fileName: string;
   ext: string;
   size: number;
@@ -184,7 +182,6 @@ export function buildDemoSet(desc: DatasetDescription, assets: ArchiveAsset[]): 
       // Nothing said means nothing known, and the app should offer to try rather than refuse.
       loadsInApp: entry.loads_in_app ?? true,
       description: stringOrNull(entry.description),
-      path: video.path,
       fileName,
       ext: video.ext,
       size: video.size,

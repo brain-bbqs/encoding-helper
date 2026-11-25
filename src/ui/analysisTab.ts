@@ -2,9 +2,10 @@
 // document.
 //
 // The tabs each answer their own question and drop the answer on the floor when you leave them;
-// this is where those answers are collected, in reading order (results and plots only, with the
-// "teach" prose the interactive tabs carry left out unconditionally; see stripEducationalBlocks
-// below). What the panel shows is the document itself, rendered in an iframe from the same HTML the
+// this is where those answers are collected, in reading order (results and plots only, without the
+// "teach" prose the interactive tabs carry, whatever the Educational switch says: a document meant
+// to be saved, printed or handed on states what the file is without re-teaching how to read it).
+// What the panel shows is the document itself, rendered in an iframe from the same HTML the
 // Download button writes and the print dialog prints, so there is no "preview" that can disagree
 // with the file.
 //
@@ -12,38 +13,16 @@
 // rebuilt on every visit to the tab, since the seeking test and the two encode tabs add to them.
 
 import { fmtBytes } from "@brain-bbqs/utils";
-import { buildAnalysisDocument, renderSectionsToMarkdown, slugify, type DocumentMeta } from "../lib/analysisDoc";
+import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
-import { describeContainer } from "../lib/containerKb";
 import { button, copyToClipboard, h } from "@brain-bbqs/ui";
 import { section, teachBox } from "../lib/dom";
 import {
   ANALYSIS_PANEL_INTRO,
   ATOM_MAP_DOC_CAPTION,
-  ATOM_STRUCTURE_TEACH,
-  AUDIO_BITRATE_INFO,
-  BITRATE_TIMELINE_TEACH,
-  chromaSubsamplingExplainer,
-  codecExplainer,
-  constantBitrateNote,
-  CONTAINER_PREAMBLE,
-  containerExplainer,
-  contradictedDeclarationNote,
-  ENCODED_SEGMENT_NOTE,
-  FASTSTART_EXPLAINER,
   GOP_HISTOGRAM_CAPTION,
-  GOP_TEACH,
-  METADATA_TAGS_TEACH,
-  MIME_TYPE_INFO,
-  OVERALL_BITRATE_INFO,
-  PEAK_RATIO_INFO,
   SEEK_SCATTER_CAPTION,
-  SEEK_TEST_INTRO,
-  SIZE_SAVINGS_INTRO,
-  sizeEstimateTeach,
-  TOO_FEW_FRAMES_NOTE,
-  VIDEO_AVERAGE_INFO,
 } from "../lib/explainers";
 import {
   describeColorSpace,
@@ -112,25 +91,20 @@ function documentMeta(): DocumentMeta {
 
 function overviewSection(): AnalysisSection {
   const fileBitrate = overallBitrate();
-  const info = describeContainer(state.format);
-  const blocks: AnalysisBlock[] = [{ kind: "prose", html: CONTAINER_PREAMBLE }];
-  // What this file's container is, which the page carries in this same card. It names the container
-  // in its first words, so there is no "Type" row saying it again.
-  if (info) blocks.push({ kind: "prose", html: containerExplainer(info, "#" + slugify(ATOM_MAP_TITLE)) });
-  blocks.push(
-    {
-      kind: "kv",
-      items: [
-        ["File Size", fmtBytes(state.source?.size)],
-        ["Duration", fmtDur(state.duration)],
-        ["Overall Bitrate", fmtBits(fileBitrate)],
-        ["MIME Type", state.mimeType || "–"],
-      ],
-    },
-    { kind: "prose", html: OVERALL_BITRATE_INFO },
-    { kind: "prose", html: MIME_TYPE_INFO },
-  );
-  return { title: overviewTitle(), blocks };
+  return {
+    title: overviewTitle(),
+    blocks: [
+      {
+        kind: "kv",
+        items: [
+          ["File Size", fmtBytes(state.source?.size)],
+          ["Duration", fmtDur(state.duration)],
+          ["Overall Bitrate", fmtBits(fileBitrate)],
+          ["MIME Type", state.mimeType || "–"],
+        ],
+      },
+    ],
+  };
 }
 
 function videoTrackSection(vt: TrackInfo): AnalysisSection {
@@ -148,14 +122,7 @@ function videoTrackSection(vt: TrackInfo): AnalysisSection {
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
   if (vt.colorSpace) items.push(["Color Space", describeColorSpace(vt.colorSpace)]);
   if (vt.hdr) items.push(["HDR", "Yes"]);
-
-  const blocks: AnalysisBlock[] = [{ kind: "kv", items }];
-  const codec = codecExplainer(vt.codecInfo);
-  if (codec) blocks.push({ kind: "prose", html: codec });
-  if (vt.codedWidth != null && vt.codedHeight != null) {
-    blocks.push({ kind: "prose", html: chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight, vt.chroma ?? null) });
-  }
-  return { title: "Video Track", blocks };
+  return { title: "Video Track", blocks: [{ kind: "kv", items }] };
 }
 
 /** Mirrors the Inspect tab's card, including the two cases where there is no plot to draw. */
@@ -167,46 +134,35 @@ function bitrateSection(vt: TrackInfo): AnalysisSection {
   if (declaresConstant && declared && (!timeline || isEffectivelyConstant(timeline))) {
     return {
       title: "Video Bitrate Over Time",
-      blocks: [
-        { kind: "kv", items: [["Declared Bitrate", fmtBits(declared.avgBitrate)]] },
-        { kind: "prose", html: constantBitrateNote(declared.avgBitrate) },
-      ],
+      blocks: [{ kind: "kv", items: [["Declared Bitrate", fmtBits(declared.avgBitrate)]] }],
     };
   }
   if (!timeline) {
     return {
       title: "Video Bitrate Over Time",
-      blocks: [
-        { kind: "kv", items: [["Average", fmtBits(vt.bitrate)]] },
-        { kind: "prose", html: TOO_FEW_FRAMES_NOTE },
-      ],
+      blocks: [{ kind: "kv", items: [["Average", fmtBits(vt.bitrate)]] }],
     };
   }
 
-  const blocks: AnalysisBlock[] = [{ kind: "prose", html: BITRATE_TIMELINE_TEACH }];
-  if (declaresConstant && declared) {
-    blocks.push({ kind: "prose", html: contradictedDeclarationNote(declared.avgBitrate, timeline) });
-  }
-  blocks.push(
-    {
-      kind: "kv",
-      items: [
-        ["Average", fmtBits(timeline.averageBitrate)],
-        ["Peak Window", fmtBits(timeline.peakBitrate)],
-        ["Quietest Window", fmtBits(timeline.minBitrate)],
-        ["Peak ÷ Average", timeline.peakToAverage.toFixed(2) + "×"],
-      ],
-    },
-    {
-      kind: "figure",
-      caption: `Video bitrate per ${timeline.binSeconds.toFixed(2)} s window, against the track average`,
-      element: renderBitrateChart(timeline),
-    },
-    // On the page these two are ⓘ popovers on the fields above; a document has no hover, so they
-    // are spelled out under the plot instead.
-    { kind: "prose", html: `<b>Average.</b> ${VIDEO_AVERAGE_INFO}<p><b>Peak ÷ Average.</b> ${PEAK_RATIO_INFO}</p>` },
-  );
-  return { title: "Video Bitrate Over Time", blocks };
+  return {
+    title: "Video Bitrate Over Time",
+    blocks: [
+      {
+        kind: "kv",
+        items: [
+          ["Average", fmtBits(timeline.averageBitrate)],
+          ["Peak Window", fmtBits(timeline.peakBitrate)],
+          ["Quietest Window", fmtBits(timeline.minBitrate)],
+          ["Peak ÷ Average", timeline.peakToAverage.toFixed(2) + "×"],
+        ],
+      },
+      {
+        kind: "figure",
+        caption: `Video bitrate per ${timeline.binSeconds.toFixed(2)} s window, against the track average`,
+        element: renderBitrateChart(timeline),
+      },
+    ],
+  };
 }
 
 function audioTrackSection(at: TrackInfo): AnalysisSection {
@@ -217,11 +173,7 @@ function audioTrackSection(at: TrackInfo): AnalysisSection {
     ["Bitrate", fmtBits(at.bitrate)],
   ];
   if (at.codecInfo) at.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
-  const blocks: AnalysisBlock[] = [{ kind: "kv", items }];
-  const codec = codecExplainer(at.codecInfo);
-  if (codec) blocks.push({ kind: "prose", html: codec });
-  blocks.push({ kind: "prose", html: AUDIO_BITRATE_INFO });
-  return { title: "Audio Track", blocks };
+  return { title: "Audio Track", blocks: [{ kind: "kv", items }] };
 }
 
 function metadataTagsSection(): AnalysisSection | null {
@@ -230,7 +182,6 @@ function metadataTagsSection(): AnalysisSection | null {
   return {
     title: "Metadata Tags",
     blocks: [
-      { kind: "prose", html: METADATA_TAGS_TEACH },
       {
         kind: "kv",
         rawLabels: true,
@@ -243,9 +194,6 @@ function metadataTagsSection(): AnalysisSection | null {
   };
 }
 
-/** Named once: the container explainer above links to this section by its slugified title. */
-const ATOM_MAP_TITLE = "MP4 Atom Map";
-
 // The map is the whole of what this section says about the tree. The indented text listing the old
 // report printed is gone: it was pages of offsets that only ever restated what the map draws, and a
 // fragmented recording turned it into a hundred of them. Each block carries its own offset and size
@@ -254,15 +202,13 @@ function atomMapSection(): AnalysisSection | null {
   const map = renderStaticAtomMap(state.boxes, DOCUMENT_WIDTH_PX);
   if (!map) return null;
   return {
-    title: ATOM_MAP_TITLE,
+    title: "MP4 Atom Map",
     blocks: [
-      { kind: "prose", html: ATOM_STRUCTURE_TEACH },
       {
         kind: "badge",
         tone: state.faststart ? "good" : "bad",
         text: state.faststart ? "✓ Fast start" : "✗ Not fast start",
       },
-      { kind: "prose", html: FASTSTART_EXPLAINER },
       { kind: "figure", caption: ATOM_MAP_DOC_CAPTION, element: map },
     ],
   };
@@ -272,7 +218,6 @@ function gopSection(): AnalysisSection | null {
   if (!state.samples.length) return null;
   const { gop, avgGop, fps } = gopStats();
   const blocks: AnalysisBlock[] = [
-    { kind: "prose", html: GOP_TEACH },
     {
       kind: "kv",
       items: [
@@ -299,7 +244,6 @@ function seekingSection(): AnalysisSection | null {
   if (!results || !results.length) return null;
   const { avgDist, avgDecode, maxDecode } = seekSummary(results);
   const blocks: AnalysisBlock[] = [
-    { kind: "prose", html: SEEK_TEST_INTRO },
     {
       kind: "kv",
       items: [
@@ -325,15 +269,7 @@ function cliCommandSection(): AnalysisSection | null {
   if (!info) return null;
   return {
     title: "Reencode CLI Command",
-    blocks: [
-      {
-        kind: "prose",
-        html:
-          "The command the <b>Reencode with FFmpeg</b> tab's settings come to, as they stood when this document " +
-          "was generated. Run it wherever ffmpeg is installed; nothing about it is specific to the browser.",
-      },
-      { kind: "code", lang: "bash", content: formatCliCommand(buildFfmpegArgs(cli, info)) },
-    ],
+    blocks: [{ kind: "code", lang: "bash", content: formatCliCommand(buildFfmpegArgs(cli, info)) }],
   };
 }
 
@@ -354,7 +290,6 @@ function compareSection(): AnalysisSection | null {
   if (isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight) {
     items.splice(3, 0, ["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
   }
-  const blocks: AnalysisBlock[] = [{ kind: "prose", html: ENCODED_SEGMENT_NOTE }];
 
   const est = currentSizeEstimate();
   if (est) {
@@ -372,10 +307,9 @@ function compareSection(): AnalysisSection | null {
       `${describeSavings(est)} (≈ ${fmtBytes(Math.abs(est.projectedSavedBytes))} ` +
         `${est.savedFraction < 0 ? "added" : "saved"})`,
     ]);
-    blocks.push({ kind: "prose", html: SIZE_SAVINGS_INTRO }, { kind: "prose", html: sizeEstimateTeach(est) });
   }
 
-  return { title: "Side-by-Side (A/B) Result", blocks: [{ kind: "kv", items }, ...blocks] };
+  return { title: "Side-by-Side (A/B) Result", blocks: [{ kind: "kv", items }] };
 }
 
 /** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */
@@ -409,18 +343,7 @@ function matrixSection(): AnalysisSection | null {
   }
   return {
     title: "Compare Quality Matrix",
-    blocks: [
-      {
-        kind: "prose",
-        html:
-          `Every combination of the swept settings, each encoded over the same ` +
-          `${fmtDur(encodeTest.matrix.segmentLength)} of video. Each cell is the encoded segment's size and the ` +
-          `time the encode took; ★ marks the largest reduction, which is the comparison above. Size is the only ` +
-          `ranking here — no picture-quality metric is computed, so the highest CRF wins nearly every sweep, and ` +
-          `the smallest resolution outright whenever more than one was run.`,
-      },
-      { kind: "table", headers: [...(swept ? ["Output"] : []), "Quality", ...presets], rows },
-    ],
+    blocks: [{ kind: "table", headers: [...(swept ? ["Output"] : []), "Quality", ...presets], rows }],
   };
 }
 
@@ -442,21 +365,7 @@ function reencodeSection(): AnalysisSection | null {
   };
 }
 
-/**
- * Full Analysis is results and plots (kv grids, badges, figures, tables, the CLI command), never
- * the "teach" prose that goes with them on the interactive tabs. That distinction is unconditional,
- * independent of the header's educational toggle: a document meant to be saved, printed or handed to
- * someone else states what the file *is* without re-teaching the reader how to read it. Sections
- * that turn up with nothing left (none currently do) are dropped rather than shown with a bare title.
- */
-function stripEducationalBlocks(sections: AnalysisSection[]): AnalysisSection[] {
-  return sections
-    .map((sec) => ({ ...sec, blocks: sec.blocks.filter((b) => b.kind !== "prose") }))
-    .filter((sec) => sec.blocks.length > 0);
-}
-
 function buildAnalysisSections(): AnalysisSection[] {
-  if (!state.source) return [];
   const vt = videoTrackInfo();
   const at = audioTrackInfo();
   // Same reading order as the Inspect tab: the file overview and its tags, the video track, the box
@@ -507,7 +416,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   panel.innerHTML = "";
   if (!state.source) return;
 
-  const sections = stripEducationalBlocks(buildAnalysisSections());
+  const sections = buildAnalysisSections();
   const meta = documentMeta();
   const documentHtml = buildAnalysisDocument(sections, meta);
   const baseName = baseNameOf(state.source.name);

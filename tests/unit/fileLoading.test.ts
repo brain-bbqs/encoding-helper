@@ -31,7 +31,7 @@ vi.mock("../../src/lib/mp4boxParser", () => ({
   extractBoxTree: () => [{ type: "moov", start: 0, size: 100, children: [] }],
   detectFaststart: () => true,
   extractSampleAnalysis: () => ({
-    samples: [{ size: 1, cts: 0, dts: 0, ctsSec: 0, is_sync: true }],
+    samples: [{ size: 1, ctsSec: 0, is_sync: true }],
     keyframeDecodeIndices: [0],
     gopLengths: [1],
     hasBFrames: false,

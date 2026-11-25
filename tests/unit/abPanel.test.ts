@@ -625,6 +625,43 @@ describe("playback", () => {
     expect(requestedSeconds().encoded).toEqual([0, 0.1, 0.2]);
   });
 
+  // Parked where floating point puts the next frame a hair short of itself ((0.6 - 0.5) / 0.1 is
+  // 0.9999999999999998), which had the loop ask for the frame it had just drawn over and over with
+  // no wait. At 10 fps a frame is a whole number of milliseconds, which the fake timers keep to.
+  it("steps one frame at a time from a playhead parked at half a second", async () => {
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: 10 }, host);
+    scrubTo(host, 500);
+    frameRequests.length = 0;
+    const play = playButton(host);
+    // A loop that never waits never lets the clock move, so it is stopped from inside a draw once
+    // it has asked for more frames than the span holds.
+    frameAt = async () => {
+      if (requestedSeconds().encoded.length > 4) play.click();
+      return null;
+    };
+    play.click();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(requestedSeconds().encoded).toEqual([0.5, 0.6, 0.7, 0.8]);
+  });
+
+  it("asks for each frame once at 30 fps, whose frame time is not a whole number of milliseconds", async () => {
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, VIDEO_TRACK, host);
+    scrubTo(host, 500);
+    frameRequests.length = 0;
+    const play = playButton(host);
+    frameAt = async () => {
+      if (requestedSeconds().encoded.length > 8) play.click();
+      return null;
+    };
+    play.click();
+    // A frame is 33.3 ms; four of them land inside 101 ms.
+    await vi.advanceTimersByTimeAsync(101);
+    const frames = requestedSeconds().encoded.map((t) => Math.floor(t * 30 + 1e-6));
+    expect(frames).toEqual([15, 16, 17, 18]);
+  });
+
   // The reel is every stretch end to end, played through and then back to the first, the way a
   // player set to repeat would.
   it("runs through every stretch and loops back to the first", async () => {

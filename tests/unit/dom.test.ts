@@ -124,17 +124,20 @@ describe("infoIcon", () => {
 });
 
 describe("fold", () => {
-  it("starts closed, with the bar carrying the label and its note", () => {
-    const { wrap, body } = fold("Sampled timestamps", "100 rows");
+  it("starts closed, with the bar carrying the label and an empty note slot", () => {
+    const { wrap, body } = fold("Sampled timestamps");
     body.append(document.createElement("table"));
     expect(wrap.open).toBe(false);
-    expect(wrap.querySelector("summary")?.textContent).toBe("Sampled timestamps100 rows");
-    expect(wrap.querySelector(".fold-note")?.textContent).toBe("100 rows");
+    expect(wrap.querySelector("summary")?.textContent).toBe("Sampled timestamps");
+    expect(wrap.querySelector(".fold-note")?.textContent).toBe("");
     expect(wrap.querySelector(".fold-body")?.firstElementChild?.tagName).toBe("TABLE");
   });
 
-  it("leaves the note empty when there is nothing to say about what is inside", () => {
-    expect(fold("Details").wrap.querySelector(".fold-note")?.textContent).toBe("");
+  it("hands back the bar's note slot for the caller to fill", () => {
+    const { wrap, note } = fold("Details");
+    const btn = document.createElement("button");
+    note.append(btn);
+    expect(wrap.querySelector("summary .fold-note button")).toBe(btn);
   });
 });
 
@@ -170,10 +173,6 @@ describe("teachBox", () => {
     expect(box.querySelector(".teach-icon")?.textContent).toBe("🎨");
     expect(box.querySelector(".teach-icon")?.getAttribute("aria-hidden")).toBe("true");
     expect(box.querySelector(".teach-body")?.innerHTML).toBe("<b>Chroma</b> subsampling");
-  });
-
-  it("marks an unspecific box with the default bulb", () => {
-    expect(teachBox("Anything").querySelector(".teach-icon")?.textContent).toBe("💡");
   });
 });
 

@@ -79,7 +79,6 @@ export function describeScale(scale: number, info?: { width: number; height: num
 }
 
 export function computeGop(cliState: CliState, fps: number): number {
-  if (cliState.gopOverride != null && cliState.gopOverride > 0) return cliState.gopOverride;
   return Math.max(1, Math.round(cliState.keyframeInterval * fps));
 }
 

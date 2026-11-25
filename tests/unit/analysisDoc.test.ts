@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAnalysisDocument,
-  htmlToPlainText,
   renderSectionsToHtml,
   renderSectionsToMarkdown,
   slugify,
@@ -30,7 +29,6 @@ const SECTIONS: AnalysisSection[] = [
   {
     title: "Video Container Overview",
     blocks: [
-      { kind: "prose", html: "<b>MP4</b> is a container.<p>The codec is the compression.</p>" },
       {
         kind: "kv",
         items: [
@@ -62,16 +60,6 @@ describe("slugify", () => {
   });
 });
 
-describe("htmlToPlainText", () => {
-  it("keeps the block structure explainer markup carries", () => {
-    expect(htmlToPlainText("<b>One.</b><p>Two.</p><ul><li>a</li><li>b</li></ul>")).toBe("One.\nTwo.\n\n- a\n- b");
-  });
-
-  it("decodes entities instead of passing them through", () => {
-    expect(htmlToPlainText("bits &times; 8 &divide; duration")).toBe("bits × 8 ÷ duration");
-  });
-});
-
 describe("renderSectionsToHtml", () => {
   it("anchors every section by its slug so the contents list can reach it", () => {
     const holder = document.createElement("div");
@@ -86,7 +74,6 @@ describe("renderSectionsToHtml", () => {
   it("draws each block kind as the app's own markup", () => {
     const holder = document.createElement("div");
     holder.append(renderSectionsToHtml(SECTIONS));
-    expect(holder.querySelector(".teach")?.innerHTML).toContain("<b>MP4</b>");
     expect(holder.querySelectorAll(".grid .item").length).toBe(2);
     expect(holder.querySelector(".badge")?.className).toBe("badge good");
     expect(holder.querySelector("pre.cmd")?.textContent).toBe("ffmpeg -i in.mp4 out.mp4");
@@ -147,7 +134,6 @@ describe("renderSectionsToMarkdown", () => {
     expect(md).toContain("**Faststart**");
     expect(md).toContain("```bash\nffmpeg -i in.mp4 out.mp4\n```");
     expect(md).toContain("| 0.5s | 12 ms |");
-    expect(md).toContain("The codec is the compression.");
   });
 
   it("names a chart it cannot carry rather than dropping it silently", () => {

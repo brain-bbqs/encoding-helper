@@ -182,12 +182,12 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
     const band = i % 2 === 1 ? " matrix-band" : "";
     if (blocks.length > 1) tbody.append(blockTitleRow(block, scalers.length > 1, width, band, opts));
     for (const quality of qualities) {
-      const row = h("tr", blocks.length > 1 ? "matrix-scale-row" + band : null);
+      const row = h("tr", band.trim() || null);
       const first = byKey.get(comboKey(quality, presets[0], block.scale, block.scaler, block.fps));
       row.append(h("th", "matrix-row-head", `${quality} (CRF ${first?.combo.crf ?? "?"})`));
       for (const preset of presets) {
         const cell = byKey.get(comboKey(quality, preset, block.scale, block.scaler, block.fps));
-        const td = h("td", "matrix-td");
+        const td = h("td");
         if (cell) td.append(renderCell(cell, opts));
         row.append(td);
       }

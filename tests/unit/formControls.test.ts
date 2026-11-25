@@ -124,11 +124,6 @@ describe("fieldNumber", () => {
     expect(input.max).toBe("51");
     expect(input.step).toBe("1");
   });
-
-  it("explains itself from an ⓘ the same way a select does", () => {
-    const field = fieldNumber("etCrf", "CRF", "23", 0, 51, 1, "Lower is better.");
-    expect(field.querySelector(".field-head .info-btn")!.getAttribute("aria-label")).toBe("About CRF");
-  });
 });
 
 describe("progress bars", () => {

@@ -27,14 +27,6 @@ describe("computeGop", () => {
   it("is never less than 1 frame", () => {
     expect(computeGop(baseCli({ keyframeInterval: 0.001 }), 1)).toBe(1);
   });
-
-  it("prefers an explicit gopOverride over keyframeInterval math", () => {
-    expect(computeGop(baseCli({ keyframeInterval: 5, gopOverride: 12 }), 30)).toBe(12);
-  });
-
-  it("ignores a non-positive gopOverride", () => {
-    expect(computeGop(baseCli({ keyframeInterval: 1, gopOverride: 0 }), 30)).toBe(30);
-  });
 });
 
 describe("buildFfmpegArgs", () => {
@@ -106,7 +98,7 @@ describe("buildFfmpegArgs", () => {
 
   // With no rate from the field or the file, the GOP is sized for the 30 fps a source usually is.
   it("assumes 30 fps for the GOP when neither the field nor the file gives a rate", () => {
-    const args = buildFfmpegArgs(baseCli({ fps: null, keyframeInterval: 2, gopOverride: null }), {
+    const args = buildFfmpegArgs(baseCli({ fps: null, keyframeInterval: 2 }), {
       ...info,
       fps: null,
     });

@@ -12,7 +12,7 @@
 // so the document keeps its look with no network and no app around it.
 
 import { escapeHtml, h } from "@brain-bbqs/ui";
-import { dataTable, gridItem, teachBox } from "./dom";
+import { dataTable, gridItem } from "./dom";
 import type { AnalysisBlock, AnalysisSection } from "./types";
 
 /** Anchor id for a section heading, used by the document's contents list. */
@@ -37,8 +37,6 @@ function renderBlock(block: AnalysisBlock): Element {
       block.items.forEach(([k, v]) => grid.append(gridItem(k, v, { sm: isLongValue(v), rawLabel: block.rawLabels })));
       return grid;
     }
-    case "prose":
-      return teachBox(block.html);
     case "badge": {
       const wrap = h("div", "badge-row");
       wrap.append(h("span", "badge " + block.tone, block.text));
@@ -70,25 +68,6 @@ export function renderSectionsToHtml(sections: AnalysisSection[]): DocumentFragm
   return frag;
 }
 
-/**
- * Explainer markup as something Markdown can carry: block tags become line breaks and list items
- * become bullets before the tags are dropped, so a three-paragraph explainer does not arrive as one
- * run-on line. Entities are decoded by the parse, not by a table of our own.
- */
-export function htmlToPlainText(html: string): string {
-  const d = document.createElement("div");
-  d.innerHTML = html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<li(\s[^>]*)?>/gi, "\n- ")
-    .replace(/<\/li>/gi, "")
-    // The optional group is what keeps this off <pre>, which a code block needs left alone.
-    .replace(/<\/?(p|div|ul|ol|h[1-6])(\s[^>]*)?>/gi, "\n");
-  return d.textContent
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
 function escapeCell(value: string | number): string {
   return String(value).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 }
@@ -102,8 +81,6 @@ function markdownBlock(block: AnalysisBlock): string[] {
         ...block.items.map(([k, v]) => `| ${escapeCell(k)} | ${escapeCell(v)} |`),
         "",
       ];
-    case "prose":
-      return [htmlToPlainText(block.html), ""];
     case "badge":
       return [`**${block.text}**`, ""];
     case "code":
@@ -142,9 +119,7 @@ export function renderSectionsToMarkdown(sections: AnalysisSection[], meta: Docu
     `_Generated ${meta.generated} with Encoding Helper v${meta.version} · ${meta.appUrl}_`,
     "",
   ];
-  if (meta.facts.length) {
-    lines.push(meta.facts.map(([k, v]) => `**${k}:** ${v}`).join(" · "), "");
-  }
+  lines.push(meta.facts.map(([k, v]) => `**${k}:** ${v}`).join(" · "), "");
   sections.forEach((sec) => {
     lines.push(`## ${sec.title}`, "");
     sec.blocks.forEach((block) => lines.push(...markdownBlock(block)));
@@ -187,7 +162,7 @@ ${ANALYSIS_DOC_CSS}
 <h1>${escapeHtml(meta.fileName)}</h1>
 <p class="doc-meta">Generated ${escapeHtml(meta.generated)} &middot; v${escapeHtml(meta.version)} &middot;
 <a href="${escapeHtml(meta.appUrl)}">${escapeHtml(meta.appUrl)}</a></p>
-${facts ? `<div class="doc-facts">${facts}</div>` : ""}
+<div class="doc-facts">${facts}</div>
 </header>
 <nav class="doc-toc" aria-label="Contents">
 <h2>Contents</h2>
@@ -202,7 +177,7 @@ ${holder.innerHTML}
 
 /**
  * The document's own stylesheet, inlined into every exported copy. It reuses the app's class names
- * (.section, .grid, .teach, table.data, the two chart classes) so the section builders emit one set
+ * (.section, .grid, table.data, the two chart classes) so the section builders emit one set
  * of DOM for both, but the values here are a fixed paper palette rather than the app's theme
  * variables: an exported file has no app around it to inherit a theme from.
  */

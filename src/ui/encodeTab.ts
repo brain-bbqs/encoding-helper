@@ -201,8 +201,8 @@ export function renderEncodeTab(panel: HTMLElement): void {
 }
 
 /**
- * The command above, run over a few short stretches of the loaded video, with the result shown
- * against the original.
+ * The command above, run over a short stretch of the loaded video, with the result shown against
+ * the original.
  *
  * A CRF is a number until you have seen what it does to your footage, and what it does depends on
  * the footage: the same 25 that is invisible on a static cage view smears a fast-moving animal.
@@ -264,10 +264,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     const { blobs, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;
       if (fill) fill.style.width = pct.toFixed(0) + "%";
-      ui.note.textContent =
-        windows.length > 1
-          ? `Encoding ${windows.length} sampled segments… ${pct.toFixed(0)}%`
-          : `Encoding test segment… ${pct.toFixed(0)}%`;
+      ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
     });
 
     ui.note.textContent = "Decoding frames…";

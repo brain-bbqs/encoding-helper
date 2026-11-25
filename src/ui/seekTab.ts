@@ -147,7 +147,6 @@ export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
 }
 
 function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
-  wrap.innerHTML = "";
   const { avgDist, avgDecode, maxDecode } = seekSummary(results);
   const g = h("div", "grid");
   g.append(
@@ -165,7 +164,7 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
   // behind a bar, like the output console and the sweep settings. The export button sits where the
   // row count used to, on the right of that bar, rather than inside the folded body: it should be
   // reachable without opening the table it exports.
-  const { wrap: tableFold, body: tableBody } = fold("Sampled timestamps");
+  const { wrap: tableFold, note: tableNote, body: tableBody } = fold("Sampled timestamps");
   const exportBtn = button("btn sec sm", "Export table (TSV)");
   // Stops the click from also toggling the <details> open, which it would otherwise do as it
   // bubbles up through the summary bar.
@@ -173,9 +172,8 @@ function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
     e.preventDefault();
     downloadBlob(seekResultsTsv(results), "seek-test.tsv");
   });
-  // Reuses the bar's own note slot (pushed to the right by its auto margin) rather than adding a
-  // second one, since fold() always renders it even when there is no text to show.
-  tableFold.querySelector(".fold-note")?.append(exportBtn);
+  // The bar's note slot, which its auto margin pushes to the right.
+  tableNote.append(exportBtn);
   tableBody.append(dataTable(SEEK_TABLE_HEADERS, results.map(seekResultRow)));
   wrap.append(tableFold);
 }

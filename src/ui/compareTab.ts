@@ -446,7 +446,7 @@ function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
 
 /** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
 async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  if (encodeTest.running || !cells.length) return;
+  if (encodeTest.running) return;
   for (const cell of cells) {
     cell.status = "pending";
     cell.error = null;
@@ -607,9 +607,6 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
   } catch (err) {
     reportRunFailure(err, ui);
   } finally {
-    // The writes a sweep issued are settled here rather than left in flight, so a page closed on
-    // the last square still has it next time.
-    void matrixCache.flush();
     await dropWholeFileInput(inputs);
     activeQueue = null;
     matrix.running = false;
@@ -731,7 +728,7 @@ function matrixCellWindows(cell: MatrixCell): SampleWindow[] {
 /** What a matrix square projects the whole file to, on the segments that square was encoded from. */
 function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
   if (cell.bytes == null) return null;
-  return estimateForWindows(matrixCellWindows(cell), cell.bytes, encodeTest.matrix.segmentStart);
+  return estimateForWindows(matrixCellWindows(cell), cell.bytes);
 }
 
 function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
