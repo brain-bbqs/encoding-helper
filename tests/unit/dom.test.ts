@@ -121,6 +121,144 @@ describe("infoIcon", () => {
     expect(second.classList.contains("open")).toBe(false);
     expect(second.querySelector(".info-btn")?.getAttribute("aria-expanded")).toBe("false");
   });
+
+  // jsdom lays nothing out, so these stand in for the browser: a viewport, a 14px ⓘ at a given spot,
+  // and a popover that has no box while the stylesheet hides it and, once laid out, is `popWidth`
+  // wide and hangs 10px past the icon on the side it opens from, as src/style.css places it.
+  describe("placement", () => {
+    const ICON_PX = 14;
+    const OFFSET_PX = 10;
+
+    interface Layout {
+      viewport: number;
+      /** The viewport less its vertical scrollbar, where it has one. */
+      clientWidth?: number;
+      iconLeft: number;
+      iconBottom?: number;
+      popWidth: number;
+    }
+
+    let sheet: HTMLStyleElement;
+
+    beforeEach(() => {
+      sheet = document.createElement("style");
+      sheet.textContent = ".info-pop { display: none; } .info.open .info-pop { display: block; }";
+      document.head.append(sheet);
+    });
+
+    afterEach(() => {
+      sheet.remove();
+      vi.restoreAllMocks();
+    });
+
+    /** An icon in the page laid out as `layout` says, read afresh at each placement, and the
+     * popover's visibility at each read of its box. */
+    function placedIcon(layout: Layout): { icon: HTMLElement; pop: HTMLElement; reads: string[] } {
+      vi.spyOn(window, "innerWidth", "get").mockImplementation(() => layout.viewport);
+      vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
+      vi.spyOn(document.documentElement, "clientWidth", "get").mockImplementation(
+        () => layout.clientWidth ?? layout.viewport,
+      );
+      const icon = infoIcon("Explainer");
+      document.body.append(icon);
+      const btn = icon.querySelector<HTMLElement>(".info-btn");
+      const pop = icon.querySelector<HTMLElement>(".info-pop");
+      if (!btn || !pop) throw new Error("infoIcon drew no button or popover");
+      vi.spyOn(btn, "getBoundingClientRect").mockImplementation(
+        () => new DOMRect(layout.iconLeft, (layout.iconBottom ?? 100) - ICON_PX, ICON_PX, ICON_PX),
+      );
+      const reads: string[] = [];
+      vi.spyOn(pop, "getBoundingClientRect").mockImplementation(() => {
+        const style = getComputedStyle(pop);
+        if (style.display === "none") return new DOMRect();
+        reads.push(style.visibility);
+        const left = icon.classList.contains("flip-x")
+          ? layout.iconLeft + ICON_PX + OFFSET_PX - layout.popWidth
+          : layout.iconLeft - OFFSET_PX;
+        return new DOMRect(left, 0, layout.popWidth, 100);
+      });
+      return { icon, pop, reads };
+    }
+
+    function hover(icon: HTMLElement): void {
+      icon.dispatchEvent(new MouseEvent("mouseenter"));
+    }
+
+    it("opens rightward when the popover fits there", () => {
+      const { icon } = placedIcon({ viewport: 1280, iconLeft: 200, popWidth: 340 });
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(false);
+    });
+
+    it("opens leftward when only that side fits, and rightward again once it fits there", () => {
+      const layout: Layout = { viewport: 1280, iconLeft: 1100, popWidth: 340 };
+      const { icon } = placedIcon(layout);
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(true);
+
+      layout.iconLeft = 200;
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(false);
+    });
+
+    it("keeps a short popover near the right edge opening rightward when it fits", () => {
+      // 990 to 1190 of 1280.
+      const { icon } = placedIcon({ viewport: 1280, iconLeft: 1000, popWidth: 200 });
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(false);
+    });
+
+    it("opens rightward on a phone when the popover fits there", () => {
+      // 70vw of a 390px phone caps the popover at 273px, which from an icon at 100 spans 90 to 363.
+      const { icon } = placedIcon({ viewport: 390, iconLeft: 100, popWidth: 273 });
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(false);
+    });
+
+    it("opens toward the roomier side when the popover fits on neither", () => {
+      // From an icon at 150 the right has 250px and the left 174; from one at 220, 180 and 244.
+      const layout: Layout = { viewport: 390, iconLeft: 150, popWidth: 273 };
+      const { icon } = placedIcon(layout);
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(false);
+
+      layout.iconLeft = 220;
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(true);
+    });
+
+    it("keeps the popover out from under a vertical scrollbar", () => {
+      // 930 to 1270 fits 1280px, but not the 1265 a 15px scrollbar leaves.
+      const { icon } = placedIcon({ viewport: 1280, clientWidth: 1265, iconLeft: 940, popWidth: 340 });
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(true);
+    });
+
+    it("measures the popover unseen and leaves showing it to the stylesheet", () => {
+      const { icon, pop, reads } = placedIcon({ viewport: 1280, iconLeft: 1100, popWidth: 340 });
+      hover(icon);
+      expect(reads).not.toHaveLength(0);
+      expect(reads.filter((visibility) => visibility !== "hidden")).toEqual([]);
+      expect(pop.style.cssText).toBe("");
+      expect(getComputedStyle(pop).display).toBe("none");
+
+      icon.querySelector<HTMLButtonElement>(".info-btn")?.click();
+      expect(getComputedStyle(pop).display).toBe("block");
+      expect(getComputedStyle(pop).visibility).toBe("visible");
+    });
+
+    it("opens upward once the icon sits below 55% of the viewport's height", () => {
+      // 55% of the 800px viewport is 440.
+      const layout: Layout = { viewport: 1280, iconLeft: 200, iconBottom: 440, popWidth: 340 };
+      const { icon } = placedIcon(layout);
+      hover(icon);
+      expect(icon.classList.contains("above")).toBe(false);
+
+      layout.iconBottom = 441;
+      hover(icon);
+      expect(icon.classList.contains("above")).toBe(true);
+    });
+  });
 });
 
 describe("fold", () => {

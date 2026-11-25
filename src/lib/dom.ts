@@ -73,10 +73,6 @@ function infoGlyph(): SVGSVGElement {
   return svg;
 }
 
-/** Room an ⓘ popover needs to the right of its icon before it opens leftward instead: a little more
- * than the 340px the `.info-pop` rule in src/style.css caps it at. */
-const INFO_POPOVER_REACH_PX = 360;
-
 /**
  * A small ⓘ affordance with a popover explainer. `html` is trusted, author-authored markup; never
  * pass in text read out of a media file without escaping it first.
@@ -96,11 +92,31 @@ export function infoIcon(html: string, label = "More information"): HTMLSpanElem
   pop.setAttribute("role", "tooltip");
   pop.innerHTML = html;
   // Decided just before the popover becomes visible, so an icon low on the page opens upward and
-  // one in the last grid column opens leftward instead of off the edge.
+  // one near the right edge opens leftward instead of off it. Sideways, the popover is laid out on
+  // each side in turn and its box read back, so the choice follows the width and offsets the
+  // `.info-pop` rules in src/style.css give it on any viewport and for an explainer of any length.
+  // It opens rightward if it fits there, else leftward if it fits there. Where it fits on neither
+  // side it opens toward the one with more room, the right on a tie, and runs past that edge by the
+  // shortfall: the page scrolls sideways to reach it on the right, while on the left it is cut off.
   const place = (): void => {
     const box = btn.getBoundingClientRect();
     wrap.classList.toggle("above", box.bottom > window.innerHeight * 0.55);
-    wrap.classList.toggle("flip-x", box.left + INFO_POPOVER_REACH_PX > window.innerWidth);
+    // Laid out but unseen for the reads, whether or not the stylesheet is showing it yet, then
+    // handed back to the stylesheet before anything can paint.
+    const inline = pop.style.cssText;
+    pop.style.display = "block";
+    pop.style.visibility = "hidden";
+    wrap.classList.remove("flip-x");
+    const right = pop.getBoundingClientRect();
+    wrap.classList.add("flip-x");
+    const left = pop.getBoundingClientRect();
+    pop.style.cssText = inline;
+    // The viewport less any vertical scrollbar, which a popover should not run under.
+    const viewport = document.documentElement.clientWidth;
+    const fitsRight = right.right <= viewport;
+    const fitsLeft = left.left >= 0;
+    const roomierLeft = left.right > viewport - right.left;
+    wrap.classList.toggle("flip-x", !fitsRight && (fitsLeft || roomierLeft));
   };
   wrap.addEventListener("mouseenter", place);
   wrap.addEventListener("focusin", place);

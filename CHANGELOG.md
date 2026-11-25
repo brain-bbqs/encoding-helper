@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.8
+
+#### 🐛 Bug Fix
+
+- ⓘ explainers now open on whichever side has room for them, instead of flipping left needlessly on phones and near the right edge ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.7
 
 #### 🏠 Internal
