@@ -229,10 +229,6 @@ a:focus-visible {
   top: 2px;
   left: 6px;
 }
-h1 {
-  text-align: center;
-  margin-bottom: 5px;
-}
 .subtitle {
   text-align: center;
   color: var(--muted);
@@ -351,12 +347,8 @@ input[type="checkbox"].switch:focus-visible {
 .drop-zone.collapsed {
   padding: 10px 16px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   cursor: default;
   border-style: solid;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 .drop-zone.collapsed .drop-full {
   display: none;
@@ -677,14 +669,6 @@ label.field-label {
 }
 .info-pop p {
   margin: 6px 0 0;
-}
-/* Same shape the teach boxes give a list, for the popovers that carry one. */
-.info-pop ul {
-  margin: 6px 0 0;
-  padding-left: 20px;
-}
-.info-pop li {
-  margin: 2px 0;
 }
 .info-pop .info-pop-meta {
   color: var(--muted);
@@ -1308,28 +1292,27 @@ label.field-label {
   transform: translateX(-100%);
 }
 
-/* A generic disclosure fold, sharing the recessed bar and caret the output console and the sweep
-   settings carry, so anything folded away on the page reads as the same kind of thing to open. */
-.fold {
-  margin-top: 12px;
+/* The three disclosure bars (folds, the output console, the sweep settings) share one recessed bar
+   and one caret, so anything folded away on the page reads as the same kind of thing to open. */
+.fold,
+.log-details,
+.matrix-settings {
   border: 1px solid var(--border-soft);
   border-radius: 6px;
   background: var(--sunken);
 }
-.fold-summary {
+.fold-summary,
+.log-summary,
+.matrix-settings > summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
   color: var(--muted);
-  font-size: 13px;
   cursor: pointer;
-  user-select: none;
   /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead, and it has
      to say which way the bar will move, not just that it is a bar. */
   list-style: none;
 }
-/* The three disclosure bars (folds, the output console, the sweep settings) share one caret. */
 .fold-summary::-webkit-details-marker,
 .log-summary::-webkit-details-marker,
 .matrix-settings > summary::-webkit-details-marker {
@@ -1356,38 +1339,32 @@ label.field-label {
 .matrix-settings > summary:hover {
   color: var(--text);
 }
+/* A generic disclosure fold. */
+.fold {
+  margin-top: 12px;
+}
+.fold-summary {
+  padding: 8px 12px;
+  font-size: 13px;
+  user-select: none;
+}
 /* The slot on the right of the bar, for what should stay in reach while it is shut. */
 .fold-note {
   margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  color: var(--faint);
 }
 .fold-body {
   padding: 12px;
 }
 
 /* The output console lives in a fold that starts closed, so a finished run's result is what is on
-   screen rather than the transcript that produced it. The bar gets the sweep-settings treatment
-   (recessed background and a caret), so a shut console reads as something that opens. */
+   screen rather than the transcript that produced it. */
 .log-details {
   margin-top: 8px;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  background: var(--sunken);
 }
 .log-summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   padding: 6px 10px;
-  color: var(--muted);
   font-size: 12px;
-  cursor: pointer;
   user-select: none;
-  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead, and it has
-     to say which way the bar will move, not just that it is a bar. */
-  list-style: none;
 }
 .log-details > .log-console {
   margin-top: 0;
@@ -1399,13 +1376,11 @@ label.field-label {
 }
 .log-console {
   background: var(--sunken);
-  border-radius: 6px;
   padding: 8px 10px;
   max-height: 160px;
   overflow-y: auto;
   font-family: Monaco, Consolas, monospace;
   font-size: 11.5px;
-  margin-top: 4px;
 }
 .log-console .l {
   padding: 1px 0;
@@ -1423,8 +1398,7 @@ label.field-label {
   color: var(--err);
 }
 
-/* Command output. Sized to the command rather than to the page (a wrapped ffmpeg line is nowhere
-   near the column's width) and centred in the space that leaves. */
+/* A command's code block. Its width and its place in the column are the wrapper's, below. */
 pre.cmd {
   background: var(--sunken);
   padding: 12px 14px;
@@ -1433,23 +1407,19 @@ pre.cmd {
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  width: max-content;
   max-width: 100%;
-  margin: 0 auto 10px;
+  margin: 0;
   font-family: Monaco, Consolas, monospace;
   color: var(--code-text);
 }
-/* The wrapper is what carries the block's width, so the copy control can sit in the command's own
-   corner rather than the column's. */
+/* Sized to the command rather than to the page (a wrapped ffmpeg line is nowhere near the column's
+   width) and centred in the space that leaves. The wrapper carries that width rather than the block,
+   so the copy control can sit in the command's own corner rather than the column's. */
 .cmd-wrap {
   position: relative;
   width: max-content;
   max-width: 100%;
   margin: 0 auto 10px;
-}
-.cmd-wrap > pre.cmd {
-  width: auto;
-  margin: 0;
 }
 .cmd-copy {
   position: absolute;
@@ -1792,9 +1762,7 @@ table.data th {
    muted small caps the axis labels use, since it names what the rows under it are. */
 table.data.matrix-table th.matrix-group-head {
   padding: 16px 8px 4px;
-  text-align: left;
   text-transform: none;
-  letter-spacing: 0;
   font-weight: 400;
 }
 .matrix-group-title {
@@ -1815,15 +1783,11 @@ table.data.matrix-table th.matrix-group-head {
 .matrix-table tr.matrix-band td {
   background: var(--hover);
 }
-/* The blocks after the first are set off by a rule as well, since shading alone leaves every other
-   boundary invisible. */
+/* Each block's rows are set off from its title by a rule as well, since shading alone leaves every
+   other boundary invisible. */
 .matrix-table tr.matrix-group-row + tr th,
 .matrix-table tr.matrix-group-row + tr td {
   border-top: 1px solid var(--border-soft);
-}
-.matrix-table tbody tr:first-child th,
-.matrix-table tbody tr:first-child td {
-  border-top: none;
 }
 .compare-run-buttons {
   display: flex;
@@ -1834,21 +1798,10 @@ table.data.matrix-table th.matrix-group-head {
    alone, so it should not sit between the reader and the Run button every visit. */
 .matrix-settings {
   margin-bottom: 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  background: var(--sunken);
 }
 .matrix-settings > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   padding: 8px 12px;
-  cursor: pointer;
   font-size: 13px;
-  color: var(--muted);
-  /* A flex summary drops its own marker in Chrome, so the caret is drawn here instead, and it has
-     to say which way the bar will move, not just that it is a bar. */
-  list-style: none;
 }
 .matrix-settings-gear {
   font-size: 14px;
@@ -2031,12 +1984,6 @@ table.data.matrix-table th.matrix-row-head {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-/* The retry mark stands where the word did, centred on the line rather than sitting on its
-   baseline. */
-.matrix-sub svg {
-  display: block;
-  margin: 1px auto 0;
-}
 .matrix-flag {
   font-size: 10px;
   font-weight: 600;
@@ -2120,7 +2067,6 @@ table.data.matrix-table th.matrix-row-head {
   position: absolute;
   top: 0;
   height: 100%;
-  box-sizing: border-box;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
   border-left: 1px solid var(--accent-bright);
   border-right: 1px solid var(--accent-bright);
@@ -2142,7 +2088,7 @@ table.data.matrix-table th.matrix-row-head {
 
 @media (max-width: 600px) {
   body {
-    padding: 12px 12px 90px;
+    padding: 12px;
   }
   .drop-zone {
     padding: 26px 12px;

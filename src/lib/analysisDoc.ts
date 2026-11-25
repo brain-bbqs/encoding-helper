@@ -191,7 +191,6 @@ const ANALYSIS_DOC_CSS = `
   --rule: #e4e8f2;
   --card: #ffffff;
   --sunken: #f2f4fa;
-  --teach: #eef2ff;
   --page: #f6f7fb;
 }
 * { box-sizing: border-box; }
@@ -265,7 +264,6 @@ a { color: var(--accent); }
   margin: 26px 0;
   padding-top: 20px;
   border-top: 1px solid var(--rule);
-  break-inside: auto;
 }
 .section h2 {
   margin: 0 0 14px;
@@ -296,23 +294,6 @@ a { color: var(--accent); }
   font-weight: 400;
   color: var(--ink);
   font-family: ui-monospace, Menlo, Consolas, monospace;
-}
-.grid .item.wide { grid-column: span 2; }
-.teach {
-  background: var(--teach);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 4px 4px 0;
-  padding: 10px 14px;
-  margin: 12px 0;
-  font-size: 13px;
-  color: #333a4d;
-}
-.teach b { color: var(--ink-strong); }
-.teach p { margin: 8px 0 0; }
-.teach ul { margin: 8px 0 0; padding-left: 22px; }
-.teach code, .doc code {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 0.92em;
 }
 .badge-row { margin: 10px 0; }
 .badge {
@@ -436,9 +417,8 @@ table.data th {
   @page { margin: 14mm; }
   body { padding: 0; background: #fff; font-size: 11pt; }
   .doc { max-width: none; padding: 0; border: none; border-radius: 0; box-shadow: none; }
-  .section { break-inside: auto; }
   .section h2 { break-after: avoid; }
-  .fig, .grid .item, table.data tr { break-inside: avoid; }
+  table.data tr { break-inside: avoid; }
   a { color: var(--ink); text-decoration: none; }
 }
 `;
