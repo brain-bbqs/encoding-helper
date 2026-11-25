@@ -13,14 +13,12 @@
 // appears. What stays with its renderer is the text that is not teaching: button labels, status and
 // error lines.
 //
-// Every string here is trusted markup rendered through innerHTML (teachBox, info popovers, the
-// document's prose blocks), so nothing read out of a media file may be interpolated into one
-// without going through escapeHtml first: the builders below that take file-derived numbers do
-// exactly that.
+// Every string here is trusted markup rendered through innerHTML (teachBox, info popovers), so
+// nothing read out of a media file may be interpolated into one without going through escapeHtml
+// first: the builders below that take file-derived numbers do exactly that.
 import type { BitrateTimeline } from "./bitrateTimeline";
 import { escapeHtml } from "@brain-bbqs/ui";
 import { fmtBits } from "./format";
-import type { SizeEstimate } from "./sizeEstimate";
 import type { ChromaFormat } from "./chromaFormat";
 import type { CodecInfo, ContainerInfo } from "./types";
 
@@ -51,9 +49,9 @@ export const CONTAINER_PREAMBLE =
 /**
  * What this particular container is, and which codecs it can carry.
  *
- * `atomMapHref` turns the <b>Atom Map</b> a record mentions into a link to wherever the map is on
- * the page doing the rendering (a section of the Inspect tab, a section of the Full Analysis
- * document), since the two anchor it under different headings.
+ * `atomMapHref` turns the <b>Atom Map</b> a record mentions into a link to wherever the page doing
+ * the rendering draws the map (on the Inspect tab, the anchor of its atom card), which that page
+ * knows and this file does not.
  */
 export function containerExplainer(info: ContainerInfo, atomMapHref: string): string {
   const description = info.description.replace("<b>Atom Map</b>", `<a href="${atomMapHref}"><b>Atom Map</b></a>`);
@@ -426,7 +424,7 @@ export const VALUE_HINTS: { pattern: RegExp; describe: (version: string) => stri
  * What a codec is, shown under the track it belongs to. Null for a codec the knowledge base does
  * not recognize, where there is nothing to say.
  */
-export function codecExplainer(codecInfo: CodecInfo | null | undefined): string | null {
+export function codecExplainer(codecInfo: CodecInfo | null): string | null {
   if (!codecInfo) return null;
   const year = codecInfo.year ? ` (${codecInfo.year})` : "";
   const name = codecInfo.fullName && codecInfo.fullName !== codecInfo.family ? `, ${codecInfo.fullName}` : "";
@@ -497,13 +495,6 @@ export function chromaSubsamplingExplainer(width: number, height: number, chroma
 }
 
 // --- Inspect · Atom Map ---
-
-/** What the box tree is, shown above the Full Analysis document's listing of it. */
-export const ATOM_STRUCTURE_TEACH =
-  `An MP4 file is a tree of <b>boxes</b> (also called &ldquo;atoms&rdquo;): <code>ftyp</code> declares the ` +
-  `brand/compatibility, <code>moov</code> holds all metadata &amp; the sample index (offsets, sizes, ` +
-  `timestamps, keyframe flags), and <code>mdat</code> holds the raw encoded frame bytes it points to. ` +
-  `Fragmented MP4s repeat <code>moof</code>+<code>mdat</code> pairs instead of one big <code>mdat</code>.`;
 
 /** Why the order of two boxes decides whether the file streams, read against the map that draws them. */
 export const FASTSTART_EXPLAINER =
@@ -651,7 +642,7 @@ export const SCALER_INFO =
   "sharper and maintains fine details such as whiskers, tail tips, or grid lines. <code>bicubic</code> is " +
   "softer and less prone to the faint ringing lanczos can leave along hard edges.";
 
-// --- The A/B window and the size it projects, under both encoding tabs ---
+// --- The A/B window, under both encoding tabs ---
 
 /** Why the A/B window offers two ways of drawing a downscaled encode back up. */
 export const UPSCALE_VIEW_INFO =
@@ -659,62 +650,6 @@ export const UPSCALE_VIEW_INFO =
   "<b>Blocks</b> repeats each encoded pixel, so you see exactly what survived the downscale, which is the " +
   "better view for judging what a tracking pipeline has left to work with. <b>Smooth</b> interpolates " +
   "between them, closer to what a player would put up. Neither changes the encode or its size.";
-
-/** Why a segment's size is the comparable number, beside the size the encode came to. */
-export const ENCODED_SEGMENT_NOTE =
-  "Only the segment above was encoded, so its size is not the whole file's — it is what that stretch of " +
-  "video costs at these settings, which is what makes two settings comparable without encoding twice.";
-
-/** Why the Compare Quality tab reports a size at all, and on what terms it projects one. */
-export const SIZE_SAVINGS_INTRO =
-  "Quality is only ever traded against bytes, so the other half of this comparison is what the settings cost. " +
-  "Only a few seconds were encoded, but that is enough to estimate the whole file: the snippet is compared " +
-  "against what the <i>same</i> seconds cost in the source, and that ratio is applied to the source's real size.";
-
-/** How the sampled stretch's cost in the source was arrived at, which depends on the file. */
-export function sizeEstimateTeach(estimate: SizeEstimate): string {
-  const basis =
-    estimate.basis === "sample-table"
-      ? `The original side of that ratio is measured, not assumed: the container's sample table lists every ` +
-        `frame's size, so the bytes this exact stretch costs in the source were summed out of it, plus the ` +
-        `stretch's share of the audio track and the container's own overhead.`
-      : `The original side of that ratio had to be approximated: no sample table was available for this file, ` +
-        `so the source's cost for the stretch is its total size spread evenly across its running time. That is ` +
-        `exact only for a constant-bitrate file, and this estimate is the rougher for it.`;
-  const difficulty = windowDifficultySentence(estimate);
-  const band = estimate.projectedRange
-    ? `<p>The range is not a confidence interval in any formal sense: it is how far the file's own ` +
-      `equal-length windows sit from one another, narrowed by how much of the file was sampled. A file whose ` +
-      `windows all cost about the same is one where any window predicts the rest; a file that swings between ` +
-      `still shots and fast motion is one where a single snippet cannot.</p>`
-    : "";
-  return (
-    `${basis} ${difficulty}` +
-    band +
-    `<p><b>Why it is still only an estimate.</b> A CRF encode spends bits per content, so a stretch this ` +
-    `snippet never saw may compress on quite different terms. Ratios also hold better than totals: expect the ` +
-    `percentage to survive better than the megabytes. The settings that apply file-wide (the keyframe ` +
-    `interval, whether audio is copied or dropped) are already reflected here, since the snippet was encoded ` +
-    `with them, but per-file one-offs such as the <code>moov</code> index and faststart are assumed to scale ` +
-    `with length. For an exact number, encode the whole file in the <b>Reencode with FFmpeg</b> tab.</p>`
-  );
-}
-
-/** How representative the sampled stretch is, when the sample table lets that be measured. */
-function windowDifficultySentence(estimate: SizeEstimate): string {
-  const d = estimate.windowDifficulty;
-  if (d == null || !isFinite(d) || d <= 0) return "";
-  if (d >= 1.15 || d <= 0.85) {
-    // A busy stretch is quoted to one decimal, a calm one to two, since its ratio sits close to 1.
-    const busy = d >= 1.15;
-    return (
-      `The stretch picked here is a <b>${busy ? "busy" : "calm"}</b> one, costing ` +
-      `${escapeHtml(d.toFixed(busy ? 1 : 2))}&times; the source's average rate. Dividing by the source's cost ` +
-      `for those same seconds is what keeps the projection from pricing the entire file at this stretch's rate.`
-    );
-  }
-  return `The stretch picked here costs about what the source averages, so it is a fair sample to project from.`;
-}
 
 // --- Compare Quality · the run, the sweep and the command under its grid ---
 

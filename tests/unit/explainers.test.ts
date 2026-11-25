@@ -7,10 +7,8 @@ import {
   CONTAINER_KB,
   containerExplainer,
   contradictedDeclarationNote,
-  sizeEstimateTeach,
 } from "../../src/lib/explainers";
 import { describeMetadataTagValue as hint } from "../../src/lib/metadataTagKb";
-import type { SizeEstimate } from "../../src/lib/sizeEstimate";
 import type { CodecInfo } from "../../src/lib/types";
 
 // Read through the metadata card's own lookup, which takes the first signature that matches and
@@ -144,64 +142,5 @@ describe("chromaSubsamplingExplainer", () => {
     const text = chromaSubsamplingExplainer(641, 481, "4:4:4");
     expect(text.startsWith(intro)).toBe(true);
     expect(text).not.toContain("<p>");
-  });
-});
-
-describe("sizeEstimateTeach", () => {
-  /** A 1 MB, 100 s file whose first 10 s were sampled and came out at half the size. */
-  function estimate(over: Partial<SizeEstimate> = {}): SizeEstimate {
-    return {
-      basis: "sample-table",
-      originalTotalBytes: 1_000_000,
-      totalSeconds: 100,
-      segmentSeconds: 10,
-      originalSegmentBytes: 100_000,
-      ratio: 0.5,
-      savedFraction: 0.5,
-      segmentSavedBytes: 50_000,
-      projectedTotalBytes: 500_000,
-      projectedSavedBytes: 500_000,
-      projectedRange: { low: 450_000, high: 550_000 },
-      sampledFraction: 0.1,
-      windowCount: 1,
-      windowDifficulty: 1,
-      ...over,
-    };
-  }
-
-  it("says the original side was measured out of the sample table", () => {
-    const text = sizeEstimateTeach(estimate());
-    expect(text).toContain("measured, not assumed");
-    expect(text).toContain("fair sample to project from");
-    expect(text).toContain("The range is not a confidence interval");
-    expect(text).toContain("<b>Why it is still only an estimate.</b>");
-  });
-
-  it("says the original side was spread evenly when there was no sample table", () => {
-    const text = sizeEstimateTeach(estimate({ basis: "proportional", windowDifficulty: null, projectedRange: null }));
-    expect(text).toContain("had to be approximated");
-    expect(text).not.toContain("The range is not a confidence interval");
-    expect(text).not.toContain("stretch picked here");
-  });
-
-  // A busy stretch is quoted to one decimal, a calm one to two, since its ratio sits close to 1.
-  it("calls the stretch busy or calm when it sits far from the file's average", () => {
-    expect(sizeEstimateTeach(estimate({ windowDifficulty: 1.8182 }))).toContain(
-      "a <b>busy</b> one, costing 1.8&times; the source's average rate",
-    );
-    expect(sizeEstimateTeach(estimate({ windowDifficulty: 0.5 }))).toContain(
-      "a <b>calm</b> one, costing 0.50&times; the source's average rate",
-    );
-  });
-
-  it("calls the stretch a fair sample within fifteen percent either way", () => {
-    expect(sizeEstimateTeach(estimate({ windowDifficulty: 1.14 }))).toContain("fair sample");
-    expect(sizeEstimateTeach(estimate({ windowDifficulty: 0.86 }))).toContain("fair sample");
-  });
-
-  it("says nothing about the stretch for a ratio that measures nothing", () => {
-    for (const d of [0, -1, Infinity, NaN]) {
-      expect(sizeEstimateTeach(estimate({ windowDifficulty: d }))).not.toContain("stretch picked here");
-    }
   });
 });

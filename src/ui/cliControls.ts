@@ -33,7 +33,7 @@ export function refreshCliCommand(): void {
 /** The resolution dropdown's entries: the fixed ladder, labelled with what each comes out at for
  * the loaded file so the choice is made against real numbers rather than percentages, plus a
  * "Custom %" entry for a value the ladder doesn't offer. */
-function scaleOptions(info: { width: number; height: number } | null): [string, string][] {
+function scaleOptions(info: { width: number; height: number }): [string, string][] {
   return [...SCALE_OPTIONS.map((s) => [String(s), describeScale(s, info)] as [string, string]), ["custom", "Custom %"]];
 }
 
@@ -55,7 +55,7 @@ function parseScale(value: string): number {
  * live depends on the other: kept out of `renderEncodeTab` so that function's branching stays
  * about the form's layout rather than the ladder/custom split.
  */
-export function resolutionFields(info: { width: number; height: number } | null): {
+export function resolutionFields(info: { width: number; height: number }): {
   scaleField: HTMLDivElement;
   customField: HTMLDivElement;
 } {
@@ -115,7 +115,7 @@ export function syncQualityControls(): void {
   const crfField = document.getElementById("cliCrf") as HTMLInputElement | null;
   if (crfField) {
     crfField.value = String(cli.crf);
-    if (crfField.parentElement) crfField.parentElement.style.display = cli.quality === "custom" ? "" : "none";
+    crfField.parentElement!.style.display = cli.quality === "custom" ? "" : "none";
   }
   const presetSel = document.getElementById("cliPreset") as HTMLSelectElement | null;
   if (presetSel) presetSel.value = cli.preset;
@@ -125,7 +125,7 @@ export function syncQualityControls(): void {
   const customField = document.getElementById("cliScaleCustom") as HTMLInputElement | null;
   if (customField) {
     if (customScale) customField.value = String(Math.round(cli.scale * 100));
-    if (customField.parentElement) customField.parentElement.style.display = customScale ? "" : "none";
+    customField.parentElement!.style.display = customScale ? "" : "none";
   }
   // The kernel only reaches the command when something is being resampled, so at full resolution the
   // field is there but inert rather than gone.

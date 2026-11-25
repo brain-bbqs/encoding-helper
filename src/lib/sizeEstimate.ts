@@ -24,13 +24,6 @@
 import { encodeTest, state } from "./state";
 import type { SampleInfo, SampleWindow } from "./types";
 
-/** How the cost of the sampled stretch in the *source* was arrived at. */
-type SizeEstimateBasis =
-  /** Summed out of the video sample table, so it is this stretch's real bytes, not an average. */
-  | "sample-table"
-  /** No sample table (or none covering the stretch): the file's bytes spread evenly over its time. */
-  | "proportional";
-
 export interface SizeEstimateInput {
   /** The source file's size, container and every track included. */
   originalTotalBytes: number;
@@ -57,7 +50,6 @@ export interface SizeEstimateInput {
 }
 
 export interface SizeEstimate {
-  basis: SizeEstimateBasis;
   originalTotalBytes: number;
   totalSeconds: number;
   segmentSeconds: number;
@@ -67,7 +59,6 @@ export interface SizeEstimate {
   ratio: number;
   /** 1 − ratio: positive when the encode saves bytes, negative when it adds them. */
   savedFraction: number;
-  segmentSavedBytes: number;
   projectedTotalBytes: number;
   projectedSavedBytes: number;
   /** A rough band around the projection, or null when the file gives nothing to derive one from. */
@@ -76,12 +67,6 @@ export interface SizeEstimate {
   sampledFraction: number;
   /** How many separate stretches were sampled. 1 unless the run asked for more. */
   windowCount: number;
-  /**
-   * The stretch's video bitrate ÷ the track's average: above 1 it is busier than the file at large,
-   * below 1 calmer. Null without a sample table. The projection already corrects for this; it is
-   * reported so the reader can see how representative their pick was.
-   */
-  windowDifficulty: number | null;
 }
 
 /** Below this many frames in the window, its summed bytes are noise rather than a local measurement. */
@@ -167,7 +152,6 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
   // with audio against a stretch without it.
   const nonVideoBytes = Math.max(0, originalTotalBytes - totalVideoBytes);
   const useSampleTable = totalVideoBytes > 0 && sampled.count >= MIN_WINDOW_SAMPLES && sampled.bytes > 0;
-  const basis: SizeEstimateBasis = useSampleTable ? "sample-table" : "proportional";
   const originalSegmentBytes = useSampleTable
     ? sampled.bytes + nonVideoBytes * sampledFraction
     : originalTotalBytes * sampledFraction;
@@ -195,23 +179,18 @@ export function estimateSizeSavings(input: SizeEstimateInput): SizeEstimate | nu
       ? null
       : { low: Math.max(0, projectedTotalBytes * (1 - band)), high: projectedTotalBytes * (1 + band) };
 
-  const windowDifficulty = useSampleTable ? sampled.bytes / sampledSeconds / (totalVideoBytes / totalSeconds) : null;
-
   return {
-    basis,
     originalTotalBytes,
     totalSeconds,
     segmentSeconds: sampledSeconds,
     originalSegmentBytes,
     ratio,
     savedFraction: 1 - ratio,
-    segmentSavedBytes: originalSegmentBytes - encodedSegmentBytes,
     projectedTotalBytes,
     projectedSavedBytes: originalTotalBytes - projectedTotalBytes,
     projectedRange,
     sampledFraction,
     windowCount: windows.length,
-    windowDifficulty,
   };
 }
 
@@ -276,18 +255,14 @@ export function windowsSeconds(windows: SampleWindow[]): number {
 
 /**
  * The projection for `windows` having encoded to `encodedBytes`, against the loaded file; null
- * before a file is open. `fallbackStart` stands in for the first stretch's start when there is none.
+ * before a file is open.
  */
-export function estimateForWindows(
-  windows: SampleWindow[],
-  encodedBytes: number,
-  fallbackStart = 0,
-): SizeEstimate | null {
+export function estimateForWindows(windows: SampleWindow[], encodedBytes: number): SizeEstimate | null {
   if (!state.source) return null;
   return estimateSizeSavings({
     originalTotalBytes: state.source.size,
     totalSeconds: state.duration ?? 0,
-    segmentStartSeconds: windows[0]?.startSeconds ?? fallbackStart,
+    segmentStartSeconds: windows[0]?.startSeconds ?? 0,
     segmentSeconds: windowsSeconds(windows),
     windows,
     encodedSegmentBytes: encodedBytes,

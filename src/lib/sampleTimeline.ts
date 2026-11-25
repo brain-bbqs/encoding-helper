@@ -56,7 +56,7 @@ export function clampWindowStart(start: number, totalSeconds: number, windowSeco
 }
 
 /** A gradation's time as `m:ss`, or `h:mm:ss` once a recording is long enough to need the hours. */
-export function fmtClock(seconds: number, totalSeconds = seconds): string {
+export function fmtClock(seconds: number, totalSeconds: number): string {
   const whole = Math.max(0, Math.round(seconds));
   const mm = Math.floor(whole / 60) % 60;
   const ss = whole % 60;

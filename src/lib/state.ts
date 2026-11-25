@@ -84,7 +84,6 @@ export const cli: CliState = {
   crf: 25,
   preset: "superfast",
   keyframeInterval: 1.0,
-  gopOverride: null,
   noBFrames: true,
   pad: true,
   faststart: false,

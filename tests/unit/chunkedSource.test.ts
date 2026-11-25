@@ -38,7 +38,6 @@ describe("ChunkedSource.fromUrl", () => {
     const source = await ChunkedSource.fromUrl(URL_UNDER_TEST, "clip.mp4");
     expect(source.kind).toBe("url");
     expect(source.size).toBe(4096);
-    expect(source.supportsRange).toBe(true);
     expect(source.name).toBe("clip.mp4");
     // One request: the HEAD answered everything.
     expect(mock.mock.calls.length).toBe(1);
@@ -55,7 +54,6 @@ describe("ChunkedSource.fromUrl", () => {
     const source = await ChunkedSource.fromUrl(URL_UNDER_TEST, "clip.mp4");
     expect(source.kind).toBe("file");
     expect(source.size).toBe(1234);
-    expect(source.supportsRange).toBe(false);
     expect(mock.mock.calls.length).toBe(2);
     // The whole-file GET carries no Range: a server that refused the HEAD has promised nothing.
     expect(mock.mock.calls[1][1]).toBeUndefined();
@@ -82,7 +80,6 @@ describe("ChunkedSource.fromUrl", () => {
     });
     const source = await ChunkedSource.fromUrl(URL_UNDER_TEST);
     expect(source.kind).toBe("file");
-    expect(source.supportsRange).toBe(false);
   });
 
   it("reports the status when the file really cannot be read", async () => {
@@ -98,7 +95,7 @@ describe("ChunkedSource.fromUrl", () => {
       return { ok: false, status: 403, statusText: "Forbidden", headers: headers({}) };
     });
     const source = await ChunkedSource.fromUrl(URL_UNDER_TEST);
-    expect(source.supportsRange).toBe(true);
+    expect(source.kind).toBe("url");
     await expect(source.readChunk(0, 512)).rejects.toThrow("Failed to read bytes 0-511: 403 Forbidden");
   });
 
@@ -119,7 +116,6 @@ describe("ChunkedSource.fromUrl", () => {
     const source = await ChunkedSource.fromUrl(URL_UNDER_TEST, "clip.mp4");
     expect(source.kind).toBe("file");
     expect(source.size).toBe(7);
-    expect(source.supportsRange).toBe(false);
     expect(source.file!.type).toBe("video/mp4");
   });
 });

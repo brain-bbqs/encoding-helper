@@ -61,7 +61,7 @@ export function ffmpegPool(count: number): FfmpegWorker[] {
 export async function drainWithPool<T>(
   queue: T[],
   workers: FfmpegWorker[],
-  work: (item: T, worker: FfmpegWorker, index: number) => Promise<void>,
+  work: (item: T, worker: FfmpegWorker) => Promise<void>,
   shouldStop: () => boolean = () => false,
 ): Promise<void> {
   let next = 0;
@@ -74,7 +74,7 @@ export async function drainWithPool<T>(
           // turn, so two of them cannot take the same item.
           const index = next++;
           if (index >= queue.length) return;
-          await work(queue[index], worker, index);
+          await work(queue[index], worker);
         }
       }),
     );

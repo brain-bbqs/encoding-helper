@@ -44,7 +44,6 @@ describe("estimateSizeSavings", () => {
       encodedSegmentBytes: 1000,
       samples,
     })!;
-    expect(est.basis).toBe("sample-table");
     expect(est.originalSegmentBytes).toBe(2000);
     expect(est.projectedRange).toBeNull();
   });
@@ -56,15 +55,12 @@ describe("estimateSizeSavings", () => {
     // No list of windows, so the start and length given are the one stretch measured.
     expect(est!.windowCount).toBe(1);
     expect(est!.segmentSeconds).toBe(10);
-    expect(est!.basis).toBe("proportional");
     expect(est!.originalSegmentBytes).toBe(100_000);
     expect(est!.ratio).toBe(0.5);
     expect(est!.savedFraction).toBe(0.5);
-    expect(est!.segmentSavedBytes).toBe(50_000);
     expect(est!.projectedTotalBytes).toBe(500_000);
     expect(est!.projectedSavedBytes).toBe(500_000);
     expect(est!.sampledFraction).toBe(0.1);
-    expect(est!.windowDifficulty).toBeNull();
     // Without a sample table there are no windows to measure a spread across.
     expect(est!.projectedRange).toBeNull();
   });
@@ -81,13 +77,11 @@ describe("estimateSizeSavings", () => {
       samples,
     });
     expect(est).not.toBeNull();
-    expect(est!.basis).toBe("sample-table");
     expect(est!.originalSegmentBytes).toBe(60_000);
     expect(est!.ratio).toBe(0.5);
     // Not 30,000 × 10 = 300,000: the sampled second is nearly twice as expensive as the file's
     // average, and dividing by what the source spends on it is what takes that back out.
     expect(est!.projectedTotalBytes).toBe(165_000);
-    expect(est!.windowDifficulty).toBeCloseTo(60_000 / 33_000, 10);
   });
 
   it("gives the sampled stretch its share of the audio and container bytes", () => {
@@ -103,7 +97,6 @@ describe("estimateSizeSavings", () => {
     });
     // 60,000 bytes of video for that second, plus a tenth of the 100,000 non-video bytes.
     expect(est!.originalSegmentBytes).toBe(70_000);
-    expect(est!.basis).toBe("sample-table");
   });
 
   it("measures a stretch taken from the middle of the file, not from the start", () => {
@@ -118,7 +111,6 @@ describe("estimateSizeSavings", () => {
     });
     expect(est!.originalSegmentBytes).toBe(90_000);
     expect(est!.ratio).toBe(0.5);
-    expect(est!.windowDifficulty).toBeCloseTo(90_000 / 36_000, 10);
   });
 
   it("falls back to the even spread when the sample table does not cover the stretch", () => {
@@ -132,9 +124,7 @@ describe("estimateSizeSavings", () => {
       encodedSegmentBytes: 15_000,
       samples,
     });
-    expect(est!.basis).toBe("proportional");
     expect(est!.originalSegmentBytes).toBe(30_000);
-    expect(est!.windowDifficulty).toBeNull();
   });
 
   it("bands the projection by how much the file's own windows differ", () => {

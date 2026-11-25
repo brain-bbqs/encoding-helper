@@ -28,7 +28,6 @@ declare module "mp4box" {
 
   /** The `btrt` BitRateBox, which declares a track's own rates in bits per second. */
   export interface MP4BoxBitRateBox {
-    bufferSizeDB?: number;
     maxBitrate?: number;
     avgBitrate?: number;
   }
@@ -64,7 +63,7 @@ declare module "mp4box" {
   }
 
   interface MP4BoxNamespace {
-    createFile(keepMdatData?: boolean): ISOFile;
+    createFile(): ISOFile;
   }
 
   const MP4Box: MP4BoxNamespace;

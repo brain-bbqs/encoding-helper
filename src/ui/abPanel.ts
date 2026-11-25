@@ -213,7 +213,7 @@ const LABELLED_BOUNDARIES = 6;
 function appendReelRuler(wrap: HTMLElement, segments: AbSegment[], reelSpan: number): HTMLElement[] {
   const track = h("div", "compare-reel-track");
   const ruler = h("div", "compare-reel");
-  const at = (seconds: number): number => (reelSpan > 0 ? (seconds / reelSpan) * 100 : 0);
+  const at = (seconds: number): number => (seconds / reelSpan) * 100;
   const bands = segments.map((segment, i) => {
     const band = h("div", "compare-reel-seg" + (i % 2 ? " alt" : ""));
     band.style.left = at(reelStartOfSegment(i)).toFixed(3) + "%";
@@ -523,9 +523,16 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
         }
         showTime(relT);
         await drawAt(relT);
-        const nextWall = baseWall + (Math.floor((relT - baseT) / frameStep) + 1) * frameStep * 1000;
+        // Nudged by a billionth of a frame before rounding down: floating point can put a whole
+        // number of frames a hair under itself ((0.6 - 0.5) / (1/30) is 2.9999999999999996), which
+        // would schedule the frame just drawn again, with no wait, rather than the one after it.
+        const framesIn = Math.floor((relT - baseT) / frameStep + 1e-9);
+        const nextWall = baseWall + (framesIn + 1) * frameStep * 1000;
         const wait = nextWall - performance.now();
-        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+        // Rounded up: a timer's delay is whole milliseconds, so 33.3 would wake at 33, a fraction
+        // before the next frame, and ask for the one just drawn a second time. Less a hair first, so
+        // a whole number that floating point left a hair over (100.00000000000006) stays itself.
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, Math.ceil(wait - 1e-6)));
       }
     } catch (err) {
       // A frame that will not decode ends playback rather than leaving the button stuck on "Pause".

@@ -64,7 +64,7 @@ describe("extractDeclaredBitrate", () => {
     const file = isoFileWith([
       {
         trackId: 1,
-        entries: [{ type: "avc1", btrt: { bufferSizeDB: 0, maxBitrate: 8_000_000, avgBitrate: 5_000_000 } }],
+        entries: [{ type: "avc1", btrt: { maxBitrate: 8_000_000, avgBitrate: 5_000_000 } }],
       },
     ]);
     expect(extractDeclaredBitrate(file, 1)).toEqual({ avgBitrate: 5_000_000, maxBitrate: 8_000_000 });
@@ -266,7 +266,7 @@ describe("extractSampleAnalysis", () => {
     const analysis = extractSampleAnalysis(fileOfSamples(frames(10, 4)), 1, 600);
 
     expect(analysis.samples).toHaveLength(10);
-    expect(analysis.samples[1]).toEqual({ size: 1000, cts: 20, dts: 20, ctsSec: 20 / 600, is_sync: false });
+    expect(analysis.samples[1]).toEqual({ size: 1000, ctsSec: 20 / 600, is_sync: false });
     expect(analysis.keyframeDecodeIndices).toEqual([0, 4, 8]);
     // The last GOP runs to the end of the file, however short that leaves it.
     expect(analysis.gopLengths).toEqual([4, 4, 2]);

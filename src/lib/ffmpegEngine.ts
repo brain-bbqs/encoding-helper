@@ -111,7 +111,7 @@ export interface FfmpegWorker {
   reset(): void;
 }
 
-export function createFfmpegWorker(id = 0): FfmpegWorker {
+export function createFfmpegWorker(id: number): FfmpegWorker {
   let instance: FFmpeg | null = null;
   let onLog: FfmpegLogHandler | null = null;
   let onProgress: FfmpegProgressHandler | null = null;
@@ -220,10 +220,6 @@ export function createFfmpegWorker(id = 0): FfmpegWorker {
  * (ui/inBrowserEncode), which runs on this core alone; sample runs and sweeps take pooled workers.
  */
 export const defaultFfmpegWorker = createFfmpegWorker(0);
-
-export function resetFfmpeg(): void {
-  defaultFfmpegWorker.reset();
-}
 
 export function setFfmpegHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void {
   defaultFfmpegWorker.setHandlers(onLog, onProgress);

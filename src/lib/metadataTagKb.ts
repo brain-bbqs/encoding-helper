@@ -66,13 +66,13 @@ for (const entry of TAG_KB) {
  * Looks up a tag name as read off a file. Exact match wins; otherwise the lookup is retried
  * case-insensitively, since Vorbis/Matroska writers vary on capitalization.
  */
-export function describeMetadataTag(key: string | null | undefined): MetadataTagInfo | null {
+export function describeMetadataTag(key: string): MetadataTagInfo | null {
   if (!key) return null;
   return BY_EXACT_KEY.get(key) ?? BY_UPPER_KEY.get(key.toUpperCase()) ?? null;
 }
 
 /** Explains a recognizable encoder signature in a tag value, e.g. "Lavf60.16.100". */
-export function describeMetadataTagValue(value: string | null | undefined): string | null {
+export function describeMetadataTagValue(value: string): string | null {
   if (!value) return null;
   for (const hint of VALUE_HINTS) {
     const m = hint.pattern.exec(value);

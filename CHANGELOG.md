@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.5
+
+#### 🐛 Bug Fix
+
+- Playback in the A/B window no longer requests the same frame twice, which happened at 30 fps and at some playhead positions ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
+#### 🏠 Internal
+
+- Removed code nothing used: the Full Analysis document's never-shown explainer text, unread fields and parameters, impossible guards and unstyled class names ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.4
 
 #### 🏠 Internal
