@@ -165,13 +165,17 @@ async function pickFile(els: AppElements): Promise<File | null> {
 }
 
 export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallbacks): FileLoader {
+  // The two ways in this hands back, which the page's own controls below open files through too.
+  const loadFile = (file: File): Promise<void> => loadSource(els, callbacks, { kind: "file", file });
+  const loadUrl = (url: string, name?: string): Promise<void> => loadSource(els, callbacks, { kind: "url", url, name });
+
   // Drawn rather than written: the button is the width of its mark in the loaded file's bar, and
   // the mark is the one bbqs-uploader uses for the same "start again" gesture.
   els.resetBtn.append(resetIcon(15));
 
   els.pickFileBtn.addEventListener("click", () => {
     void pickFile(els).then((file) => {
-      if (file) void loadSource(els, callbacks, { kind: "file", file });
+      if (file) void loadFile(file);
     });
   });
   els.resetBtn.addEventListener("click", (e) => {
@@ -185,7 +189,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
   });
   els.loadUrlBtn.addEventListener("click", () => {
     const url = els.urlInput.value.trim();
-    if (url) void loadSource(els, callbacks, { kind: "url", url });
+    if (url) void loadUrl(url);
   });
   els.urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") els.loadUrlBtn.click();
@@ -200,7 +204,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     e.preventDefault();
     els.dropZone.classList.remove("dragover");
     const file = e.dataTransfer?.files[0];
-    if (file) void loadSource(els, callbacks, { kind: "file", file });
+    if (file) void loadFile(file);
   });
 
   // A shared link carries ?src=…, so open it the same way the URL box would have.
@@ -208,11 +212,8 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
   if (sharedSrc) {
     els.urlRow.style.display = "flex";
     els.urlInput.value = sharedSrc;
-    void loadSource(els, callbacks, { kind: "url", url: sharedSrc });
+    void loadUrl(sharedSrc);
   }
 
-  return {
-    loadFile: (file) => loadSource(els, callbacks, { kind: "file", file }),
-    loadUrl: (url, name) => loadSource(els, callbacks, { kind: "url", url, name }),
-  };
+  return { loadFile, loadUrl };
 }

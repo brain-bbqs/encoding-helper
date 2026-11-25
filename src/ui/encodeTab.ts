@@ -30,6 +30,7 @@ import {
   dropWholeFileInput,
   encodeWindows,
   endRunUi,
+  onRunPress,
   prepareRun,
   reportRunFailure,
   runControls,
@@ -99,12 +100,18 @@ export function renderEncodeTab(panel: HTMLElement): void {
   // Content-width rather than a third of the form each: the labels differ in length, so equal
   // shares put them at three arbitrary distances from their boxes.
   const row2 = h("div", "row row-checks");
-  const { field: bfField, input: bfCheck } = checkField("cliNoBFrames", " Disable B-frames", cli.noBFrames);
-  row2.append(bfField);
-  const { field: padField, input: padCheck } = checkField("cliPad", " Pad to even dimensions", cli.pad);
-  row2.append(padField);
-  const { field: fsField, input: fsCheck } = checkField("cliFaststart", " Faststart", cli.faststart);
-  row2.append(fsField);
+  for (const [id, label, key] of [
+    ["cliNoBFrames", " Disable B-frames", "noBFrames"],
+    ["cliPad", " Pad to even dimensions", "pad"],
+    ["cliFaststart", " Faststart", "faststart"],
+  ] as const) {
+    const { field, input } = checkField(id, label, cli[key]);
+    input.addEventListener("change", () => {
+      cli[key] = input.checked;
+      refreshCliCommand();
+    });
+    row2.append(field);
+  }
   form.append(row2);
 
   const row3 = h("div", "row");
@@ -164,18 +171,6 @@ export function renderEncodeTab(panel: HTMLElement): void {
   bindNumber(kfField.querySelector("input")!, parseFloat, (parsed) => {
     cli.keyframeInterval = parsed ?? cli.keyframeInterval;
   });
-  bfCheck.addEventListener("change", () => {
-    cli.noBFrames = bfCheck.checked;
-    refreshCliCommand();
-  });
-  padCheck.addEventListener("change", () => {
-    cli.pad = padCheck.checked;
-    refreshCliCommand();
-  });
-  fsCheck.addEventListener("change", () => {
-    cli.faststart = fsCheck.checked;
-    refreshCliCommand();
-  });
   const audioSelect = audioField.querySelector("select")!;
   audioSelect.addEventListener("change", () => {
     cli.audioMode = audioSelect.value as typeof cli.audioMode;
@@ -218,16 +213,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement {
   resultSec.style.display = "none";
   sec.append(resultSec);
 
-  ui.runButton.addEventListener("click", () => {
-    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
-    // the run has started.
-    ui.runButton.disabled = true;
-    const windows = picker ? [picker.window()] : [];
-    void runSample(windows, vt, ui, resultSec).finally(() => {
-      if (encodeTest.running) return;
-      ui.runButton.disabled = false;
-    });
-  });
+  onRunPress(ui, () => runSample(picker ? [picker.window()] : [], vt, ui, resultSec));
   return sec;
 }
 

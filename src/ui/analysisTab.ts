@@ -43,6 +43,7 @@ import {
   comboKey,
   describeQuality,
   describeResolutionChange,
+  isMeasured,
   matrixAxes,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
@@ -314,7 +315,7 @@ function compareSection(): AnalysisSection | null {
 
 /** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */
 function matrixSection(): AnalysisSection | null {
-  const cells = encodeTest.matrix.cells.filter((c) => c.status === "done" && c.bytes != null);
+  const cells = encodeTest.matrix.cells.filter(isMeasured);
   if (!cells.length) return null;
   const best = bestReductionCell(encodeTest.matrix.cells);
   const { qualities, presets, scales, scalers } = matrixAxes(cells);

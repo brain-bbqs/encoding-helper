@@ -7,7 +7,7 @@ import { infoIcon } from "../lib/dom";
  * A field's label, with an ⓘ explainer beside it when there is one. Same shape as the grid cards'
  * `item-head`, so a control and a figure explain themselves the same way.
  */
-function fieldHead(label: string, info?: string | null): HTMLElement {
+export function fieldHead(label: string, info?: string | null): HTMLElement {
   const labelEl = h("label", "field-label", label);
   if (!info) return labelEl;
   const head = h("div", "field-head");

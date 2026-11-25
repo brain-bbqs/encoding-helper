@@ -118,6 +118,27 @@ export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi
   return { nodes: [buttons, progress, note, logWrap], ui };
 }
 
+/**
+ * Calls `start` on every press of the run button, for both tabs.
+ *
+ * `ui` is the tab's own, the one whose `syncRunAction` relabels the button: on the Compare tab that
+ * is the copy it makes of what runControls returned, not the original.
+ */
+export function onRunPress(ui: RunUi, start: () => Promise<void>): void {
+  ui.runButton.addEventListener("click", () => {
+    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
+    // the run has started.
+    ui.runButton.disabled = true;
+    // A run puts the button back itself when it ends; this is for the presses that never start
+    // one, such as a sweep with nothing ticked to sweep.
+    void start().finally(() => {
+      if (encodeTest.running) return;
+      ui.runButton.disabled = false;
+      ui.syncRunAction();
+    });
+  });
+}
+
 /** The file's bytes, as ffmpeg.wasm wants them. Read per run rather than cached: a whole video held
  * in memory between runs is a large thing to keep for a button that may never be pressed again. */
 async function readSource(): Promise<SourceBytes> {

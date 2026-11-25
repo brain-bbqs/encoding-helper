@@ -9,7 +9,7 @@
 import { errorMessage } from "@brain-bbqs/utils";
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { button, h } from "@brain-bbqs/ui";
-import { cmdBlock, infoIcon, section } from "../lib/dom";
+import { cmdBlock, section } from "../lib/dom";
 import { describeFrameRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
@@ -19,7 +19,9 @@ import {
   describeSettings,
   evictBeyondBudget,
   fpsForFraction,
+  hasRun,
   heldBytes,
+  isUnmeasured,
   makeMatrixCells,
   MATRIX_FPS_FRACTIONS,
   MATRIX_PRESETS,
@@ -35,13 +37,14 @@ import { cli, currentVideoInfo, encodeTest, state, videoTrackInfo } from "../lib
 import { estimateForWindows, type SizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
 import type { MatrixCell, MatrixCombo, MatrixQuality, SampleWindow, Scaler, TrackInfo, X264Preset } from "../lib/types";
 import { loadEncodedIntoAB, onAbDisplaced } from "./abPanel";
-import { finishFill, logLine } from "./formControls";
+import { fieldHead, finishFill, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
 import {
   acquireWorkers,
   dropWholeFileInput,
   encodeWindows,
   endRunUi,
+  onRunPress,
   prepareRun,
   reportRunFailure,
   runControls,
@@ -223,21 +226,11 @@ export function renderCompareTab(panel: HTMLElement): void {
   // window survive the panel being rebuilt.
   repaintMatrix(vt, ui);
 
-  ui.runButton.addEventListener("click", () => {
-    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
-    // the run has started.
-    ui.runButton.disabled = true;
+  onRunPress(ui, () => {
     // A grid with holes in it is what the one button offers to fill: sweeping the whole thing
     // again would re-encode everything that already worked.
     const unmeasured = unmeasuredCells();
-    const run = (): Promise<void> => (unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui));
-    // A run puts the button back itself when it ends; this is for the presses that never start
-    // one, such as a sweep with nothing ticked to sweep.
-    void run().finally(() => {
-      if (encodeTest.running) return;
-      ui.runButton.disabled = false;
-      ui.syncRunAction();
-    });
+    return unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui);
   });
 }
 
@@ -251,11 +244,8 @@ function axisCheckboxes(
   listClass?: string,
 ): HTMLDivElement {
   const field = h("div", "field");
-  const head = h("div", "field-head");
-  head.append(h("label", "field-label", label));
   // The same ⓘ the dropdown carries, since the sweep is over exactly what the dropdown sets.
-  if (info) head.append(infoIcon(info, `About ${label}`));
-  field.append(head);
+  field.append(fieldHead(label, info));
   const list = h("div", listClass ? `axis-list ${listClass}` : "axis-list");
   const boxes: HTMLInputElement[] = [];
   for (const opt of options) {
@@ -275,7 +265,7 @@ function axisCheckboxes(
 
 /** The squares a sweep left without a size: the ones that failed, and the ones Stop never reached. */
 function unmeasuredCells(): MatrixCell[] {
-  return encodeTest.matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
+  return encodeTest.matrix.cells.filter(isUnmeasured);
 }
 
 /**
@@ -437,9 +427,8 @@ let activeQueue: MatrixCell[] | null = null;
 
 /** Puts a failed square back in the running sweep's queue, to be re-encoded when it is reached. */
 function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
-  if (!activeQueue || (cell.status !== "failed" && cell.status !== "skipped")) return;
-  cell.status = "pending";
-  cell.error = null;
+  if (!activeQueue || !isUnmeasured(cell)) return;
+  markPending(cell);
   activeQueue.push(cell);
   logLine(ui.log, `Queued a retry of ${describeSettings(cell.combo)}`, "info");
   repaint();
@@ -448,11 +437,14 @@ function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
 /** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
 async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
   if (encodeTest.running) return;
-  for (const cell of cells) {
-    cell.status = "pending";
-    cell.error = null;
-  }
+  cells.forEach(markPending);
   await encodeCells(cells, vt, ui);
+}
+
+/** Puts a square back in line to be encoded, clearing what its last attempt failed with. */
+function markPending(cell: MatrixCell): void {
+  cell.status = "pending";
+  cell.error = null;
 }
 
 /** Writes a square's measurement onto it, whether just encoded or read back from the cache. */
@@ -519,7 +511,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
       // A stopped run leaves the bar where it got to instead of creeping on as the last cores
       // unwind: the figures it would show are of a sweep that is no longer happening.
       if (stopRequested()) return;
-      const finished = queue.filter((c) => c.status === "done" || c.status === "failed").length;
+      const finished = queue.filter(hasRun).length;
       const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
       if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
       // Whatever phase wrote there last ("Loading ffmpeg.wasm…") is over once squares are being
@@ -751,7 +743,7 @@ function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
   // far, which is not the question the grid is being run to answer. A square that failed has run
   // (it produced no size, and it is not going to), so it does not hold the ranking up; one Stop left
   // unmeasured does, until the button below has run it.
-  const unrun = matrix.cells.some((c) => c.status !== "done" && c.status !== "failed");
+  const unrun = matrix.cells.some((c) => !hasRun(c));
   const best = unrun ? null : bestReductionCell(matrix.cells);
   sec.append(
     renderMatrixSummary(

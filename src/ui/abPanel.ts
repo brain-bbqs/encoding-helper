@@ -330,15 +330,20 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   const shownSeconds = reelSeconds();
 
   const stage = h("div", "compare-stage");
-  const origPane = h("div", "compare-pane");
-  origPane.append(h("span", "pane-label", "Original"));
-  const origCanvas = h("canvas");
-  origCanvas.width = vt.codedWidth ?? 0;
-  origCanvas.height = vt.codedHeight ?? 0;
-  origPane.append(origCanvas);
-  const origGrid = h("div", "pixel-grid");
-  origPane.append(origGrid);
-  const encPane = h("div", "compare-pane");
+  /** One side of the comparison at the source's geometry: its label, its canvas, the grid over it. */
+  const comparePane = (
+    label: HTMLElement,
+  ): { pane: HTMLDivElement; canvas: HTMLCanvasElement; grid: HTMLDivElement } => {
+    const pane = h("div", "compare-pane");
+    const canvas = h("canvas");
+    canvas.width = srcWidth;
+    canvas.height = srcHeight;
+    const grid = h("div", "pixel-grid");
+    pane.append(label, canvas, grid);
+    pane.style.aspectRatio = `${srcWidth} / ${srcHeight}`;
+    return { pane, canvas, grid };
+  };
+  const { pane: origPane, canvas: origCanvas, grid: origGrid } = comparePane(h("span", "pane-label", "Original"));
   const encLabel = h(
     "span",
     "pane-label",
@@ -357,16 +362,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
         : `one block per encoded pixel, so nothing is interpolated in.`);
   };
   syncEncLabel();
-  encPane.append(encLabel);
-  const encCanvas = h("canvas");
-  encCanvas.width = vt.codedWidth ?? 0;
-  encCanvas.height = vt.codedHeight ?? 0;
-  encPane.append(encCanvas);
-  const encGrid = h("div", "pixel-grid");
-  encPane.append(encGrid);
-  const ar = `${vt.codedWidth ?? 0} / ${vt.codedHeight ?? 0}`;
-  origPane.style.aspectRatio = ar;
-  encPane.style.aspectRatio = ar;
+  const { pane: encPane, canvas: encCanvas, grid: encGrid } = comparePane(encLabel);
   stage.append(origPane, encPane);
   host.append(stage);
 

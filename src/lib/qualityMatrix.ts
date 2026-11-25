@@ -231,6 +231,24 @@ export function makeMatrixCells(combos: MatrixCombo[]): MatrixCell[] {
   }));
 }
 
+/** A square encoded (or read back from the cache) with its size in hand. */
+export function isMeasured(cell: MatrixCell): cell is MatrixCell & { bytes: number } {
+  return cell.status === "done" && cell.bytes != null;
+}
+
+/**
+ * A square a sweep left without a size: it failed, or Stop never reached it. Not the complement of
+ * isMeasured, since a square still queued or encoding is neither.
+ */
+export function isUnmeasured(cell: MatrixCell): boolean {
+  return cell.status === "failed" || cell.status === "skipped";
+}
+
+/** A square the sweep is through with: done, or failed. Not one queued, encoding or skipped by Stop. */
+export function hasRun(cell: MatrixCell): boolean {
+  return cell.status === "done" || cell.status === "failed";
+}
+
 /** The axes a set of cells actually covers, so a results table is drawn from the run rather than
  * from whatever the checkboxes have been changed to since. */
 export function matrixAxes(cells: MatrixCell[]): {
@@ -273,7 +291,7 @@ export function matrixCliState(base: CliState, combo: MatrixCombo): CliState {
 export function bestReductionCell(cells: MatrixCell[]): MatrixCell | null {
   let best: MatrixCell | null = null;
   for (const cell of cells) {
-    if (cell.status !== "done" || cell.bytes == null || !(cell.bytes > 0)) continue;
+    if (!isMeasured(cell) || !(cell.bytes > 0)) continue;
     if (!best || beatsForReduction(cell, best)) best = cell;
   }
   return best;
