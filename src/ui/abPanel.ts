@@ -533,19 +533,24 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
           now = baseWall;
         }
         showTime(relT);
-        await drawAt(relT);
         // Wakes where the stretch on screen starts its next frame. Its frames are a frame apart from
         // its own offset 0, so that is where they change; timed from anywhere else, a wake can sit
         // just short of a frame's end, where rounding the timer up to whole milliseconds carries some
         // wakes into the frame after and not others, skipping one frame and asking for the next
         // twice. Nudged by a billionth of a frame before rounding down, since floating point can put
         // a whole number of frames a hair under itself.
+        //
+        // Worked out before the draw rather than after it: a comparison loaded while the draw is
+        // waiting on a frame swaps the stretches `locateInReel` reads for ones this loop's `segments`
+        // may not have as many of. Nothing has waited since the loop checked it is still the live
+        // run, so here the two are still the same.
         const { index, offset } = locateInReel(relT);
         const { seconds } = segments[index];
         const nextFrame = (Math.floor(offset / frameStep + 1e-9) + 1) * frameStep;
         // Nothing past the end margin is drawn, so a frame starting inside it is never shown: the
         // next change is then the stretch's end, where the next one's first frame starts.
         const untilNext = (nextFrame < seconds - STRETCH_END_MARGIN ? nextFrame : seconds) - offset;
+        await drawAt(relT);
         // A stretch with no length has no next frame to wait for, and not waiting would spin.
         const nextWall = now + (untilNext > 0 ? untilNext : frameStep) * 1000;
         const wait = nextWall - performance.now();

@@ -198,6 +198,21 @@ function framesOf(stretch: number, first: number, last: number): [number, number
   return Array.from({ length: last - first + 1 }, (_, i) => [stretch, first + i]);
 }
 
+/**
+ * Has the sinks pause playback from inside a draw once more than `limit` encoded frames have been
+ * asked for, answering every request with no frame.
+ *
+ * A loop that never waits never lets the fake clock move, so one that spins would hang the test
+ * rather than fail it; this ends it, and the test's own assertions then say what went wrong. Only
+ * while the button reads "Pause", since each draw asks both sides and a second press would play.
+ */
+function pauseFromDrawAfter(play: HTMLButtonElement, limit: number): void {
+  frameAt = async () => {
+    if (play.textContent === "Pause" && requestedSeconds().encoded.length > limit) play.click();
+    return null;
+  };
+}
+
 beforeEach(() => {
   document.body.innerHTML = "";
   refuseInput = -1;
@@ -765,7 +780,10 @@ describe("playback", () => {
     const host = hostSection();
     await loadEncodedIntoAB(encodedStretches(3), SETTINGS, { ...VIDEO_TRACK, packetRate: 25 }, host);
     frameRequests.length = 0;
-    playButton(host).click();
+    const play = playButton(host);
+    // Past the 33 frames this run asks for.
+    pauseFromDrawAfter(play, 40);
+    play.click();
     await vi.advanceTimersByTimeAsync(1300);
     expect(encodedFrames(25)).toEqual([
       ...framesOf(0, 0, 9),
@@ -773,6 +791,21 @@ describe("playback", () => {
       ...framesOf(2, 0, 9),
       ...framesOf(0, 0, 2),
     ]);
+  });
+
+  // A stretch with no length has no next frame in it to wake for, so the loop waits a frame rather
+  // than drawing again at once, over and over.
+  it("waits a frame at a time through stretches with no length", async () => {
+    stretchSeconds = 0;
+    const host = hostSection();
+    await loadSampled(host, 2);
+    frameRequests.length = 0;
+    const play = playButton(host);
+    pauseFromDrawAfter(play, 20);
+    play.click();
+    await vi.advanceTimersByTimeAsync(100);
+    // A frame at 0 and one a frame after each, rather than as many as the loop could ask for.
+    expect(requestedSeconds().encoded.length).toBeLessThanOrEqual(4);
   });
 
   // The encoded side is the one being judged, so it is stepped through a frame at a time at the rate
@@ -794,7 +827,10 @@ describe("playback", () => {
   it("runs through every stretch and loops back to the first", async () => {
     const host = hostSection();
     await loadSampled(host, 2);
-    playButton(host).click();
+    const play = playButton(host);
+    // Past the 65 frames this run asks for, the one drawn on loading included.
+    pauseFromDrawAfter(play, 100);
+    play.click();
     await vi.advanceTimersByTimeAsync(1500);
     expect(currentBand(host)).toBe(1);
     expect(progressLabel(host)).toBe("1.50s");
@@ -884,6 +920,28 @@ describe("playback", () => {
     await vi.advanceTimersByTimeAsync(200);
     // Only the fresh window's first frame: the old loop drew nothing more.
     expect(requestedSeconds().encoded).toEqual([0]);
+  });
+
+  // The old loop's frame comes back after the window has moved on to a run with more stretches, so
+  // where its playhead falls in the new reel is a stretch the old one never had.
+  it("lets a run die quietly when a comparison with more stretches loads while it waits on a frame", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    stretchSeconds = 2;
+    const host = hostSection();
+    await load(host);
+    // 1.5s into the one two-second stretch, which is in the second of three one-second ones.
+    scrubTo(host, 750);
+    let release = (): void => {};
+    frameAt = (_seconds, track) =>
+      track === state.videoTrack ? Promise.resolve(null) : new Promise((resolve) => (release = () => resolve(null)));
+    playButton(host).click();
+    await vi.advanceTimersByTimeAsync(0);
+    frameAt = async () => null;
+    stretchSeconds = 1;
+    await loadSampled(host, 3);
+    release();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(error.mock.calls).toEqual([]);
   });
 });
 
