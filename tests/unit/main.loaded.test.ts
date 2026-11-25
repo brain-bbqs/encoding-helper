@@ -40,7 +40,7 @@ vi.mock("../../src/ui/inspectTab", () => ({
   renderInspectTail: recorder("renderInspectTail"),
 }));
 vi.mock("../../src/ui/atomsTab", () => ({ renderAtomMap: recorder("renderAtomMap") }));
-vi.mock("../../src/ui/seekTab", () => ({ renderSeekTab: recorder("renderSeekTab") }));
+vi.mock("../../src/ui/seekTab", () => ({ renderGopStructure: recorder("renderGopStructure") }));
 vi.mock("../../src/ui/inspectToc", () => ({ mountInspectToc: recorder("mountInspectToc") }));
 vi.mock("../../src/ui/encodeTab", () => ({ renderEncodeTab: recorder("renderEncodeTab") }));
 vi.mock("../../src/ui/compareTab", () => ({ renderCompareTab: recorder("renderCompareTab") }));
@@ -49,7 +49,7 @@ vi.mock("../../src/ui/analysisTab", () => ({ renderAnalysisTab: recorder("render
 const RENDER_ALL: [string, string][] = [
   ["renderInspectHead", "panel-inspect"],
   ["renderAtomMap", "panel-inspect"],
-  ["renderSeekTab", "panel-inspect"],
+  ["renderGopStructure", "panel-inspect"],
   ["renderInspectTail", "panel-inspect"],
   ["mountInspectToc", "panel-inspect"],
   ["renderEncodeTab", "panel-encode"],
@@ -78,7 +78,7 @@ describe("main.ts with a file loaded", () => {
     expect(Array.from(el("panel-inspect").children, (c) => c.className)).toEqual([
       "renderInspectHead",
       "renderAtomMap",
-      "renderSeekTab",
+      "renderGopStructure",
       "renderInspectTail",
       "mountInspectToc",
     ]);

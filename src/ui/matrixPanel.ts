@@ -11,9 +11,9 @@
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { button, h } from "@brain-bbqs/ui";
-import { fmtRate } from "../lib/format";
+import { describeFrameRate, NO_VALUE } from "../lib/format";
 import { isDownscale, scalePercent } from "../lib/cliCommand";
-import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
+import { comboKey, describeSettings, isMeasured, isUnmeasured, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
 import type { MatrixCell, Scaler } from "../lib/types";
 
@@ -94,7 +94,7 @@ function releasedNote(cell: MatrixCell): string {
 }
 
 function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
-  if (cell.status === "done" && cell.bytes != null) return doneFace(cell, cell.bytes, est);
+  if (isMeasured(cell)) return doneFace(cell, cell.bytes, est);
   const settings = describeSettings(cell.combo);
   if (cell.status === "running") {
     const text = `${settings} — encoding now`;
@@ -123,7 +123,7 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   const skipped = cell.status === "skipped";
   const text = `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`;
   return {
-    main: "–",
+    main: NO_VALUE,
     factor: "",
     sub: skipped ? "run it" : "queued",
     title: text,
@@ -216,7 +216,7 @@ function blockTitleRow(
   // changes how the pixels were resampled, and at the source resolution it changed nothing at all;
   // the other is absent from every block of a sweep that left the rate alone.
   if (showScaler && isDownscale(block.scale)) th.append(h("span", "matrix-group-note", block.scaler));
-  if (block.fps != null) th.append(h("span", "matrix-group-note", `${fmtRate(block.fps)} fps`));
+  if (block.fps != null) th.append(h("span", "matrix-group-note", describeFrameRate(block.fps)));
   row.append(th);
   return row;
 }
@@ -244,8 +244,8 @@ function renderCell(cell: MatrixCell, opts: MatrixTableOptions): HTMLElement {
   if (isBest) btn.append(h("span", "matrix-flag", "★ best"));
   // A finished square loads into the A/B window; one that failed or was never reached is an attempt
   // at the encode.
-  const selectable = cell.status === "done" && cell.bytes != null && !!opts.onSelect;
-  const retryable = (cell.status === "failed" || cell.status === "skipped") && !!opts.onRetry;
+  const selectable = isMeasured(cell) && !!opts.onSelect;
+  const retryable = isUnmeasured(cell) && !!opts.onRetry;
   btn.disabled = !selectable && !retryable;
   btn.setAttribute("aria-pressed", String(isSelected));
   if (selectable) btn.addEventListener("click", () => opts.onSelect?.(cell));

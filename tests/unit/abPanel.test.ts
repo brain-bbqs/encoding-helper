@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VIDEO_TRACK } from "../fixtures/state";
-import { encodeTest, resetState, state } from "../../src/lib/state";
+import { sampledEncode, resetState, state } from "../../src/lib/state";
 import type { EncodeSettings } from "../../src/lib/types";
 import { flush } from "./helpers/async";
 
@@ -187,7 +187,10 @@ function requestedSeconds(): { original: number[]; encoded: number[] } {
 function encodedFrames(rate: number): [number, number][] {
   return frameRequests
     .filter((r) => r.track !== state.videoTrack)
-    .map((r) => [encodeTest.abSegments.findIndex((seg) => seg.sink === r.sink), Math.floor(r.seconds * rate + 1e-6)]);
+    .map((r) => [
+      sampledEncode.abSegments.findIndex((seg) => seg.sink === r.sink),
+      Math.floor(r.seconds * rate + 1e-6),
+    ]);
 }
 
 /** `[stretch, frame]` for each of a stretch's frames from `first` to `last`, in order. */
@@ -230,7 +233,7 @@ describe("loadEncodedIntoAB", () => {
     expect(host.style.display).toBe("block");
     expect(host.querySelector("h2")!.textContent).toBe("Side-by-Side");
     expect(host.querySelectorAll(".compare-pane")).toHaveLength(2);
-    expect(encodeTest.activeCombo).toEqual(SETTINGS);
+    expect(sampledEncode.activeCombo).toEqual(SETTINGS);
   });
 
   // One encode's sinks feed the window, so two tabs cannot both be showing a comparison: the tab
@@ -264,10 +267,10 @@ describe("loadEncodedIntoAB", () => {
   it("loads every sampled stretch as one reel", async () => {
     const host = hostSection();
     await loadSampled(host, 3);
-    expect(encodeTest.abSegments).toHaveLength(3);
-    expect(encodeTest.abSegments.map((seg) => seg.window.startSeconds)).toEqual([0, 4, 8]);
-    expect(encodeTest.segDuration).toBe(3);
-    expect(encodeTest.encodedSize).toBe(4096);
+    expect(sampledEncode.abSegments).toHaveLength(3);
+    expect(sampledEncode.abSegments.map((seg) => seg.window.startSeconds)).toEqual([0, 4, 8]);
+    expect(sampledEncode.segDuration).toBe(3);
+    expect(sampledEncode.encodedSize).toBe(4096);
   });
 
   // The stretches are drawn on the bar that plays them: one band apiece, and a boundary between
@@ -344,7 +347,7 @@ describe("loadEncodedIntoAB", () => {
     await loadSampled(host, 3);
     await loadSampled(host, 2);
     expect(disposed).toEqual([0, 1, 2]);
-    expect(encodeTest.encodedInputs).toHaveLength(2);
+    expect(sampledEncode.encodedInputs).toHaveLength(2);
   });
 
   // A run that will not open all the way leaves the comparison that is already up alone, rather
@@ -352,12 +355,12 @@ describe("loadEncodedIntoAB", () => {
   it("keeps the loaded comparison when a later stretch will not open", async () => {
     const host = hostSection();
     await loadSampled(host, 2);
-    const held = encodeTest.encodedInputs;
+    const held = sampledEncode.encodedInputs;
     // The second stretch of the run about to be loaded is the one that will not open.
     refuseInput = openedInputs + 1;
     await expect(loadSampled(host, 3)).rejects.toThrow("no video track");
-    expect(encodeTest.encodedInputs).toBe(held);
-    expect(encodeTest.abSegments).toHaveLength(2);
+    expect(sampledEncode.encodedInputs).toBe(held);
+    expect(sampledEncode.abSegments).toHaveLength(2);
     // The two it did open on the way to failing are let go of; the two still showing are not.
     expect(disposed).toEqual([2, 3]);
   });
@@ -379,7 +382,7 @@ describe("loadEncodedIntoAB refusals", () => {
     undecodableInput = 0;
     await expect(load(host)).rejects.toThrow("will not decode the encode");
     expect(disposed).toEqual([0]);
-    expect(encodeTest.abSegments).toHaveLength(0);
+    expect(sampledEncode.abSegments).toHaveLength(0);
     expect(host.style.display).toBe("none");
   });
 });
@@ -518,7 +521,7 @@ describe("a downscaled encode", () => {
     select.value = "smooth";
     select.dispatchEvent(new Event("change"));
     await flush();
-    expect(encodeTest.upscaleSmoothing).toBe(true);
+    expect(sampledEncode.upscaleSmoothing).toBe(true);
     expect(host.querySelectorAll(".pane-label")[1].getAttribute("title")).toContain("with smoothing");
     expect(requestedSeconds()).toEqual({ original: [0], encoded: [0] });
     expect(smoothing).toEqual([false, false, true, true]);
@@ -930,7 +933,7 @@ describe("the heading and labels", () => {
     stretchSeconds = 0;
     const host = hostSection();
     await loadSampled(host, 2);
-    expect(encodeTest.segDuration).toBe(0);
+    expect(sampledEncode.segDuration).toBe(0);
     const bands = host.querySelectorAll<HTMLElement>(".compare-reel-seg");
     expect([...bands].map((b) => b.style.left)).toEqual(["0%", "0%"]);
     scrubTo(host, 500);
@@ -940,8 +943,8 @@ describe("the heading and labels", () => {
 
 describe("describeSampledStretches", () => {
   it("falls back to the run's own start and length before a run has loaded", () => {
-    encodeTest.startTime = 3;
-    encodeTest.duration = 5;
+    sampledEncode.startTime = 3;
+    sampledEncode.duration = 5;
     expect(describeSampledStretches()).toBe("3.0s–8.0s");
   });
 

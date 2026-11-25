@@ -209,7 +209,7 @@ export const OVERALL_BITRATE_INFO =
 /** What the MIME type is, from the ⓘ beside the readout in the overview. */
 export const MIME_TYPE_INFO =
   "The MIME type (formally the media type, registered with IANA) is the standardized machine-readable " +
-  "<code>type/subtype</code> identifier a file uses to declare itself over a network. ";
+  "<code>type/subtype</code> identifier a file uses to declare itself over a network.";
 
 export const METADATA_TAGS_TEACH =
   "<b>Metadata tags</b> are descriptive labels stored beside the media data. They never affect playback or " +

@@ -253,11 +253,9 @@ function blockEl(
   const label = rectLabel(rect);
   const zoomable = narrowsView(rect, view);
   const detail = rectDetail(rect, zoomable);
-  const el = h(
-    "button",
+  const el = button(
     `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}${zoomable ? "" : " filling"}`,
   );
-  el.type = "button";
   positionBlock(el, rect, label);
 
   const show = (): void => {

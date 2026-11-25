@@ -27,6 +27,7 @@ import {
 } from "../lib/demoArchive";
 import { button, h } from "@brain-bbqs/ui";
 import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
+import { section } from "../lib/dom";
 import type { AppElements } from "./elements";
 
 /** Why a demo that is not an MP4 or MOV is marked as one the app cannot open. */
@@ -221,8 +222,8 @@ export function renderDemoBrowser(container: HTMLElement, set: DemoSet, opts: De
 }
 
 function errorBox(err: unknown, retry: () => void): HTMLElement {
-  const box = h("div", "section demos-error");
-  box.append(h("h2", null, "Could not read the demo set"));
+  const box = section("Could not read the demo set");
+  box.classList.add("demos-error");
   box.append(h("p", "demos-error-why", errorMessage(err)));
   box.append(
     h(

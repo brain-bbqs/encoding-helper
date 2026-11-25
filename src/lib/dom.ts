@@ -73,6 +73,10 @@ function infoGlyph(): SVGSVGElement {
   return svg;
 }
 
+/** Room an ⓘ popover needs to the right of its icon before it opens leftward instead: a little more
+ * than the 340px the `.info-pop` rule in src/style.css caps it at. */
+const INFO_POPOVER_REACH_PX = 360;
+
 /**
  * A small ⓘ affordance with a popover explainer. `html` is trusted, author-authored markup; never
  * pass in text read out of a media file without escaping it first.
@@ -96,7 +100,7 @@ export function infoIcon(html: string, label = "More information"): HTMLSpanElem
   const place = (): void => {
     const box = btn.getBoundingClientRect();
     wrap.classList.toggle("above", box.bottom > window.innerHeight * 0.55);
-    wrap.classList.toggle("flip-x", box.left + 360 > window.innerWidth);
+    wrap.classList.toggle("flip-x", box.left + INFO_POPOVER_REACH_PX > window.innerWidth);
   };
   wrap.addEventListener("mouseenter", place);
   wrap.addEventListener("focusin", place);

@@ -22,7 +22,7 @@ export function inBrowserEncodeSection(info: VideoInfo): HTMLElement {
 
   const box = engineBox(`${encodeVerb()} and Save`);
   sec.append(box.el);
-  box.button.addEventListener("click", () => void runExactEncode(info, box));
+  box.button.addEventListener("click", () => void encodeWholeFile(info, box));
   return sec;
 }
 
@@ -35,7 +35,7 @@ function encodeVerb(): "Reencode" | "Transcode" {
   return state.format === "MP4" ? "Reencode" : "Transcode";
 }
 
-async function runExactEncode(info: VideoInfo, box: EngineBox): Promise<void> {
+async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
   box.button.disabled = true;
   const fill = resetProgressFill(box.progress);
   box.note.textContent = "Loading ffmpeg.wasm…";

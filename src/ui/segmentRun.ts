@@ -14,10 +14,10 @@ import { button, h } from "@brain-bbqs/ui";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
-import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
+import { snapToKeyframe } from "../lib/mp4boxParser";
 import { extOf } from "../lib/save";
 import { windowsForRun } from "../lib/sizeEstimate";
-import { currentVideoInfo, encodeTest, state } from "../lib/state";
+import { currentVideoInfo, sampledEncode, state } from "../lib/state";
 import type { CliState, SampleWindow } from "../lib/types";
 import { clearLog, fieldNumber, logConsole, logLine, progressBar, resetProgressFill } from "./formControls";
 
@@ -62,21 +62,21 @@ function maxSampleDuration(): number {
  */
 export function sampleFields(idPrefix: string): HTMLDivElement {
   const maxDuration = maxSampleDuration();
-  encodeTest.duration = Math.min(Math.max(1, encodeTest.duration || 3), maxDuration);
+  sampledEncode.duration = Math.min(Math.max(1, sampledEncode.duration || 3), maxDuration);
   const row = h("div", "row compare-grid");
-  const durationField = fieldNumber(idPrefix + "Duration", "Duration (s)", encodeTest.duration, 1, maxDuration, 0.5);
-  const segmentsField = fieldNumber(idPrefix + "Segments", "Segments", encodeTest.segments, 1, MAX_SEGMENTS, 1);
+  const durationField = fieldNumber(idPrefix + "Duration", "Duration (s)", sampledEncode.duration, 1, maxDuration, 0.5);
+  const segmentsField = fieldNumber(idPrefix + "Segments", "Segments", sampledEncode.segments, 1, MAX_SEGMENTS, 1);
   const duration = durationField.querySelector("input")!;
   const segments = segmentsField.querySelector("input")!;
   duration.classList.add("sample-duration");
   segments.classList.add("sample-segments");
   duration.addEventListener("input", () => {
-    encodeTest.duration = parseFloat(duration.value) || 1;
+    sampledEncode.duration = parseFloat(duration.value) || 1;
     syncSampleFields(duration);
   });
   segments.addEventListener("input", () => {
     const asked = parseInt(segments.value, 10);
-    encodeTest.segments = Math.min(MAX_SEGMENTS, Math.max(1, Number.isFinite(asked) ? asked : 1));
+    sampledEncode.segments = Math.min(MAX_SEGMENTS, Math.max(1, Number.isFinite(asked) ? asked : 1));
     syncSampleFields(segments);
   });
   row.append(durationField, segmentsField);
@@ -87,10 +87,10 @@ export function sampleFields(idPrefix: string): HTMLDivElement {
  * alone so a half-typed number is not rewritten under the cursor. */
 export function syncSampleFields(except?: HTMLElement | null): void {
   document.querySelectorAll<HTMLInputElement>("input.sample-duration").forEach((input) => {
-    if (input !== except) input.value = String(encodeTest.duration);
+    if (input !== except) input.value = String(sampledEncode.duration);
   });
   document.querySelectorAll<HTMLInputElement>("input.sample-segments").forEach((input) => {
-    if (input !== except) input.value = String(encodeTest.segments);
+    if (input !== except) input.value = String(sampledEncode.segments);
   });
 }
 
@@ -118,6 +118,27 @@ export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi
   return { nodes: [buttons, progress, note, logWrap], ui };
 }
 
+/**
+ * Calls `start` on every press of the run button, for both tabs.
+ *
+ * `ui` is the tab's own, the one whose `syncRunAction` relabels the button: on the Compare tab that
+ * is the copy it makes of what runControls returned, not the original.
+ */
+export function onRunPress(ui: RunUi, start: () => Promise<void>): void {
+  ui.runButton.addEventListener("click", () => {
+    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
+    // the run has started.
+    ui.runButton.disabled = true;
+    // A run puts the button back itself when it ends; this is for the presses that never start
+    // one, such as a sweep with nothing ticked to sweep.
+    void start().finally(() => {
+      if (sampledEncode.running) return;
+      ui.runButton.disabled = false;
+      ui.syncRunAction();
+    });
+  });
+}
+
 /** The file's bytes, as ffmpeg.wasm wants them. Read per run rather than cached: a whole video held
  * in memory between runs is a large thing to keep for a button that may never be pressed again. */
 async function readSource(): Promise<SourceBytes> {
@@ -132,22 +153,17 @@ function inputNameFor(source: SourceBytes): string {
 }
 
 /** The stretches the next run covers: the last run's where they still fit what the fields ask for
- * (see windowsForRun), each snapped to a keyframe so it can be cut out by copy. */
+ * (see windowsForRun), each snapped to a keyframe so it can be cut out by copy. A file whose
+ * container gave no keyframe table keeps the unsnapped starts, and the old whole-file trim is used. */
 export function runWindows(): SampleWindow[] {
+  const snap = (seconds: number): number => snapToKeyframe(state.keyframeTimestampsSec, seconds);
   return windowsForRun(
-    encodeTest.sampled,
+    sampledEncode.sampled,
     state.duration ?? 0,
-    encodeTest.duration,
-    encodeTest.segments,
-    snapToKeyframe,
+    sampledEncode.duration,
+    sampledEncode.segments,
+    snap,
   );
-}
-
-/** The keyframe at or before `seconds`, or the time itself when the container gave us no table to
- * look in (in which case snippets cannot be cut by copy and the old whole-file trim is used). */
-function snapToKeyframe(seconds: number): number {
-  const at = nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, seconds);
-  return at == null ? seconds : at;
 }
 
 /** Whether stretches can be cut out of the source ahead of encoding them. Needs the keyframe table:
@@ -283,7 +299,7 @@ async function encodeSegment(
   // also what the log shows, and a shared one would read as the same encode running twice.
   const outputName = `et_out_${worker.id}.mp4`;
   const args = buildFfmpegArgs(cliState, info, input.name, outputName);
-  const length = input.trim?.seconds ?? encodeTest.duration;
+  const length = input.trim?.seconds ?? sampledEncode.duration;
   if (input.trim) {
     // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
     // preceding keyframe: the two sides need to show the same content, not just start "close
@@ -453,7 +469,7 @@ export async function dropWholeFileInput(inputs: RunInputs | null): Promise<void
  * assigned.
  */
 export function stopRequested(): boolean {
-  return encodeTest.cancelRequested;
+  return sampledEncode.cancelRequested;
 }
 
 /** The cores the run in progress is encoding on, so Stop has something to stop. */
@@ -484,8 +500,8 @@ class RunStopped extends Error {
  * stretches the terminated core was holding, which the next run cuts again.
  */
 function requestStop(ui: RunUi): void {
-  if (!encodeTest.running) return;
-  encodeTest.cancelRequested = true;
+  if (!sampledEncode.running) return;
+  sampledEncode.cancelRequested = true;
   ui.stopButton.disabled = true;
   ui.note.textContent = "Stopping…";
   for (const worker of activeWorkers) worker.reset();
@@ -493,8 +509,8 @@ function requestStop(ui: RunUi): void {
 
 /** Readies the progress bar and console for a run, and hands back the bar's fill. */
 export function startRunUi(ui: RunUi): HTMLDivElement | null {
-  encodeTest.running = true;
-  encodeTest.cancelRequested = false;
+  sampledEncode.running = true;
+  sampledEncode.cancelRequested = false;
   ui.runButton.disabled = true;
   // Offered by both tabs: a sweep encodes several stretches for every square, and even the one
   // stretch of a single run can take long enough to want out of.
@@ -506,7 +522,7 @@ export function startRunUi(ui: RunUi): HTMLDivElement | null {
 }
 
 export function endRunUi(ui: RunUi): void {
-  encodeTest.running = false;
+  sampledEncode.running = false;
   activeWorkers = [];
   ui.runButton.disabled = false;
   ui.syncRunAction();
@@ -514,15 +530,14 @@ export function endRunUi(ui: RunUi): void {
 }
 
 export function reportRunFailure(err: unknown, ui: RunUi): void {
+  // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
+  ui.progress.style.display = "none";
   if (err instanceof RunStopped) {
     ui.note.textContent = "Stopped.";
-    ui.progress.style.display = "none";
     return;
   }
   console.error("[encoding-helper] encode run failed:", err);
   const message = errorMessage(err);
   ui.note.textContent = "Failed: " + message;
   logLine(ui.log, message, "error");
-  // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
-  ui.progress.style.display = "none";
 }

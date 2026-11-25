@@ -7,14 +7,14 @@ import { errorMessage } from "@brain-bbqs/utils";
 import { button, h, svgEl, svgText } from "@brain-bbqs/ui";
 import { dataTable, fold, gridItem, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
-import { fmtMs } from "../lib/format";
+import { FALLBACK_FPS, fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state } from "../lib/state";
 import type { SeekResult } from "../lib/types";
-import { progressBar } from "./formControls";
+import { fieldNumber, progressBar } from "./formControls";
 
 /**
  * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
@@ -22,7 +22,7 @@ import { progressBar } from "./formControls";
  */
 const DEFAULT_SEEK_SAMPLES = 100;
 
-export function renderSeekTab(panel: HTMLElement): void {
+export function renderGopStructure(panel: HTMLElement): void {
   const { gop, avgGop, fps } = gopStats();
   const minGop = gop.length ? Math.min(...gop) : 0;
   const maxGop = gop.length ? Math.max(...gop) : 0;
@@ -58,15 +58,8 @@ export function renderSeekTab(panel: HTMLElement): void {
   sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
-  const nField = h("div", "field");
-  nField.append(h("label", "field-label", "Sample Count"));
-  const nInput = h("input");
-  nInput.type = "number";
-  nInput.min = "5";
-  nInput.max = "200";
-  nInput.value = String(DEFAULT_SEEK_SAMPLES);
-  nInput.id = "seekN";
-  nField.append(nInput);
+  const nField = fieldNumber("seekN", "Sample Count", DEFAULT_SEEK_SAMPLES, 5, 200, 1);
+  const nInput = nField.querySelector("input")!;
   controls.append(nField);
   sec.append(controls);
   const runBtn = button("btn", "Run Seeking Test");
@@ -110,7 +103,8 @@ async function runSeekingTest(
       const start = performance.now();
       await sink.getCanvas(t);
       const decodeMs = performance.now() - start;
-      results.push({ t, kf, dist, distFrames: dist != null ? Math.round(dist * (state.fps || 30)) : null, decodeMs });
+      const distFrames = dist != null ? Math.round(dist * (state.fps || FALLBACK_FPS)) : null;
+      results.push({ t, kf, dist, distFrames, decodeMs });
       fill.style.width = ((i + 1) / n) * 100 + "%";
     }
     state.seekResults = results;

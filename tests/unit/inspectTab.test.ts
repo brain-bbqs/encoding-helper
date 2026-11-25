@@ -5,7 +5,7 @@ import { resetState, state } from "../../src/lib/state";
 import type { CodecInfo, DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
 import { renderAtomMap } from "../../src/ui/atomsTab";
 import { renderBitrateTimelineSection, renderInspectHead, renderInspectTail } from "../../src/ui/inspectTab";
-import { renderSeekTab } from "../../src/ui/seekTab";
+import { renderGopStructure } from "../../src/ui/seekTab";
 import { gridItem, gridValue } from "./helpers/grid";
 
 /** The shared track, at the 20 fps these tests read their figures against. */
@@ -126,7 +126,7 @@ describe("the Inspect panel", () => {
     // The order main.ts appends them in.
     renderInspectHead(panel);
     renderAtomMap(panel);
-    renderSeekTab(panel);
+    renderGopStructure(panel);
     renderInspectTail(panel);
     // Metadata first, then the map of where the bytes are, then the keyframe structure that map's
     // box order decides (with the seeking test folded into that same card), then the bitrate over

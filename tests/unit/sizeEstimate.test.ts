@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evenSamples, sample } from "../fixtures/samples";
 import { MB_FILE_INPUT } from "../fixtures/sizeEstimate";
-import { encodeTest, resetState, state } from "../../src/lib/state";
+import { sampledEncode, resetState, state } from "../../src/lib/state";
 import {
   currentSizeEstimate,
   describeSavings,
@@ -423,8 +423,8 @@ describe("currentSizeEstimate", () => {
   });
 
   it("measures every stretch the run covered, not just the one on screen", () => {
-    encodeTest.encodedSize = 5_000_000;
-    encodeTest.windows = [0, 5, 10, 15, 20].map((startSeconds) => ({ startSeconds, seconds: 5 }));
+    sampledEncode.encodedSize = 5_000_000;
+    sampledEncode.windows = [0, 5, 10, 15, 20].map((startSeconds) => ({ startSeconds, seconds: 5 }));
     const est = currentSizeEstimate()!;
     expect(est.segmentSeconds).toBe(25);
     expect(est.sampledFraction).toBeCloseTo(25 / 30, 5);
@@ -436,8 +436,8 @@ describe("currentSizeEstimate", () => {
   // different numbers: they did, by a factor of the segment count, until the card read the windows.
   it("reports what the matrix square that opened it reports", () => {
     const windows = [0, 5, 10, 15, 20].map((startSeconds) => ({ startSeconds, seconds: 5 }));
-    encodeTest.encodedSize = 5_000_000;
-    encodeTest.windows = windows;
+    sampledEncode.encodedSize = 5_000_000;
+    sampledEncode.windows = windows;
     const square = estimateSizeSavings({
       originalTotalBytes: 30_000_000,
       totalSeconds: 30,
@@ -454,14 +454,14 @@ describe("currentSizeEstimate", () => {
   });
 
   it("falls back to the stretch on screen when a run recorded no windows", () => {
-    encodeTest.encodedSize = 1_000_000;
-    encodeTest.segDuration = 5;
+    sampledEncode.encodedSize = 1_000_000;
+    sampledEncode.segDuration = 5;
     const est = currentSizeEstimate()!;
     expect(est.segmentSeconds).toBe(5);
   });
 
   it("has nothing to project before a comparison has run", () => {
-    encodeTest.encodedSize = null;
+    sampledEncode.encodedSize = null;
     expect(currentSizeEstimate()).toBeNull();
   });
 });

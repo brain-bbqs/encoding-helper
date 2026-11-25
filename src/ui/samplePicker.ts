@@ -10,10 +10,11 @@
 // looking at it: a time in seconds says nothing about whether the animal is in shot.
 
 import { h } from "@brain-bbqs/ui";
+import type { CanvasSink } from "mediabunny";
 import { ensureMediabunny } from "../lib/mediabunny";
-import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
-import { clampWindowStart, fmtClock, rulerMarks, SAMPLE_SECONDS } from "../lib/sampleTimeline";
-import { encodeTest, state } from "../lib/state";
+import { snapToKeyframe } from "../lib/mp4boxParser";
+import { clampWindowStart, fmtClock, rulerEdgeClass, rulerMarks, SAMPLE_SECONDS } from "../lib/sampleTimeline";
+import { sampledEncode, state } from "../lib/state";
 import type { SampleWindow } from "../lib/types";
 
 /** How far the arrow keys move the window, and the coarser step Shift gives them. */
@@ -65,23 +66,19 @@ export function samplePicker(): SamplePicker | null {
     if (!mark.major) continue;
     // The end labels would hang off the track, so they align inwards instead of centring, the way
     // clip-extractor's ruler handles its own ends.
-    const atStart = left < 2 ? " at-start" : "";
-    const atEnd = left > 98 ? " at-end" : "";
-    const label = h("div", "sample-tick-label" + atStart + atEnd, fmtClock(mark.seconds, total));
+    const label = h("div", "sample-tick-label" + rulerEdgeClass(left), fmtClock(mark.seconds, total));
     label.style.left = left.toFixed(3) + "%";
     ruler.append(label);
   }
   trackPad.append(track, ruler);
   wrap.append(trackPad);
 
-  const start = (): number => clampWindowStart(encodeTest.sampleStart, total, windowSeconds);
+  const start = (): number => clampWindowStart(sampledEncode.sampleStart, total, windowSeconds);
   /** Where the encode actually begins: the cut is made at a keyframe. The preview frame and the run
    * use this; the band and its readout still show the unsnapped start. */
-  const snapped = (): number => {
-    const from = start();
-    return nearestKeyframeAtOrBefore(state.keyframeTimestampsSec, from) ?? from;
-  };
+  const snapped = (): number => snapToKeyframe(state.keyframeTimestampsSec, start());
 
+  let sink: CanvasSink | null = null;
   // Bumped per requested frame, so a drag that outruns the decoder draws the frame it ended on
   // rather than whichever request happens to come back last.
   let drawToken = 0;
@@ -115,7 +112,6 @@ export function samplePicker(): SamplePicker | null {
       }
     })();
   };
-  let sink: import("mediabunny").CanvasSink | null = null;
 
   const sync = (): void => {
     const from = start();
@@ -128,8 +124,8 @@ export function samplePicker(): SamplePicker | null {
 
   const moveTo = (seconds: number): void => {
     const next = clampWindowStart(seconds, total, windowSeconds);
-    if (next === encodeTest.sampleStart) return;
-    encodeTest.sampleStart = next;
+    if (next === sampledEncode.sampleStart) return;
+    sampledEncode.sampleStart = next;
     sync();
     drawPreview();
   };

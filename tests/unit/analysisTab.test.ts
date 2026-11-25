@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/qualityMatrix";
-import { cli, encodeTest, state } from "../../src/lib/state";
+import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
 
@@ -61,10 +61,10 @@ function loadClip(over: { tracks?: TrackInfo[] } = {}): void {
 /** An A/B comparison loaded over the clip's first `seconds`, whose encode came to `encodedSize`
  * bytes (null while that is unknown). */
 function loadComparison(seconds: number, encodedSize: number | null): void {
-  encodeTest.originalSink = {} as never;
-  encodeTest.abSegments = [{ window: { startSeconds: 0, seconds } }] as never;
-  encodeTest.windows = [{ startSeconds: 0, seconds }];
-  encodeTest.encodedSize = encodedSize;
+  sampledEncode.originalSink = {} as never;
+  sampledEncode.abSegments = [{ window: { startSeconds: 0, seconds } }] as never;
+  sampledEncode.windows = [{ startSeconds: 0, seconds }];
+  sampledEncode.encodedSize = encodedSize;
 }
 
 function panel(): HTMLElement {
@@ -294,7 +294,7 @@ describe("renderAnalysisTab", () => {
     const el = panel();
     loadClip();
     loadComparison(5, 100_000);
-    encodeTest.activeCombo = { ...cliSettings(cli), preset: "slow", crf: 30, quality: "low" };
+    sampledEncode.activeCombo = { ...cliSettings(cli), preset: "slow", crf: 30, quality: "low" };
     renderAnalysisTab(el);
     expect(markdown(el)).toContain("| Preset | slow |");
   });
@@ -308,7 +308,7 @@ describe("renderAnalysisTab", () => {
       c.bytes = 100_000 - i * 10_000;
       c.elapsedMs = 4200;
     });
-    encodeTest.matrix.cells = cells;
+    sampledEncode.matrix.cells = cells;
     renderAnalysisTab(el);
     const md = markdown(el);
 
@@ -321,7 +321,7 @@ describe("renderAnalysisTab", () => {
   it("leaves a sweep out while none of its squares have finished", () => {
     const el = panel();
     loadClip();
-    encodeTest.matrix.cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"]));
+    sampledEncode.matrix.cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"]));
     renderAnalysisTab(el);
     expect(markdown(el)).not.toContain("## Compare Quality Matrix");
   });
@@ -329,7 +329,7 @@ describe("renderAnalysisTab", () => {
   it("reports an in-browser reencode's result", () => {
     const el = panel();
     loadClip();
-    state.reencodeResult = { originalSize: 2_000_000, encodedSize: 1_000_000 } as never;
+    state.reencodeResult = { originalSize: 2_000_000, encodedSize: 1_000_000 };
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("## In-Browser Reencode Result");
@@ -553,11 +553,11 @@ describe("renderAnalysisTab", () => {
     const el = panel();
     loadClip();
     loadComparison(5, 100_000);
-    encodeTest.activeCombo = { ...cliSettings(cli), scale: 0.5, scaler: "bicubic" };
+    sampledEncode.activeCombo = { ...cliSettings(cli), scale: 0.5, scaler: "bicubic" };
     renderAnalysisTab(el);
     expect(markdown(el)).toContain("| Resolution | 640×480 → 320×240 (50%, bicubic) |");
 
-    encodeTest.activeCombo = { ...cliSettings(cli), scale: 1 };
+    sampledEncode.activeCombo = { ...cliSettings(cli), scale: 1 };
     renderAnalysisTab(el);
     const ab = markdown(el).split("## Side-by-Side (A/B) Result")[1];
     expect(ab).not.toContain("| Resolution |");
@@ -571,7 +571,7 @@ describe("renderAnalysisTab", () => {
       c.status = "done";
       c.bytes = 100_000 - i * 10_000;
     });
-    encodeTest.matrix.cells = cells;
+    sampledEncode.matrix.cells = cells;
     renderAnalysisTab(el);
     const md = markdown(el);
 
@@ -589,7 +589,7 @@ describe("renderAnalysisTab", () => {
       c.bytes = 100_000 - i * 10_000;
       c.elapsedMs = i === 0 ? null : 4200;
     });
-    encodeTest.matrix.cells = cells;
+    sampledEncode.matrix.cells = cells;
     renderAnalysisTab(el);
     const md = markdown(el);
 

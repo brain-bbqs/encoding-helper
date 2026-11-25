@@ -10,9 +10,9 @@ import { CRF_MAP, isDownscale } from "../lib/cliCommand";
 import { h } from "@brain-bbqs/ui";
 import { cmdBlock, section, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
-import { cliSettings } from "../lib/qualityMatrix";
-import { cli, encodeTest, state } from "../lib/state";
-import type { SampleWindow, TrackInfo, VideoInfo } from "../lib/types";
+import { cliSettings, MATRIX_PRESETS } from "../lib/qualityMatrix";
+import { cli, currentVideoInfo, sampledEncode, videoTrackInfo } from "../lib/state";
+import type { SampleWindow, TrackInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
 import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
@@ -30,6 +30,7 @@ import {
   dropWholeFileInput,
   encodeWindows,
   endRunUi,
+  onRunPress,
   prepareRun,
   reportRunFailure,
   runControls,
@@ -53,9 +54,9 @@ function checkField(id: string, label: string, checked: boolean): { field: HTMLD
 
 export function renderEncodeTab(panel: HTMLElement): void {
   panel.innerHTML = "";
-  const vt = state.tracks?.find((t) => t.kind === "video");
-  if (!vt || vt.codedWidth == null || vt.codedHeight == null) return;
-  const info: VideoInfo = { fps: state.fps, width: vt.codedWidth, height: vt.codedHeight };
+  const vt = videoTrackInfo();
+  const info = currentVideoInfo();
+  if (!vt || !info) return;
 
   const builderSec = section("FFmpeg Command Builder");
   builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
@@ -91,13 +92,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
   const scalerSelect = cliScalerField.querySelector("select")!;
   scalerSelect.toggleAttribute("disabled", !isDownscale(cli.scale));
   row1.append(cliScalerField);
-  const presetField = fieldSelect(
-    "cliPreset",
-    "x264 Preset",
-    ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"],
-    cli.preset,
-    X264_PRESET_INFO,
-  );
+  const presetField = fieldSelect("cliPreset", "x264 Preset", MATRIX_PRESETS, cli.preset, X264_PRESET_INFO);
   row1.append(presetField);
   const kfField = fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1);
   row1.append(kfField);
@@ -105,12 +100,18 @@ export function renderEncodeTab(panel: HTMLElement): void {
   // Content-width rather than a third of the form each: the labels differ in length, so equal
   // shares put them at three arbitrary distances from their boxes.
   const row2 = h("div", "row row-checks");
-  const { field: bfField, input: bfCheck } = checkField("cliNoBFrames", " Disable B-frames", cli.noBFrames);
-  row2.append(bfField);
-  const { field: padField, input: padCheck } = checkField("cliPad", " Pad to even dimensions", cli.pad);
-  row2.append(padField);
-  const { field: fsField, input: fsCheck } = checkField("cliFaststart", " Faststart", cli.faststart);
-  row2.append(fsField);
+  for (const [id, label, key] of [
+    ["cliNoBFrames", " Disable B-frames", "noBFrames"],
+    ["cliPad", " Pad to even dimensions", "pad"],
+    ["cliFaststart", " Faststart", "faststart"],
+  ] as const) {
+    const { field, input } = checkField(id, label, cli[key]);
+    input.addEventListener("change", () => {
+      cli[key] = input.checked;
+      refreshCliCommand();
+    });
+    row2.append(field);
+  }
   form.append(row2);
 
   const row3 = h("div", "row");
@@ -170,18 +171,6 @@ export function renderEncodeTab(panel: HTMLElement): void {
   bindNumber(kfField.querySelector("input")!, parseFloat, (parsed) => {
     cli.keyframeInterval = parsed ?? cli.keyframeInterval;
   });
-  bfCheck.addEventListener("change", () => {
-    cli.noBFrames = bfCheck.checked;
-    refreshCliCommand();
-  });
-  padCheck.addEventListener("change", () => {
-    cli.pad = padCheck.checked;
-    refreshCliCommand();
-  });
-  fsCheck.addEventListener("change", () => {
-    cli.faststart = fsCheck.checked;
-    refreshCliCommand();
-  });
   const audioSelect = audioField.querySelector("select")!;
   audioSelect.addEventListener("change", () => {
     cli.audioMode = audioSelect.value as typeof cli.audioMode;
@@ -224,16 +213,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement {
   resultSec.style.display = "none";
   sec.append(resultSec);
 
-  ui.runButton.addEventListener("click", () => {
-    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
-    // the run has started.
-    ui.runButton.disabled = true;
-    const windows = picker ? [picker.window()] : [];
-    void runSample(windows, vt, ui, resultSec).finally(() => {
-      if (encodeTest.running) return;
-      ui.runButton.disabled = false;
-    });
-  });
+  onRunPress(ui, () => runSample(picker ? [picker.window()] : [], vt, ui, resultSec));
   return sec;
 }
 
@@ -242,7 +222,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement {
 async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resultSec: HTMLDivElement): Promise<void> {
   // One encoder, one pool: a sweep running on the other tab has both, and its run is the one that
   // was asked for first.
-  if (encodeTest.running) {
+  if (sampledEncode.running) {
     ui.note.textContent = "An encode is already running on the Compare Quality tab. Wait for it to finish.";
     return;
   }
@@ -259,7 +239,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     inputs = await prepareRun(windows, workers, ui);
     // Records where the encoded stretch starts. The A/B window draws the original from the windows
     // passed to it below, not from this.
-    encodeTest.startTime = windows[0].startSeconds;
+    sampledEncode.startTime = windows[0].startSeconds;
     ui.note.textContent = "Encoding test segment…";
     const { blobs, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;

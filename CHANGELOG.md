@@ -1,10 +1,16 @@
 # Changelog
 
-## 1.5.7
+## 1.5.8
 
 #### 🐛 Bug Fix
 
 - A/B playback now shows every frame once, in order, from any playhead position, including across stretches and for encodes made at a different frame rate ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
+## 1.5.7
+
+#### 🏠 Internal
+
+- Replaced repeated code with shared helpers and renamed code left over from removed tabs and encoders; the app looks and works the same ([#78](https://github.com/brain-bbqs/encoding-helper/pull/78))
 
 ## 1.5.6
 

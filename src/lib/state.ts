@@ -1,6 +1,7 @@
 // Shared, mutable, single-source-of-truth state objects. Every tab renderer reads and writes these
 // directly (no framework/store layer), mirroring the original monolithic script's globals, just typed.
 
+import { DEFAULT_SCALER } from "./cliCommand";
 import {
   DEFAULT_MATRIX_FPS_FRACTIONS,
   DEFAULT_MATRIX_PRESETS,
@@ -8,7 +9,7 @@ import {
   DEFAULT_MATRIX_SCALERS,
   DEFAULT_MATRIX_SCALES,
 } from "./qualityMatrix";
-import type { AppState, CliState, EncodeTestState, TrackInfo, VideoInfo } from "./types";
+import type { AppState, CliState, SampledEncodeState, TrackInfo, VideoInfo } from "./types";
 
 function initialAppState(): AppState {
   return {
@@ -37,7 +38,7 @@ function initialAppState(): AppState {
 }
 
 /** A new file's matrix starts empty: any earlier sweep's sizes were measured on video that is gone. */
-function initialMatrix(): EncodeTestState["matrix"] {
+function initialMatrix(): SampledEncodeState["matrix"] {
   return {
     qualities: [...DEFAULT_MATRIX_QUALITIES],
     presets: [...DEFAULT_MATRIX_PRESETS],
@@ -53,7 +54,7 @@ function initialMatrix(): EncodeTestState["matrix"] {
   };
 }
 
-function initialEncodeTest(matrix: EncodeTestState["matrix"]): EncodeTestState {
+function initialSampledEncode(matrix: SampledEncodeState["matrix"]): SampledEncodeState {
   return {
     startTime: 0,
     sampleStart: 0,
@@ -90,21 +91,21 @@ export const cli: CliState = {
   audioMode: "copy",
   fps: null,
   scale: 1,
-  scaler: "lanczos",
+  scaler: DEFAULT_SCALER,
   customScale: 60,
 };
 
-export const encodeTest: EncodeTestState = initialEncodeTest(initialMatrix());
+export const sampledEncode: SampledEncodeState = initialSampledEncode(initialMatrix());
 
 /** Back to the pre-load defaults for everything but the command builder, whose settings are the reader's. */
 export function resetState(): void {
   // Disposed before the references go: an Input holds a decoder and whatever it was reading from,
   // and a page that loads one file after another would otherwise keep every one of them.
   state.input?.dispose();
-  for (const input of encodeTest.encodedInputs) input.dispose();
+  for (const input of sampledEncode.encodedInputs) input.dispose();
   Object.assign(state, initialAppState());
-  Object.assign(encodeTest.matrix, initialMatrix());
-  Object.assign(encodeTest, initialEncodeTest(encodeTest.matrix));
+  Object.assign(sampledEncode.matrix, initialMatrix());
+  Object.assign(sampledEncode, initialSampledEncode(sampledEncode.matrix));
 }
 
 /** The loaded file's video track, or null before a file is open or when it has none. */

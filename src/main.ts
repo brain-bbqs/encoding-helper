@@ -17,7 +17,7 @@ import { initDemosPage } from "./ui/demosPage";
 import { initFileLoadingUi } from "./ui/fileLoading";
 import { mountInspectToc } from "./ui/inspectToc";
 import { renderInspectHead, renderInspectTail } from "./ui/inspectTab";
-import { renderSeekTab } from "./ui/seekTab";
+import { renderGopStructure } from "./ui/seekTab";
 import { initTabs } from "./ui/tabs";
 
 const els = getElements();
@@ -31,7 +31,7 @@ function renderAll(): void {
   els.panels.inspect.innerHTML = "";
   renderInspectHead(els.panels.inspect);
   renderAtomMap(els.panels.inspect);
-  renderSeekTab(els.panels.inspect);
+  renderGopStructure(els.panels.inspect);
   renderInspectTail(els.panels.inspect);
   // Wraps whatever the four renderers above just appended into a content column beside an "On this
   // page" nav built from their own section headings; must run after them, not interleaved.

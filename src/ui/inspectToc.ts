@@ -9,7 +9,7 @@ import { h } from "@brain-bbqs/ui";
 let scrollSpyObserver: IntersectionObserver | null = null;
 
 /**
- * Wraps whatever renderInspectHead/renderAtomMap/renderSeekTab/renderInspectTail already appended to
+ * Wraps whatever renderInspectHead/renderAtomMap/renderGopStructure/renderInspectTail already appended to
  * `panel` into a content column, and builds the nav beside it from each top-level section's own
  * heading, so the list of links can never drift out of sync with what is actually on the page.
  * No-op (leaves the panel as-is) when there is nothing to link to, i.e. no file loaded yet.
@@ -29,9 +29,10 @@ export function mountInspectToc(panel: HTMLElement): void {
   const links: HTMLAnchorElement[] = [];
   headings.forEach((hd) => {
     const label = hd.textContent || "Section";
-    let id = slugify(label);
+    const slug = slugify(label);
+    let id = slug;
     let n = 2;
-    while (used.has(id)) id = `${slugify(label)}-${n++}`;
+    while (used.has(id)) id = `${slug}-${n++}`;
     used.add(id);
     hd.id = id;
 
@@ -56,11 +57,12 @@ export function mountInspectToc(panel: HTMLElement): void {
   };
   const observer = new IntersectionObserver(
     (entries) => {
+      if (!entries.length) return;
       // The heading whose top is closest to (and above) the trigger line is the section being read;
       // scanning every heading each time keeps this correct even when several intersect at once.
       const above = headings.filter((hd) => hd.getBoundingClientRect().top <= 96);
       const current = above.length ? above[above.length - 1] : headings[0];
-      if (entries.length) setActive(current.id);
+      setActive(current.id);
     },
     { rootMargin: "-96px 0px -70% 0px", threshold: 0 },
   );
