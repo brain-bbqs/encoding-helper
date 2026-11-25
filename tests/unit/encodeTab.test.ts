@@ -3,7 +3,7 @@ import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import type { FfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
-import { cli, encodeTest, state } from "../../src/lib/state";
+import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { SampleWindow } from "../../src/lib/types";
 import type { loadEncodedIntoAB } from "../../src/ui/abPanel";
 import type { encodeWindows, prepareRun } from "../../src/ui/segmentRun";
@@ -98,12 +98,12 @@ describe("renderEncodeTab", () => {
 
     band.focus();
     band.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", shiftKey: true, bubbles: true }));
-    expect(encodeTest.sampleStart).toBe(10);
+    expect(sampledEncode.sampleStart).toBe(10);
     expect(band.style.left).toBe("50%");
 
     // The window keeps its length at the end of the file rather than being trimmed to fit.
     band.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
-    expect(encodeTest.sampleStart).toBe(17);
+    expect(sampledEncode.sampleStart).toBe(17);
   });
 
   // The whole-file encode is the last step of the same page: build the command, try it, run it.
@@ -138,12 +138,12 @@ describe("renderEncodeTab", () => {
 
     const band = renderTab().querySelector<HTMLElement>(".sample-band")!;
     band.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", shiftKey: true, bubbles: true }));
-    expect(encodeTest.sampleStart).toBe(10);
+    expect(sampledEncode.sampleStart).toBe(10);
 
     expect(comparePanel.querySelector<HTMLInputElement>("#etDuration")!.value).toBe("8");
     expect(comparePanel.querySelector<HTMLInputElement>("#etSegments")!.value).toBe("2");
-    expect(encodeTest.duration).toBe(8);
-    expect(encodeTest.segments).toBe(2);
+    expect(sampledEncode.duration).toBe(8);
+    expect(sampledEncode.segments).toBe(2);
   });
 });
 
@@ -371,8 +371,8 @@ describe("running the command on a sample", () => {
     expect(run.prepareRun.mock.calls[0][0]).toEqual(windows);
     expect(run.prepareRun.mock.calls[0][1]).toEqual([run.worker]);
     // The start of the stretch actually encoded is recorded (the A/B module is mocked here).
-    expect(encodeTest.startTime).toBe(10);
-    expect(encodeTest.running).toBe(true);
+    expect(sampledEncode.startTime).toBe(10);
+    expect(sampledEncode.running).toBe(true);
     expect(ui.stopButton.style.display).toBe("");
     expect(ui.note.textContent).toBe("Encoding test segment…");
     expect(run.encodeWindows.mock.calls[0].slice(0, 2)).toEqual([cli, cutInputs(windows)]);
@@ -405,7 +405,7 @@ describe("running the command on a sample", () => {
     expect(ui.fill.style.width).toBe("100%");
     expect(ui.fill.classList.contains("done")).toBe(true);
     expect(ui.note.textContent).toBe("");
-    expect(encodeTest.running).toBe(false);
+    expect(sampledEncode.running).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.stopButton.style.display).toBe("none");
   });
@@ -426,7 +426,7 @@ describe("running the command on a sample", () => {
     // Nothing to show the length of, so the bar goes rather than freezing part-way.
     expect(ui.progress.style.display).toBe("none");
     expect(run.loadEncodedIntoAB).not.toHaveBeenCalled();
-    expect(encodeTest.running).toBe(false);
+    expect(sampledEncode.running).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
   });
 
@@ -439,7 +439,7 @@ describe("running the command on a sample", () => {
     expect(ui.stopButton.disabled).toBe(false);
 
     ui.stopButton.click();
-    expect(encodeTest.cancelRequested).toBe(true);
+    expect(sampledEncode.cancelRequested).toBe(true);
     expect(ui.stopButton.disabled).toBe(true);
     expect(ui.note.textContent).toBe("Stopping…");
 
@@ -452,7 +452,7 @@ describe("running the command on a sample", () => {
     expect(ui.note.textContent).toBe("Stopped.");
     expect(ui.progress.style.display).toBe("none");
     expect(run.loadEncodedIntoAB).not.toHaveBeenCalled();
-    expect(encodeTest.running).toBe(false);
+    expect(sampledEncode.running).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.stopButton.style.display).toBe("none");
   });
@@ -461,7 +461,7 @@ describe("running the command on a sample", () => {
   it("waits for a sweep on the Compare Quality tab rather than running beside it", async () => {
     const panel = renderTab();
     const ui = sampleRun(panel);
-    encodeTest.running = true;
+    sampledEncode.running = true;
     ui.runButton.click();
     await flush();
 

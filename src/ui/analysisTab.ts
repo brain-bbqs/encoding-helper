@@ -31,8 +31,8 @@ import {
   fmtBits,
   fmtDur,
   fmtMs,
-  fmtRate,
   fmtSizeChangePct,
+  NO_VALUE,
 } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
@@ -43,12 +43,13 @@ import {
   comboKey,
   describeQuality,
   describeResolutionChange,
+  isMeasured,
   matrixAxes,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
-import { audioTrackInfo, cli, currentVideoInfo, encodeTest, state, videoTrackInfo } from "../lib/state";
+import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
 import { describeSampledStretches } from "./abPanel";
@@ -69,11 +70,11 @@ const DOCUMENT_WIDTH_PX = 772;
 /** The headline strip under the document title: what the file is, in one line. */
 function headlineFacts(): [string, string][] {
   const vt = videoTrackInfo();
-  const facts: [string, string][] = [["Container", state.format || "–"]];
+  const facts: [string, string][] = [["Container", state.format || NO_VALUE]];
   if (vt) {
     facts.push(["Video Codec", vt.codecString || vt.codec]);
     facts.push(["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`]);
-    if (vt.packetRate != null) facts.push(["Frame Rate", fmtRate(vt.packetRate) + " fps"]);
+    if (vt.packetRate != null) facts.push(["Frame Rate", describeFrameRate(vt.packetRate)]);
   }
   facts.push(["Duration", fmtDur(state.duration)], ["File Size", fmtBytes(state.source?.size)]);
   return facts;
@@ -100,7 +101,7 @@ function overviewSection(): AnalysisSection {
           ["File Size", fmtBytes(state.source?.size)],
           ["Duration", fmtDur(state.duration)],
           ["Overall Bitrate", fmtBits(fileBitrate)],
-          ["MIME Type", state.mimeType || "–"],
+          ["MIME Type", state.mimeType || NO_VALUE],
         ],
       },
     ],
@@ -168,8 +169,8 @@ function bitrateSection(vt: TrackInfo): AnalysisSection {
 function audioTrackSection(at: TrackInfo): AnalysisSection {
   const items: [string, string | number][] = [
     ["Codec", at.codecString || at.codec],
-    ["Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : "–"],
-    ["Channels", at.channels != null ? at.channels : "–"],
+    ["Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : NO_VALUE],
+    ["Channels", at.channels != null ? at.channels : NO_VALUE],
     ["Bitrate", fmtBits(at.bitrate)],
   ];
   if (at.codecInfo) at.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
@@ -224,7 +225,7 @@ function gopSection(): AnalysisSection | null {
         ["Total Frames", state.samples.length.toLocaleString()],
         ["Keyframes", state.keyframeDecodeIndices.length.toLocaleString()],
         ["Avg GOP", describeAvgGop(avgGop, fps)],
-        ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : "–"],
+        ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : NO_VALUE],
       ],
     },
     {
@@ -274,22 +275,22 @@ function cliCommandSection(): AnalysisSection | null {
 }
 
 function compareSection(): AnalysisSection | null {
-  if (!encodeTest.originalSink || !encodeTest.abSegments.length) return null;
+  if (!sampledEncode.originalSink || !sampledEncode.abSegments.length) return null;
   // The settings the loaded encode was made with: after a matrix sweep that is the winning square's,
   // which is not what the command builder says.
-  const settings = encodeTest.activeCombo ?? cliSettings(cli);
+  const settings = sampledEncode.activeCombo ?? cliSettings(cli);
   const items: [string, string | number][] = [
     ["Segment", describeSampledStretches()],
     ["Quality", describeQuality(settings)],
     ["Preset", settings.preset],
-    ["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)],
   ];
   // Only when it is not the source's: a resolution row reading "100%" on every document would say
   // nothing, but a comparison made at half resolution is not comparable to one that was not.
   const vt = videoTrackInfo();
   if (isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight) {
-    items.splice(3, 0, ["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
+    items.push(["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
   }
+  items.push(["Encoded Segment Size", fmtBytes(sampledEncode.encodedSize)]);
 
   const est = currentSizeEstimate();
   if (est) {
@@ -314,9 +315,9 @@ function compareSection(): AnalysisSection | null {
 
 /** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */
 function matrixSection(): AnalysisSection | null {
-  const cells = encodeTest.matrix.cells.filter((c) => c.status === "done" && c.bytes != null);
+  const cells = sampledEncode.matrix.cells.filter(isMeasured);
   if (!cells.length) return null;
-  const best = bestReductionCell(encodeTest.matrix.cells);
+  const best = bestReductionCell(sampledEncode.matrix.cells);
   const { qualities, presets, scales, scalers } = matrixAxes(cells);
   const byKey = new Map(cells.map((c) => [c.combo.key, c]));
   // A document has no row groups to nest resolution into, so when the sweep covered more than one
@@ -332,7 +333,7 @@ function matrixSection(): AnalysisSection | null {
           ...head,
           ...presets.map((preset) => {
             const cell = byKey.get(comboKey(quality, preset, scale, scaler));
-            if (!cell) return "–";
+            if (!cell) return NO_VALUE;
             const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
             const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
             return `${fmtBytes(cell.bytes)}${took}${mark}`;
@@ -433,8 +434,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   sec.append(actions);
   panel.append(sec);
 
-  const frame = document.createElement("iframe");
-  frame.className = "doc-preview";
+  const frame = h("iframe", "doc-preview");
   frame.id = "analysisDoc";
   frame.title = `Full analysis of ${state.source.name}`;
   panel.append(frame);

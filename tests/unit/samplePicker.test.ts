@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetCliDefaults } from "../fixtures/state";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
-import { encodeTest, state } from "../../src/lib/state";
+import { sampledEncode, state } from "../../src/lib/state";
 import { samplePicker } from "../../src/ui/samplePicker";
 import { deferred, flush } from "./helpers/async";
 
@@ -88,7 +88,7 @@ describe("samplePicker", () => {
   });
 
   it("draws the band over the seconds the run will encode", () => {
-    encodeTest.sampleStart = 20;
+    sampledEncode.sampleStart = 20;
     const { band } = picker();
     expect(band.style.left).toBe("20%");
     expect(parseFloat(band.style.width)).toBeCloseTo((SAMPLE_SECONDS / TOTAL) * 100, 3);
@@ -122,13 +122,13 @@ describe("samplePicker", () => {
 
   it("reports the keyframe the cut will actually be made at, not the second asked for", () => {
     state.keyframeTimestampsSec = [0, 10, 20, 30];
-    encodeTest.sampleStart = 25;
+    sampledEncode.sampleStart = 25;
     expect(picker().window()).toEqual({ startSeconds: 20, seconds: SAMPLE_SECONDS });
   });
 
   it("takes the second asked for when the file has no keyframe before it", () => {
     state.keyframeTimestampsSec = [30];
-    encodeTest.sampleStart = 10;
+    sampledEncode.sampleStart = 10;
     expect(picker().window().startSeconds).toBe(10);
   });
 
@@ -137,19 +137,19 @@ describe("samplePicker", () => {
     stubTrackWidth(p.track);
     // Half way along a 400px track: 50 s, less half the window.
     pointer(p.track, "pointerdown", 250);
-    expect(encodeTest.sampleStart).toBe(50 - SAMPLE_SECONDS / 2);
+    expect(sampledEncode.sampleStart).toBe(50 - SAMPLE_SECONDS / 2);
     expect(p.band.classList.contains("dragging")).toBe(true);
   });
 
   it("slides the band from wherever it was grabbed, rather than jumping under the pointer", () => {
-    encodeTest.sampleStart = 20;
+    sampledEncode.sampleStart = 20;
     const p = picker();
     stubTrackWidth(p.track);
     // Grabbed 5 s into a band that starts at 20 s, then dragged 10 s to the right.
     pointer(p.track, "pointerdown", 50 + 100, p.band);
-    expect(encodeTest.sampleStart).toBe(20);
+    expect(sampledEncode.sampleStart).toBe(20);
     pointer(p.track, "pointermove", 50 + 140);
-    expect(encodeTest.sampleStart).toBe(30);
+    expect(sampledEncode.sampleStart).toBe(30);
   });
 
   it("stops following the pointer once it is released", () => {
@@ -157,11 +157,11 @@ describe("samplePicker", () => {
     stubTrackWidth(p.track);
     pointer(p.track, "pointerdown", 250);
     pointer(p.track, "pointerup", 250);
-    const settled = encodeTest.sampleStart;
+    const settled = sampledEncode.sampleStart;
 
     pointer(p.track, "pointermove", 350);
 
-    expect(encodeTest.sampleStart).toBe(settled);
+    expect(sampledEncode.sampleStart).toBe(settled);
     expect(p.band.classList.contains("dragging")).toBe(false);
   });
 
@@ -169,36 +169,36 @@ describe("samplePicker", () => {
     const p = picker();
     stubTrackWidth(p.track, 0);
     pointer(p.track, "pointerdown", 250);
-    expect(encodeTest.sampleStart).toBe(0);
+    expect(sampledEncode.sampleStart).toBe(0);
   });
 
   it("walks the window with the arrow keys, a coarser step with Shift", () => {
-    encodeTest.sampleStart = 20;
+    sampledEncode.sampleStart = 20;
     const { band } = picker();
 
     key(band, "ArrowRight");
-    expect(encodeTest.sampleStart).toBe(21);
+    expect(sampledEncode.sampleStart).toBe(21);
     key(band, "ArrowLeft");
-    expect(encodeTest.sampleStart).toBe(20);
+    expect(sampledEncode.sampleStart).toBe(20);
     key(band, "ArrowRight", true);
-    expect(encodeTest.sampleStart).toBe(30);
+    expect(sampledEncode.sampleStart).toBe(30);
     key(band, "ArrowLeft", true);
-    expect(encodeTest.sampleStart).toBe(20);
+    expect(sampledEncode.sampleStart).toBe(20);
   });
 
   it("jumps to either end of the file, and stops there", () => {
-    encodeTest.sampleStart = 20;
+    sampledEncode.sampleStart = 20;
     const { band } = picker();
 
     key(band, "Home");
-    expect(encodeTest.sampleStart).toBe(0);
+    expect(sampledEncode.sampleStart).toBe(0);
     key(band, "ArrowLeft");
-    expect(encodeTest.sampleStart).toBe(0);
+    expect(sampledEncode.sampleStart).toBe(0);
 
     key(band, "End");
-    expect(encodeTest.sampleStart).toBe(TOTAL - SAMPLE_SECONDS);
+    expect(sampledEncode.sampleStart).toBe(TOTAL - SAMPLE_SECONDS);
     key(band, "ArrowRight");
-    expect(encodeTest.sampleStart).toBe(TOTAL - SAMPLE_SECONDS);
+    expect(sampledEncode.sampleStart).toBe(TOTAL - SAMPLE_SECONDS);
   });
 
   it("leaves any other key to the browser", () => {
@@ -210,7 +210,7 @@ describe("samplePicker", () => {
 
   it("shows the frame the window starts on", async () => {
     state.keyframeTimestampsSec = [0, 30];
-    encodeTest.sampleStart = 40;
+    sampledEncode.sampleStart = 40;
     const p = picker();
 
     await vi.waitFor(() => expect(p.el.querySelector(".sample-preview-wrap")!.classList).toContain("has-frame"));
@@ -285,6 +285,6 @@ describe("samplePicker", () => {
       expect(p.note.textContent).toBe("This browser will not decode the video, so there is no preview to scan."),
     );
     key(p.band, "End");
-    expect(encodeTest.sampleStart).toBe(TOTAL - SAMPLE_SECONDS);
+    expect(sampledEncode.sampleStart).toBe(TOTAL - SAMPLE_SECONDS);
   });
 });

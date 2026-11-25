@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.7
+
+#### 🏠 Internal
+
+- Replaced repeated code with shared helpers and renamed code left over from removed tabs and encoders; the app looks and works the same ([#78](https://github.com/brain-bbqs/encoding-helper/pull/78))
+
 ## 1.5.6
 
 #### 🏠 Internal

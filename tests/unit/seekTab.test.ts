@@ -41,7 +41,7 @@ vi.mock("../../src/lib/mediabunny", () => {
   };
 });
 
-const { renderGopHistogram, renderSeekScatter, renderSeekTab } = await import("../../src/ui/seekTab");
+const { renderGopHistogram, renderSeekScatter, renderGopStructure } = await import("../../src/ui/seekTab");
 
 /** Stands in for the loaded file's decodable track; the stub never reads it. */
 const VIDEO_TRACK = { id: "video" } as unknown as InputVideoTrack;
@@ -62,7 +62,7 @@ function renderTab(): HTMLElement {
   document.body.append(errorMsg);
   const panel = document.createElement("div");
   document.body.append(panel);
-  renderSeekTab(panel);
+  renderGopStructure(panel);
   return panel;
 }
 
@@ -266,7 +266,7 @@ describe("the seeking test run", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const panel = document.createElement("div");
     document.body.append(panel);
-    renderSeekTab(panel);
+    renderGopStructure(panel);
     await run(panel, "5");
     expect(panel.querySelector<HTMLButtonElement>("#runSeekBtn")!.disabled).toBe(false);
   });
@@ -440,7 +440,7 @@ describe("renderGopHistogram", () => {
   });
 });
 
-describe("renderSeekTab", () => {
+describe("renderGopStructure", () => {
   it("prints the keyframe structure of the loaded file above the test", () => {
     state.samples = Array.from({ length: 90 }, () => sample(0, 1));
     state.keyframeDecodeIndices = [0, 30, 60];

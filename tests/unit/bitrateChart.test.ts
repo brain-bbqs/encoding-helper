@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evenSamples, sample } from "../fixtures/samples";
 import { computeBitrateTimeline } from "../../src/lib/bitrateTimeline";
-import type { SampleInfo } from "../../src/lib/types";
 import { niceAxisMax, renderBitrateChart } from "../../src/ui/bitrateChart";
-
-function samples(count: number, durationSec: number, size: (i: number) => number): SampleInfo[] {
-  return evenSamples(count, durationSec, size);
-}
 
 describe("niceAxisMax", () => {
   it("rounds up to a top that divides into round ticks", () => {
@@ -34,7 +29,7 @@ describe("niceAxisMax", () => {
 
 describe("renderBitrateChart", () => {
   const timeline = computeBitrateTimeline(
-    samples(600, 30, (i) => (i < 300 ? 1_000 : 5_000)),
+    evenSamples(600, 30, (i) => (i < 300 ? 1_000 : 5_000)),
     30,
   )!;
 
@@ -80,7 +75,7 @@ function xTicks(svg: SVGSVGElement): (string | null)[] {
 describe("renderBitrateChart vertical axis", () => {
   // 600 frames over 30 s is 20 fps, so a frame of `bytes` reads as 160 × bytes bps.
   const chartOf = (bytes: (i: number) => number, count = 600, durationSec = 30): SVGSVGElement =>
-    renderBitrateChart(computeBitrateTimeline(samples(count, durationSec, bytes), durationSec)!);
+    renderBitrateChart(computeBitrateTimeline(evenSamples(count, durationSec, bytes), durationSec)!);
 
   it("reads in megabits once the axis top reaches a million", () => {
     const svg = chartOf(() => 100_000);
@@ -128,7 +123,7 @@ describe("renderBitrateChart time axis", () => {
   const chartOf = (durationSec: number): SVGSVGElement =>
     renderBitrateChart(
       computeBitrateTimeline(
-        samples(durationSec * 20, durationSec, () => 1_000),
+        evenSamples(durationSec * 20, durationSec, () => 1_000),
         durationSec,
       )!,
     );

@@ -42,6 +42,12 @@ export function rulerMarks(totalSeconds: number): RulerMark[] {
   return marks;
 }
 
+/** The class that aligns a ruler label `left` percent along its track inwards when it sits within
+ * 2% of either end, with its leading space; empty in between, where the label centres. */
+export function rulerEdgeClass(left: number): string {
+  return left < 2 ? " at-start" : left > 98 ? " at-end" : "";
+}
+
 /**
  * A window start held inside the recording.
  *

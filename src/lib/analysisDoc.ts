@@ -192,6 +192,7 @@ const ANALYSIS_DOC_CSS = `
   --card: #ffffff;
   --sunken: #f2f4fa;
   --page: #f6f7fb;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 body {
@@ -287,13 +288,13 @@ a { color: var(--accent); }
   color: var(--faint);
   margin-bottom: 2px;
 }
-.grid .item label.raw { text-transform: none; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.grid .item label.raw { text-transform: none; font-family: var(--mono); }
 .grid .item .val { font-size: 16px; font-weight: 600; color: var(--accent); word-break: break-word; }
 .grid .item .val.sm {
   font-size: 12.5px;
   font-weight: 400;
   color: var(--ink);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: var(--mono);
 }
 .badge-row { margin: 10px 0; }
 .badge {
@@ -312,7 +313,7 @@ pre.cmd {
   border-radius: 6px;
   padding: 12px 14px;
   margin: 10px 0;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -348,7 +349,7 @@ table.data th {
   min-width: 3px;
   background: var(--fam);
   color: var(--fam-ink);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 11px;
   line-height: 22px;
   box-shadow: inset -2px 0 0 var(--card);
@@ -379,7 +380,7 @@ table.data th {
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
-.legend-label { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); }
+.legend-label { font-family: var(--mono); color: var(--ink); }
 .hist { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
 .hist .bar {
   flex: 1;

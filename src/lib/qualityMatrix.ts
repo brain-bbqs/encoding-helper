@@ -28,7 +28,7 @@ import {
   scaledDimensions,
   scalePercent,
 } from "./cliCommand";
-import { fmtRate } from "./format";
+import { describeFrameRate } from "./format";
 import type { CliState, EncodeSettings, MatrixCell, MatrixCombo, MatrixQuality, Scaler, X264Preset } from "./types";
 
 /** The quality dropdown's named entries, best picture first. "custom" is a single arbitrary CRF, so
@@ -135,9 +135,9 @@ export function comboCrf(quality: MatrixQuality): number {
  * and its kernel join it only when something was actually resampled, since at the source's
  * resolution the kernel names a choice that had no effect. */
 export function describeSettings(settings: EncodeSettings): string {
-  const base = `${settings.quality} (CRF ${settings.crf}), ${settings.preset}`;
+  const base = `${describeQuality(settings)}, ${settings.preset}`;
   const scaled = isDownscale(settings.scale) ? `${base}, ${scalePercent(settings.scale)} ${settings.scaler}` : base;
-  return settings.fps ? `${scaled}, ${fmtRate(settings.fps)} fps` : scaled;
+  return settings.fps ? `${scaled}, ${describeFrameRate(settings.fps)}` : scaled;
 }
 
 /** The quality as the A/B summary and the document name it: the preset, or "Custom", with its CRF. */
@@ -231,6 +231,24 @@ export function makeMatrixCells(combos: MatrixCombo[]): MatrixCell[] {
   }));
 }
 
+/** A square encoded (or read back from the cache) with its size in hand. */
+export function isMeasured(cell: MatrixCell): cell is MatrixCell & { bytes: number } {
+  return cell.status === "done" && cell.bytes != null;
+}
+
+/**
+ * A square a sweep left without a size: it failed, or Stop never reached it. Not the complement of
+ * isMeasured, since a square still queued or encoding is neither.
+ */
+export function isUnmeasured(cell: MatrixCell): boolean {
+  return cell.status === "failed" || cell.status === "skipped";
+}
+
+/** A square the sweep is through with: done, or failed. Not one queued, encoding or skipped by Stop. */
+export function hasRun(cell: MatrixCell): boolean {
+  return cell.status === "done" || cell.status === "failed";
+}
+
 /** The axes a set of cells actually covers, so a results table is drawn from the run rather than
  * from whatever the checkboxes have been changed to since. */
 export function matrixAxes(cells: MatrixCell[]): {
@@ -273,7 +291,7 @@ export function matrixCliState(base: CliState, combo: MatrixCombo): CliState {
 export function bestReductionCell(cells: MatrixCell[]): MatrixCell | null {
   let best: MatrixCell | null = null;
   for (const cell of cells) {
-    if (cell.status !== "done" || cell.bytes == null || !(cell.bytes > 0)) continue;
+    if (!isMeasured(cell) || !(cell.bytes > 0)) continue;
     if (!best || beatsForReduction(cell, best)) best = cell;
   }
   return best;
@@ -289,8 +307,9 @@ function beatsForReduction(cell: MatrixCell, best: MatrixCell): boolean {
   return MATRIX_PRESETS.indexOf(cell.combo.preset) < MATRIX_PRESETS.indexOf(best.combo.preset);
 }
 
-/** What one cell's held stretches come to, when the sweep's own figure for them has been lost. */
-function heldBytes(blobs: Blob[]): number {
+/** What a run's encoded stretches come to, added up from the blobs: for when the run's own figure
+ * for them is not at hand. */
+export function heldBytes(blobs: Blob[]): number {
   return blobs.reduce((sum, blob) => sum + blob.size, 0);
 }
 
@@ -318,7 +337,7 @@ export function evictBeyondBudget(cells: MatrixCell[], budgetBytes: number, keep
   if (total <= budgetBytes) return [];
   const held = cells
     .filter((c) => c.blobs != null && c.combo.key !== keepKey)
-    .sort((a, b) => (b.bytes ?? 0) - (a.bytes ?? 0));
+    .sort((a, b) => heldCellBytes(b) - heldCellBytes(a));
   const evicted: string[] = [];
   for (const cell of held) {
     if (total <= budgetBytes) break;

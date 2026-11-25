@@ -24,7 +24,7 @@ import {
   TOO_FEW_FRAMES_NOTE,
   VIDEO_AVERAGE_INFO,
 } from "../lib/explainers";
-import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur } from "../lib/format";
+import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
 import { describeMetadataTag, describeMetadataTagValue, type MetadataTagInfo } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { audioTrackInfo, state, videoTrackInfo } from "../lib/state";
@@ -95,7 +95,7 @@ function renderOverviewSection(): HTMLDivElement {
     gridItem("File Size", fmtBytes(state.source?.size)),
     gridItem("Duration", fmtDur(state.duration)),
     gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
-    gridItem("MIME Type", state.mimeType || "–", { sm: true, info: MIME_TYPE_INFO }),
+    gridItem("MIME Type", state.mimeType || NO_VALUE, { sm: true, info: MIME_TYPE_INFO }),
   );
   overview.append(og);
   // The figures first, then what they mean: the container-vs-codec distinction, and what this
@@ -218,8 +218,8 @@ function renderAudioTrackSection(): HTMLDivElement | null {
   const g = h("div", "grid");
   g.append(
     gridItem("Codec", at.codecString || at.codec, { sm: true }),
-    gridItem("Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : "–"),
-    gridItem("Channels", at.channels != null ? at.channels : "–"),
+    gridItem("Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : NO_VALUE),
+    gridItem("Channels", at.channels != null ? at.channels : NO_VALUE),
     gridItem("Bitrate", fmtBits(at.bitrate), { info: AUDIO_BITRATE_INFO }),
   );
   if (at.codecInfo) at.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));

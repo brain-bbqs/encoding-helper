@@ -1,6 +1,7 @@
 // CLI command builder: single source of truth, shared by the displayed command AND the args fed to
 // ffmpeg.wasm.
 
+import { FALLBACK_FPS } from "./format";
 import type { CliState, MatrixQuality, Scaler, VideoInfo } from "./types";
 
 export const CRF_MAP: Record<MatrixQuality, number> = {
@@ -93,7 +94,7 @@ export function encodedFileName(sourceFormat: string | null | undefined, base = 
 }
 
 export function buildFfmpegArgs(cliState: CliState, info: VideoInfo, inName?: string, outName?: string): string[] {
-  const fps = cliState.fps || info.fps || 30;
+  const fps = cliState.fps || info.fps || FALLBACK_FPS;
   const gop = computeGop(cliState, fps);
   const crf = effectiveCrf(cliState);
   const args = [

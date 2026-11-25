@@ -8,17 +8,14 @@
 // every tab, matching how the theme toggle works, and the icon in front of it is the same icon used
 // to mark the "Learn more about codec parameters" goal in the subtitle.
 
+import { readStorageItem, writeStorageItem } from "@brain-bbqs/utils";
 import { readEducationalFromUrl, writeEducationalToUrl } from "./appUrl";
 
 const EDUCATIONAL_KEY = "encoding-helper.educational";
 
 function readStored(): boolean {
-  try {
-    const raw = localStorage.getItem(EDUCATIONAL_KEY);
-    return raw === null ? true : raw === "true";
-  } catch {
-    return true;
-  }
+  const raw = readStorageItem(EDUCATIONAL_KEY);
+  return raw === null ? true : raw === "true";
 }
 
 let educational = readEducationalFromUrl() ?? readStored();
@@ -38,12 +35,10 @@ export function onEducationalChange(fn: Listener): void {
 export function setEducationalEnabled(on: boolean): void {
   if (on === educational) return;
   educational = on;
-  try {
-    localStorage.setItem(EDUCATIONAL_KEY, String(on));
-  } catch {
-    // Same best-effort handling as the theme toggle: a full localStorage or a privacy mode that
-    // blocks it just means the choice doesn't survive a reload.
-  }
+  writeStorageItem(EDUCATIONAL_KEY, String(on), () => {
+    // Silent, where the theme toggle warns: a full localStorage or a privacy mode that blocks it
+    // just means the choice doesn't survive a reload.
+  });
   // Replaces rather than pushing a history entry: flipping the switch is a preference change, not a
   // place in the app to walk back to with the browser's back button (matches writeSrcToUrl).
   writeEducationalToUrl(on);

@@ -145,3 +145,8 @@ export function nearestKeyframeAtOrBefore(keyframeTimestampsSec: number[], t: nu
   }
   return ans;
 }
+
+/** The keyframe at or before `t`, or `t` itself when there is none: no table, or `t` before the first. */
+export function snapToKeyframe(keyframeTimestampsSec: number[], t: number): number {
+  return nearestKeyframeAtOrBefore(keyframeTimestampsSec, t) ?? t;
+}

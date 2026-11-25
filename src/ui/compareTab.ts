@@ -9,8 +9,8 @@
 import { errorMessage } from "@brain-bbqs/utils";
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { button, h } from "@brain-bbqs/ui";
-import { cmdBlock, infoIcon, section } from "../lib/dom";
-import { fmtRate } from "../lib/format";
+import { cmdBlock, section } from "../lib/dom";
+import { describeFrameRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
 import {
@@ -19,6 +19,9 @@ import {
   describeSettings,
   evictBeyondBudget,
   fpsForFraction,
+  hasRun,
+  heldBytes,
+  isUnmeasured,
   makeMatrixCells,
   MATRIX_FPS_FRACTIONS,
   MATRIX_PRESETS,
@@ -30,17 +33,18 @@ import {
   matrixProgress,
 } from "../lib/qualityMatrix";
 import { drainWithPool } from "../lib/ffmpegPool";
-import { cli, currentVideoInfo, encodeTest, state, videoTrackInfo } from "../lib/state";
+import { cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import { estimateForWindows, type SizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
 import type { MatrixCell, MatrixCombo, MatrixQuality, SampleWindow, Scaler, TrackInfo, X264Preset } from "../lib/types";
 import { loadEncodedIntoAB, onAbDisplaced } from "./abPanel";
-import { finishFill, logLine } from "./formControls";
+import { fieldHead, finishFill, logLine } from "./formControls";
 import { renderMatrixSummary, renderMatrixTable } from "./matrixPanel";
 import {
   acquireWorkers,
   dropWholeFileInput,
   encodeWindows,
   endRunUi,
+  onRunPress,
   prepareRun,
   reportRunFailure,
   runControls,
@@ -68,7 +72,7 @@ let matrixSettingsOpen = false;
 
 /** What the ticked axes come to, as the settings bar says it: the factors, and the runs they multiply to. */
 function axisCountLabel(): string {
-  const { qualities, presets, scales, scalers, fpsFractions } = encodeTest.matrix;
+  const { qualities, presets, scales, scalers, fpsFractions } = sampledEncode.matrix;
   // The three outer axes are left out at one value each, where they multiply the sweep by one and
   // saying so would only make the bar longer.
   const counts = [qualities.length, presets.length];
@@ -129,9 +133,9 @@ export function renderCompareTab(panel: HTMLElement): void {
     axisCheckboxes(
       "Quality levels",
       MATRIX_QUALITIES.map((q) => ({ value: q, label: q })),
-      encodeTest.matrix.qualities,
+      sampledEncode.matrix.qualities,
       (values) => {
-        encodeTest.matrix.qualities = values as MatrixQuality[];
+        sampledEncode.matrix.qualities = values as MatrixQuality[];
         onAxisChange();
       },
     ),
@@ -140,9 +144,9 @@ export function renderCompareTab(panel: HTMLElement): void {
     axisCheckboxes(
       "x264 presets",
       MATRIX_PRESETS.map((p) => ({ value: p, label: p })),
-      encodeTest.matrix.presets,
+      sampledEncode.matrix.presets,
       (values) => {
-        encodeTest.matrix.presets = values as X264Preset[];
+        sampledEncode.matrix.presets = values as X264Preset[];
         onAxisChange();
       },
       X264_PRESET_INFO,
@@ -155,9 +159,9 @@ export function renderCompareTab(panel: HTMLElement): void {
     axisCheckboxes(
       "Resolutions",
       MATRIX_SCALES.map((s) => ({ value: String(s), label: describeScale(s, currentVideoInfo()) })),
-      encodeTest.matrix.scales.map(String),
+      sampledEncode.matrix.scales.map(String),
       (values) => {
-        encodeTest.matrix.scales = values.map(Number);
+        sampledEncode.matrix.scales = values.map(Number);
         onAxisChange();
       },
       RESOLUTION_INFO,
@@ -168,9 +172,9 @@ export function renderCompareTab(panel: HTMLElement): void {
     axisCheckboxes(
       "Scalers",
       MATRIX_SCALERS.map((s) => ({ value: s, label: s })),
-      encodeTest.matrix.scalers,
+      sampledEncode.matrix.scalers,
       (values) => {
-        encodeTest.matrix.scalers = values as Scaler[];
+        sampledEncode.matrix.scalers = values as Scaler[];
         onAxisChange();
       },
       SCALER_INFO,
@@ -180,9 +184,9 @@ export function renderCompareTab(panel: HTMLElement): void {
     axisCheckboxes(
       "Frame rates",
       MATRIX_FPS_FRACTIONS.map((f) => ({ value: String(f), label: describeFpsFraction(f) })),
-      encodeTest.matrix.fpsFractions.map(String),
+      sampledEncode.matrix.fpsFractions.map(String),
       (values) => {
-        encodeTest.matrix.fpsFractions = values.map(Number);
+        sampledEncode.matrix.fpsFractions = values.map(Number);
         onAxisChange();
       },
       FRAME_RATE_INFO,
@@ -214,7 +218,7 @@ export function renderCompareTab(panel: HTMLElement): void {
   // A single run started on the other tab takes the A/B window over, so no square is showing here
   // anymore and the command under it is no longer the command for what is on screen.
   onAbDisplaced(resultSec, () => {
-    encodeTest.matrix.selectedKey = null;
+    sampledEncode.matrix.selectedKey = null;
     repaintMatrix(vt, ui);
   });
 
@@ -222,21 +226,11 @@ export function renderCompareTab(panel: HTMLElement): void {
   // window survive the panel being rebuilt.
   repaintMatrix(vt, ui);
 
-  ui.runButton.addEventListener("click", () => {
-    // Disabled here as well as by the run itself, so a second click cannot land in the gap before
-    // the run has started.
-    ui.runButton.disabled = true;
+  onRunPress(ui, () => {
     // A grid with holes in it is what the one button offers to fill: sweeping the whole thing
     // again would re-encode everything that already worked.
     const unmeasured = unmeasuredCells();
-    const run = (): Promise<void> => (unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui));
-    // A run puts the button back itself when it ends; this is for the presses that never start
-    // one, such as a sweep with nothing ticked to sweep.
-    void run().finally(() => {
-      if (encodeTest.running) return;
-      ui.runButton.disabled = false;
-      ui.syncRunAction();
-    });
+    return unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui);
   });
 }
 
@@ -250,11 +244,8 @@ function axisCheckboxes(
   listClass?: string,
 ): HTMLDivElement {
   const field = h("div", "field");
-  const head = h("div", "field-head");
-  head.append(h("label", "field-label", label));
   // The same ⓘ the dropdown carries, since the sweep is over exactly what the dropdown sets.
-  if (info) head.append(infoIcon(info, `About ${label}`));
-  field.append(head);
+  field.append(fieldHead(label, info));
   const list = h("div", listClass ? `axis-list ${listClass}` : "axis-list");
   const boxes: HTMLInputElement[] = [];
   for (const opt of options) {
@@ -274,7 +265,7 @@ function axisCheckboxes(
 
 /** The squares a sweep left without a size: the ones that failed, and the ones Stop never reached. */
 function unmeasuredCells(): MatrixCell[] {
-  return encodeTest.matrix.cells.filter((c) => c.status === "failed" || c.status === "skipped");
+  return sampledEncode.matrix.cells.filter(isUnmeasured);
 }
 
 /**
@@ -289,8 +280,8 @@ function unmeasuredCells(): MatrixCell[] {
  * what is ticked or it is resuming into the wrong shape.
  */
 function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
-  const matrix = encodeTest.matrix;
-  if (matrix.running || encodeTest.running || !unmeasuredCells().length) return;
+  const matrix = sampledEncode.matrix;
+  if (matrix.running || sampledEncode.running || !unmeasuredCells().length) return;
   const combos = tickedCombos();
   const keys = new Set(combos.map((c) => c.key));
   if (combos.length === matrix.cells.length && matrix.cells.every((c) => keys.has(c.combo.key))) return;
@@ -317,8 +308,8 @@ function runActionLabel(): string {
  * grid is to find out what this file and this browser can actually do.
  */
 async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  if (encodeTest.running) return;
-  const matrix = encodeTest.matrix;
+  if (sampledEncode.running) return;
+  const matrix = sampledEncode.matrix;
   const combos = tickedCombos();
   if (!combos.length) {
     ui.note.textContent = "Tick at least one quality level and one preset first.";
@@ -330,9 +321,9 @@ async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
   // sweep for the same reason squared: two squares measured over different stretches of video are
   // not comparable, which is the only thing the grid is for.
   matrix.windows = await sweepWindows();
-  encodeTest.sampled = matrix.windows;
-  matrix.segmentStart = matrix.windows[0]?.startSeconds ?? encodeTest.startTime;
-  matrix.segmentLength = encodeTest.duration;
+  sampledEncode.sampled = matrix.windows;
+  matrix.segmentStart = matrix.windows[0]?.startSeconds ?? sampledEncode.startTime;
+  matrix.segmentLength = sampledEncode.duration;
   matrix.selectedKey = null;
   await encodeCells(matrix.cells, vt, ui);
 }
@@ -354,11 +345,11 @@ async function sweepWindows(): Promise<SampleWindow[]> {
   // fields ask for, so anything else is a fresh random draw, which is exactly when an earlier
   // run's stretches are worth taking up instead.
   const remembered =
-    fresh !== encodeTest.sampled && checksum
-      ? await matrixCache.recallWindows(checksum, encodeTest.duration, encodeTest.segments)
+    fresh !== sampledEncode.sampled && checksum
+      ? await matrixCache.recallWindows(checksum, sampledEncode.duration, sampledEncode.segments)
       : null;
   const windows = remembered ?? fresh;
-  if (checksum) matrixCache.rememberWindows(checksum, encodeTest.duration, encodeTest.segments, windows);
+  if (checksum) matrixCache.rememberWindows(checksum, sampledEncode.duration, sampledEncode.segments, windows);
   return windows;
 }
 
@@ -436,9 +427,8 @@ let activeQueue: MatrixCell[] | null = null;
 
 /** Puts a failed square back in the running sweep's queue, to be re-encoded when it is reached. */
 function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
-  if (!activeQueue || (cell.status !== "failed" && cell.status !== "skipped")) return;
-  cell.status = "pending";
-  cell.error = null;
+  if (!activeQueue || !isUnmeasured(cell)) return;
+  markPending(cell);
   activeQueue.push(cell);
   logLine(ui.log, `Queued a retry of ${describeSettings(cell.combo)}`, "info");
   repaint();
@@ -446,12 +436,15 @@ function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
 
 /** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
 async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  if (encodeTest.running) return;
-  for (const cell of cells) {
-    cell.status = "pending";
-    cell.error = null;
-  }
+  if (sampledEncode.running) return;
+  cells.forEach(markPending);
   await encodeCells(cells, vt, ui);
+}
+
+/** Puts a square back in line to be encoded, clearing what its last attempt failed with. */
+function markPending(cell: MatrixCell): void {
+  cell.status = "pending";
+  cell.error = null;
 }
 
 /** Writes a square's measurement onto it, whether just encoded or read back from the cache. */
@@ -487,7 +480,7 @@ function sweepNote(progress: ReturnType<typeof matrixProgress>): string {
  * as its neighbours were.
  */
 async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  const matrix = encodeTest.matrix;
+  const matrix = sampledEncode.matrix;
   matrix.running = true;
   activeQueue = queue;
   const fill = startRunUi(ui);
@@ -518,7 +511,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
       // A stopped run leaves the bar where it got to instead of creeping on as the last cores
       // unwind: the figures it would show are of a sweep that is no longer happening.
       if (stopRequested()) return;
-      const finished = queue.filter((c) => c.status === "done" || c.status === "failed").length;
+      const finished = queue.filter(hasRun).length;
       const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
       if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
       // Whatever phase wrote there last ("Loading ffmpeg.wasm…") is over once squares are being
@@ -533,7 +526,8 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
       ui.note.textContent = "Loading ffmpeg.wasm…";
       const workers = acquireWorkers(pending.length);
       await workers[0].load();
-      inputs = await prepareRun(matrixWindows(), workers, ui);
+      const prepared = await prepareRun(matrixWindows(), workers, ui);
+      inputs = prepared;
       if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
       await drainWithPool(
         pending,
@@ -545,7 +539,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
           showProgress();
           const startedAt = performance.now();
           try {
-            const encoded = await encodeWindows(matrixCliState(cli, cell.combo), inputs!, [worker], ui, (fraction) => {
+            const encoded = await encodeWindows(matrixCliState(cli, cell.combo), prepared, [worker], ui, (fraction) => {
               inFlight.set(cell.combo.key, fraction);
               showProgress();
             });
@@ -633,7 +627,7 @@ let selecting = false;
  * square never makes it, since then the old one really is what the window holds.
  */
 async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  const matrix = encodeTest.matrix;
+  const matrix = sampledEncode.matrix;
   const previousKey = matrix.selectedKey;
   matrix.selectedKey = cell.combo.key;
   selecting = true;
@@ -647,19 +641,20 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
       // them, not just one: the window plays every stretch the square was measured over.
       const workers = acquireWorkers(matrixWindows().length);
       const inputs = await prepareRun(matrixWindows(), workers, ui);
+      let bytes: number;
       try {
-        blobs = (await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {})).blobs;
+        ({ blobs, bytes } = await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {}));
       } finally {
         await dropWholeFileInput(inputs);
       }
       cell.blobs = blobs;
-      cell.bytes = blobs.reduce((sum, blob) => sum + blob.size, 0);
+      cell.bytes = bytes;
     }
     // The Duration field goes back to the length the grid was measured with, which it may have been
     // moved off since. The A/B window draws the original from the windows passed below.
     syncSegmentToMatrix();
     await loadEncodedIntoAB(blobs, cell.combo, vt, ui.resultSec, {
-      bytes: cell.bytes ?? blobs.reduce((sum, blob) => sum + blob.size, 0),
+      bytes: cell.bytes ?? heldBytes(blobs),
       windows: matrixCellWindows(cell),
     });
   } catch (err) {
@@ -668,19 +663,19 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
   } finally {
     selecting = false;
     // A sweep re-enables its own button when it ends; this only undoes the disabling above.
-    if (!encodeTest.running) ui.runButton.disabled = false;
+    if (!sampledEncode.running) ui.runButton.disabled = false;
     repaintMatrix(vt, ui);
   }
 }
 
 /** What the ticked fractions come to for the loaded file: absolute rates, the source's own as null. */
 function matrixFps(): (number | null)[] {
-  return encodeTest.matrix.fpsFractions.map((f) => fpsForFraction(f, state.fps));
+  return sampledEncode.matrix.fpsFractions.map((f) => fpsForFraction(f, state.fps));
 }
 
 /** The combinations the ticked axes currently ask for. */
 function tickedCombos(): MatrixCombo[] {
-  const m = encodeTest.matrix;
+  const m = sampledEncode.matrix;
   return buildMatrixCombos(m.qualities, m.presets, m.scales, m.scalers, matrixFps());
 }
 
@@ -688,12 +683,12 @@ function tickedCombos(): MatrixCombo[] {
 function describeFpsFraction(fraction: number): string {
   const rate = fpsForFraction(fraction, state.fps);
   if (rate == null) return "Source";
-  return `${Math.round(fraction * 100)}% (${fmtRate(rate)} fps)`;
+  return `${Math.round(fraction * 100)}% (${describeFrameRate(rate)})`;
 }
 
 /** The stretches the sweep covered, or the one segment it used before several were asked for. */
 function matrixWindows(): SampleWindow[] {
-  const matrix = encodeTest.matrix;
+  const matrix = sampledEncode.matrix;
   if (matrix.windows.length) return matrix.windows;
   return [{ startSeconds: matrix.segmentStart, seconds: matrix.segmentLength }];
 }
@@ -702,10 +697,10 @@ function matrixWindows(): SampleWindow[] {
  * length the grid was measured with. The A/B window's original side follows the windows it is
  * handed, not these. */
 function syncSegmentToMatrix(): void {
-  const matrix = encodeTest.matrix;
+  const matrix = sampledEncode.matrix;
   if (!(matrix.segmentLength > 0)) return;
-  encodeTest.startTime = matrix.segmentStart;
-  encodeTest.duration = matrix.segmentLength;
+  sampledEncode.startTime = matrix.segmentStart;
+  sampledEncode.duration = matrix.segmentLength;
   syncSampleFields();
 }
 
@@ -733,7 +728,7 @@ function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
 
 function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
   const sec = ui.matrixSec;
-  const matrix = encodeTest.matrix;
+  const matrix = sampledEncode.matrix;
   sec.innerHTML = "";
   if (!matrix.cells.length) {
     sec.style.display = "none";
@@ -741,14 +736,14 @@ function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Matrix Results"));
-  const sweeping = matrix.running || encodeTest.running;
+  const sweeping = matrix.running || sampledEncode.running;
   const busy = sweeping || selecting;
   // Which combination wins is a statement about the whole sweep, so it waits for the whole sweep: a
   // ★ that hops from square to square as the grid fills in names the best of what has finished so
   // far, which is not the question the grid is being run to answer. A square that failed has run
   // (it produced no size, and it is not going to), so it does not hold the ranking up; one Stop left
   // unmeasured does, until the button below has run it.
-  const unrun = matrix.cells.some((c) => c.status !== "done" && c.status !== "failed");
+  const unrun = matrix.cells.some((c) => !hasRun(c));
   const best = unrun ? null : bestReductionCell(matrix.cells);
   sec.append(
     renderMatrixSummary(
@@ -798,8 +793,8 @@ function repaintMatrix(vt: TrackInfo, ui: MatrixUi): void {
 function renderSelectedCommand(sec: HTMLDivElement): void {
   sec.innerHTML = "";
   const info = currentVideoInfo();
-  const selectedKey = encodeTest.matrix.selectedKey;
-  const cell = encodeTest.matrix.cells.find((c) => c.combo.key === selectedKey);
+  const selectedKey = sampledEncode.matrix.selectedKey;
+  const cell = sampledEncode.matrix.cells.find((c) => c.combo.key === selectedKey);
   if (!info || !cell) {
     sec.style.display = "none";
     return;

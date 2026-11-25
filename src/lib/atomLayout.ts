@@ -97,8 +97,7 @@ function place(boxes: BoxNode[], from: number, to: number): Placement[] {
   let cursor = from;
   return boxes.map((box, i) => {
     const next = cursor + (span * weights[i]) / total;
-    const placement: Placement = { box, from: cursor, to: next, children: [] };
-    placement.children = place(box.children, cursor, next);
+    const placement: Placement = { box, from: cursor, to: next, children: place(box.children, cursor, next) };
     cursor = next;
     return placement;
   });
@@ -158,8 +157,7 @@ function clipToView(siblings: Placement[], view: AxisRange): Clipped[] {
       from: Math.max(placement.from, view.start),
       to: Math.min(placement.to, view.end),
     }))
-    .filter((c) => c.to > c.from)
-    .sort((a, b) => a.from - b.from);
+    .filter((c) => c.to > c.from);
 }
 
 /**

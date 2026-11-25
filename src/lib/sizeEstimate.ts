@@ -21,7 +21,8 @@
 // spends bits per content, and a stretch this snippet never saw may compress on quite different
 // terms. That residual is what the band reports, and it is why every number here is an estimate.
 
-import { encodeTest, state } from "./state";
+import { NO_VALUE } from "./format";
+import { sampledEncode, state } from "./state";
 import type { SampleInfo, SampleWindow } from "./types";
 
 export interface SizeEstimateInput {
@@ -272,7 +273,7 @@ export function estimateForWindows(windows: SampleWindow[], encodedBytes: number
 
 /** The estimate for the comparison currently loaded in the A/B window, or null before one runs. */
 export function currentSizeEstimate(): SizeEstimate | null {
-  if (encodeTest.encodedSize == null) return null;
+  if (sampledEncode.encodedSize == null) return null;
   // Every stretch the run covered, not just the one the A/B window is showing: the bytes on the
   // other side of this ratio are all of them added together, so the source side has to cover all
   // of them too. Left as the shown stretch alone, a five-segment run measured five stretches of
@@ -281,15 +282,15 @@ export function currentSizeEstimate(): SizeEstimate | null {
   // The seconds are the measured output durations rather than the requested ones (a trim lands a
   // frame either side of the length asked for, and the ratio is only fair if both halves cover the
   // same seconds), which is what the run stored on each window.
-  const windows: SampleWindow[] = encodeTest.windows.length
-    ? encodeTest.windows
+  const windows: SampleWindow[] = sampledEncode.windows.length
+    ? sampledEncode.windows
     : [
         {
-          startSeconds: encodeTest.startTime,
-          seconds: encodeTest.segDuration > 0 ? encodeTest.segDuration : encodeTest.duration,
+          startSeconds: sampledEncode.startTime,
+          seconds: sampledEncode.segDuration > 0 ? sampledEncode.segDuration : sampledEncode.duration,
         },
       ];
-  return estimateForWindows(windows, encodeTest.encodedSize);
+  return estimateForWindows(windows, sampledEncode.encodedSize);
 }
 
 /** A percentage at a readable precision: tighter below 10%, where a whole point is a big relative move. */
@@ -328,7 +329,7 @@ export function fmtSignedChange(estimate: SizeEstimate): string {
  * inflation) are the only thing that ever said so.
  */
 export function fmtChangeFactor(ratio: number): string {
-  if (!Number.isFinite(ratio) || ratio <= 0) return "–";
+  if (!Number.isFinite(ratio) || ratio <= 0) return NO_VALUE;
   if (Math.abs(ratio - 1) < NEGLIGIBLE) return "no size change";
   const inflating = ratio > 1;
   const factor = inflating ? ratio : 1 / ratio;
