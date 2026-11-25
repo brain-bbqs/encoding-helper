@@ -18,6 +18,7 @@ import { button, h } from "@brain-bbqs/ui";
 import { gridItem, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
+import { FALLBACK_FPS } from "../lib/format";
 import { describeQuality, describeResolutionChange, heldBytes } from "../lib/qualityMatrix";
 import { fmtClock, rulerEdgeClass } from "../lib/sampleTimeline";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -493,7 +494,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   // Playback decodes both panes per frame, so it is paced off the wall clock and asks for whichever
   // frame the elapsed time lands on: when decoding cannot keep up it drops frames rather than
   // drifting into slow motion, keeping the two sides on the same timeline.
-  const frameStep = 1 / (vt.packetRate && vt.packetRate > 0 ? vt.packetRate : 30);
+  const frameStep = 1 / (vt.packetRate && vt.packetRate > 0 ? vt.packetRate : FALLBACK_FPS);
   let playing = false;
   let baseT = 0;
   let baseWall = 0;

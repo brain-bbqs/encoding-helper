@@ -21,6 +21,7 @@
 // spends bits per content, and a stretch this snippet never saw may compress on quite different
 // terms. That residual is what the band reports, and it is why every number here is an estimate.
 
+import { NO_VALUE } from "./format";
 import { encodeTest, state } from "./state";
 import type { SampleInfo, SampleWindow } from "./types";
 
@@ -328,7 +329,7 @@ export function fmtSignedChange(estimate: SizeEstimate): string {
  * inflation) are the only thing that ever said so.
  */
 export function fmtChangeFactor(ratio: number): string {
-  if (!Number.isFinite(ratio) || ratio <= 0) return "–";
+  if (!Number.isFinite(ratio) || ratio <= 0) return NO_VALUE;
   if (Math.abs(ratio - 1) < NEGLIGIBLE) return "no size change";
   const inflating = ratio > 1;
   const factor = inflating ? ratio : 1 / ratio;

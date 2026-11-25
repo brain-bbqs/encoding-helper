@@ -11,7 +11,7 @@
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { button, h } from "@brain-bbqs/ui";
-import { describeFrameRate } from "../lib/format";
+import { describeFrameRate, NO_VALUE } from "../lib/format";
 import { isDownscale, scalePercent } from "../lib/cliCommand";
 import { comboKey, describeSettings, matrixAxes } from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
@@ -123,7 +123,7 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   const skipped = cell.status === "skipped";
   const text = `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`;
   return {
-    main: "–",
+    main: NO_VALUE,
     factor: "",
     sub: skipped ? "run it" : "queued",
     title: text,

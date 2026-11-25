@@ -32,6 +32,7 @@ import {
   fmtDur,
   fmtMs,
   fmtSizeChangePct,
+  NO_VALUE,
 } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
@@ -68,7 +69,7 @@ const DOCUMENT_WIDTH_PX = 772;
 /** The headline strip under the document title: what the file is, in one line. */
 function headlineFacts(): [string, string][] {
   const vt = videoTrackInfo();
-  const facts: [string, string][] = [["Container", state.format || "–"]];
+  const facts: [string, string][] = [["Container", state.format || NO_VALUE]];
   if (vt) {
     facts.push(["Video Codec", vt.codecString || vt.codec]);
     facts.push(["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`]);
@@ -99,7 +100,7 @@ function overviewSection(): AnalysisSection {
           ["File Size", fmtBytes(state.source?.size)],
           ["Duration", fmtDur(state.duration)],
           ["Overall Bitrate", fmtBits(fileBitrate)],
-          ["MIME Type", state.mimeType || "–"],
+          ["MIME Type", state.mimeType || NO_VALUE],
         ],
       },
     ],
@@ -167,8 +168,8 @@ function bitrateSection(vt: TrackInfo): AnalysisSection {
 function audioTrackSection(at: TrackInfo): AnalysisSection {
   const items: [string, string | number][] = [
     ["Codec", at.codecString || at.codec],
-    ["Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : "–"],
-    ["Channels", at.channels != null ? at.channels : "–"],
+    ["Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : NO_VALUE],
+    ["Channels", at.channels != null ? at.channels : NO_VALUE],
     ["Bitrate", fmtBits(at.bitrate)],
   ];
   if (at.codecInfo) at.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
@@ -223,7 +224,7 @@ function gopSection(): AnalysisSection | null {
         ["Total Frames", state.samples.length.toLocaleString()],
         ["Keyframes", state.keyframeDecodeIndices.length.toLocaleString()],
         ["Avg GOP", describeAvgGop(avgGop, fps)],
-        ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : "–"],
+        ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : NO_VALUE],
       ],
     },
     {
@@ -331,7 +332,7 @@ function matrixSection(): AnalysisSection | null {
           ...head,
           ...presets.map((preset) => {
             const cell = byKey.get(comboKey(quality, preset, scale, scaler));
-            if (!cell) return "–";
+            if (!cell) return NO_VALUE;
             const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
             const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
             return `${fmtBytes(cell.bytes)}${took}${mark}`;

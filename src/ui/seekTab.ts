@@ -7,7 +7,7 @@ import { errorMessage } from "@brain-bbqs/utils";
 import { button, h, svgEl, svgText } from "@brain-bbqs/ui";
 import { dataTable, fold, gridItem, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
-import { fmtMs } from "../lib/format";
+import { FALLBACK_FPS, fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
@@ -103,7 +103,8 @@ async function runSeekingTest(
       const start = performance.now();
       await sink.getCanvas(t);
       const decodeMs = performance.now() - start;
-      results.push({ t, kf, dist, distFrames: dist != null ? Math.round(dist * (state.fps || 30)) : null, decodeMs });
+      const distFrames = dist != null ? Math.round(dist * (state.fps || FALLBACK_FPS)) : null;
+      results.push({ t, kf, dist, distFrames, decodeMs });
       fill.style.width = ((i + 1) / n) * 100 + "%";
     }
     state.seekResults = results;
