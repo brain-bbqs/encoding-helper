@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.7
+
+#### 🏠 Internal
+
+- Replaced hand-written copies with shared helpers, tidied small local idioms, and renamed code left over from removed tabs and encoders ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.6
 
 #### 🏠 Internal
