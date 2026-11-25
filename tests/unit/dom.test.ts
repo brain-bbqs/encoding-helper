@@ -196,7 +196,18 @@ describe("infoIcon", () => {
       hover(icon);
       expect(icon.classList.contains("flip-x")).toBe(true);
 
+      // Placed again where it stands, it is measured rightward afresh rather than from the flipped box.
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(true);
+
       layout.iconLeft = 200;
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(false);
+    });
+
+    it("opens rightward when the popover ends exactly at the viewport's edge", () => {
+      // 940 to 1280 of 1280.
+      const { icon } = placedIcon({ viewport: 1280, iconLeft: 950, popWidth: 340 });
       hover(icon);
       expect(icon.classList.contains("flip-x")).toBe(false);
     });
@@ -225,6 +236,13 @@ describe("infoIcon", () => {
       layout.iconLeft = 220;
       hover(icon);
       expect(icon.classList.contains("flip-x")).toBe(true);
+    });
+
+    it("opens rightward when the popover fits on neither side and both have the same room", () => {
+      // From an icon at 188 both sides have 212px.
+      const { icon } = placedIcon({ viewport: 390, iconLeft: 188, popWidth: 273 });
+      hover(icon);
+      expect(icon.classList.contains("flip-x")).toBe(false);
     });
 
     it("keeps the popover out from under a vertical scrollbar", () => {
