@@ -4,7 +4,7 @@
 
 #### 🐛 Bug Fix
 
-- A/B playback now shows every frame once, in order, from any playhead position, including across stretches and for encodes made at a different frame rate ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- A/B playback no longer skips or repeats frames when started part-way through a frame, and steps at the encode's own frame rate when the run changed it ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
 
 ## 1.5.7
 
