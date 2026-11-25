@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🐛 Bug Fix
 
-- ⓘ explainers now open on whichever side has room for them, instead of flipping left needlessly on phones and near the right edge ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- ⓘ explainers now open on whichever side has room for them, instead of flipping left needlessly on phones and near the right edge ([#79](https://github.com/brain-bbqs/encoding-helper/pull/79))
 
 ## 1.5.7
 
