@@ -1,10 +1,16 @@
 # Changelog
 
-## 1.5.8
+## 1.5.9
 
 #### 🐛 Bug Fix
 
 - ⓘ explainers now open on whichever side has room for them, instead of flipping left needlessly on phones and near the right edge ([#79](https://github.com/brain-bbqs/encoding-helper/pull/79))
+
+## 1.5.8
+
+#### 🐛 Bug Fix
+
+- A/B playback no longer skips or repeats frames when started part-way through a frame, and steps at the encode's own frame rate when the run changed it ([#80](https://github.com/brain-bbqs/encoding-helper/pull/80))
 
 ## 1.5.7
 
