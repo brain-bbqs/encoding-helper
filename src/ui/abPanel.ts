@@ -24,7 +24,7 @@ import { fmtClock, rulerEdgeClass } from "../lib/sampleTimeline";
 import { ensureMediabunny } from "../lib/mediabunny";
 import type { Input } from "mediabunny";
 import { currentSizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
-import { encodeTest, state } from "../lib/state";
+import { sampledEncode, state } from "../lib/state";
 import type { AbSegment, EncodeSettings, SampleWindow, TrackInfo } from "../lib/types";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
 import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
@@ -83,7 +83,7 @@ export async function loadEncodedIntoAB(
       }
       const seconds = await encodedInput.computeDuration();
       segments.push({
-        window: totals?.windows[i] ?? { startSeconds: encodeTest.startTime, seconds },
+        window: totals?.windows[i] ?? { startSeconds: sampledEncode.startTime, seconds },
         sink: new mb.CanvasSink(encodedTrack, { poolSize: 2 }),
         seconds,
       });
@@ -94,16 +94,16 @@ export async function loadEncodedIntoAB(
   }
   // Swapped in only once every stretch has opened: a load that failed part-way used to leave the
   // window pointing at half a run, with the panes still showing the comparison before it.
-  for (const input of encodeTest.encodedInputs) input.dispose();
-  encodeTest.encodedInputs = inputs;
-  encodeTest.originalSink = new mb.CanvasSink(state.videoTrack, { poolSize: 2 });
-  encodeTest.abSegments = segments;
-  encodeTest.segDuration = segments.reduce((sum, seg) => sum + seg.seconds, 0);
+  for (const input of sampledEncode.encodedInputs) input.dispose();
+  sampledEncode.encodedInputs = inputs;
+  sampledEncode.originalSink = new mb.CanvasSink(state.videoTrack, { poolSize: 2 });
+  sampledEncode.abSegments = segments;
+  sampledEncode.segDuration = segments.reduce((sum, seg) => sum + seg.seconds, 0);
   // The bytes are the run's rather than these blobs' added up, so a square whose output was dropped
   // and re-encoded still reports what the sweep measured.
-  encodeTest.encodedSize = totals?.bytes ?? heldBytes(blobs);
-  encodeTest.windows = totals?.windows ?? segments.map((seg) => seg.window);
-  encodeTest.activeCombo = settings;
+  sampledEncode.encodedSize = totals?.bytes ?? heldBytes(blobs);
+  sampledEncode.windows = totals?.windows ?? segments.map((seg) => seg.window);
+  sampledEncode.activeCombo = settings;
   renderAbResult(host, vt, settings);
 }
 
@@ -125,8 +125,8 @@ function describeWindow(window: SampleWindow): string {
 /** What a run covered: the one stretch it encoded, or how many it sampled and where the first was.
  * Shared with the Full Analysis document, so the page and the document say it the same way. */
 export function describeSampledStretches(): string {
-  const windows = encodeTest.windows;
-  const first = windows[0] ?? { startSeconds: encodeTest.startTime, seconds: encodeTest.duration };
+  const windows = sampledEncode.windows;
+  const first = windows[0] ?? { startSeconds: sampledEncode.startTime, seconds: sampledEncode.duration };
   if (windows.length <= 1) return describeWindow(first);
   const sampled = windowsSeconds(windows);
   return (
@@ -148,7 +148,7 @@ function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeigh
   if (isDownscale(settings.scale)) {
     g.append(gridItem("Resolution", describeResolutionChange(srcWidth, srcHeight, settings)));
   }
-  g.append(gridItem("Encoded Segment Size", fmtBytes(encodeTest.encodedSize)));
+  g.append(gridItem("Encoded Segment Size", fmtBytes(sampledEncode.encodedSize)));
   return g;
 }
 
@@ -159,7 +159,7 @@ const STRETCH_END_MARGIN = 0.001;
 /** How long the loaded reel runs: every sampled stretch's encoded copy, added together. Falls back
  * to a second so the scrub bar has a range to be a fraction of before anything has loaded. */
 function reelSeconds(): number {
-  const total = encodeTest.abSegments.reduce((sum, seg) => sum + seg.seconds, 0);
+  const total = sampledEncode.abSegments.reduce((sum, seg) => sum + seg.seconds, 0);
   return total > 0 ? total : 1;
 }
 
@@ -167,7 +167,7 @@ function reelSeconds(): number {
  * Past the end it clamps to the last stretch rather than falling off, since the reel's length is
  * measured from the same durations and floating-point addition need not agree with itself. */
 function locateInReel(relT: number): { index: number; offset: number } {
-  const segments = encodeTest.abSegments;
+  const segments = sampledEncode.abSegments;
   let left = Math.max(0, relT);
   for (let i = 0; i < segments.length; i++) {
     const seconds = segments[i].seconds;
@@ -181,7 +181,7 @@ function locateInReel(relT: number): { index: number; offset: number } {
 
 /** The second of the reel a sampled stretch starts at, which is what the segment buttons jump to. */
 function reelStartOfSegment(index: number): number {
-  return encodeTest.abSegments.slice(0, index).reduce((sum, seg) => sum + seg.seconds, 0);
+  return sampledEncode.abSegments.slice(0, index).reduce((sum, seg) => sum + seg.seconds, 0);
 }
 
 /** Which stretch of the run a reel position is in, for the scrub bar's `aria-valuetext` and the
@@ -289,7 +289,7 @@ function drawFrame(
   }
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  ctx.imageSmoothingEnabled = encodeTest.upscaleSmoothing;
+  ctx.imageSmoothingEnabled = sampledEncode.upscaleSmoothing;
   ctx.drawImage(frame.canvas, 0, 0, width, height);
 }
 
@@ -357,7 +357,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     if (!downscaled) return;
     encLabel.title =
       `Encoded at ${encSize.width}×${encSize.height}, drawn back at ${srcWidth}×${srcHeight} ` +
-      (encodeTest.upscaleSmoothing
+      (sampledEncode.upscaleSmoothing
         ? `with smoothing, closer to how a player would show it.`
         : `one block per encoded pixel, so nothing is interpolated in.`);
   };
@@ -366,7 +366,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   stage.append(origPane, encPane);
   host.append(stage);
 
-  const segments = encodeTest.abSegments;
+  const segments = sampledEncode.abSegments;
 
   const controls = h("div", "compare-controls");
   // The bar gets a row of its own above the buttons. The ruler under it has to line up with the bar
@@ -409,11 +409,11 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     ]) {
       const opt = h("option", null, label);
       opt.value = value;
-      if ((value === "smooth") === encodeTest.upscaleSmoothing) opt.selected = true;
+      if ((value === "smooth") === sampledEncode.upscaleSmoothing) opt.selected = true;
       viewSelect.append(opt);
     }
     viewSelect.addEventListener("change", () => {
-      encodeTest.upscaleSmoothing = viewSelect.value === "smooth";
+      sampledEncode.upscaleSmoothing = viewSelect.value === "smooth";
       syncEncLabel();
       // Redraw where the playhead already is, so the switch shows on the frame being looked at
       // rather than only on the next one.
@@ -446,12 +446,12 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   // into it, and the original is read at that offset from where that stretch was cut. That is what
   // keeps the two panes on the same content once the reel has run past the first stretch.
   const drawAt = async (relT: number): Promise<void> => {
-    if (!encodeTest.originalSink) return;
+    if (!sampledEncode.originalSink) return;
     // Never out of range: nothing is drawn until a load has put at least one stretch in the window.
     const { index, offset } = locateInReel(relT);
     const segment = segments[index];
     const [originalFrame, encodedFrame] = await Promise.all([
-      encodeTest.originalSink.getCanvas(segment.window.startSeconds + offset),
+      sampledEncode.originalSink.getCanvas(segment.window.startSeconds + offset),
       segment.sink.getCanvas(offset),
     ]);
     drawFrame(origCanvas, originalFrame);

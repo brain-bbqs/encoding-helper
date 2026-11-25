@@ -9,7 +9,7 @@ import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { defaultFfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { ffmpegPool, MAX_POOL_WORKERS } from "../../src/lib/ffmpegPool";
-import { cli, encodeTest, state } from "../../src/lib/state";
+import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { SampleWindow } from "../../src/lib/types";
 import { logLine } from "../../src/ui/formControls";
 import {
@@ -156,7 +156,7 @@ beforeEach(() => {
   mb.duration = 1.9;
   mb.disposed = 0;
   fetchFile.mockResolvedValue(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
-  encodeTest.duration = 2;
+  sampledEncode.duration = 2;
   loadClip();
 });
 
@@ -167,11 +167,11 @@ afterEach(() => {
 describe("sampleFields", () => {
   it("asks for a duration and a count, with the duration held inside what the file can give", () => {
     state.duration = 4;
-    encodeTest.duration = 7;
+    sampledEncode.duration = 7;
     const row = sampleFields("et");
     const duration = row.querySelector<HTMLInputElement>("#etDuration")!;
     const segments = row.querySelector<HTMLInputElement>("#etSegments")!;
-    expect(encodeTest.duration).toBe(4);
+    expect(sampledEncode.duration).toBe(4);
     expect(duration.value).toBe("4");
     expect([duration.min, duration.max, duration.step]).toEqual(["1", "4", "0.5"]);
     expect(segments.value).toBe("5");
@@ -182,7 +182,7 @@ describe("sampleFields", () => {
 
   it("starts the duration at three seconds when nothing has set one", () => {
     state.duration = null;
-    encodeTest.duration = 0;
+    sampledEncode.duration = 0;
     const row = sampleFields("et");
     expect(row.querySelector<HTMLInputElement>("#etDuration")!.value).toBe("3");
     expect(row.querySelector<HTMLInputElement>("#etDuration")!.max).toBe("10");
@@ -196,13 +196,13 @@ describe("sampleFields", () => {
     const bDuration = document.querySelector<HTMLInputElement>("#bDuration")!;
     aDuration.value = "4.5";
     aDuration.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(encodeTest.duration).toBe(4.5);
+    expect(sampledEncode.duration).toBe(4.5);
     expect(bDuration.value).toBe("4.5");
 
     // A half-typed duration is not a number yet, and a run needs one.
     aDuration.value = "";
     aDuration.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(encodeTest.duration).toBe(1);
+    expect(sampledEncode.duration).toBe(1);
     expect(aDuration.value).toBe("");
     expect(bDuration.value).toBe("1");
   });
@@ -213,25 +213,25 @@ describe("sampleFields", () => {
     const bSegments = document.querySelector<HTMLInputElement>("#bSegments")!;
     aSegments.value = "0";
     aSegments.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(encodeTest.segments).toBe(1);
+    expect(sampledEncode.segments).toBe(1);
     expect(bSegments.value).toBe("1");
 
     aSegments.value = "99";
     aSegments.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(encodeTest.segments).toBe(10);
+    expect(sampledEncode.segments).toBe(10);
     expect(aSegments.value).toBe("99");
     expect(bSegments.value).toBe("10");
 
     aSegments.value = "x";
     aSegments.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(encodeTest.segments).toBe(1);
+    expect(sampledEncode.segments).toBe(1);
     expect(bSegments.value).toBe("1");
   });
 
   it("puts every copy back to the state when nothing is being typed", () => {
     document.body.append(sampleFields("a"), sampleFields("b"));
-    encodeTest.duration = 6;
-    encodeTest.segments = 2;
+    sampledEncode.duration = 6;
+    sampledEncode.segments = 2;
     syncSampleFields();
     expect(document.querySelector<HTMLInputElement>("#aDuration")!.value).toBe("6");
     expect(document.querySelector<HTMLInputElement>("#bDuration")!.value).toBe("6");
@@ -264,15 +264,15 @@ describe("runControls", () => {
   it("ignores Stop while nothing is running", () => {
     const ui = controls();
     ui.stopButton.click();
-    expect(encodeTest.cancelRequested).toBe(false);
+    expect(sampledEncode.cancelRequested).toBe(false);
     expect(ui.note.textContent).toBe("");
   });
 
   it("flags the stop and says so the moment Stop is pressed on a run", () => {
     const ui = controls();
-    encodeTest.running = true;
+    sampledEncode.running = true;
     ui.stopButton.click();
-    expect(encodeTest.cancelRequested).toBe(true);
+    expect(sampledEncode.cancelRequested).toBe(true);
     expect(stopRequested()).toBe(true);
     expect(ui.stopButton.disabled).toBe(true);
     expect(ui.note.textContent).toBe("Stopping…");
@@ -284,14 +284,14 @@ describe("runWindows", () => {
   // the fields still describe them.
   it("keeps the last run's stretches while they still fit the fields", () => {
     const sampled = [{ startSeconds: 3, seconds: 2 }];
-    encodeTest.sampled = sampled;
-    encodeTest.segments = 1;
+    sampledEncode.sampled = sampled;
+    sampledEncode.segments = 1;
     expect(runWindows()).toBe(sampled);
   });
 
   it("snaps freshly sampled stretches back to the keyframe before them", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
-    encodeTest.segments = 3;
+    sampledEncode.segments = 3;
     expect(runWindows()).toEqual([
       { startSeconds: 0, seconds: 2 },
       { startSeconds: 6, seconds: 2 },
@@ -302,7 +302,7 @@ describe("runWindows", () => {
   it("leaves the stretches where the sampler put them when there is no keyframe table", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     state.keyframeTimestampsSec = [];
-    encodeTest.segments = 3;
+    sampledEncode.segments = 3;
     const starts = runWindows().map((w) => w.startSeconds);
     expect(starts[0]).toBe(0);
     expect(starts[1]).toBeCloseTo(20 / 3, 10);
@@ -436,7 +436,7 @@ describe("prepareRun", () => {
 
   it("stops before cutting anything when Stop has already been pressed", async () => {
     const ui = controls();
-    encodeTest.cancelRequested = true;
+    sampledEncode.cancelRequested = true;
     const err = await prepareRun(WINDOWS, acquireWorkers(WINDOWS.length), ui).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toBe("Stopped");
@@ -451,7 +451,7 @@ describe("prepareRun", () => {
     const ui = controls();
     const workers = acquireWorkers(WINDOWS.length);
     await prepareRun(WINDOWS, workers, ui);
-    encodeTest.cancelRequested = true;
+    sampledEncode.cancelRequested = true;
     await expect(prepareRun(WINDOWS, workers, ui)).rejects.toThrow("Stopped");
     expect(fetchFile).toHaveBeenCalledTimes(1);
   });
@@ -593,7 +593,7 @@ describe("encodeWindows", () => {
   });
 
   it("reports nothing off status lines when there is no length to measure against", async () => {
-    encodeTest.duration = 0;
+    sampledEncode.duration = 0;
     const ui = controls();
     const progress: number[] = [];
     core.exec = (_args, handle) => {
@@ -664,7 +664,7 @@ describe("encodeWindows", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const ui = controls();
     core.exec = () => {
-      encodeTest.cancelRequested = true;
+      sampledEncode.cancelRequested = true;
       return Promise.resolve();
     };
     const err = await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {}).catch((e: unknown) => e);
@@ -720,12 +720,12 @@ describe("the run's user interface", () => {
   it("readies the buttons, the bar and the console for a run", () => {
     const ui = controls();
     logLine(ui.log, "left over from last time");
-    encodeTest.cancelRequested = true;
+    sampledEncode.cancelRequested = true;
 
     const fill = startRunUi(ui);
 
-    expect(encodeTest.running).toBe(true);
-    expect(encodeTest.cancelRequested).toBe(false);
+    expect(sampledEncode.running).toBe(true);
+    expect(sampledEncode.cancelRequested).toBe(false);
     expect(ui.runButton.disabled).toBe(true);
     expect(ui.stopButton.style.display).toBe("");
     expect(ui.stopButton.disabled).toBe(false);
@@ -745,12 +745,12 @@ describe("the run's user interface", () => {
 
     endRunUi(ui);
 
-    expect(encodeTest.running).toBe(false);
+    expect(sampledEncode.running).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.runButton.textContent).toBe("Run Matrix");
     expect(ui.stopButton.style.display).toBe("none");
     // A Stop pressed on a later run reaches that run's cores, not this one's.
-    encodeTest.running = true;
+    sampledEncode.running = true;
     ui.stopButton.click();
     expect(core.terminated).toBe(0);
   });

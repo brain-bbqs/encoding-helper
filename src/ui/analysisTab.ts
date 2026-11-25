@@ -49,7 +49,7 @@ import {
 import { baseNameOf, downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
-import { audioTrackInfo, cli, currentVideoInfo, encodeTest, state, videoTrackInfo } from "../lib/state";
+import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
 import { renderStaticAtomMap } from "./atomsTab";
 import { describeSampledStretches } from "./abPanel";
@@ -275,10 +275,10 @@ function cliCommandSection(): AnalysisSection | null {
 }
 
 function compareSection(): AnalysisSection | null {
-  if (!encodeTest.originalSink || !encodeTest.abSegments.length) return null;
+  if (!sampledEncode.originalSink || !sampledEncode.abSegments.length) return null;
   // The settings the loaded encode was made with: after a matrix sweep that is the winning square's,
   // which is not what the command builder says.
-  const settings = encodeTest.activeCombo ?? cliSettings(cli);
+  const settings = sampledEncode.activeCombo ?? cliSettings(cli);
   const items: [string, string | number][] = [
     ["Segment", describeSampledStretches()],
     ["Quality", describeQuality(settings)],
@@ -290,7 +290,7 @@ function compareSection(): AnalysisSection | null {
   if (isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight) {
     items.push(["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
   }
-  items.push(["Encoded Segment Size", fmtBytes(encodeTest.encodedSize)]);
+  items.push(["Encoded Segment Size", fmtBytes(sampledEncode.encodedSize)]);
 
   const est = currentSizeEstimate();
   if (est) {
@@ -315,9 +315,9 @@ function compareSection(): AnalysisSection | null {
 
 /** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */
 function matrixSection(): AnalysisSection | null {
-  const cells = encodeTest.matrix.cells.filter(isMeasured);
+  const cells = sampledEncode.matrix.cells.filter(isMeasured);
   if (!cells.length) return null;
-  const best = bestReductionCell(encodeTest.matrix.cells);
+  const best = bestReductionCell(sampledEncode.matrix.cells);
   const { qualities, presets, scales, scalers } = matrixAxes(cells);
   const byKey = new Map(cells.map((c) => [c.combo.key, c]));
   // A document has no row groups to nest resolution into, so when the sweep covered more than one

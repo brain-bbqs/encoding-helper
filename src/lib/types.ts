@@ -227,7 +227,7 @@ interface MatrixState {
 }
 
 /** Mutable state of the sampled-stretch encodes and the A/B comparison they feed. */
-export interface EncodeTestState {
+export interface SampledEncodeState {
   startTime: number;
   /** Where the single run's window starts, as the Reencode tab's track has it. Its length is fixed
    * (SAMPLE_SECONDS), so this is the whole of what that tab asks for; `duration` and `segments`

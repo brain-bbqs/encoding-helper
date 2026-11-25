@@ -11,7 +11,7 @@ import { h } from "@brain-bbqs/ui";
 import { cmdBlock, section, teachBox } from "../lib/dom";
 import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings, MATRIX_PRESETS } from "../lib/qualityMatrix";
-import { cli, currentVideoInfo, encodeTest, videoTrackInfo } from "../lib/state";
+import { cli, currentVideoInfo, sampledEncode, videoTrackInfo } from "../lib/state";
 import type { SampleWindow, TrackInfo } from "../lib/types";
 import { loadEncodedIntoAB } from "./abPanel";
 import { inBrowserEncodeSection } from "./inBrowserEncode";
@@ -222,7 +222,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement {
 async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resultSec: HTMLDivElement): Promise<void> {
   // One encoder, one pool: a sweep running on the other tab has both, and its run is the one that
   // was asked for first.
-  if (encodeTest.running) {
+  if (sampledEncode.running) {
     ui.note.textContent = "An encode is already running on the Compare Quality tab. Wait for it to finish.";
     return;
   }
@@ -239,7 +239,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     inputs = await prepareRun(windows, workers, ui);
     // Records where the encoded stretch starts. The A/B window draws the original from the windows
     // passed to it below, not from this.
-    encodeTest.startTime = windows[0].startSeconds;
+    sampledEncode.startTime = windows[0].startSeconds;
     ui.note.textContent = "Encoding test segment…";
     const { blobs, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;

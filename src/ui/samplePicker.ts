@@ -14,7 +14,7 @@ import type { CanvasSink } from "mediabunny";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { snapToKeyframe } from "../lib/mp4boxParser";
 import { clampWindowStart, fmtClock, rulerEdgeClass, rulerMarks, SAMPLE_SECONDS } from "../lib/sampleTimeline";
-import { encodeTest, state } from "../lib/state";
+import { sampledEncode, state } from "../lib/state";
 import type { SampleWindow } from "../lib/types";
 
 /** How far the arrow keys move the window, and the coarser step Shift gives them. */
@@ -73,7 +73,7 @@ export function samplePicker(): SamplePicker | null {
   trackPad.append(track, ruler);
   wrap.append(trackPad);
 
-  const start = (): number => clampWindowStart(encodeTest.sampleStart, total, windowSeconds);
+  const start = (): number => clampWindowStart(sampledEncode.sampleStart, total, windowSeconds);
   /** Where the encode actually begins: the cut is made at a keyframe. The preview frame and the run
    * use this; the band and its readout still show the unsnapped start. */
   const snapped = (): number => snapToKeyframe(state.keyframeTimestampsSec, start());
@@ -124,8 +124,8 @@ export function samplePicker(): SamplePicker | null {
 
   const moveTo = (seconds: number): void => {
     const next = clampWindowStart(seconds, total, windowSeconds);
-    if (next === encodeTest.sampleStart) return;
-    encodeTest.sampleStart = next;
+    if (next === sampledEncode.sampleStart) return;
+    sampledEncode.sampleStart = next;
     sync();
     drawPreview();
   };
