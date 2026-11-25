@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🏠 Internal
 
-- Replaced hand-written copies with shared helpers, tidied small local idioms, and renamed code left over from removed tabs and encoders ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Replaced repeated code with shared helpers and renamed code left over from removed tabs and encoders; the app looks and works the same ([#78](https://github.com/brain-bbqs/encoding-helper/pull/78))
 
 ## 1.5.6
 
