@@ -46,16 +46,23 @@ describe("main.ts boot", () => {
     expect(input?.checked).toBe(true);
   });
 
-  it("redraws the intro card when the switch flips, leaving the empty panels alone", () => {
+  // The stylesheet hides whatever is marked .edu under html.edu-off, the intro card's box among it.
+  it("marks the page when the switch flips, leaving the intro card and the empty panels as they are", () => {
+    const card = el("introCard").querySelector(".teach")!;
+    expect(card.classList.contains("edu")).toBe(true);
+    expect(document.documentElement.classList.contains("edu-off")).toBe(false);
+
     const input = el("eduToggleSlot").querySelector<HTMLInputElement>("input.switch")!;
     input.checked = false;
     input.dispatchEvent(new Event("change"));
     expect(isEducationalEnabled()).toBe(false);
-    expect(el("introCard").querySelector(".teach")?.classList.contains("edu-off")).toBe(true);
+    expect(document.documentElement.classList.contains("edu-off")).toBe(true);
+    expect(el("introCard").querySelector(".teach")).toBe(card);
     expect(el("panel-inspect").childElementCount).toBe(0);
 
     setEducationalEnabled(true);
-    expect(el("introCard").querySelector(".teach-icon")?.textContent).toBe("🎓");
+    expect(document.documentElement.classList.contains("edu-off")).toBe(false);
+    expect(el("introCard").querySelector(".teach")).toBe(card);
     expect(el("panel-inspect").childElementCount).toBe(0);
   });
 

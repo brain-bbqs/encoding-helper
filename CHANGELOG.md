@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.10
+
+#### 🐛 Bug Fix
+
+- The Educational switch no longer clears results or interrupts runs, and the A/B window shows draw errors and keeps the chosen square marked ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.9
 
 #### 🐛 Bug Fix

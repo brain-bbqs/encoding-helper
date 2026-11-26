@@ -319,12 +319,6 @@ input[type="checkbox"].switch:focus-visible {
   }
 }
 
-/* Hidden by the educational toggle: an empty "teach" box or ⓘ icon, kept in the DOM (rather than
-   left out) so every call site can append its result unconditionally. */
-.edu-off {
-  display: none !important;
-}
-
 /* Drop zone / file loading */
 .drop-zone {
   border: 2px dashed var(--border);
@@ -731,6 +725,13 @@ label.field-label {
 }
 .teach li {
   margin: 2px 0;
+}
+/* Teaching material while the Educational switch is off: the teach boxes and the ⓘ icons, which
+   lib/dom always builds and marks .edu, hidden by the edu-off class main.ts keeps on <html>. A flip
+   changes that one class and redraws nothing, so a run or a result on screen is left as it is. A
+   marker rather than .info, which also names a log line's level and the B-frames badge. */
+:root.edu-off .edu {
+  display: none;
 }
 /* Tabs, and the Full Analysis action that sits opposite them */
 .tab-bar {

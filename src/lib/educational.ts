@@ -27,7 +27,7 @@ export function isEducationalEnabled(): boolean {
 type Listener = (on: boolean) => void;
 const listeners = new Set<Listener>();
 
-/** Called whenever the toggle changes, so the UI can rebuild what depends on it. */
+/** Called whenever the switch changes, so the page can show or hide what depends on it. */
 export function onEducationalChange(fn: Listener): void {
   listeners.add(fn);
 }
