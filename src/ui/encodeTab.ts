@@ -245,7 +245,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement {
   const sec = section("Try It on a Sample");
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
-  const { nodes, ui } = runControls("Run Comparison");
+  const { nodes, ui } = runControls(() => "Run Comparison");
   sec.append(...nodes);
 
   // The comparison lands inside this card rather than in one of its own: it is what the run above

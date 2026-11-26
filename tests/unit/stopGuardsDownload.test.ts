@@ -116,7 +116,7 @@ describe("Stop or a file load during the core download", () => {
     const m = await fresh();
     m.fixtures.resetCliDefaults();
     loadClip(m, OLD);
-    const { nodes, ui } = m.segmentRun.runControls("Run");
+    const { nodes, ui } = m.segmentRun.runControls(() => "Run");
     document.body.append(...nodes);
     const run = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
     const downloading = deferred<void>();
@@ -145,7 +145,7 @@ describe("Stop or a file load during the core download", () => {
     const m = await fresh();
     m.fixtures.resetCliDefaults();
     loadClip(m, OLD, false);
-    const { nodes, ui } = m.segmentRun.runControls("Run");
+    const { nodes, ui } = m.segmentRun.runControls(() => "Run");
     document.body.append(...nodes);
     const runA = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
     const downloading = deferred<void>();
@@ -191,7 +191,7 @@ describe("Stop or a file load during the core download", () => {
     const m = await fresh();
     m.fixtures.resetCliDefaults();
     loadClip(m, OLD, true);
-    const { nodes, ui } = m.segmentRun.runControls("Run");
+    const { nodes, ui } = m.segmentRun.runControls(() => "Run");
     document.body.append(...nodes);
     const runA = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
     const downloading = deferred<void>();

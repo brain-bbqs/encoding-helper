@@ -107,7 +107,7 @@ export function renderCompareTab(panel: HTMLElement): void {
 
   sec.append(sampleFields("et"));
 
-  const { nodes: runNodes, ui: runUi } = runControls(runActionLabel());
+  const { nodes: runNodes, ui: runUi } = runControls(runActionLabel);
   const matrixSec = h("div", "section matrix-section");
   matrixSec.style.display = "none";
   const resultSec = h("div", "section");
@@ -115,9 +115,6 @@ export function renderCompareTab(panel: HTMLElement): void {
   const cmdSec = h("div", "section");
   cmdSec.style.display = "none";
   const ui: MatrixUi = { ...runUi, vt, matrixSec, resultSec, cmdSec };
-  ui.syncRunAction = () => {
-    ui.runButton.textContent = runActionLabel();
-  };
 
   // Which values the sweep spans is a decision most runs never revisit, so the five tick lists fold
   // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled

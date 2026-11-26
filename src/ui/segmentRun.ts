@@ -109,10 +109,15 @@ export function syncSampleFields(except?: HTMLElement | null): void {
   });
 }
 
-/** The run button, Stop beside it, the bar, the line under it and the console, as one block. */
-export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi } {
+/**
+ * The run button, Stop beside it, the bar, the line under it and the console, as one block.
+ *
+ * `label` says what pressing the run button would do, and is asked again by `syncRunAction`
+ * whenever a run may have changed that.
+ */
+export function runControls(label: () => string): { nodes: HTMLElement[]; ui: RunUi } {
   const buttons = h("div", "compare-run-buttons");
-  const runButton = button("btn", runLabel);
+  const runButton = button("btn", label());
   const stopButton = button("btn sec", "Stop");
   stopButton.style.display = "none";
   buttons.append(runButton, stopButton);
@@ -127,19 +132,14 @@ export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi
     note,
     log,
     syncRunAction: () => {
-      runButton.textContent = runLabel;
+      runButton.textContent = label();
     },
   };
   stopButton.addEventListener("click", () => requestStop(ui));
   return { nodes: [buttons, progress, note, logWrap], ui };
 }
 
-/**
- * Calls `start` on every press of the run button, for both tabs.
- *
- * `ui` is the tab's own, the one whose `syncRunAction` relabels the button: on the Compare tab that
- * is the copy it makes of what runControls returned, not the original.
- */
+/** Calls `start` on every press of the run button, for both tabs. */
 export function onRunPress(ui: RunUi, start: () => Promise<void>): void {
   ui.runButton.addEventListener("click", () => {
     // Disabled here as well as by the run itself, so a second click cannot land in the gap before

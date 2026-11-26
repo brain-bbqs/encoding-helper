@@ -125,7 +125,7 @@ function loadClip(name = "clip.mp4", bytes = 8): void {
 
 /** The run controls, in the page the way a tab puts them there. */
 function controls(): RunUi {
-  const { nodes, ui } = runControls("Run Matrix");
+  const { nodes, ui } = runControls(() => "Run Matrix");
   document.body.append(...nodes);
   return ui;
 }
@@ -252,7 +252,7 @@ describe("sampleFields", () => {
 
 describe("runControls", () => {
   it("offers the run button with Stop hidden beside it, then the bar, the note and the console", () => {
-    const { nodes, ui } = runControls("Run Comparison");
+    const { nodes, ui } = runControls(() => "Run Comparison");
     expect(nodes).toHaveLength(4);
     expect(nodes[0].querySelectorAll("button")).toHaveLength(2);
     expect(ui.runButton.textContent).toBe("Run Comparison");
@@ -270,6 +270,18 @@ describe("runControls", () => {
     ui.runButton.textContent = "Retry 1 failed";
     ui.syncRunAction();
     expect(ui.runButton.textContent).toBe("Run Matrix");
+  });
+
+  // What the button offers can change with the run (a sweep that leaves squares unmeasured offers to
+  // run those), so the label is asked for again on every sync rather than fixed when it was built.
+  it("labels the run button with whatever the label says at each sync", () => {
+    let offered = "Run Matrix";
+    const { ui } = runControls(() => offered);
+    expect(ui.runButton.textContent).toBe("Run Matrix");
+    offered = "Retry 1 failed";
+    expect(ui.runButton.textContent).toBe("Run Matrix");
+    ui.syncRunAction();
+    expect(ui.runButton.textContent).toBe("Retry 1 failed");
   });
 
   it("ignores Stop while nothing is running", () => {
