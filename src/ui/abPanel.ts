@@ -115,14 +115,20 @@ export async function loadEncodedIntoAB(
   renderAbResult(host, vt, settings);
 }
 
-/** Empties whichever section last held the comparison, telling the tab that owned it. */
+/**
+ * Empties whichever section last held the comparison, telling the tab that owned it.
+ *
+ * Only while that section is still on the page: loading another file rebuilds the tabs, and the
+ * handler of a section rebuilt away would undo what its replacement has just set, such as the
+ * square a sweep chose.
+ */
 function displaceActiveHost(): void {
   if (!activeHost) return;
   const previous = activeHost;
   activeHost = null;
   previous.innerHTML = "";
   previous.style.display = "none";
-  displacedHandlers.get(previous)?.();
+  if (previous.isConnected) displacedHandlers.get(previous)?.();
 }
 
 /** Where one sampled stretch sits in the source, e.g. "12.3s–17.3s". */
@@ -472,19 +478,22 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     ]);
     drawFrame(origCanvas, originalFrame);
     drawFrame(encCanvas, encodedFrame, downscaled ? { width: srcWidth, height: srcHeight } : null);
+    // The message is about a frame that would not draw, so one that does takes it away.
+    drawError.style.display = "none";
   };
-  /**
-   * Draws a frame from a handler that cannot await it.
-   *
-   * A rejected draw used to leave the page with an unhandled rejection and the panes with whatever
-   * they last held, which reads as the comparison silently freezing. It says so under the panes
-   * instead, since a comparison that will not draw is the one thing this section is for.
-   */
+  /** Says under the panes why a frame did not draw: left alone, the panes keep whatever they last
+   * held, which reads as the comparison silently freezing. */
+  const showDrawError = (err: unknown): void => {
+    drawError.textContent = "Could not draw the comparison: " + errorMessage(err);
+    // "block" rather than cleared, as fileLoading.ts shows #errorMsg: the class's own rule hides it.
+    drawError.style.display = "block";
+  };
+  /** Draws a frame from a handler that cannot await it, saying so under the panes if it fails
+   * rather than leaving an unhandled rejection. */
   const drawFrom = (relT: number): void => {
     void drawAt(relT).catch((err: unknown) => {
       console.error("[encoding-helper] could not draw the comparison:", err);
-      drawError.textContent = "Could not draw the comparison: " + errorMessage(err);
-      drawError.style.display = "";
+      showDrawError(err);
     });
   };
 
@@ -529,7 +538,9 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   stopActivePlayback = stopPlayback;
   const runPlayback = async (run: number): Promise<void> => {
     try {
-      while (playing && run === playRun) {
+      // Also ends once the section has left the page, as it does when another file loads: its Pause
+      // button goes with it, leaving nothing on screen to stop a loop decoding into unseen panes.
+      while (playing && run === playRun && host.isConnected) {
         let now = performance.now();
         let relT = baseT + (now - baseWall) / 1000;
         // The reel is every sampled stretch end to end, so this runs through all of them and then
@@ -570,6 +581,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     } catch (err) {
       // A frame that will not decode ends playback rather than leaving the button stuck on "Pause".
       console.error("[encoding-helper] playback stopped:", err);
+      showDrawError(err);
     } finally {
       if (run === playRun) stopPlayback();
     }
@@ -608,7 +620,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     showTime(relT, false);
     // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.
     if (playing) rebase(relT);
-    void drawAt(relT);
+    drawFrom(relT);
   });
   showTime(0);
   drawFrom(0);

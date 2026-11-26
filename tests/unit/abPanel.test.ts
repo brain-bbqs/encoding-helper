@@ -271,6 +271,22 @@ describe("loadEncodedIntoAB", () => {
     expect(second.querySelector("h2")!.textContent).toBe("Side-by-Side");
   });
 
+  // Loading another file rebuilds the tabs, leaving the section that held the window off the page
+  // with its handler still registered. That handler would undo what the rebuilt tab has just set,
+  // such as the square a sweep chose.
+  it("tells a section that has left the page nothing when the window moves on", async () => {
+    const gone = hostSection();
+    const displaced = vi.fn();
+    onAbDisplaced(gone, displaced);
+    await load(gone);
+    gone.remove();
+
+    const next = hostSection();
+    await load(next);
+    expect(displaced).not.toHaveBeenCalled();
+    expect(next.querySelector("h2")!.textContent).toBe("Side-by-Side");
+  });
+
   it("leaves the section alone when the same one is loaded again", async () => {
     const host = hostSection();
     const displaced = vi.fn();
@@ -507,8 +523,47 @@ describe("the panes", () => {
     await flush();
     const msg = host.querySelector<HTMLElement>(".error-msg")!;
     expect(msg.textContent).toBe("Could not draw the comparison: no keyframe");
-    expect(msg.style.display).toBe("");
+    // "block" rather than cleared: the class's own rule hides it, as it hides #errorMsg.
+    expect(msg.style.display).toBe("block");
     expect(error).toHaveBeenCalledWith("[encoding-helper] could not draw the comparison:", expect.any(Error));
+  });
+
+  // Dragging the slider draws as the view switch and the step buttons do, so a frame that will not
+  // decode there is said under the panes too rather than left as an unhandled rejection.
+  it("says so under the panes when a scrubbed-to frame will not draw", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const host = hostSection();
+    await loadSampled(host, 2);
+    await flush();
+    const msg = host.querySelector<HTMLElement>(".error-msg")!;
+    expect(msg.style.display).toBe("none");
+    frameAt = async () => {
+      throw new Error("no keyframe");
+    };
+    scrubTo(host, 750);
+    await flush();
+    expect(msg.textContent).toBe("Could not draw the comparison: no keyframe");
+    expect(msg.style.display).toBe("block");
+    expect(error).toHaveBeenCalledWith("[encoding-helper] could not draw the comparison:", expect.any(Error));
+  });
+
+  // The message is about the frame that would not draw, so the next one that does takes it away.
+  it("takes the message away once a later frame draws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    frameAt = async () => {
+      throw new Error("no keyframe");
+    };
+    const host = hostSection();
+    await loadSampled(host, 2);
+    await flush();
+    const msg = host.querySelector<HTMLElement>(".error-msg")!;
+    expect(msg.style.display).toBe("block");
+    const { drawImage } = stubCanvasContext();
+    frameAt = async () => frameOf(320, 240);
+    scrubTo(host, 750);
+    await flush();
+    expect(drawImage).toHaveBeenCalledTimes(2);
+    expect(msg.style.display).toBe("none");
   });
 
   // The panel's handlers outlive the window's contents when a new file is opened under them: they
@@ -895,8 +950,9 @@ describe("playback", () => {
     expect(currentBand(host)).toBe(2);
   });
 
-  // A frame that will not decode ends playback rather than leaving the button stuck on Pause.
-  it("ends playback when a frame will not decode", async () => {
+  // A frame that will not decode ends playback rather than leaving the button stuck on Pause, and
+  // says why under the panes, as a scrub or a step that will not draw does.
+  it("ends playback when a frame will not decode, and says so under the panes", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const host = hostSection();
     await load(host);
@@ -909,6 +965,9 @@ describe("playback", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(play.textContent).toBe("Play");
     expect(error).toHaveBeenCalledWith("[encoding-helper] playback stopped:", expect.any(Error));
+    const msg = host.querySelector<HTMLElement>(".error-msg")!;
+    expect(msg.textContent).toBe("Could not draw the comparison: decoder gone");
+    expect(msg.style.display).toBe("block");
   });
 
   // A loop still waiting on a frame when Play is pressed again must neither keep drawing nor stop
@@ -929,6 +988,22 @@ describe("playback", () => {
     // One loop's frames: a stale loop still drawing would ask for each second a second time.
     const encoded = requestedSeconds().encoded;
     expect(encoded).toEqual([...new Set(encoded)]);
+  });
+
+  // Loading another file rebuilds the tab the window was in, taking its Pause button off the page
+  // with it, so nothing would be left to stop a loop decoding into canvases no one can see.
+  it("ends playback once its section has left the page", async () => {
+    const host = hostSection();
+    await load(host);
+    const play = playButton(host);
+    play.click();
+    await vi.advanceTimersByTimeAsync(50);
+    host.remove();
+    await vi.advanceTimersByTimeAsync(100);
+    frameRequests.length = 0;
+    await vi.advanceTimersByTimeAsync(200);
+    expect(frameRequests).toEqual([]);
+    expect(play.textContent).toBe("Play");
   });
 
   it("halts the run before it when a fresh comparison takes the window", async () => {

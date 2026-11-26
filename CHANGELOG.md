@@ -1,10 +1,16 @@
 # Changelog
 
-## 1.5.10
+## 1.5.11
 
 #### 🐛 Bug Fix
 
 - Encodes no longer overlap or outlive their file, refused presses say why and stay usable, Stop reads as stopped, and retried squares run or keep their status ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
+## 1.5.10
+
+#### 🐛 Bug Fix
+
+- The Educational switch no longer clears results or interrupts runs, the A/B window shows draw errors, and a later file's sweep keeps its winner ringed ([#81](https://github.com/brain-bbqs/encoding-helper/pull/81))
 
 ## 1.5.9
 

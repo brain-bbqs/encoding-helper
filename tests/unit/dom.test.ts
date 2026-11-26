@@ -297,8 +297,8 @@ describe("fold", () => {
   });
 });
 
-// The ⓘ and the teach boxes go with the Educational switch, and stay in the tree as empty, hidden
-// nodes so their call sites can keep appending them unconditionally.
+// The ⓘ and the teach boxes are built whatever the Educational switch says, marked for the
+// stylesheet to hide while it is off, so a flip never has to draw a panel again.
 describe("with the educational toggle off", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -309,17 +309,17 @@ describe("with the educational toggle off", () => {
     setEducationalEnabled(true);
   });
 
-  it("renders the info icon as an empty hidden span", () => {
+  it("builds the info icon in full, marked as teaching material", () => {
     const icon = infoIcon("Explainer");
-    expect(icon.className).toBe("info edu-off");
-    expect(icon.querySelector(".info-btn")).toBeNull();
-    expect(icon.textContent).toBe("");
+    expect(icon.className).toBe("info edu");
+    expect(icon.querySelector(".info-btn")?.getAttribute("aria-label")).toBe("More information");
+    expect(icon.querySelector(".info-pop")?.innerHTML).toBe("Explainer");
   });
 
-  it("renders the teach box empty and hidden", () => {
+  it("builds the teach box in full, marked as teaching material", () => {
     const box = teachBox("<b>Chroma</b>", "🎨");
-    expect(box.className).toBe("teach edu-off");
-    expect(box.children).toHaveLength(0);
+    expect(box.className).toBe("teach edu");
+    expect(box.querySelector(".teach-body")?.innerHTML).toBe("<b>Chroma</b>");
   });
 });
 
