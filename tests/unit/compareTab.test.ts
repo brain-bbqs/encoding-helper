@@ -16,7 +16,7 @@ import {
   MATRIX_SCALERS,
   MATRIX_SCALES,
 } from "../../src/lib/qualityMatrix";
-import { cli, sampledEncode, state } from "../../src/lib/state";
+import { cli, resetState, sampledEncode, state } from "../../src/lib/state";
 import type { EncodeSettings, MatrixCell, SampleWindow, X264Preset } from "../../src/lib/types";
 import { deferred, flush } from "./helpers/async";
 
@@ -1986,6 +1986,26 @@ describe("one encode at a time", () => {
 
     expect(runNote(panel).textContent).toBe("");
     expect(reencode.wholeFileNote.textContent).toBe("");
+  });
+
+  // A file load or Reset ends the run a refusal named as surely as the run finishing does. The
+  // panels are rebuilt only once the next file has loaded, so until then the old note is on screen.
+  it("takes a refusal back when a file load or Reset ends the run it named", async () => {
+    loadClip();
+    sweepOf(["superfast"]);
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    runButton(panel).click();
+    await flush();
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
+
+    resetState();
+
+    expect(runNote(panel).textContent).toBe("");
   });
 
   // A sweep reads the file to identify it before encoding anything, which for a URL can be seconds
