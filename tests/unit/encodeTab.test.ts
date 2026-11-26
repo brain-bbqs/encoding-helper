@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
-import { encoderBusy } from "../../src/lib/encoderRun";
+import { encoderBusy, RunStopped } from "../../src/lib/encoderRun";
 import type { FfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
 import { cli, sampledEncode, state } from "../../src/lib/state";
@@ -484,6 +484,33 @@ describe("running the command on a sample", () => {
     expect(run.prepareRun).toHaveBeenCalledTimes(2);
     expect(run.prepareRun.mock.calls[1][0].stopped).toBe(false);
     expect(ui.note.textContent).toBe("Encoding test segment…");
+  });
+
+  // Stop pressed while the result is being opened for the A/B window, which the window does with the
+  // run it is handed: one stopped meanwhile is turned away, and the run ends as stopped rather than as
+  // finished with nothing shown.
+  it("ends as stopped when Stop lands while the result is opened for the A/B window", async () => {
+    const panel = renderTab();
+    const ui = sampleRun(panel);
+    const opening = deferred<void>();
+    run.loadEncodedIntoAB.mockImplementation(async (_blobs, _settings, _vt, _host, _totals, handed) => {
+      await opening.promise;
+      if (handed?.stopped) throw new RunStopped();
+    });
+    ui.runButton.click();
+    await flush();
+    encoded.resolve({ blobs: [new Blob(["encoded"])], bytes: 7, measured: [{ startSeconds: 10, seconds: 2.9 }] });
+    await flush();
+    expect(ui.note.textContent).toBe("Decoding frames…");
+
+    ui.stopButton.click();
+    opening.resolve();
+    await flush();
+
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.fill.classList.contains("done")).toBe(false);
+    expect(encoderBusy()).toBe(false);
+    expect(ui.runButton.disabled).toBe(false);
   });
 
   // One encoder and one pool: the sweep on the other tab has both, and its run came first. The press

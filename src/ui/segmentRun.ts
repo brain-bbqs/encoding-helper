@@ -245,7 +245,6 @@ async function cutSnippets(
     if (cutter.has(name)) continue;
     ui.note.textContent = "Cutting the sampled video out of the source…";
     await cutter.ensureInput(inputName, source.data);
-    throwIfStopped(run);
     const args = [
       "-y",
       // Ahead of -i, so the seek is a seek: after it, ffmpeg would decode from the start of the
@@ -287,7 +286,6 @@ async function sourceForWindows(windows: SampleWindow[], cutter: FfmpegWorker): 
  * video otherwise, in which case the trim is done here as it always was.
  */
 async function encodeSegment(
-  run: EncoderRun,
   cliState: CliState,
   input: { name: string; data: Uint8Array; trim: SampleWindow | null },
   worker: FfmpegWorker,
@@ -300,8 +298,8 @@ async function encodeSegment(
   // so what it reads is checked here rather than once before the run: without this, one square
   // crashing a core failed every later square that core was handed, for a missing input rather
   // than for anything wrong with the settings. A core that still holds the file does nothing.
+  // Stopping the run meanwhile fails the write, or the load before it, as it fails the encode.
   await worker.ensureInput(input.name, input.data);
-  throwIfStopped(run);
   // Named per core: two of them writing "et_out.mp4" would be one filesystem each, but the name is
   // also what the log shows, and a shared one would read as the same encode running twice.
   const outputName = `et_out_${worker.id}.mp4`;
@@ -354,7 +352,6 @@ export async function prepareRun(
   throwIfStopped(run);
   const inputName = inputNameFor(source);
   await workers[0].ensureInput(inputName, source.data);
-  throwIfStopped(run);
   return {
     windows,
     names: windows.map(() => inputName),
@@ -417,7 +414,6 @@ export async function encodeWindows(
     workers,
     async ({ window, index }, worker) => {
       const blob = await encodeSegment(
-        run,
         cliState,
         { name: inputs.names[index], data: inputs.data[index], trim: inputs.preCut ? null : window },
         worker,

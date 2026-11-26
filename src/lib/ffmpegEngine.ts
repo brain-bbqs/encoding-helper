@@ -99,7 +99,8 @@ export interface FfmpegWorker {
   /** Rebinds the log/progress callbacks for this core's next run. */
   setHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void;
   load(): Promise<void>;
-  /** Puts `data` in this core's filesystem as `name`, unless it already holds it. */
+  /** Puts `data` in this core's filesystem as `name`, unless it already holds it. Fails, as every
+   * call in flight does, if the core is reset meanwhile, whether it was still loading or writing. */
   ensureInput(name: string, data: Uint8Array): Promise<void>;
   has(name: string): boolean;
   run(args: string[], outputName: string): Promise<FfmpegRunResult>;
