@@ -50,9 +50,10 @@ const FAMILIES: [string, string][] = [
 /**
  * Roughly what a label costs in the two sizes the blocks draw it at: per character, plus the
  * block's own padding. Measured against the map's real width, so a box still gets named in the
- * narrow slot a file with a big moov can afford it.
+ * narrow slot a file with a big moov can afford it. Exported for the test that holds it to the
+ * stylesheet's font sizes and paddings.
  */
-const LABEL_COST = {
+export const LABEL_COST = {
   wide: { perChar: 6.7, padding: 10 },
   snug: { perChar: 5.8, padding: 4 },
 };

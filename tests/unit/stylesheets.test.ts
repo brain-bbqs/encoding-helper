@@ -2,10 +2,16 @@
 // document, reusing the page's class names so one set of section builders serves both. A partial shared by the two
 // would reorder the page's cascade, and CSS cannot share one block between the page's two copies of its dark theme,
 // so nothing but this file holds them equal (DUP-2 and DUP-3 in docs/code-reviews/2026-11-22-code-quality-review.md).
+// Nor can CSS read a TypeScript constant, so the last block below holds the sizes and names the code draws with to
+// the page sheet's (CON-8 in the same review); the comparison above carries them over to the document's sheet.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildAnalysisDocument } from "../../src/lib/analysisDoc";
+import { DEMO_GROUPS } from "../../src/lib/demoArchive";
+import { LABEL_COST } from "../../src/ui/atomsTab";
+import { CHART_WIDTH } from "../../src/ui/chartAxes";
+import { HIST_HEIGHT_PX, HIST_MIN_BAR_PX } from "../../src/ui/seekTab";
 
 /**
  * Where the two sheets mean to differ: each selector they share, with the properties both declare that may hold
@@ -138,6 +144,47 @@ describe("the page stylesheet and the Full Analysis document's stylesheet", () =
 
   it("still differ in every property INTENDED_DIFFERENCES lists, so none of its entries is stale", () => {
     expect(staleEntries()).toEqual([]);
+  });
+});
+
+describe("the page stylesheet, against the TypeScript constants the code draws with", () => {
+  /** What the page sheet declares for `property` under `selector`. */
+  const declared = (selector: string, property: string): string | undefined => PAGE.get(selector)?.get(property);
+  const px = (value: string | undefined): number => Number(/^(-?[\d.]+)px$/.exec(value ?? "")?.[1] ?? NaN);
+  /** The left and right padding a `padding` shorthand comes to, added together. */
+  const horizontalPadding = (value = ""): number => {
+    const sides = value.split(" ");
+    const right = sides[1] ?? sides[0];
+    return px(right) + px(sides[3] ?? right);
+  };
+
+  // The paddings are exact. The per-character figures are an estimate of a monospace glyph's advance, about 0.6em,
+  // rounded up, so each is held to within 0.05em of that at the size its label is drawn.
+  it("budgets an atom label by the font size and padding each label size is drawn at", () => {
+    expect(horizontalPadding(declared(".atom-block .lbl", "padding"))).toBe(LABEL_COST.wide.padding);
+    expect(horizontalPadding(declared(".atom-block.snug .lbl", "padding"))).toBe(LABEL_COST.snug.padding);
+    expect(LABEL_COST.wide.perChar / px(declared(".atom-block", "font-size"))).toBeCloseTo(0.6, 1);
+    expect(LABEL_COST.snug.perChar / px(declared(".atom-block.snug .lbl", "font-size"))).toBeCloseTo(0.6, 1);
+  });
+
+  it("draws both charts' viewBoxes as wide as the sheet lets either chart be", () => {
+    expect(px(declared(".bitrate-chart", "max-width"))).toBe(CHART_WIDTH);
+    expect(px(declared(".seek-scatter", "max-width"))).toBe(CHART_WIDTH);
+  });
+
+  it("sizes the GOP histogram's bars against the box and the floor the sheet gives them", () => {
+    expect(px(declared(".hist", "height"))).toBe(HIST_HEIGHT_PX);
+    expect(px(declared(".hist .bar", "min-height"))).toBe(HIST_MIN_BAR_PX);
+  });
+
+  // A demo group is coloured by its first id (demosPage.ts); one the sheet has no [data-hue] rule for takes the
+  // fallback hue.
+  it("has a hue for every demo group, and none for a group that is gone", () => {
+    const hues = styleRules(PAGE_CSS)
+      .flatMap((rule) => rule.selectors)
+      .map((selector) => /^\[data-hue="([^"]+)"\]$/.exec(selector)?.[1])
+      .filter((hue): hue is string => hue !== undefined);
+    expect([...hues].sort()).toEqual(DEMO_GROUPS.map((group) => group.ids[0]).sort());
   });
 });
 

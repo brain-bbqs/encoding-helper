@@ -139,6 +139,11 @@ async function runSeekingTest(
   }
 }
 
+/** The histogram's height and its shortest bar, in px; the stylesheet's `.hist` and `.hist .bar`
+ * rules give the same two figures. */
+export const HIST_HEIGHT_PX = 90;
+export const HIST_MIN_BAR_PX = 2;
+
 /**
  * One bar per keyframe interval, tall ones (over 1.5× the average) called out in the warning color
  * since those are the spans a seek lands furthest from a keyframe in. Exported for the Full
@@ -150,7 +155,7 @@ export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
   const hist = h("div", "hist");
   gopLengths.forEach((len) => {
     const bar = h("div", "bar" + (len > avgGop * 1.5 ? " tall" : ""));
-    bar.style.height = Math.max(2, (len / maxLen) * 90) + "px";
+    bar.style.height = Math.max(HIST_MIN_BAR_PX, (len / maxLen) * HIST_HEIGHT_PX) + "px";
     bar.title = len + " frames";
     hist.append(bar);
   });
