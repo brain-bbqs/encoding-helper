@@ -899,12 +899,13 @@ function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
       estimate: matrixCellEstimate,
       // Loading a square can mean re-encoding it, and there is only one encoder, so that waits for
       // this tab's own sweep or square (and is refused, saying why, during the other tab's run: see
-      // chooseMatrixCell). A failed square is different: retrying it mid-sweep joins the
+      // chooseMatrixCell). A failed square is different during a sweep: retrying it joins the
       // queue the sweep is already working through, rather than asking for a second encode
       // alongside it. Whether there is a queue to join is decided on the click (see retryCell),
-      // since the sweep's cores leave it without the grid being drawn again.
+      // since the sweep's cores leave it without the grid being drawn again. A square on its way
+      // into the A/B window outside a sweep has no queue at all, so the retry waits for it too.
       onSelect: busy ? undefined : (cell) => void chooseMatrixCell(cell, vt, ui),
-      onRetry: (cell) => retryCell(cell, vt, ui),
+      onRetry: busy && !matrix.running ? undefined : (cell) => retryCell(cell, vt, ui),
     }),
   );
 }

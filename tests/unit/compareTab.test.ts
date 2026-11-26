@@ -701,6 +701,26 @@ describe("choosing a square", () => {
     expect(runButton(panel).disabled).toBe(false);
   });
 
+  // Nor does a failed square take one: with no sweep's queue to join, retrying it would be a second
+  // encode, so it waits like the rest instead of offering a click that is only refused.
+  it("offers no retry of a failed square while another square is on its way into the window", async () => {
+    const cells = sweptGrid();
+    cells[1].status = "failed";
+    cells[1].error = "x264 gave up";
+    cells[1].bytes = null;
+    cells[1].blobs = null;
+    const panel = renderTab();
+    expect(square(panel, cells[1]).disabled).toBe(false);
+
+    square(panel, cells[0]).click();
+    expect(square(panel, cells[1]).disabled).toBe(true);
+
+    settleAbLoad!.resolve();
+    await flush();
+    expect(square(panel, cells[1]).disabled).toBe(false);
+    expect(runNote(panel).textContent).toBe("");
+  });
+
   // A square whose output was released is encoded again before the A/B window can have it, which
   // is seconds of work: the ring moves and the grid is held for all of it, not only for the load.
   it("moves the ring and holds the grid while a released square is encoded again", async () => {
