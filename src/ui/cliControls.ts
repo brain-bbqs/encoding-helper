@@ -21,13 +21,12 @@ import { cli, currentVideoInfo, state } from "../lib/state";
 import type { Scaler } from "../lib/types";
 import { fieldNumber, fieldSelect, type EngineBox } from "./formControls";
 
-/** Recomputes the CLI preview from the shared `cli` state; a no-op if no video is loaded. */
-export function refreshCliCommand(): void {
+/** Recomputes the CLI preview in `cmdPre` from the shared `cli` state; a no-op if no video is loaded. */
+export function refreshCliCommand(cmdPre: HTMLElement): void {
   const info = currentVideoInfo();
   if (!info) return;
   const args = buildFfmpegArgs(cli, info, undefined, encodedFileName(state.format));
-  const cmdPre = document.getElementById("cmdPre");
-  if (cmdPre) cmdPre.textContent = formatCliCommand(args);
+  cmdPre.textContent = formatCliCommand(args);
 }
 
 /** The resolution dropdown's entries: the fixed ladder, labelled with what each comes out at for
@@ -50,24 +49,30 @@ function parseScale(value: string): number {
   return isPresetScale(parsed) ? parsed : 1;
 }
 
+/** The Resolution field and the Custom % field beside it, each with the control inside it. */
+export interface ResolutionFields {
+  scaleField: HTMLDivElement;
+  scaleSelect: HTMLSelectElement;
+  customField: HTMLDivElement;
+  customInput: HTMLInputElement;
+}
+
 /**
  * The Resolution select and the Custom % field beside it, built together because which one is
  * live depends on the other: kept out of `renderEncodeTab` so that function's branching stays
- * about the form's layout rather than the ladder/custom split.
+ * about the form's layout rather than the ladder/custom split. Which of the two shows is left to
+ * `syncQualityControls`.
  */
-export function resolutionFields(info: { width: number; height: number }): {
-  scaleField: HTMLDivElement;
-  customField: HTMLDivElement;
-} {
+export function resolutionFields(info: { width: number; height: number }): ResolutionFields {
   const scaleIsCustom = !isPresetScale(cli.scale);
-  const { field: scaleField } = fieldSelect(
+  const { field: scaleField, select: scaleSelect } = fieldSelect(
     "cliScale",
     "Resolution",
     scaleOptions(info),
     scaleIsCustom ? "custom" : String(cli.scale),
     RESOLUTION_INFO,
   );
-  const { field: customField } = fieldNumber(
+  const { field: customField, input: customInput } = fieldNumber(
     "cliScaleCustom",
     "Custom %",
     scaleIsCustom ? Math.round(cli.scale * 100) : cli.customScale,
@@ -76,24 +81,26 @@ export function resolutionFields(info: { width: number; height: number }): {
     1,
   );
   customField.classList.add("field-compact");
-  customField.style.display = scaleIsCustom ? "" : "none";
-  return { scaleField, customField };
+  return { scaleField, scaleSelect, customField, customInput };
 }
 
 /** Wires the Resolution select and Custom % field's `change`/`input` handlers into the shared `cli`
- * state. Call once the fields from `resolutionFields` are in the DOM. */
-export function bindResolutionControls(): void {
-  document.getElementById("cliScale")?.addEventListener("change", (e) => {
-    const v = (e.target as HTMLSelectElement).value;
+ * state, calling `sync` after each change so the controls that depend on the scale follow it. */
+export function bindResolutionControls(
+  { scaleSelect, customInput }: Pick<ResolutionFields, "scaleSelect" | "customInput">,
+  sync: () => void,
+): void {
+  scaleSelect.addEventListener("change", () => {
+    const v = scaleSelect.value;
     cli.scale = v === "custom" ? cli.customScale / 100 : parseScale(v);
-    syncQualityControls();
+    sync();
   });
-  document.getElementById("cliScaleCustom")?.addEventListener("input", (e) => {
-    const pct = parseInt((e.target as HTMLInputElement).value, 10);
+  customInput.addEventListener("input", () => {
+    const pct = parseInt(customInput.value, 10);
     if (!Number.isFinite(pct)) return;
     cli.customScale = Math.min(100, Math.max(1, pct));
     cli.scale = cli.customScale / 100;
-    syncQualityControls();
+    sync();
   });
 }
 
@@ -106,35 +113,34 @@ export function parseScaler(value: string): Scaler {
   return SCALER_OPTIONS.includes(value as Scaler) ? (value as Scaler) : DEFAULT_SCALER;
 }
 
+/** The builder's controls that bear on each other, and the command preview they all feed. */
+export interface QualityControls extends ResolutionFields {
+  qualitySelect: HTMLSelectElement;
+  crfField: HTMLDivElement;
+  crfInput: HTMLInputElement;
+  presetSelect: HTMLSelectElement;
+  scalerSelect: HTMLSelectElement;
+  cmdPre: HTMLElement;
+}
+
 // The quality, CRF, preset and resolution controls all bear on each other (a named quality hides
 // the CRF field, a full-resolution output disables the kernel field), so every one of them refreshes the lot
-// rather than only the field it owns, and the command preview with them.
-export function syncQualityControls(): void {
-  const qSel = document.getElementById("cliQuality") as HTMLSelectElement | null;
-  if (qSel) qSel.value = cli.quality;
-  const crfField = document.getElementById("cliCrf") as HTMLInputElement | null;
-  if (crfField) {
-    crfField.value = String(cli.crf);
-    crfField.parentElement!.style.display = cli.quality === "custom" ? "" : "none";
-  }
-  const presetSel = document.getElementById("cliPreset") as HTMLSelectElement | null;
-  if (presetSel) presetSel.value = cli.preset;
-  const scaleSel = document.getElementById("cliScale") as HTMLSelectElement | null;
+// rather than only the field it owns, and the command preview with them. Also what puts the freshly
+// built builder in that state, so the rules live here alone.
+export function syncQualityControls(c: QualityControls): void {
+  c.qualitySelect.value = cli.quality;
+  c.crfInput.value = String(cli.crf);
+  c.crfField.style.display = cli.quality === "custom" ? "" : "none";
+  c.presetSelect.value = cli.preset;
   const customScale = !isPresetScale(cli.scale);
-  if (scaleSel) scaleSel.value = customScale ? "custom" : String(cli.scale);
-  const customField = document.getElementById("cliScaleCustom") as HTMLInputElement | null;
-  if (customField) {
-    if (customScale) customField.value = String(Math.round(cli.scale * 100));
-    customField.parentElement!.style.display = customScale ? "" : "none";
-  }
+  c.scaleSelect.value = customScale ? "custom" : String(cli.scale);
+  if (customScale) c.customInput.value = String(Math.round(cli.scale * 100));
+  c.customField.style.display = customScale ? "" : "none";
   // The kernel only reaches the command when something is being resampled, so at full resolution the
   // field is there but inert rather than gone.
-  const scalerSel = document.getElementById("cliScaler") as HTMLSelectElement | null;
-  if (scalerSel) {
-    scalerSel.value = cli.scaler;
-    scalerSel.disabled = !isDownscale(cli.scale);
-  }
-  refreshCliCommand();
+  c.scalerSelect.value = cli.scaler;
+  c.scalerSelect.disabled = !isDownscale(cli.scale);
+  refreshCliCommand(c.cmdPre);
 }
 
 /**

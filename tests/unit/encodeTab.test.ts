@@ -47,8 +47,8 @@ function loadClip(format = "MP4"): void {
   state.format = format;
 }
 
-/** The tab, rendered over `loadClip`'s file. The panel goes into the document because the tab binds
- * its fields by id, the way the app's own panels are already in the page. */
+/** The tab, rendered over `loadClip`'s file, in a panel already in the document, as the app's own
+ * panels are. */
 function renderTab(format = "MP4"): HTMLElement {
   loadClip(format);
   const panel = document.createElement("div");

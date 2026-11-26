@@ -6,7 +6,7 @@
 // only useful next to the command that setting comes to, and the whole-file encode is that same
 // command over the whole file rather than a separate feature.
 
-import { CRF_MAP, isDownscale } from "../lib/cliCommand";
+import { CRF_MAP } from "../lib/cliCommand";
 import { h } from "@brain-bbqs/ui";
 import { cmdBlock, section, teachBox } from "../lib/dom";
 import { claimEncoder, holdsEncoder, releaseEncoder } from "../lib/encoderRun";
@@ -19,6 +19,7 @@ import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
   bindResolutionControls,
   parseScaler,
+  type QualityControls,
   refreshCliCommand,
   resolutionFields,
   scalerOptions,
@@ -61,6 +62,10 @@ export function renderEncodeTab(panel: HTMLElement): void {
 
   const builderSec = section("FFmpeg Command Builder");
   builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
+  // Made ahead of the fields that rewrite it, and placed under them.
+  const { wrap: cmdWrap, pre: cmdPre } = cmdBlock();
+  cmdPre.id = "cmdPre";
+  const refresh = (): void => refreshCliCommand(cmdPre);
 
   const form = h("div");
   // Capped rather than left to fill the form: the longest option is a few words, and a select as
@@ -88,12 +93,11 @@ export function renderEncodeTab(panel: HTMLElement): void {
     1,
   );
   crfField.classList.add("field-compact");
-  crfField.style.display = cli.quality === "custom" ? "" : "none";
   form.append(crfField);
 
   const row1 = h("div", "row");
-  const { scaleField, customField } = resolutionFields(info);
-  row1.append(scaleField, customField);
+  const resolution = resolutionFields(info);
+  row1.append(resolution.scaleField, resolution.customField);
   const { field: cliScalerField, select: scalerSelect } = fieldSelect(
     "cliScaler",
     "Scaler",
@@ -102,8 +106,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
     SCALER_INFO,
   );
   // Shown at every resolution, the way the sweep lists its kernels, but only live where something is
-  // being resampled: at full resolution there is nothing for a kernel to do.
-  scalerSelect.toggleAttribute("disabled", !isDownscale(cli.scale));
+  // being resampled (see syncQualityControls): at full resolution there is nothing for a kernel to do.
   row1.append(cliScalerField);
   const { field: presetField, select: presetSelect } = fieldSelect(
     "cliPreset",
@@ -134,7 +137,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
     const { field, input } = checkField(id, label, cli[key]);
     input.addEventListener("change", () => {
       cli[key] = input.checked;
-      refreshCliCommand();
+      refresh();
     });
     row2.append(field);
   }
@@ -164,11 +167,19 @@ export function renderEncodeTab(panel: HTMLElement): void {
   row3.append(fpsField);
   form.append(row3);
   builderSec.append(form);
-
-  const { wrap: cmdWrap, pre: cmdPre } = cmdBlock();
-  cmdPre.id = "cmdPre";
   builderSec.append(cmdWrap);
   panel.append(builderSec);
+
+  const controls: QualityControls = {
+    ...resolution,
+    qualitySelect,
+    crfField,
+    crfInput,
+    presetSelect,
+    scalerSelect,
+    cmdPre,
+  };
+  const sync = (): void => syncQualityControls(controls);
 
   const bindNumber = (
     input: HTMLInputElement,
@@ -178,32 +189,32 @@ export function renderEncodeTab(panel: HTMLElement): void {
     input.addEventListener("input", () => {
       const v = input.value;
       assign(v === "" ? null : parse(v));
-      refreshCliCommand();
+      refresh();
     });
   };
   qualitySelect.addEventListener("change", () => {
     cli.quality = qualitySelect.value as typeof cli.quality;
-    syncQualityControls();
+    sync();
   });
   crfInput.addEventListener("input", () => {
     cli.crf = parseInt(crfInput.value, 10) || 0;
-    syncQualityControls();
+    sync();
   });
   presetSelect.addEventListener("change", () => {
     cli.preset = presetSelect.value as typeof cli.preset;
-    syncQualityControls();
+    sync();
   });
-  bindResolutionControls();
+  bindResolutionControls(resolution, sync);
   scalerSelect.addEventListener("change", () => {
     cli.scaler = parseScaler(scalerSelect.value);
-    syncQualityControls();
+    sync();
   });
   bindNumber(kfInput, parseFloat, (parsed) => {
     cli.keyframeInterval = parsed ?? cli.keyframeInterval;
   });
   audioSelect.addEventListener("change", () => {
     cli.audioMode = audioSelect.value as typeof cli.audioMode;
-    refreshCliCommand();
+    refresh();
   });
   bindNumber(
     fpsInput,
@@ -212,7 +223,9 @@ export function renderEncodeTab(panel: HTMLElement): void {
       cli.fps = parsed;
     },
   );
-  refreshCliCommand();
+  // The freshly built controls take the state the builder's settings put them in (the CRF field
+  // shown or hidden, the kernel live or inert), by the same rules every later change follows.
+  sync();
 
   panel.append(sampleRunSection(vt));
   panel.append(inBrowserEncodeSection(info));
