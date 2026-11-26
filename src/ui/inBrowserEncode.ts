@@ -9,7 +9,8 @@ import { errorMessage } from "@brain-bbqs/utils";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, encodedFileName } from "../lib/cliCommand";
 import { section } from "../lib/dom";
-import { ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
+import { claimEncoder, releaseEncoder, RunStopped, throwIfStopped } from "../lib/encoderRun";
+import { defaultFfmpegWorker, ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { baseNameOf, downloadBlob, extOf, pickSaveTarget } from "../lib/save";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
@@ -35,7 +36,17 @@ function encodeVerb(): "Reencode" | "Transcode" {
   return state.format === "MP4" ? "Reencode" : "Transcode";
 }
 
+/**
+ * Encodes the whole file with the command built above it, and saves the result.
+ *
+ * Takes the encoder like every other run (see lib/encoderRun): its core is the pool's first, which
+ * a sweep or a sample run would otherwise encode on beside it. It has no Stop of its own; a file
+ * load or Reset stops it.
+ */
 async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
+  const run = claimEncoder("Reencode with FFmpeg", false, box.note);
+  if (!run) return;
+  run.workers.add(defaultFfmpegWorker);
   box.button.disabled = true;
   const fill = resetProgressFill(box.progress);
   box.note.textContent = "Loading ffmpeg.wasm…";
@@ -48,19 +59,25 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
       if (fill) fill.style.width = (Math.min(1, Math.max(0, ratio)) * 100).toFixed(0) + "%";
     },
   );
+  // The file as it was when the button was pressed: what the output is named, and measured
+  // against, is read from these rather than from the state once the encode is done.
+  const { source, file, format } = state;
   try {
-    if (!state.source) throw new Error("No video loaded");
+    if (!source) throw new Error("No video loaded");
     await ensureFfmpegLoaded();
-    const inputName = "in" + extOf(state.source.name);
-    const outputName = encodedFileName(state.format);
+    throwIfStopped(run);
+    const inputName = "in" + extOf(source.name);
+    const outputName = encodedFileName(format);
     box.note.textContent = "Writing input to virtual filesystem…";
-    const inputData = await fetchFile(state.file ?? state.source.url ?? undefined);
+    const inputData = await fetchFile(file ?? source.url ?? undefined);
+    throwIfStopped(run);
     const args = buildFfmpegArgs(cli, info, inputName, outputName);
     logLine(box.log, "$ ffmpeg " + args.join(" "), "success");
     box.note.textContent = "Encoding (single-threaded, so this can take a while)…";
     const { data } = await runFfmpegEncode(args, inputName, inputData, outputName);
+    throwIfStopped(run);
     const blob = new Blob([data], { type: "video/mp4" });
-    const saveName = encodedFileName(state.format, baseNameOf(state.source.name));
+    const saveName = encodedFileName(format, baseNameOf(source.name));
     const target = await pickSaveTarget(saveName);
     if (target && target.kind === "stream") {
       await target.writable.write(blob);
@@ -70,13 +87,20 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
     }
     // A full bar, the way a sample run ends, rather than a word under an empty one.
     finishFill(fill);
-    showReencodeResult(box, state.source.size, blob.size);
+    // Recorded for Full Analysis only while this file is still the one loaded.
+    throwIfStopped(run);
+    showReencodeResult(box, source.size, blob.size);
   } catch (err) {
-    console.error("[encoding-helper] in-browser encode failed:", err);
-    const message = errorMessage(err);
-    box.note.textContent = "Failed: " + message;
-    logLine(box.log, message, "error");
+    if (err instanceof RunStopped || run.stopped) {
+      box.note.textContent = "Stopped.";
+    } else {
+      console.error("[encoding-helper] in-browser encode failed:", err);
+      const message = errorMessage(err);
+      box.note.textContent = "Failed: " + message;
+      logLine(box.log, message, "error");
+    }
   } finally {
+    releaseEncoder(run);
     box.button.disabled = false;
     box.progress.style.display = "none";
   }

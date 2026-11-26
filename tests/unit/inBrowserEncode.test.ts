@@ -7,6 +7,7 @@ import { resetCliDefaults } from "../fixtures/state";
 import { cli, state } from "../../src/lib/state";
 import type { VideoInfo } from "../../src/lib/types";
 import { inBrowserEncodeSection } from "../../src/ui/inBrowserEncode";
+import { deferred, flush } from "./helpers/async";
 
 const ensureFfmpegLoaded = vi.hoisted(() => vi.fn());
 const runFfmpegEncode = vi.hoisted(() => vi.fn());
@@ -15,7 +16,15 @@ const pickSaveTarget = vi.hoisted(() => vi.fn());
 const downloadBlob = vi.hoisted(() => vi.fn());
 const fetchFile = vi.hoisted(() => vi.fn());
 
-vi.mock("../../src/lib/ffmpegEngine", () => ({ ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers }));
+/** The core the whole-file encode runs on, which a file load or Reset terminates to stop it. */
+const defaultFfmpegWorker = vi.hoisted(() => ({ reset: vi.fn() }));
+
+vi.mock("../../src/lib/ffmpegEngine", () => ({
+  ensureFfmpegLoaded,
+  runFfmpegEncode,
+  setFfmpegHandlers,
+  defaultFfmpegWorker,
+}));
 vi.mock("@ffmpeg/util", () => ({ fetchFile }));
 vi.mock("../../src/lib/save", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/lib/save")>()),
@@ -190,5 +199,49 @@ describe("inBrowserEncodeSection", () => {
       return Promise.resolve({ data: new Uint8Array(10) });
     });
     await run(button);
+  });
+
+  // The whole-file encode shares the cores with every other run, so it takes its turn like they do:
+  // a press while another encode holds them is refused, says why, and leaves the button usable.
+  it("refuses to start while another encode is running, and says why", async () => {
+    const encoding = deferred<{ data: Uint8Array }>();
+    runFfmpegEncode.mockReturnValueOnce(encoding.promise);
+    const first = section();
+    // The same section drawn again, as a rebuilt panel has it.
+    const second = section();
+    first.button.click();
+    await vi.waitFor(() => expect(runFfmpegEncode).toHaveBeenCalledOnce());
+
+    second.button.click();
+    await flush();
+
+    expect(runFfmpegEncode).toHaveBeenCalledOnce();
+    expect(second.note.textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish.",
+    );
+    expect(second.button.disabled).toBe(false);
+
+    encoding.resolve({ data: new Uint8Array(1000) });
+    await vi.waitFor(() => expect(first.button.disabled).toBe(false));
+    await run(second.button);
+    expect(runFfmpegEncode).toHaveBeenCalledTimes(2);
+  });
+
+  // What is saved, and under what name, is the file the encode was started on, read before the
+  // encode rather than off whatever the state says once it is done.
+  it("names and measures what it saves by the file it was started on", async () => {
+    const encoding = deferred<{ data: Uint8Array }>();
+    runFfmpegEncode.mockReturnValueOnce(encoding.promise);
+    const { button } = section();
+    button.click();
+    await vi.waitFor(() => expect(runFfmpegEncode).toHaveBeenCalledOnce());
+
+    state.source = { kind: "file", name: "other.mov", size: 5 } as never;
+    state.format = "QuickTime File Format";
+    encoding.resolve({ data: new Uint8Array(1000) });
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+
+    expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), "clip-reencoded.mp4");
+    expect(state.reencodeResult).toEqual({ originalSize: 2_000_000, encodedSize: 1000 });
   });
 });

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
+import { encoderBusy } from "../../src/lib/encoderRun";
 import type { FfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
 import { cli, sampledEncode, state } from "../../src/lib/state";
@@ -339,8 +340,8 @@ describe("running the command on a sample", () => {
     encoded = deferred();
     onProgress = null;
     run.worker.load.mockClear();
-    run.prepareRun.mockReset().mockImplementation((windows) => Promise.resolve(cutInputs(windows)));
-    run.encodeWindows.mockReset().mockImplementation((_cli, _inputs, _workers, _ui, progress) => {
+    run.prepareRun.mockReset().mockImplementation((_run, windows) => Promise.resolve(cutInputs(windows)));
+    run.encodeWindows.mockReset().mockImplementation((_run, _cli, _inputs, _workers, _ui, progress) => {
       onProgress = progress;
       return encoded.promise;
     });
@@ -368,14 +369,14 @@ describe("running the command on a sample", () => {
 
     expect(run.worker.load).toHaveBeenCalledTimes(1);
     const windows: SampleWindow[] = [{ startSeconds: 10, seconds: SAMPLE_SECONDS }];
-    expect(run.prepareRun.mock.calls[0][0]).toEqual(windows);
-    expect(run.prepareRun.mock.calls[0][1]).toEqual([run.worker]);
+    expect(run.prepareRun.mock.calls[0][1]).toEqual(windows);
+    expect(run.prepareRun.mock.calls[0][2]).toEqual([run.worker]);
     // The start of the stretch actually encoded is recorded (the A/B module is mocked here).
     expect(sampledEncode.startTime).toBe(10);
-    expect(sampledEncode.running).toBe(true);
+    expect(encoderBusy()).toBe(true);
     expect(ui.stopButton.style.display).toBe("");
     expect(ui.note.textContent).toBe("Encoding test segment…");
-    expect(run.encodeWindows.mock.calls[0].slice(0, 2)).toEqual([cli, cutInputs(windows)]);
+    expect(run.encodeWindows.mock.calls[0].slice(1, 3)).toEqual([cli, cutInputs(windows)]);
 
     onProgress!(0.5);
     expect(ui.fill.style.width).toBe("50%");
@@ -405,7 +406,7 @@ describe("running the command on a sample", () => {
     expect(ui.fill.style.width).toBe("100%");
     expect(ui.fill.classList.contains("done")).toBe(true);
     expect(ui.note.textContent).toBe("");
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.stopButton.style.display).toBe("none");
   });
@@ -426,7 +427,7 @@ describe("running the command on a sample", () => {
     // Nothing to show the length of, so the bar goes rather than freezing part-way.
     expect(ui.progress.style.display).toBe("none");
     expect(run.loadEncodedIntoAB).not.toHaveBeenCalled();
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
   });
 
@@ -439,20 +440,20 @@ describe("running the command on a sample", () => {
     expect(ui.stopButton.disabled).toBe(false);
 
     ui.stopButton.click();
-    expect(sampledEncode.cancelRequested).toBe(true);
+    expect(run.encodeWindows.mock.calls[0][0].stopped).toBe(true);
     expect(ui.stopButton.disabled).toBe(true);
     expect(ui.note.textContent).toBe("Stopping…");
 
     // The real encode is what turns a Stop into the end the failure handler recognises, so it is
     // the one that runs from here: with Stop pressed it never touches a core.
-    const [cliState, inputs, workers, runUi, progress] = run.encodeWindows.mock.calls[0];
-    realRun.encodeWindows(cliState, inputs, workers, runUi, progress).then(encoded.resolve, encoded.reject);
+    const [handle, cliState, inputs, workers, runUi, progress] = run.encodeWindows.mock.calls[0];
+    realRun.encodeWindows(handle, cliState, inputs, workers, runUi, progress).then(encoded.resolve, encoded.reject);
     await flush();
 
     expect(ui.note.textContent).toBe("Stopped.");
     expect(ui.progress.style.display).toBe("none");
     expect(run.loadEncodedIntoAB).not.toHaveBeenCalled();
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.stopButton.style.display).toBe("none");
   });
@@ -473,9 +474,16 @@ describe("running the command on a sample", () => {
     expect(ui.note.textContent).toBe("Stopped.");
     expect(ui.log.textContent).not.toContain("called FFmpeg.terminate()");
     expect(error).not.toHaveBeenCalled();
-    expect(sampledEncode.cancelRequested).toBe(false);
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
+
+    // The next press runs, rather than meeting the Stop pressed on the run before it.
+    encoded = deferred();
+    ui.runButton.click();
+    await flush();
+    expect(run.prepareRun).toHaveBeenCalledTimes(2);
+    expect(run.prepareRun.mock.calls[1][0].stopped).toBe(false);
+    expect(ui.note.textContent).toBe("Encoding test segment…");
   });
 
   // One encoder and one pool: the sweep on the other tab has both, and its run came first. The press

@@ -11,6 +11,7 @@ import { errorMessage } from "@brain-bbqs/utils";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs } from "../lib/cliCommand";
 import { button, h } from "@brain-bbqs/ui";
+import { RunStopped, stopEncoderRun, throwIfStopped, type EncoderRun } from "../lib/encoderRun";
 import { parseFfmpegTimeSeconds, type FfmpegWorker } from "../lib/ffmpegEngine";
 import { drainWithPool, ffmpegPool, poolSizeFor } from "../lib/ffmpegPool";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -205,6 +206,7 @@ function hashName(text: string): string {
  * source is not fetched again for it.
  */
 async function ensureSnippets(
+  run: EncoderRun,
   windows: SampleWindow[],
   workers: FfmpegWorker[],
   ui: RunUi,
@@ -212,7 +214,7 @@ async function ensureSnippets(
   const cutter = workers[0];
   const source = await sourceForWindows(windows, cutter);
   const names = windows.map(snippetName);
-  if (source) await cutSnippets(windows, names, source, cutter, ui);
+  if (source) await cutSnippets(run, windows, names, source, cutter, ui);
   // Read out of the core and kept for the run. Every core encodes from its own filesystem, so each
   // needs the cuts anyway; holding them here as well is what lets a core that crashed (and so
   // came back with an empty filesystem) be handed them again instead of failing every square it
@@ -220,13 +222,15 @@ async function ensureSnippets(
   // affordable: a copy of the video per core would not be.
   const data: Uint8Array[] = [];
   for (const name of names) {
-    if (stopRequested()) throw new RunStopped();
+    throwIfStopped(run);
     data.push(await cutter.readFile(name));
   }
+  throwIfStopped(run);
   return { names, data };
 }
 
 async function cutSnippets(
+  run: EncoderRun,
   windows: SampleWindow[],
   names: string[],
   source: SourceBytes,
@@ -237,10 +241,11 @@ async function cutSnippets(
   for (let i = 0; i < windows.length; i++) {
     const window = windows[i];
     const name = names[i];
-    if (stopRequested()) throw new RunStopped();
+    throwIfStopped(run);
     if (cutter.has(name)) continue;
     ui.note.textContent = "Cutting the sampled video out of the source…";
     await cutter.ensureInput(inputName, source.data);
+    throwIfStopped(run);
     const args = [
       "-y",
       // Ahead of -i, so the seek is a seek: after it, ffmpeg would decode from the start of the
@@ -282,6 +287,7 @@ async function sourceForWindows(windows: SampleWindow[], cutter: FfmpegWorker): 
  * video otherwise, in which case the trim is done here as it always was.
  */
 async function encodeSegment(
+  run: EncoderRun,
   cliState: CliState,
   input: { name: string; data: Uint8Array; trim: SampleWindow | null },
   worker: FfmpegWorker,
@@ -295,6 +301,7 @@ async function encodeSegment(
   // crashing a core failed every later square that core was handed, for a missing input rather
   // than for anything wrong with the settings. A core that still holds the file does nothing.
   await worker.ensureInput(input.name, input.data);
+  throwIfStopped(run);
   // Named per core: two of them writing "et_out.mp4" would be one filesystem each, but the name is
   // also what the log shows, and a shared one would read as the same encode running twice.
   const outputName = `et_out_${worker.id}.mp4`;
@@ -328,25 +335,32 @@ async function encodeSegment(
  * and every encode reads that instead of the whole video. Where it does not, the whole video goes
  * in and each encode trims it itself, which is what the tab did before any of this.
  */
-export async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[], ui: RunUi): Promise<RunInputs> {
+export async function prepareRun(
+  run: EncoderRun,
+  windows: SampleWindow[],
+  workers: FfmpegWorker[],
+  ui: RunUi,
+): Promise<RunInputs> {
   // Checked before the source is read: a Stop pressed while the core was still downloading would
   // otherwise wait for the whole video to be read first, which for a URL is a full download.
-  if (stopRequested()) throw new RunStopped();
+  throwIfStopped(run);
   if (canCutSnippets()) {
-    const { names, data } = await ensureSnippets(windows, workers, ui);
+    const { names, data } = await ensureSnippets(run, windows, workers, ui);
     return { windows, names, data, preCut: true };
   }
   // Nothing to cut, so every core needs the whole video. The first is given it here; any other core
   // the caller passed is written its own copy when it takes a stretch (see encodeSegment).
   const source = await readSource();
+  throwIfStopped(run);
   const inputName = inputNameFor(source);
   await workers[0].ensureInput(inputName, source.data);
+  throwIfStopped(run);
   return {
     windows,
     names: windows.map(() => inputName),
     data: windows.map(() => source.data),
     preCut: false,
-    wholeFileOn: workers[0],
+    wholeFileOn: workers,
   };
 }
 
@@ -366,9 +380,9 @@ export interface RunInputs {
   data: Uint8Array[];
   /** Whether those names are cut stretches (so no trim is needed) or the source itself. */
   preCut: boolean;
-  /** The core the whole video was written to up front when there was no cutting, and so the one it
-   * is deleted from once the run is over. */
-  wholeFileOn?: FfmpegWorker;
+  /** The cores that may be given the whole video when there was no cutting: the first up front, any
+   * other once it takes a stretch. Every one of them drops it once the run is over. */
+  wholeFileOn?: FfmpegWorker[];
 }
 
 /**
@@ -383,6 +397,7 @@ export interface RunInputs {
  * since its cores are already busy with the other squares.
  */
 export async function encodeWindows(
+  run: EncoderRun,
   cliState: CliState,
   inputs: RunInputs,
   workers: FfmpegWorker[],
@@ -402,6 +417,7 @@ export async function encodeWindows(
     workers,
     async ({ window, index }, worker) => {
       const blob = await encodeSegment(
+        run,
         cliState,
         { name: inputs.names[index], data: inputs.data[index], trim: inputs.preCut ? null : window },
         worker,
@@ -423,10 +439,10 @@ export async function encodeWindows(
       }
       measured[index] = { startSeconds: window.startSeconds, seconds };
     },
-    stopRequested,
+    () => run.stopped,
   );
 
-  if (stopRequested()) throw new RunStopped();
+  throwIfStopped(run);
   if (!blobs.length || !allFilled(blobs) || !allFilled(measured)) throw new Error("No stretch of video to encode");
   return { blobs, bytes: blobs.reduce((sum, b) => sum + b.size, 0), measured };
 }
@@ -455,65 +471,40 @@ async function segmentDuration(blob: Blob): Promise<number> {
 }
 
 /**
- * Drops the whole-video copy a run needed, keeping any cut stretches.
+ * Drops the whole-video copies a run needed, keeping any cut stretches.
  *
  * The video is the size of the file and there is no telling when another run wants it; the cut
  * stretches are a few hundred KB and are exactly what the next run over the same seconds needs, so
  * they stay. A run that cut its stretches has already dropped the source it cut them from.
+ *
+ * Every core that was given the video drops it, not only the first: its name says only what type
+ * of file it is, so a core left holding one would hand it to the next such file's run in place of
+ * that file.
  */
 export async function dropWholeFileInput(inputs: RunInputs | null): Promise<void> {
   if (!inputs || inputs.preCut) return;
-  await inputs.wholeFileOn?.deleteFile(inputs.names[0]);
+  const name = inputs.names[0];
+  // All at once rather than one after another, so every delete is sent while the run calling this
+  // still holds the encoder, and none reaches a core the next file's run has started on.
+  await Promise.all((inputs.wholeFileOn ?? []).filter((w) => w.has(name)).map((w) => w.deleteFile(name)));
 }
 
-/**
- * Whether Stop has been pressed on the run in progress, read through a call: the button flips the
- * flag while the run is awaiting an encode, and a call keeps type narrowing from treating the flag
- * as whatever it was last assigned.
- */
-export function stopRequested(): boolean {
-  return sampledEncode.cancelRequested;
+/** The pool `run` will encode on, every core of which a Stop of it terminates. */
+export function acquireWorkers(run: EncoderRun, taskCount: number): FfmpegWorker[] {
+  const workers = ffmpegPool(poolSizeFor(taskCount));
+  for (const worker of workers) run.workers.add(worker);
+  return workers;
 }
 
-/** The cores the run in progress is encoding on, so Stop has something to stop. */
-let activeWorkers: FfmpegWorker[] = [];
-
-/** The pool this run will encode on, registered so Stop can reach it. */
-export function acquireWorkers(taskCount: number): FfmpegWorker[] {
-  activeWorkers = ffmpegPool(poolSizeFor(taskCount));
-  return activeWorkers;
-}
-
-/** A run ended because Stop was pressed, which is not a failure to report as one. */
-class RunStopped extends Error {
-  constructor() {
-    super("Stopped");
-    this.name = "RunStopped";
-  }
-}
-
-/**
- * Stops the run now, rather than at the end of whatever is already in flight.
- *
- * The encode runs inside wasm, which offers no way to interrupt a call already in it, so waiting
- * for the encode in progress means waiting for exactly the slow combination Stop tends to be
- * pressed about, with the tab's buttons disabled and the bar still filling the whole time.
- * Terminating the core is the interrupt: its pending call rejects, the run unwinds through the
- * error handling it already has, and the next run builds a fresh core. What that costs is the cut
- * stretches the terminated core was holding, which the next run cuts again.
- */
+/** Stops the run holding the encoder (see stopEncoderRun), the one this button was shown for. */
 function requestStop(ui: RunUi): void {
-  if (!sampledEncode.running) return;
-  sampledEncode.cancelRequested = true;
+  if (!stopEncoderRun()) return;
   ui.stopButton.disabled = true;
   ui.note.textContent = "Stopping…";
-  for (const worker of activeWorkers) worker.reset();
 }
 
 /** Readies the progress bar and console for a run, and hands back the bar's fill. */
 export function startRunUi(ui: RunUi): HTMLDivElement | null {
-  sampledEncode.running = true;
-  sampledEncode.cancelRequested = false;
   ui.runButton.disabled = true;
   // Offered by both tabs: a sweep encodes several stretches for every square, and even the one
   // stretch of a single run can take long enough to want out of.
@@ -524,24 +515,19 @@ export function startRunUi(ui: RunUi): HTMLDivElement | null {
   return fill;
 }
 
+/** Hands the run's controls back once it has ended. */
 export function endRunUi(ui: RunUi): void {
-  sampledEncode.running = false;
-  // A Stop belongs to the run it was pressed on. Left set, it would also stop the next square
-  // clicked into the A/B window, which encodes without a run of its own, and only once that had
-  // read the whole video in.
-  sampledEncode.cancelRequested = false;
-  activeWorkers = [];
   ui.runButton.disabled = false;
   ui.syncRunAction();
   ui.stopButton.style.display = "none";
 }
 
-export function reportRunFailure(err: unknown, ui: RunUi): void {
+export function reportRunFailure(run: EncoderRun, err: unknown, ui: RunUi): void {
   // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
   ui.progress.style.display = "none";
-  // Stop terminates the cores, so the call in flight rejects with the library's own message rather
-  // than with RunStopped; once Stop has been pressed, whatever the run ended on is that stop.
-  if (err instanceof RunStopped || stopRequested()) {
+  // Stopping terminates the cores, so the call in flight rejects with the library's own message
+  // rather than with RunStopped; once the run is stopped, whatever it ended on is that stop.
+  if (err instanceof RunStopped || run.stopped) {
     ui.note.textContent = "Stopped.";
     return;
   }
