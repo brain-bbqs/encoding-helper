@@ -4,7 +4,7 @@
 // go and look at.
 
 import { errorMessage } from "@brain-bbqs/utils";
-import { button, h, svgEl, svgText } from "@brain-bbqs/ui";
+import { button, h, svgEl } from "@brain-bbqs/ui";
 import { badgeEl, dataTable, factGrid, fold, gridItem, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { FALLBACK_FPS, fmtMs } from "../lib/format";
@@ -14,6 +14,7 @@ import { downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state } from "../lib/state";
 import type { Badge, FactRow, SeekResult } from "../lib/types";
+import { appendAxes, AXIS_STEPS, CHART_WIDTH } from "./chartAxes";
 import { fieldNumber, progressBar } from "./formControls";
 
 /**
@@ -210,7 +211,7 @@ function seekResultsTsv(results: SeekResult[]): Blob {
 export function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
   const pts = results.filter((r): r is SeekResult & { dist: number } => r.dist != null);
   if (pts.length < 2) return null;
-  const W = 600;
+  const W = CHART_WIDTH;
   const H = 280;
   const ML = 56;
   const MR = 16;
@@ -230,51 +231,15 @@ export function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
     "aria-label": "Scatter plot of keyframe distance versus decode time, one point per sampled timestamp",
   });
 
-  const STEPS = 4;
-  for (let i = 0; i <= STEPS; i++) {
-    const gx = ML + (plotW * i) / STEPS;
-    const gy = MT + (plotH * i) / STEPS;
-    svg.append(svgEl("line", { class: "grid-line", x1: gx, y1: MT, x2: gx, y2: MT + plotH, "stroke-width": 1 }));
-    svg.append(svgEl("line", { class: "grid-line", x1: ML, y1: gy, x2: ML + plotW, y2: gy, "stroke-width": 1 }));
-    svg.append(
-      svgText(
-        "tick",
-        { x: gx, y: MT + plotH + 16, "font-size": 10, "text-anchor": "middle" },
-        ((maxX * i) / STEPS).toFixed(2),
-      ),
-    );
-    svg.append(
-      svgText(
-        "tick",
-        { x: ML - 8, y: MT + plotH - (plotH * i) / STEPS + 3, "font-size": 10, "text-anchor": "end" },
-        String(Math.round((maxY * i) / STEPS)),
-      ),
-    );
-  }
-  svg.append(svgEl("line", { class: "axis", x1: ML, y1: MT, x2: ML, y2: MT + plotH, "stroke-width": 1 }));
-  svg.append(
-    svgEl("line", { class: "axis", x1: ML, y1: MT + plotH, x2: ML + plotW, y2: MT + plotH, "stroke-width": 1 }),
-  );
-
-  svg.append(
-    svgText(
-      "axis-title",
-      { x: ML + plotW / 2, y: H - 4, "font-size": 11, "text-anchor": "middle" },
-      "Keyframe distance (s)",
-    ),
-  );
-  svg.append(
-    svgText(
-      "axis-title",
-      {
-        x: 12,
-        y: MT + plotH / 2,
-        "font-size": 11,
-        "text-anchor": "middle",
-        transform: `rotate(-90 12 ${MT + plotH / 2})`,
-      },
-      "Decode time (ms)",
-    ),
+  appendAxes(
+    svg,
+    { H, ML, MT, plotW, plotH },
+    {
+      xTick: (i) => ((maxX * i) / AXIS_STEPS).toFixed(2),
+      yTick: (i) => String(Math.round((maxY * i) / AXIS_STEPS)),
+      xTitle: "Keyframe distance (s)",
+      yTitle: "Decode time (ms)",
+    },
   );
 
   pts.forEach((r) => {
