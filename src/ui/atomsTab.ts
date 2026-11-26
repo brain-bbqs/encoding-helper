@@ -72,6 +72,9 @@ function labelFit(frac: number, chars: number, widthPx: number): "wide" | "snug"
 // One observer at a time: each redraw builds a fresh map element and re-points the observer at it.
 let labelObserver: ResizeObserver | null = null;
 
+/** The atom card's heading. The overview links to the card by this heading's slug. */
+export const ATOM_MAP_TITLE = "MP4 Box / Atom Structure";
+
 function familyClass(family: string | null): string {
   return family !== null && FAMILIES.some(([key]) => key === family) ? "f-" + family : "f-other";
 }
@@ -83,7 +86,7 @@ function atomBlockClass(rect: AtomRect): string {
 }
 
 export function renderAtomMap(panel: HTMLElement): void {
-  const sec = section("MP4 Box / Atom Structure");
+  const sec = section(ATOM_MAP_TITLE);
   // Faststart is a statement about where two of these boxes sit relative to each other, so it is
   // read here, against the map that draws them, rather than up in the file overview.
   sec.append(renderFaststartBadge());

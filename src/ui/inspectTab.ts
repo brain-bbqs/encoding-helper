@@ -3,6 +3,7 @@
 // section (seekTab.ts) into the same panel, between the head and tail cards.
 
 import { fmtBytes } from "@brain-bbqs/utils";
+import { slugify } from "../lib/analysisDoc";
 import { computeBitrateTimeline, isEffectivelyConstant, type BitrateTimeline } from "../lib/bitrateTimeline";
 import { describeContainer } from "../lib/containerKb";
 import { escapeHtml, h } from "@brain-bbqs/ui";
@@ -29,6 +30,7 @@ import { describeMetadataTag, describeMetadataTagValue, type MetadataTagInfo } f
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { audioTrackInfo, state, videoTrackInfo } from "../lib/state";
 import type { CodecInfo, DeclaredBitrate, FactRow, TrackInfo } from "../lib/types";
+import { ATOM_MAP_TITLE } from "./atomsTab";
 import { renderBitrateChart } from "./bitrateChart";
 
 // The card titles the Full Analysis document heads its matching sections with. They live here, with
@@ -119,7 +121,7 @@ function renderOverviewSection(): HTMLDivElement {
   // The id mountInspectToc slugifies the atom card's own heading into, which is what its entry in
   // the "On this page" nav links to as well.
   if (containerInfo) {
-    overview.append(teachBox(containerExplainer(containerInfo, "#mp4-box-atom-structure"), "🎥"));
+    overview.append(teachBox(containerExplainer(containerInfo, "#" + slugify(ATOM_MAP_TITLE)), "🎥"));
   }
 
   // Metadata Tags folds into this card rather than getting one of its own: it is more of this same

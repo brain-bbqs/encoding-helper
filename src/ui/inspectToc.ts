@@ -8,6 +8,10 @@ import { h } from "@brain-bbqs/ui";
 
 let scrollSpyObserver: IntersectionObserver | null = null;
 
+/** How far down the viewport, in px, a heading counts as scrolled past: the observer fires as one
+ * crosses this line, and the handler picks the section by the same line. */
+const TRIGGER_LINE_PX = 96;
+
 /**
  * Wraps whatever renderInspectHead/renderAtomMap/renderGopStructure/renderInspectTail already appended to
  * `panel` into a content column, and builds the nav beside it from each top-level section's own
@@ -60,11 +64,11 @@ export function mountInspectToc(panel: HTMLElement): void {
       if (!entries.length) return;
       // The heading whose top is closest to (and above) the trigger line is the section being read;
       // scanning every heading each time keeps this correct even when several intersect at once.
-      const above = headings.filter((hd) => hd.getBoundingClientRect().top <= 96);
+      const above = headings.filter((hd) => hd.getBoundingClientRect().top <= TRIGGER_LINE_PX);
       const current = above.length ? above[above.length - 1] : headings[0];
       setActive(current.id);
     },
-    { rootMargin: "-96px 0px -70% 0px", threshold: 0 },
+    { rootMargin: `-${TRIGGER_LINE_PX}px 0px -70% 0px`, threshold: 0 },
   );
   scrollSpyObserver = observer;
   headings.forEach((hd) => observer.observe(hd));
