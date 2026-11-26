@@ -60,14 +60,14 @@ export function resolutionFields(info: { width: number; height: number }): {
   customField: HTMLDivElement;
 } {
   const scaleIsCustom = !isPresetScale(cli.scale);
-  const scaleField = fieldSelect(
+  const { field: scaleField } = fieldSelect(
     "cliScale",
     "Resolution",
     scaleOptions(info),
     scaleIsCustom ? "custom" : String(cli.scale),
     RESOLUTION_INFO,
   );
-  const customField = fieldNumber(
+  const { field: customField } = fieldNumber(
     "cliScaleCustom",
     "Custom %",
     scaleIsCustom ? Math.round(cli.scale * 100) : cli.customScale,

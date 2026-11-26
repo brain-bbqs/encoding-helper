@@ -15,6 +15,7 @@ export function fieldHead(label: string, info?: string | null): HTMLElement {
   return head;
 }
 
+/** A labelled dropdown in a field of its own, the select handed back for the caller to listen to. */
 export function fieldSelect(
   id: string,
   label: string,
@@ -22,22 +23,23 @@ export function fieldSelect(
   value: string,
   /** Trusted, author-authored explainer markup, shown from an ⓘ next to the label. */
   info?: string | null,
-): HTMLDivElement {
-  const f = h("div", "field");
-  f.append(fieldHead(label, info));
-  const sel = h("select");
-  sel.id = id;
+): { field: HTMLDivElement; select: HTMLSelectElement } {
+  const field = h("div", "field");
+  field.append(fieldHead(label, info));
+  const select = h("select");
+  select.id = id;
   options.forEach((opt) => {
     const [v, text] = Array.isArray(opt) ? opt : [opt, opt];
     const o = h("option", null, text);
     o.value = v;
     if (v === value) o.selected = true;
-    sel.append(o);
+    select.append(o);
   });
-  f.append(sel);
-  return f;
+  field.append(select);
+  return { field, select };
 }
 
+/** A labelled number box in a field of its own, the input handed back for the caller to listen to. */
 export function fieldNumber(
   id: string,
   label: string,
@@ -45,18 +47,18 @@ export function fieldNumber(
   min: number,
   max: number,
   step: number,
-): HTMLDivElement {
-  const f = h("div", "field");
-  f.append(fieldHead(label));
-  const inp = h("input");
-  inp.type = "number";
-  inp.id = id;
-  inp.value = String(value);
-  inp.min = String(min);
-  inp.max = String(max);
-  inp.step = String(step);
-  f.append(inp);
-  return f;
+): { field: HTMLDivElement; input: HTMLInputElement } {
+  const field = h("div", "field");
+  field.append(fieldHead(label));
+  const input = h("input");
+  input.type = "number";
+  input.id = id;
+  input.value = String(value);
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  field.append(input);
+  return { field, input };
 }
 
 export interface EngineBox {

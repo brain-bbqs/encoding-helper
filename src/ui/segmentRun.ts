@@ -65,10 +65,22 @@ export function sampleFields(idPrefix: string): HTMLDivElement {
   const maxDuration = maxSampleDuration();
   sampledEncode.duration = Math.min(Math.max(1, sampledEncode.duration || 3), maxDuration);
   const row = h("div", "row compare-grid");
-  const durationField = fieldNumber(idPrefix + "Duration", "Duration (s)", sampledEncode.duration, 1, maxDuration, 0.5);
-  const segmentsField = fieldNumber(idPrefix + "Segments", "Segments", sampledEncode.segments, 1, MAX_SEGMENTS, 1);
-  const duration = durationField.querySelector("input")!;
-  const segments = segmentsField.querySelector("input")!;
+  const { field: durationField, input: duration } = fieldNumber(
+    idPrefix + "Duration",
+    "Duration (s)",
+    sampledEncode.duration,
+    1,
+    maxDuration,
+    0.5,
+  );
+  const { field: segmentsField, input: segments } = fieldNumber(
+    idPrefix + "Segments",
+    "Segments",
+    sampledEncode.segments,
+    1,
+    MAX_SEGMENTS,
+    1,
+  );
   duration.classList.add("sample-duration");
   segments.classList.add("sample-segments");
   duration.addEventListener("input", () => {

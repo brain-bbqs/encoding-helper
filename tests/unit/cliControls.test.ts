@@ -31,10 +31,10 @@ function renderResolution(): { select: HTMLSelectElement; custom: HTMLInputEleme
 function renderQualityControls(): HTMLDivElement {
   const panel = document.createElement("div");
   panel.append(
-    fieldSelect("cliQuality", "Quality", ["low", "medium", "custom"], cli.quality),
-    fieldNumber("cliCrf", "CRF", cli.crf, 0, 51, 1),
-    fieldSelect("cliPreset", "Preset", ["superfast", "medium"], cli.preset),
-    fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler),
+    fieldSelect("cliQuality", "Quality", ["low", "medium", "custom"], cli.quality).field,
+    fieldNumber("cliCrf", "CRF", cli.crf, 0, 51, 1).field,
+    fieldSelect("cliPreset", "Preset", ["superfast", "medium"], cli.preset).field,
+    fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler).field,
   );
   const pre = document.createElement("pre");
   pre.id = "cmdPre";

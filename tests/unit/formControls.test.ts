@@ -17,39 +17,45 @@ const OPTIONS: [string, string][] = [
 ];
 
 describe("fieldSelect", () => {
-  it("builds a labelled select with the current value chosen", () => {
-    const field = fieldSelect("etPreset", "x264 Preset", OPTIONS, "veryslow");
+  it("builds a labelled select with the current value chosen, and hands the select back", () => {
+    const { field, select } = fieldSelect("etPreset", "x264 Preset", OPTIONS, "veryslow");
     expect(field.querySelector("label")!.textContent).toBe("x264 Preset");
-    const select = field.querySelector("select")!;
+    expect(field.querySelector("select")).toBe(select);
     expect(select.id).toBe("etPreset");
     expect(select.value).toBe("veryslow");
   });
 
   // Most option lists are plain names, where the value and its wording are the same thing.
   it("uses a plain string option as both its value and its wording", () => {
-    const field = fieldSelect("etCodec", "Codec", ["h264", ["hevc", "H.265 / HEVC"]], "h264");
-    const options = Array.from(field.querySelectorAll("option"));
+    const { select } = fieldSelect("etCodec", "Codec", ["h264", ["hevc", "H.265 / HEVC"]], "h264");
+    const options = Array.from(select.querySelectorAll("option"));
     expect(options.map((o) => [o.value, o.textContent])).toEqual([
       ["h264", "h264"],
       ["hevc", "H.265 / HEVC"],
     ]);
-    expect(field.querySelector("select")!.value).toBe("h264");
+    expect(select.value).toBe("h264");
   });
 
   it("leaves the label bare when there is nothing to explain", () => {
-    const field = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast");
+    const { field } = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast");
     expect(field.querySelector(".field-head")).toBeNull();
     expect(field.querySelector(".info-btn")).toBeNull();
   });
 
   it("puts an ⓘ beside the label when given explainer copy", () => {
-    const field = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast", "<b>Preset</b> sets how hard…");
+    const { field, select } = fieldSelect(
+      "etPreset",
+      "x264 Preset",
+      OPTIONS,
+      "superfast",
+      "<b>Preset</b> sets how hard…",
+    );
     const head = field.querySelector(".field-head")!;
     expect(head.querySelector("label")!.textContent).toBe("x264 Preset");
     expect(head.querySelector(".info-btn")!.getAttribute("aria-label")).toBe("About x264 Preset");
     expect(head.querySelector(".info-pop")!.innerHTML).toBe("<b>Preset</b> sets how hard…");
     // The control itself is unchanged by the explainer.
-    expect(field.querySelector("select")!.value).toBe("superfast");
+    expect(select.value).toBe("superfast");
   });
 });
 
@@ -113,10 +119,10 @@ describe("logConsole", () => {
 });
 
 describe("fieldNumber", () => {
-  it("builds a labelled number input with its range and step", () => {
-    const field = fieldNumber("etCrf", "CRF", 23, 0, 51, 1);
+  it("builds a labelled number input with its range and step, and hands the input back", () => {
+    const { field, input } = fieldNumber("etCrf", "CRF", 23, 0, 51, 1);
     expect(field.querySelector("label")!.textContent).toBe("CRF");
-    const input = field.querySelector("input")!;
+    expect(field.querySelector("input")).toBe(input);
     expect(input.type).toBe("number");
     expect(input.id).toBe("etCrf");
     expect(input.value).toBe("23");
