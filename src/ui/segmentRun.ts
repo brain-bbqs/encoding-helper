@@ -339,8 +339,8 @@ export async function prepareRun(
   workers: FfmpegWorker[],
   ui: RunUi,
 ): Promise<RunInputs> {
-  // Checked before the source is read: a Stop pressed while the core was still downloading would
-  // otherwise wait for the whole video to be read first, which for a URL is a full download.
+  // Checked before the source is read, which for a URL is a full download: a run already stopped by
+  // the time it gets here reads none of it.
   throwIfStopped(run);
   if (canCutSnippets()) {
     const { names, data } = await ensureSnippets(run, windows, workers, ui);

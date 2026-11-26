@@ -66,7 +66,7 @@ vi.mock("@ffmpeg/ffmpeg", () => {
     }
     on(): void {}
     load(): Promise<void> {
-      return core.load ? core.load() : Promise.resolve();
+      return core.load ? this.inFlight(core.load()) : Promise.resolve();
     }
     terminate(): void {
       core.terminated++;
@@ -328,6 +328,7 @@ function squareSub(panel: HTMLElement, cell: MatrixCell): string {
 /** The controls of the Reencode with FFmpeg tab's two encodes: the sample run and the whole-file one. */
 interface ReencodeControls {
   runButton: HTMLButtonElement;
+  stopButton: HTMLButtonElement;
   note: HTMLElement;
   wholeFileButton: HTMLButtonElement;
   wholeFileNote: HTMLElement;
@@ -344,7 +345,8 @@ function renderReencodeTab(): ReencodeControls {
 function reencodeControls(panel: HTMLElement): ReencodeControls {
   const notes = panel.querySelectorAll<HTMLElement>(".progress-label");
   return {
-    runButton: panel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!,
+    runButton: runButton(panel),
+    stopButton: stopButton(panel),
     note: notes[0],
     wholeFileButton: Array.from(panel.querySelectorAll("button")).find((b) => b.textContent!.endsWith(" and Save"))!,
     wholeFileNote: notes[1],
@@ -1241,16 +1243,15 @@ describe("running the sweep", () => {
     expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["skipped"]);
   });
 
-  // Or while a second core is still loading to take its first square, which nothing interrupts: the
-  // load is thrown away when it comes back, and that core encodes nothing.
+  // Or while a second core is still loading to take its first square: Stop closes that core as well,
+  // so the sweep ends without waiting for the load, and that core encodes nothing.
   it("encodes nothing on a core still loading when Stop lands", async () => {
     vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
     loadClip();
     sweepOf(["ultrafast", "superfast"]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    const secondLoad = deferred<void>();
     let loads = 0;
-    core.load = () => (++loads === 2 ? secondLoad.promise : Promise.resolve());
+    core.load = () => (++loads === 2 ? new Promise<void>(() => {}) : Promise.resolve());
     core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
     const panel = renderTab();
     runButton(panel).click();
@@ -1258,7 +1259,6 @@ describe("running the sweep", () => {
     await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
 
     stopButton(panel).click();
-    secondLoad.resolve();
     await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
 
     expect(encodes()).toHaveLength(1);
@@ -1764,6 +1764,57 @@ describe("running the sweep", () => {
   });
 });
 
+// Stop closes a core still loading as it closes one encoding, so a run stopped before its core is
+// up ends there and then, on either tab, rather than once a load that would be thrown away is done.
+describe("a Stop while the core is still loading", () => {
+  /** Holds every core's load for good, and hands back how many have started. */
+  function holdLoads(): () => number {
+    let loads = 0;
+    core.load = () => {
+      loads++;
+      return new Promise<void>(() => {});
+    };
+    return () => loads;
+  }
+
+  it("ends a sweep at once, as stopped", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const loads = holdLoads();
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(loads()).toBe(1), WAIT);
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(core.terminated).toBe(1);
+    expect(core.execs).toEqual([]);
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["skipped"]);
+    expect(encoderBusy()).toBe(false);
+  });
+
+  it("ends a sample run on the Reencode tab at once, as stopped", async () => {
+    loadClip();
+    renderTab();
+    const loads = holdLoads();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(loads()).toBe(1), WAIT);
+
+    reencode.stopButton.click();
+    await vi.waitFor(() => expect(reencode.runButton.disabled).toBe(false), WAIT);
+
+    expect(reencode.note.textContent).toBe("Stopped.");
+    expect(core.terminated).toBe(1);
+    expect(core.execs).toEqual([]);
+    expect(abLoads).toEqual([]);
+    expect(encoderBusy()).toBe(false);
+  });
+});
+
 // Every kind of encode shares the cores, so only one of them runs at a time: the sweep, a square
 // encoded again for the A/B window, and both of the Reencode tab's runs. One started while another
 // holds the encoder is refused, and says so.
@@ -1858,22 +1909,25 @@ describe("one encode at a time", () => {
     expect(runNote(panel).textContent).toBe("Stopped: 0 of 1 encoded");
   });
 
-  // A stopped run can still be waiting on what Stop cannot cut short, such as its core loading. A
-  // press meanwhile is refused without offering the Stop already pressed, and runs once it ends.
+  // A stopped run can still be waiting on what Stop cannot cut short, such as its reading of the
+  // file. A press meanwhile is refused without offering the Stop already pressed, and runs once it
+  // ends.
   it("asks only to wait for a stopped run that is still winding down", async () => {
     loadClip();
     sweepOf(["ultrafast"]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    const loading = deferred<void>();
-    let loads = 0;
-    core.load = () => {
-      loads++;
-      return loading.promise;
+    const reading = deferred<void>();
+    let reads = 0;
+    const source = state.source!;
+    const readChunk = source.readChunk.bind(source);
+    source.readChunk = (offset, size) => {
+      reads++;
+      return reading.promise.then(() => readChunk(offset, size));
     };
     const panel = renderTab();
     const reencode = renderReencodeTab();
     runButton(panel).click();
-    await vi.waitFor(() => expect(loads).toBe(1), WAIT);
+    await vi.waitFor(() => expect(reads).toBeGreaterThan(0), WAIT);
     stopButton(panel).click();
 
     reencode.runButton.click();
@@ -1884,8 +1938,7 @@ describe("one encode at a time", () => {
     );
     expect(reencode.runButton.disabled).toBe(false);
 
-    core.load = null;
-    loading.resolve();
+    reading.resolve();
     await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
     expect(runNote(panel).textContent).toBe("Stopped.");
     expect(core.execs).toEqual([]);
@@ -2008,37 +2061,36 @@ describe("a run across a file change", () => {
     expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
   });
 
-  // The same for a sweep whose core is still loading when another file is loaded, which nothing
-  // interrupts either. The load is thrown away when it comes back rather than taking the place of
-  // the core the next file's sweep is encoding on, so that sweep's Stop still reaches it.
-  it("keeps a stopped sweep's late core load off the next file's sweep", async () => {
+  // A sweep whose core is still loading when another file is loaded is not left loading beside the
+  // next file's: the file load closes that core on the spot, and the next file's sweep encodes on a
+  // core of its own, which its Stop reaches.
+  it("closes a sweep's core still loading when another file is loaded", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const { els, loader } = mountLoader();
     await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
     sweepOf(["ultrafast"]);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    const staleLoad = deferred<void>();
     let loads = 0;
     core.load = () => {
       loads++;
-      return staleLoad.promise;
+      return new Promise<void>(() => {});
     };
     runButton(els.panels.compare).click();
     await vi.waitFor(() => expect(loads).toBe(1), WAIT);
 
     await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    expect(core.terminated).toBe(1);
+
     core.load = null;
     sweepOf(["superfast"]);
     core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
     runButton(els.panels.compare).click();
     await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
-
-    staleLoad.resolve();
-    await flush();
     stopButton(els.panels.compare).click();
 
     await vi.waitFor(() => expect(runButton(els.panels.compare).disabled).toBe(false), WAIT);
     expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
+    expect(core.terminated).toBe(2);
     expect(encoderBusy()).toBe(false);
   });
 

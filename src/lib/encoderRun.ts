@@ -7,10 +7,9 @@
 // it back when it ends; one that finds it taken is refused, and says why.
 //
 // A file load or Reset stops the run holding it and takes it back on the spot (see resetState).
-// What that run has left to unwind can outlast the load (a core still downloading cannot be
-// interrupted, nor can a read of the source), so it carries its own hold: it is stopped, so it ends
-// at its next check, and it no longer holds the encoder, so its cleanup leaves the next file's run
-// alone.
+// What that run has left to unwind can outlast the file load (a read of the source cannot be
+// interrupted, for one), so it carries its own hold: it is stopped, so it ends at its next check,
+// and it no longer holds the encoder, so its cleanup leaves the next file's run alone.
 
 import type { FfmpegWorker } from "./ffmpegEngine";
 
@@ -39,7 +38,8 @@ export function encoderBusy(): boolean {
 
 /** Takes the encoder for a run starting now, or, while another run has it, says so in `note` and
  * hands back null. Stopping that run is offered only while it can still be stopped: one already
- * stopped can be waiting on something Stop cannot cut short, such as its core loading. */
+ * stopped has had its Stop pressed, and is only still holding the encoder while it waits on
+ * something Stop cannot cut short, such as a read of the source. */
 export function claimEncoder(tab: RunTab, stoppable: boolean, note: HTMLElement): EncoderRun | null {
   if (holder) {
     const canStop = holder.stoppable && !holder.stopped;

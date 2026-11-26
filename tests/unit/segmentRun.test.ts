@@ -456,8 +456,8 @@ describe("prepareRun", () => {
     expect(ui.progress.style.display).toBe("none");
   });
 
-  // A Stop pressed while the core was still downloading is honoured before the source is read,
-  // which for a remote file is the whole download over again.
+  // A run already stopped when it comes to the source reads none of it, which for a remote file
+  // would be the whole download over again.
   it("reads nothing from the source once Stop has been pressed, cut or not", async () => {
     const ui = controls();
     run.stopped = true;

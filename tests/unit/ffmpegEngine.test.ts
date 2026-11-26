@@ -8,7 +8,7 @@ import {
   runFfmpegArgs,
   runFfmpegEncode,
 } from "../../src/lib/ffmpegEngine";
-import { deferred } from "./helpers/async";
+import { deferred, flush } from "./helpers/async";
 
 type LogEvent = { message: string };
 type ProgressEvent = { progress: number };
@@ -24,13 +24,17 @@ const core = vi.hoisted(() => ({
   /** The callbacks the engine hung on the most recent core, for a test to fire as the core would. */
   onLog: null as ((ev: LogEvent) => void) | null,
   onProgress: null as ((ev: ProgressEvent) => void) | null,
-  /** Cores built and cores thrown away, in that order, and which cores (numbered as built) went. */
+  /** Cores built, cores started loading, and cores thrown away, in that order, and which cores
+   * (numbered as built) went. */
   built: 0,
+  loads: 0,
   terminated: 0,
   closed: [] as number[],
   /** Stands in for a core's load while set, so a test can hold one part-way through. */
   load: null as (() => Promise<void>) | null,
   blobUrls: 0,
+  /** Stands in for the download of the core's files while set, so a test can hold it too. */
+  blob: null as (() => Promise<void>) | null,
   blobError: null as unknown,
   loadError: null as unknown,
   execError: null as unknown,
@@ -40,24 +44,35 @@ const core = vi.hoisted(() => ({
 vi.mock("@ffmpeg/util", () => ({
   toBlobURL: () => {
     core.blobUrls++;
-    return core.blobError ? Promise.reject(core.blobError) : Promise.resolve("blob:core");
+    if (core.blobError) return Promise.reject(core.blobError);
+    return (core.blob ? core.blob() : Promise.resolve()).then(() => "blob:core");
   },
 }));
 
 vi.mock("@ffmpeg/ffmpeg", () => {
   class FakeFFmpeg {
     readonly id = core.built++;
+    /** The load still in flight, which terminate() fails with the library's words, as the real
+     * client fails every call it is still waiting on. */
+    private pending: ((err: Error) => void)[] = [];
     on(event: string, handler: ((ev: LogEvent) => void) | ((ev: ProgressEvent) => void)): void {
       if (event === "log") core.onLog = handler as (ev: LogEvent) => void;
       if (event === "progress") core.onProgress = handler as (ev: ProgressEvent) => void;
     }
     load(): Promise<void> {
+      core.loads++;
       if (core.loadError) return Promise.reject(core.loadError);
-      return core.load ? core.load() : Promise.resolve();
+      const outcome = core.load ? core.load() : Promise.resolve();
+      return new Promise<void>((resolve, reject) => {
+        this.pending.push(reject);
+        outcome.then(resolve, reject);
+      });
     }
     terminate(): void {
       core.terminated++;
       core.closed.push(this.id);
+      for (const reject of this.pending) reject(new Error("called FFmpeg.terminate()"));
+      this.pending = [];
     }
     writeFile(path: string, data: Uint8Array): Promise<void> {
       // The real client posts the array to its worker with the buffer in the transfer list, which
@@ -180,10 +195,12 @@ function resetCore(): void {
   core.onLog = null;
   core.onProgress = null;
   core.built = 0;
+  core.loads = 0;
   core.terminated = 0;
   core.closed = [];
   core.load = null;
   core.blobUrls = 0;
+  core.blob = null;
   core.blobError = null;
   core.loadError = null;
   core.execError = null;
@@ -259,25 +276,52 @@ describe("a pooled core", () => {
     expect(core.writes).toEqual(["in.mp4"]);
   });
 
-  // A Stop or a file load resets the core while it may still be loading, which nothing interrupts.
-  // That load is closed when it comes back, not installed over the core built after the reset,
-  // which the next reset would then miss.
-  it("closes a load that a reset overtook instead of installing it over the core built after", async () => {
+  // A Stop or a file load resets the core while it may still be loading. The core being loaded is
+  // closed on the spot, and every call waiting on it fails as a call to a terminated core does,
+  // rather than waiting out a load that would only be thrown away.
+  it("closes a core still loading the moment it is reset, failing every call waiting on it", async () => {
     const worker = createFfmpegWorker(1);
-    const stale = deferred<void>();
-    core.load = () => stale.promise;
-    const overtaken = worker.load().catch((err: unknown) => err);
+    core.load = () => new Promise<void>(() => {});
+    const loading = worker.load().catch((err: unknown) => err);
+    const writing = worker.ensureInput("in.mp4", INPUT).catch((err: unknown) => err);
+    await vi.waitFor(() => expect(core.loads).toBe(1));
+
     worker.reset();
+
+    expect(core.closed).toEqual([0]);
+    const errors = (await Promise.all([loading, writing])) as Error[];
+    expect(errors.map((err) => err.message)).toEqual(["called FFmpeg.terminate()", "called FFmpeg.terminate()"]);
+    expect(core.writes).toEqual([]);
+
+    // The next call builds a core of its own.
     core.load = null;
     await worker.ensureInput("in.mp4", INPUT);
+    expect(core.built).toBe(2);
+    expect(worker.has("in.mp4")).toBe(true);
+  });
 
-    stale.resolve();
+  // A load can also finish in the moment before a reset, which then lands before the engine has
+  // taken the core up. That core is closed by the reset and not installed afterwards, where the next
+  // call would find a terminated core instead of building a working one.
+  it("closes a core whose load finished just as it was reset, instead of installing it", async () => {
+    const worker = createFfmpegWorker(1);
+    const loaded = deferred<void>();
+    core.load = () => loaded.promise;
+    const overtaken = worker.load().catch((err: unknown) => err);
+    await vi.waitFor(() => expect(core.loads).toBe(1));
+    // Queued behind the core's own answer to the load, so the reset lands after it.
+    void loaded.promise.then(() => worker.reset());
+    loaded.resolve();
+
     const err = await overtaken;
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toBe("called FFmpeg.terminate()");
     expect(core.closed).toEqual([0]);
-    expect(worker.has("in.mp4")).toBe(true);
 
+    core.load = null;
+    await worker.ensureInput("in.mp4", INPUT);
+    expect(core.built).toBe(2);
+    expect(worker.has("in.mp4")).toBe(true);
     worker.reset();
     expect(core.closed).toEqual([0, 1]);
   });
@@ -363,10 +407,12 @@ describe("a pooled core", () => {
     expect(core.terminated).toBe(1);
   });
 
-  it("does not keep a core that failed to load", async () => {
+  // Closed as well as dropped: nothing else would close a core that never became the one in use.
+  it("closes a core that failed to load, and builds another on the next call", async () => {
     const worker = createFfmpegWorker(1);
     core.loadError = new Error("failed to import ffmpeg-core.js");
     await expect(worker.load()).rejects.toThrow("failed to import ffmpeg-core.js");
+    expect(core.closed).toEqual([0]);
     core.loadError = null;
     await worker.load();
     expect(core.built).toBe(2);
@@ -426,6 +472,49 @@ describe("the default core", () => {
     expect(core.blobUrls).toBe(4);
     // The core built for the failed attempt is not the one kept: a fresh one loads the retried download.
     expect(core.built).toBe(2);
+  });
+
+  // A Stop or a file load can reset the core while its files are still downloading. Nothing waits
+  // the download out for a load the reset has made moot.
+  it("gives up waiting on the core's download the moment the core is reset", async () => {
+    const engine = await freshEngine();
+    const download = deferred<void>();
+    core.blob = () => download.promise;
+    const worker = engine.createFfmpegWorker(1);
+    let failed: unknown = null;
+    void worker.load().catch((err: unknown) => (failed = err));
+
+    worker.reset();
+    await flush();
+
+    expect(failed).toBeInstanceOf(Error);
+    expect((failed as Error).message).toBe("called FFmpeg.terminate()");
+    download.resolve();
+  });
+
+  // No core is started for that load once the download is in, whenever the reset landed; the
+  // download itself is kept, since every later core is started from the same files.
+  it("starts no core for a load reset before it had its download in hand", async () => {
+    const engine = await freshEngine();
+    const download = deferred<void>();
+    core.blob = () => download.promise;
+    const worker = engine.createFfmpegWorker(1);
+    const overtaken = worker.load().catch((err: unknown) => err);
+    worker.reset();
+    download.resolve();
+    expect(((await overtaken) as Error).message).toBe("called FFmpeg.terminate()");
+    await flush();
+    expect(core.loads).toBe(0);
+
+    // The download is in hand now, and the reset lands in the same turn as the load asking for it.
+    const again = worker.load().catch((err: unknown) => err);
+    worker.reset();
+    expect(((await again) as Error).message).toBe("called FFmpeg.terminate()");
+    expect(core.loads).toBe(0);
+
+    await worker.load();
+    expect(core.loads).toBe(1);
+    expect(core.blobUrls).toBe(2);
   });
 
   it("reports a core that would not load, and tries again on the next call", async () => {
