@@ -1,7 +1,7 @@
-// CLI preview refresh + quality/preset control syncing for the FFmpeg Command Builder on the
-// Reencode with FFmpeg tab, which is the one place the shared `cli` state object is edited.
+// The FFmpeg Command Builder's controls on the Reencode with FFmpeg tab, which is the one place the
+// shared `cli` state object is edited: the resolution fields, the sync that keeps the controls that
+// bear on each other in step, and the command preview under them.
 
-import { fmtBytes } from "@brain-bbqs/utils";
 import {
   buildFfmpegArgs,
   DEFAULT_SCALER,
@@ -12,14 +12,10 @@ import {
   SCALE_OPTIONS,
   SCALER_OPTIONS,
 } from "../lib/cliCommand";
-import { h } from "@brain-bbqs/ui";
-import { gridItem } from "../lib/dom";
 import { RESOLUTION_INFO } from "../lib/explainers";
-import { fmtSizeChangePct } from "../lib/format";
-import { fmtChangeFactor } from "../lib/sizeEstimate";
 import { cli, currentVideoInfo, state } from "../lib/state";
 import type { Scaler } from "../lib/types";
-import { fieldNumber, fieldSelect, type EngineBox } from "./formControls";
+import { fieldNumber, fieldSelect } from "./formControls";
 
 /** Recomputes the CLI preview in `cmdPre` from the shared `cli` state; a no-op if no video is loaded. */
 export function refreshCliCommand(cmdPre: HTMLElement): void {
@@ -141,24 +137,4 @@ export function syncQualityControls(c: QualityControls): void {
   c.scalerSelect.value = cli.scaler;
   c.scalerSelect.disabled = !isDownscale(cli.scale);
   refreshCliCommand(c.cmdPre);
-}
-
-/**
- * Shows what an in-browser encode came to, and records it: the Full Analysis document reports the
- * last completed encode, and this is where a finished one passes through.
- */
-export function showReencodeResult(box: EngineBox, origSize: number, outSize: number): void {
-  state.reencodeResult = { originalSize: origSize, encodedSize: outSize };
-  box.result.innerHTML = "";
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Original Size", fmtBytes(origSize)),
-    gridItem("Encoded Size", fmtBytes(outSize)),
-    gridItem(
-      "Change",
-      fmtSizeChangePct(origSize, outSize) + (origSize > 0 ? ` (${fmtChangeFactor(outSize / origSize)})` : ""),
-    ),
-  );
-  box.result.append(g);
-  box.note.textContent = "";
 }

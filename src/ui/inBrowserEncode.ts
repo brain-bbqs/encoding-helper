@@ -5,16 +5,18 @@
 // a ~30 MB download and single-threaded, which is the price of that guarantee and the reason the
 // command above stays the recommendation for a full-length recording or a whole dataset.
 
-import { errorMessage } from "@brain-bbqs/utils";
+import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, encodedFileName } from "../lib/cliCommand";
-import { section } from "../lib/dom";
+import { h } from "@brain-bbqs/ui";
+import { gridItem, section } from "../lib/dom";
 import { claimEncoder, releaseEncoder, RunStopped, throwIfStopped } from "../lib/encoderRun";
 import { defaultFfmpegWorker, ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
+import { fmtSizeChangePct } from "../lib/format";
 import { baseNameOf, downloadBlob, extOf, pickSaveTarget } from "../lib/save";
+import { fmtChangeFactor } from "../lib/sizeEstimate";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
-import { showReencodeResult } from "./cliControls";
 import { clearLog, engineBox, type EngineBox, finishFill, logLine, resetProgressFill } from "./formControls";
 
 /** The section that encodes the whole file, for the tab that built the command it runs. */
@@ -106,4 +108,24 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
     box.button.disabled = false;
     box.progress.style.display = "none";
   }
+}
+
+/**
+ * Shows what an in-browser encode came to, and records it: the Full Analysis document reports the
+ * last completed encode, and this is where a finished one passes through.
+ */
+export function showReencodeResult(box: EngineBox, origSize: number, outSize: number): void {
+  state.reencodeResult = { originalSize: origSize, encodedSize: outSize };
+  box.result.innerHTML = "";
+  const g = h("div", "grid");
+  g.append(
+    gridItem("Original Size", fmtBytes(origSize)),
+    gridItem("Encoded Size", fmtBytes(outSize)),
+    gridItem(
+      "Change",
+      fmtSizeChangePct(origSize, outSize) + (origSize > 0 ? ` (${fmtChangeFactor(outSize / origSize)})` : ""),
+    ),
+  );
+  box.result.append(g);
+  box.note.textContent = "";
 }

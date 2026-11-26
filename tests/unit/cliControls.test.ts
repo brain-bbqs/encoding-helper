@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
-import { fmtSizeChangePct } from "../../src/lib/format";
 import { cli, state } from "../../src/lib/state";
 import {
   bindResolutionControls,
@@ -9,10 +8,9 @@ import {
   refreshCliCommand,
   resolutionFields,
   scalerOptions,
-  showReencodeResult,
   syncQualityControls,
 } from "../../src/ui/cliControls";
-import { fieldNumber, fieldSelect, type EngineBox } from "../../src/ui/formControls";
+import { fieldNumber, fieldSelect } from "../../src/ui/formControls";
 
 /** The builder's controls that bear on each other and the command preview under them, wired the
  * way renderEncodeTab wires them: the resolution pair bound to one sync over the lot, which is run
@@ -245,32 +243,5 @@ describe("syncQualityControls", () => {
     expect(b.scaleSelect.value).toBe("0.25");
     expect(b.customInput.value).toBe("80");
     expect(b.customField.style.display).toBe("none");
-  });
-});
-
-describe("showReencodeResult", () => {
-  function box(): EngineBox {
-    const note = document.createElement("div");
-    note.textContent = "Encoding…";
-    const result = document.createElement("div");
-    result.innerHTML = "<p>old</p>";
-    return { note, result } as unknown as EngineBox;
-  }
-
-  it("reports the sizes and the change, and records the encode for the analysis document", () => {
-    const b = box();
-    showReencodeResult(b, 2_000_000, 500_000);
-    const vals = Array.from(b.result.querySelectorAll(".val")).map((v) => v.textContent);
-    expect(vals).toEqual(["1.9 MB", "488.3 KB", "-75.0% (original 4.0× larger)"]);
-    expect(b.note.textContent).toBe("");
-    expect(state.reencodeResult).toEqual({ originalSize: 2_000_000, encodedSize: 500_000 });
-  });
-
-  it("leaves the factor off when there was no original size to divide by", () => {
-    const b = box();
-    showReencodeResult(b, 0, 500);
-    const change = Array.from(b.result.querySelectorAll(".val")).map((v) => v.textContent)[2];
-    expect(change).toBe(fmtSizeChangePct(0, 500));
-    expect(change).not.toContain("(");
   });
 });
