@@ -497,7 +497,7 @@ async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pro
 }
 
 /** Puts a square back in line to be encoded, clearing what its last attempt failed with, and keeps
- * that in `retried` for a run that ends without reaching it. */
+ * that in `retried` for a run that ends without measuring it. */
 function markPending(cell: MatrixCell, retried: Map<MatrixCell, CellOutcome>): void {
   retried.set(cell, { status: cell.status, error: cell.error });
   cell.status = "pending";
@@ -648,11 +648,16 @@ async function encodeCells(
             );
             rememberMeasurement(checksum, cell);
           } catch (err) {
-            // A core terminated by Stop rejects whatever it was running; the square it was on was
-            // never measured, which is what "skipped" already means for the ones never reached.
-            cell.status = run.stopped ? "skipped" : "failed";
-            cell.error = cell.status === "failed" ? errorMessage(err) : null;
-            if (cell.error) logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
+            if (run.stopped) {
+              // A core terminated by Stop rejects whatever it was running, so the square was never
+              // measured: one a retry put back in line reads what it did before (see
+              // settleUnreached), and a new one is skipped, as the ones never reached are.
+              Object.assign(cell, retried.get(cell) ?? { status: "skipped", error: null });
+            } else {
+              cell.status = "failed";
+              cell.error = errorMessage(err);
+              logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
+            }
           }
           inFlight.delete(cell.combo.key);
           // Nothing more is measured once the run is stopped, and after a file load the grid below

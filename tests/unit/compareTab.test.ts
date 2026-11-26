@@ -1424,6 +1424,26 @@ describe("running the sweep", () => {
     expect(encodes()).toHaveLength(2);
   });
 
+  // Stopped while it encodes the square, a retry leaves it as it was too: the encode Stop cut short
+  // measured nothing, so the square still failed, and says what with.
+  it("leaves a retried square as it was when Stop cuts its encode short", async () => {
+    const { panel, cells } = await sweepWithOneFailure();
+    await settleRun(panel);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(3), WAIT);
+    expect(squareSub(panel, cells[0])).toBe("encoding");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("Stopped: 1 of 2 encoded");
+  });
+
   // The same for a retry that fails before it reaches a square: the failure is the run's, not the
   // square's, so the square keeps the error its own last attempt ended with.
   it("leaves a retried square as it was when the retry cannot read the file", async () => {
