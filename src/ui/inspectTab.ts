@@ -3,10 +3,10 @@
 // section (seekTab.ts) into the same panel, between the head and tail cards.
 
 import { fmtBytes } from "@brain-bbqs/utils";
-import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
+import { computeBitrateTimeline, isEffectivelyConstant, type BitrateTimeline } from "../lib/bitrateTimeline";
 import { describeContainer } from "../lib/containerKb";
 import { escapeHtml, h } from "@brain-bbqs/ui";
-import { gridItem, section, teachBox } from "../lib/dom";
+import { factGrid, gridItem, section, teachBox } from "../lib/dom";
 import {
   AUDIO_BITRATE_INFO,
   BITRATE_TIMELINE_TEACH,
@@ -28,8 +28,20 @@ import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmt
 import { describeMetadataTag, describeMetadataTagValue, type MetadataTagInfo } from "../lib/metadataTagKb";
 import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import { audioTrackInfo, state, videoTrackInfo } from "../lib/state";
-import type { CodecInfo } from "../lib/types";
+import type { CodecInfo, DeclaredBitrate, FactRow, TrackInfo } from "../lib/types";
 import { renderBitrateChart } from "./bitrateChart";
+
+// The card titles the Full Analysis document heads its matching sections with. They live here, with
+// the cards, rather than in analysisTab.ts, which imports this module.
+export const METADATA_TAGS_TITLE = "Metadata Tags";
+export const VIDEO_TRACK_TITLE = "Video Track";
+export const BITRATE_TITLE = "Video Bitrate Over Time";
+export const AUDIO_TRACK_TITLE = "Audio Track";
+
+/** How a track's codec is named: the full codec string where the file gives one, else the short id. */
+export function codecLabel(track: TrackInfo): string {
+  return track.codecString || track.codec;
+}
 
 /**
  * Builds the popover for one metadata tag. The tag name comes from the file, so it is escaped
@@ -87,17 +99,19 @@ export function overallBitrate(): number | null {
   return state.duration && state.source ? (state.source.size * 8) / state.duration : null;
 }
 
+/** The overview card's figures, which the Full Analysis document states as well. */
+export function overviewRows(): FactRow[] {
+  return [
+    { label: "File Size", value: fmtBytes(state.source?.size) },
+    { label: "Duration", value: fmtDur(state.duration) },
+    { label: "Overall Bitrate", value: fmtBits(overallBitrate()), info: OVERALL_BITRATE_INFO },
+    { label: "MIME Type", value: state.mimeType || NO_VALUE, sm: true, info: MIME_TYPE_INFO },
+  ];
+}
+
 function renderOverviewSection(): HTMLDivElement {
   const overview = section(overviewTitle());
-  const fileBitrate = overallBitrate();
-  const og = h("div", "grid");
-  og.append(
-    gridItem("File Size", fmtBytes(state.source?.size)),
-    gridItem("Duration", fmtDur(state.duration)),
-    gridItem("Overall Bitrate", fmtBits(fileBitrate), { info: OVERALL_BITRATE_INFO }),
-    gridItem("MIME Type", state.mimeType || NO_VALUE, { sm: true, info: MIME_TYPE_INFO }),
-  );
-  overview.append(og);
+  overview.append(factGrid(overviewRows()));
   // The figures first, then what they mean: the container-vs-codec distinction, and what this
   // file's container in particular is (a card of its own until it folded in here).
   overview.append(teachBox(CONTAINER_PREAMBLE, "📦"));
@@ -112,7 +126,7 @@ function renderOverviewSection(): HTMLDivElement {
   // file-overview information, not a separate finding.
   const flatTags = flattenMetadataTags();
   if (Object.keys(flatTags).length) {
-    overview.append(h("h3", null, "Metadata Tags"));
+    overview.append(h("h3", null, METADATA_TAGS_TITLE));
     const tagsGrid = h("div", "grid");
     for (const [k, v] of Object.entries(flatTags)) {
       const value = String(v);
@@ -135,10 +149,10 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   const vt = videoTrackInfo();
   if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;
 
-  const sec = section("Video Track");
+  const sec = section(VIDEO_TRACK_TITLE);
   const g = h("div", "grid");
   g.append(
-    gridItem("Codec", vt.codecString || vt.codec, { sm: true }),
+    gridItem("Codec", codecLabel(vt), { sm: true }),
     gridItem("Resolution", `${vt.codedWidth}×${vt.codedHeight}`),
   );
   if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
@@ -167,6 +181,42 @@ function renderVideoTrackSection(): HTMLDivElement | null {
 }
 
 /**
+ * Which of its three shapes the bitrate card takes, for the page and the document alike: the rate the
+ * container declares constant, where the samples bear it out or are too few to say otherwise; the
+ * track's average alone, where there are too few frames to bin; or the measured windows and their
+ * plot.
+ */
+export type BitrateShape =
+  | { kind: "declared"; declared: DeclaredBitrate }
+  | { kind: "average" }
+  | { kind: "timeline"; timeline: BitrateTimeline };
+
+export function bitrateShape(): BitrateShape {
+  const declared = state.declaredVideoBitrate;
+  const timeline = computeBitrateTimeline(state.samples, state.duration ?? 0);
+  if (declaresConstantBitrate(declared) && declared && (!timeline || isEffectivelyConstant(timeline))) {
+    return { kind: "declared", declared };
+  }
+  if (!timeline) return { kind: "average" };
+  return { kind: "timeline", timeline };
+}
+
+/** The one figure the card has when there are too few frames to bin: the track's own average. */
+export function trackAverageRow(vt: TrackInfo): FactRow {
+  return { label: "Average", value: fmtBits(vt.bitrate), info: VIDEO_AVERAGE_INFO };
+}
+
+/** The figures over the plot: the average, the busiest and quietest windows, and how far apart. */
+export function bitrateTimelineRows(timeline: BitrateTimeline): FactRow[] {
+  return [
+    { label: "Average", value: fmtBits(timeline.averageBitrate), info: VIDEO_AVERAGE_INFO },
+    { label: "Peak Window", value: fmtBits(timeline.peakBitrate) },
+    { label: "Quietest Window", value: fmtBits(timeline.minBitrate) },
+    { label: "Peak ÷ Average", value: timeline.peakToAverage.toFixed(2) + "×", info: PEAK_RATIO_INFO },
+  ];
+}
+
+/**
  * The video track's bitrate over time, and the card carrying the track's average now that the Video
  * Track card above no longer repeats it. The plot is dropped where the container declares the rate
  * constant and the sample sizes agree, since it would only ever be a flat line and the declaration
@@ -177,53 +227,49 @@ function renderVideoTrackSection(): HTMLDivElement | null {
 export function renderBitrateTimelineSection(): HTMLDivElement | null {
   const vt = videoTrackInfo();
   if (!vt) return null;
-  const declared = state.declaredVideoBitrate;
-  const declaresConstant = declaresConstantBitrate(declared);
-  const timeline = computeBitrateTimeline(state.samples, state.duration ?? 0);
+  const shape = bitrateShape();
 
-  const sec = section("Video Bitrate Over Time");
-  if (declaresConstant && declared && (!timeline || isEffectivelyConstant(timeline))) {
-    sec.append(teachBox(constantBitrateNote(declared.avgBitrate), "📈"));
+  const sec = section(BITRATE_TITLE);
+  if (shape.kind === "declared") {
+    sec.append(teachBox(constantBitrateNote(shape.declared.avgBitrate), "📈"));
     return sec;
   }
-  if (!timeline) {
-    const g = h("div", "grid");
-    g.append(gridItem("Average", fmtBits(vt.bitrate), { info: VIDEO_AVERAGE_INFO }));
-    sec.append(g);
+  if (shape.kind === "average") {
+    sec.append(factGrid([trackAverageRow(vt)]));
     sec.append(teachBox(TOO_FEW_FRAMES_NOTE, "📈"));
     return sec;
   }
 
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Average", fmtBits(timeline.averageBitrate), { info: VIDEO_AVERAGE_INFO }),
-    gridItem("Peak Window", fmtBits(timeline.peakBitrate)),
-    gridItem("Quietest Window", fmtBits(timeline.minBitrate)),
-    gridItem("Peak ÷ Average", timeline.peakToAverage.toFixed(2) + "×", { info: PEAK_RATIO_INFO }),
-  );
-  sec.append(g);
+  const { timeline } = shape;
+  sec.append(factGrid(bitrateTimelineRows(timeline)));
   sec.append(renderBitrateChart(timeline));
   sec.append(teachBox(BITRATE_TIMELINE_TEACH, "📈"));
-  if (declaresConstant && declared) {
+  // Only the page says so: a declaration of constant bitrate that the samples contradict.
+  const declared = state.declaredVideoBitrate;
+  if (declaresConstantBitrate(declared) && declared) {
     sec.append(teachBox(contradictedDeclarationNote(declared.avgBitrate, timeline), "📈"));
   }
   return sec;
+}
+
+/** The audio track's figures and the details its codec string spells out. */
+export function audioTrackRows(at: TrackInfo): FactRow[] {
+  const rows: FactRow[] = [
+    { label: "Codec", value: codecLabel(at), sm: true },
+    { label: "Sample Rate", value: at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : NO_VALUE },
+    { label: "Channels", value: at.channels != null ? at.channels : NO_VALUE },
+    { label: "Bitrate", value: fmtBits(at.bitrate), info: AUDIO_BITRATE_INFO },
+  ];
+  if (at.codecInfo) at.codecInfo.details.forEach((d) => rows.push({ label: d.label, value: d.value }));
+  return rows;
 }
 
 function renderAudioTrackSection(): HTMLDivElement | null {
   const at = audioTrackInfo();
   if (!at) return null;
 
-  const sec = section("Audio Track");
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Codec", at.codecString || at.codec, { sm: true }),
-    gridItem("Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : NO_VALUE),
-    gridItem("Channels", at.channels != null ? at.channels : NO_VALUE),
-    gridItem("Bitrate", fmtBits(at.bitrate), { info: AUDIO_BITRATE_INFO }),
-  );
-  if (at.codecInfo) at.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
-  sec.append(g);
+  const sec = section(AUDIO_TRACK_TITLE);
+  sec.append(factGrid(audioTrackRows(at)));
   const atCodecBox = codecTeachBox(at.codecInfo, "🔊");
   if (atCodecBox) sec.append(atCodecBox);
   return sec;

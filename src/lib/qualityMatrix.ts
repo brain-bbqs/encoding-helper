@@ -163,6 +163,26 @@ export function cliSettings(cliState: CliState): EncodeSettings {
   };
 }
 
+/** One output a sweep produces: the rate, resolution and kernel its squares share. */
+export interface MatrixOutput {
+  fps: number | null;
+  scale: number;
+  scaler: Scaler;
+}
+
+/**
+ * Every output the given rates, resolutions and kernels come to, rate outermost and kernel innermost.
+ * Nothing is resampled at the source resolution, so there every kernel is the same encode and only
+ * the first stands for them.
+ */
+export function matrixOutputs(rates: (number | null)[], scales: number[], scalers: Scaler[]): MatrixOutput[] {
+  return rates.flatMap((fps) =>
+    scales.flatMap((scale) =>
+      (isDownscale(scale) ? scalers : scalers.slice(0, 1)).map((scaler) => ({ fps, scale, scaler })),
+    ),
+  );
+}
+
 /**
  * The cartesian product of all five axes, in dropdown order whatever order the boxes were ticked
  * in, so the table's rows and columns do not depend on how the selection was made.
@@ -192,15 +212,9 @@ export function buildMatrixCombos(
   const scalerAxis = MATRIX_SCALERS.filter((s) => scalers.includes(s));
   const fpsAxis = fpsValues.length ? fpsValues : [null];
   // One output per rate, resolution and kernel: the properties of the file a square produces, and
-  // the blocks the grid stacks. At the source resolution every kernel is the same encode, so only
-  // the first stands for them.
-  const outputs = fpsAxis.flatMap((fps) =>
-    scaleAxis.flatMap((scale) =>
-      (isDownscale(scale) ? scalerAxis : scalerAxis.slice(0, 1)).map((scaler) => ({ fps, scale, scaler })),
-    ),
-  );
+  // the blocks the grid stacks.
   const combos: MatrixCombo[] = [];
-  for (const { fps, scale, scaler } of outputs) {
+  for (const { fps, scale, scaler } of matrixOutputs(fpsAxis, scaleAxis, scalerAxis)) {
     for (const quality of rows) {
       for (const preset of cols) {
         combos.push({

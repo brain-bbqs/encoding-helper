@@ -18,10 +18,10 @@ import {
   type Placement,
 } from "../lib/atomLayout";
 import { button, h } from "@brain-bbqs/ui";
-import { section, teachBox } from "../lib/dom";
+import { badgeEl, section, teachBox } from "../lib/dom";
 import { ATOM_MAP_READOUT_HINT, FASTSTART_EXPLAINER } from "../lib/explainers";
 import { state } from "../lib/state";
-import type { BoxNode } from "../lib/types";
+import type { Badge, BoxNode } from "../lib/types";
 
 /** One step of the zoom path: the crumb label and the range of atom slots the map was narrowed to. */
 interface ZoomStep {
@@ -76,11 +76,17 @@ function familyClass(family: string | null): string {
   return family !== null && FAMILIES.some(([key]) => key === family) ? "f-" + family : "f-other";
 }
 
+/** The classes every block carries, on the page and in the document: its family's color, and
+ * whether it stands for a group of boxes. Each caller adds the one class only it decides. */
+function atomBlockClass(rect: AtomRect): string {
+  return `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}`;
+}
+
 export function renderAtomMap(panel: HTMLElement): void {
   const sec = section("MP4 Box / Atom Structure");
   // Faststart is a statement about where two of these boxes sit relative to each other, so it is
   // read here, against the map that draws them, rather than up in the file overview.
-  sec.append(faststartBadge());
+  sec.append(renderFaststartBadge());
 
   const placements = placeAtoms(state.boxes);
   const zoom: ZoomStep[] = [];
@@ -104,11 +110,13 @@ export function renderAtomMap(panel: HTMLElement): void {
 }
 
 /** Whether `moov` precedes `mdat`, the one fact about box order that decides how the file streams. */
-function faststartBadge(): HTMLDivElement {
+export function faststartBadge(): Badge {
+  return state.faststart ? { tone: "good", text: "✓ Fast start" } : { tone: "bad", text: "✗ Not fast start" };
+}
+
+function renderFaststartBadge(): HTMLDivElement {
   const wrap = h("div", "atom-faststart");
-  wrap.append(
-    h("span", "badge " + (state.faststart ? "good" : "bad"), state.faststart ? "✓ Fast start" : "✗ Not fast start"),
-  );
+  wrap.append(badgeEl(faststartBadge()));
   return wrap;
 }
 
@@ -170,10 +178,7 @@ export function renderStaticAtomMap(boxes: BoxNode[], widthPx: number): HTMLDivE
   layout.rects.forEach((rect) => {
     const label = rectLabel(rect);
     const fit = labelFit(rect.w, label.length, widthPx);
-    const el = h(
-      "div",
-      `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}${fit ? " " + fit : ""}`,
-    );
+    const el = h("div", `${atomBlockClass(rect)}${fit ? " " + fit : ""}`);
     el.title = rectDetail(rect);
     positionBlock(el, rect, label);
     lanes[rect.depth].append(el);
@@ -253,9 +258,7 @@ function blockEl(
   const label = rectLabel(rect);
   const zoomable = narrowsView(rect, view);
   const detail = rectDetail(rect, zoomable);
-  const el = button(
-    `atom-block ${familyClass(rect.family)}${rect.kind === "group" ? " grouped" : ""}${zoomable ? "" : " filling"}`,
-  );
+  const el = button(`${atomBlockClass(rect)}${zoomable ? "" : " filling"}`);
   positionBlock(el, rect, label);
 
   const show = (): void => {

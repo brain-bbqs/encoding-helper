@@ -12,7 +12,7 @@
 // so the document keeps its look with no network and no app around it.
 
 import { escapeHtml, h } from "@brain-bbqs/ui";
-import { dataTable, gridItem } from "./dom";
+import { badgeEl, dataTable, gridItem } from "./dom";
 import type { AnalysisBlock, AnalysisSection } from "./types";
 
 /** Anchor id for a section heading, used by the document's contents list. */
@@ -39,7 +39,7 @@ function renderBlock(block: AnalysisBlock): Element {
     }
     case "badge": {
       const wrap = h("div", "badge-row");
-      wrap.append(h("span", "badge " + block.tone, block.text));
+      wrap.append(badgeEl(block));
       return wrap;
     }
     case "code":

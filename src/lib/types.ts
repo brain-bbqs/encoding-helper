@@ -296,6 +296,26 @@ export interface AppState {
 }
 
 /**
+ * One labelled figure that a card on the page and the Full Analysis document both state, built once
+ * by the module that owns the card. `sm` and `info` are the card's hints (the smaller value type and
+ * the ⓘ popover); the document applies its own length rule and carries no popovers, so it reads the
+ * label and the value alone.
+ */
+export interface FactRow {
+  label: string;
+  value: string | number;
+  sm?: boolean;
+  /** Trusted, author-authored explainer markup. */
+  info?: string | null;
+}
+
+/** A one-line verdict drawn as a badge, on the page and in the document alike. */
+export interface Badge {
+  tone: "good" | "bad" | "info";
+  text: string;
+}
+
+/**
  * One piece of content inside a Full Analysis section. A section is a list of these rather than a
  * single shape, so a section can say a thing the way the tab said it: numbers, then the plot.
  * Every renderer (the document, the Markdown export) handles all five kinds, so adding content to
@@ -308,7 +328,7 @@ export type AnalysisBlock =
       /** Keeps label casing as-is; set for blocks whose labels are container-native tag names. */
       rawLabels?: boolean;
     }
-  | { kind: "badge"; text: string; tone: "good" | "bad" | "info" }
+  | ({ kind: "badge" } & Badge)
   | { kind: "code"; lang: string; content: string }
   | { kind: "table"; headers: string[]; rows: string[][] }
   /** A chart, built by whichever tab owns it. Renderers clone it, so a section can be drawn twice. */

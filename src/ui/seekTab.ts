@@ -5,7 +5,7 @@
 
 import { errorMessage } from "@brain-bbqs/utils";
 import { button, h, svgEl, svgText } from "@brain-bbqs/ui";
-import { dataTable, fold, gridItem, section, teachBox } from "../lib/dom";
+import { badgeEl, dataTable, factGrid, fold, gridItem, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { FALLBACK_FPS, fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -13,7 +13,7 @@ import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state } from "../lib/state";
-import type { SeekResult } from "../lib/types";
+import type { Badge, FactRow, SeekResult } from "../lib/types";
 import { fieldNumber, progressBar } from "./formControls";
 
 /**
@@ -22,12 +22,33 @@ import { fieldNumber, progressBar } from "./formControls";
  */
 const DEFAULT_SEEK_SAMPLES = 100;
 
+// The card's title and the seeking test's, which the Full Analysis document heads its matching
+// sections with. They live here, with the card, rather than in analysisTab.ts, which imports this
+// module.
+export const GOP_TITLE = "GOP / Keyframe Structure";
+export const SEEK_TEST_TITLE = "Empirical Seeking Test";
+
+/** Whether the file reorders frames, read off its decode and presentation times. */
+export function bFramesBadge(): Badge {
+  return state.hasBFrames ? { tone: "info", text: "Uses B-frames (cts ≠ dts)" } : { tone: "good", text: "No B-frames" };
+}
+
+/** A seeking run's summary figures. */
+export function seekSummaryRows(results: SeekResult[]): FactRow[] {
+  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
+  return [
+    { label: "Avg Keyframe Distance", value: avgDist.toFixed(3) + " s" },
+    { label: "Avg Decode Time", value: fmtMs(avgDecode) },
+    { label: "Max Decode Time", value: fmtMs(maxDecode) },
+  ];
+}
+
 export function renderGopStructure(panel: HTMLElement): void {
   const { gop, avgGop, fps } = gopStats();
   const minGop = gop.length ? Math.min(...gop) : 0;
   const maxGop = gop.length ? Math.max(...gop) : 0;
 
-  const sec = section("GOP / Keyframe Structure");
+  const sec = section(GOP_TITLE);
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
@@ -36,14 +57,9 @@ export function renderGopStructure(panel: HTMLElement): void {
     gridItem("Min / Max GOP", `${minGop} / ${maxGop} frames`),
   );
   sec.append(g);
-  const bBadge = h(
-    "span",
-    "badge " + (state.hasBFrames ? "info" : "good"),
-    state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames",
-  );
   const bWrap = h("div");
   bWrap.style.margin = "10px 0";
-  bWrap.append(bBadge);
+  bWrap.append(badgeEl(bFramesBadge()));
   sec.append(bWrap);
 
   if (gop.length > 1) sec.append(renderGopHistogram(gop));
@@ -52,7 +68,7 @@ export function renderGopStructure(panel: HTMLElement): void {
 
   // The seeking test lives in the same card rather than one of its own: what nearest-keyframe
   // distance costs to seek to is the GOP structure's consequence, not a separate finding.
-  sec.append(h("h3", null, "Empirical Seeking Test"));
+  sec.append(h("h3", null, SEEK_TEST_TITLE));
   // Set as a teach box like every other explanation on the page, rather than as bare body text in
   // its own size.
   sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
@@ -141,14 +157,7 @@ export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
 }
 
 function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
-  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Avg Keyframe Distance", avgDist.toFixed(3) + " s"),
-    gridItem("Avg Decode Time", fmtMs(avgDecode)),
-    gridItem("Max Decode Time", fmtMs(maxDecode)),
-  );
-  wrap.append(g);
+  wrap.append(factGrid(seekSummaryRows(results)));
 
   const scatter = renderSeekScatter(results);
   if (scatter) wrap.append(scatter);

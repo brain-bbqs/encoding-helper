@@ -3,6 +3,7 @@
 // come from @brain-bbqs/ui.
 
 import { button, h, svgEl, writeClipboard } from "@brain-bbqs/ui";
+import type { Badge, FactRow } from "./types";
 
 /** A card with its heading, the unit every tab is built from. */
 export function section(title: string): HTMLDivElement {
@@ -33,6 +34,18 @@ export function gridItem(label: string, value: string | number, opts: GridItemOp
   }
   d.append(h("div", opts.sm ? "val sm" : "val", String(value)));
   return d;
+}
+
+/** A card's shared rows as its grid, each with the hints the card gave it. */
+export function factGrid(rows: FactRow[]): HTMLDivElement {
+  const grid = h("div", "grid");
+  grid.append(...rows.map((row) => gridItem(row.label, row.value, { sm: row.sm, info: row.info })));
+  return grid;
+}
+
+/** A verdict as the page draws it. */
+export function badgeEl(badge: Badge): HTMLSpanElement {
+  return h("span", "badge " + badge.tone, badge.text);
 }
 
 /** Closes every open info popover, for the dismiss handlers and icons below. Exported for the tests. */
