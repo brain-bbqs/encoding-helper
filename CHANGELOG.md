@@ -4,7 +4,7 @@
 
 #### 🐛 Bug Fix
 
-- Encodes no longer overlap or outlive their file, refused presses say why and stay usable, Stop reads as stopped, and retried squares run or keep their status ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Encodes no longer overlap or outlive their file, refused presses say why and stay usable, Stop reads as stopped, and retried squares run or keep their status ([#82](https://github.com/brain-bbqs/encoding-helper/pull/82))
 
 ## 1.5.10
 
