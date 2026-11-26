@@ -98,8 +98,8 @@ export function sampleFields(idPrefix: string): HTMLDivElement {
   return row;
 }
 
-/** Puts every copy of the sample fields back to what the state says, leaving the one being typed in
- * alone so a half-typed number is not rewritten under the cursor. */
+/** Puts the sample fields back to what the state says (the Compare tab holds the only copy), leaving
+ * the one being typed in alone so a half-typed number is not rewritten under the cursor. */
 export function syncSampleFields(except?: HTMLElement | null): void {
   document.querySelectorAll<HTMLInputElement>("input.sample-duration").forEach((input) => {
     if (input !== except) input.value = String(sampledEncode.duration);
