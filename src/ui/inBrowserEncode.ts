@@ -48,7 +48,7 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
   if (!run) return;
   run.workers.add(defaultFfmpegWorker);
   box.button.disabled = true;
-  const fill = resetProgressFill(box.progress);
+  resetProgressFill(box.progress, box.fill);
   box.note.textContent = "Loading ffmpeg.wasm…";
   box.result.innerHTML = "";
   clearLog(box.log);
@@ -56,7 +56,7 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
     (msg) => logLine(box.log, msg, "info"),
     // The bar is the progress; a percentage spelled out beside it is the same number twice.
     (ratio) => {
-      if (fill) fill.style.width = (Math.min(1, Math.max(0, ratio)) * 100).toFixed(0) + "%";
+      box.fill.style.width = (Math.min(1, Math.max(0, ratio)) * 100).toFixed(0) + "%";
     },
   );
   // The file as it was when the button was pressed: what the output is named, and measured
@@ -88,7 +88,7 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
       downloadBlob(blob, saveName);
     }
     // A full bar, the way a sample run ends, rather than a word under an empty one.
-    finishFill(fill);
+    finishFill(box.fill);
     // Recorded for Full Analysis only while this file is still the one loaded.
     throwIfStopped(run);
     showReencodeResult(box, source.size, blob.size);

@@ -259,6 +259,7 @@ describe("runControls", () => {
     expect(ui.stopButton.textContent).toBe("Stop");
     expect(ui.stopButton.style.display).toBe("none");
     expect(nodes[1]).toBe(ui.progress);
+    expect(ui.fill).toBe(fillOf(ui));
     expect(ui.progress.style.display).toBe("none");
     expect(nodes[2]).toBe(ui.note);
     expect(nodes[3].contains(ui.log)).toBe(true);
@@ -805,7 +806,7 @@ describe("the run's user interface", () => {
     expect(ui.stopButton.disabled).toBe(false);
     expect(ui.progress.style.display).toBe("block");
     expect(fill).toBe(fillOf(ui));
-    expect(fill!.style.width).toBe("0%");
+    expect(fill.style.width).toBe("0%");
     expect(ui.log.textContent).toBe("");
     endRunUi(ui);
   });

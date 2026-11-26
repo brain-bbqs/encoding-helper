@@ -139,7 +139,7 @@ describe("progress bars", () => {
     fill.style.width = "60%";
     fill.classList.add("done");
 
-    expect(resetProgressFill(wrap)).toBe(fill);
+    resetProgressFill(wrap, fill);
 
     expect(wrap.style.display).toBe("block");
     expect(fill.style.width).toBe("0%");
@@ -151,16 +151,6 @@ describe("progress bars", () => {
     finishFill(fill);
     expect(fill.style.width).toBe("100%");
     expect(fill.classList.contains("done")).toBe(true);
-  });
-
-  // A bar with no fill in it can still be shown; there is just nothing to advance, so the run gets
-  // null back and finishing it is a no-op rather than an error. Not throwing is the behaviour here.
-  it("shows a bar that has no fill, and finishes it without complaint", () => {
-    const bare = document.createElement("div");
-    const fill = resetProgressFill(bare);
-    expect(fill).toBeNull();
-    expect(bare.style.display).toBe("block");
-    expect(() => finishFill(fill)).not.toThrow();
   });
 });
 
@@ -177,6 +167,8 @@ describe("engineBox", () => {
       box.result,
     ]);
     expect(box.progress.style.display).toBe("none");
+    // The fill handed back is the bar's own, so advancing it moves the bar on the page.
+    expect(box.fill).toBe(box.progress.querySelector(".fill"));
     expect(box.note.className).toBe("progress-label");
     // The console is wired to its fold, so logging shows the fold.
     logLine(box.log, "started");

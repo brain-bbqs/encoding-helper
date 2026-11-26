@@ -30,6 +30,8 @@ export interface RunUi {
   syncRunAction: () => void;
   stopButton: HTMLButtonElement;
   progress: HTMLDivElement;
+  /** The bar's fill, which the run advances. */
+  fill: HTMLDivElement;
   note: HTMLDivElement;
   log: HTMLDivElement;
 }
@@ -114,13 +116,14 @@ export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi
   const stopButton = button("btn sec", "Stop");
   stopButton.style.display = "none";
   buttons.append(runButton, stopButton);
-  const { wrap: progress } = progressBar();
+  const { wrap: progress, fill } = progressBar();
   const note = h("div", "progress-label");
   const { wrap: logWrap, log } = logConsole();
   const ui: RunUi = {
     runButton,
     stopButton,
     progress,
+    fill,
     note,
     log,
     syncRunAction: () => {
@@ -518,15 +521,15 @@ function requestStop(ui: RunUi): void {
 }
 
 /** Readies the progress bar and console for a run, and hands back the bar's fill. */
-export function startRunUi(ui: RunUi): HTMLDivElement | null {
+export function startRunUi(ui: RunUi): HTMLDivElement {
   ui.runButton.disabled = true;
   // Offered by both tabs: a sweep encodes several stretches for every square, and even the one
   // stretch of a single run can take long enough to want out of.
   ui.stopButton.style.display = "";
   ui.stopButton.disabled = false;
-  const fill = resetProgressFill(ui.progress);
+  resetProgressFill(ui.progress, ui.fill);
   clearLog(ui.log);
-  return fill;
+  return ui.fill;
 }
 
 /** Hands the run's controls back once it has ended. */

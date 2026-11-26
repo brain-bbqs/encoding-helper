@@ -65,6 +65,8 @@ export interface EngineBox {
   el: HTMLDivElement;
   button: HTMLButtonElement;
   progress: HTMLDivElement;
+  /** The bar's fill, which the encode advances. */
+  fill: HTMLDivElement;
   note: HTMLDivElement;
   log: HTMLDivElement;
   result: HTMLDivElement;
@@ -80,7 +82,7 @@ export function engineBox(buttonLabel: string): EngineBox {
   const btn = button("btn", buttonLabel);
   btn.style.marginTop = "8px";
   el.append(btn);
-  const { wrap: progress } = progressBar();
+  const { wrap: progress, fill } = progressBar();
   el.append(progress);
   const note = h("div", "progress-label");
   note.style.marginTop = "4px";
@@ -90,7 +92,7 @@ export function engineBox(buttonLabel: string): EngineBox {
   const result = h("div");
   result.style.marginTop = "8px";
   el.append(result);
-  return { el, button: btn, progress, note, log, result };
+  return { el, button: btn, progress, fill, note, log, result };
 }
 
 /** A hidden progress bar and its fill, for the run that will show and advance it. */
@@ -102,20 +104,15 @@ export function progressBar(): { wrap: HTMLDivElement; fill: HTMLDivElement } {
   return { wrap, fill };
 }
 
-/** Shows a bar with its fill back at the start, and hands the fill back for the run to advance. */
-export function resetProgressFill(progress: HTMLDivElement): HTMLDivElement | null {
+/** Shows a bar with its fill back at the start, for the run to advance. */
+export function resetProgressFill(progress: HTMLDivElement, fill: HTMLDivElement): void {
   progress.style.display = "block";
-  const fill = progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) {
-    fill.style.width = "0%";
-    fill.classList.remove("done");
-  }
-  return fill;
+  fill.style.width = "0%";
+  fill.classList.remove("done");
 }
 
 /** Fills a bar to the end, in the colour the app uses for a good outcome. */
-export function finishFill(fill: HTMLDivElement | null): void {
-  if (!fill) return;
+export function finishFill(fill: HTMLDivElement): void {
   fill.style.width = "100%";
   fill.classList.add("done");
 }

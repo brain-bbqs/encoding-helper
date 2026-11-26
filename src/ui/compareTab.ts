@@ -602,7 +602,7 @@ async function encodeCells(
       if (run.stopped) return;
       const finished = queue.filter(hasRun).length;
       const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
-      if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
+      fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
       // Whatever phase wrote there last ("Loading ffmpeg.wasm…") is over once squares are being
       // encoded, so it goes rather than standing for the rest of the sweep.
       ui.note.textContent = "";

@@ -282,7 +282,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     ui.note.textContent = "Encoding test segment…";
     const { blobs, bytes, measured } = await encodeWindows(run, cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;
-      if (fill) fill.style.width = pct.toFixed(0) + "%";
+      fill.style.width = pct.toFixed(0) + "%";
       ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
     });
 
