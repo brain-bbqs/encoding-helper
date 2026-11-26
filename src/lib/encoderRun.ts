@@ -31,6 +31,9 @@ export interface EncoderRun {
 /** The run holding the encoder, or null while it is free. */
 let holder: EncoderRun | null = null;
 
+/** The notes that refused a run while `holder` had the encoder, each with the words it was given. */
+const refusals = new Map<HTMLElement, string>();
+
 /** Whether some encode holds the encoder right now. */
 export function encoderBusy(): boolean {
   return holder !== null;
@@ -39,13 +42,16 @@ export function encoderBusy(): boolean {
 /** Takes the encoder for a run starting now, or, while another run has it, says so in `note` and
  * hands back null. Stopping that run is offered only while it can still be stopped: one already
  * stopped has had its Stop pressed, and is only still holding the encoder while it waits on
- * something Stop cannot cut short, such as a read of the source. */
+ * something Stop cannot cut short, such as a read of the source. The refusal is taken back once
+ * that run ends (see freeEncoder). */
 export function claimEncoder(tab: RunTab, stoppable: boolean, note: HTMLElement): EncoderRun | null {
   if (holder) {
     const canStop = holder.stoppable && !holder.stopped;
-    note.textContent =
+    const refusal =
       `An encode is already running on the ${holder.tab} tab. ` +
       `Wait for it to finish${canStop ? " or stop it" : ""}.`;
+    note.textContent = refusal;
+    refusals.set(note, refusal);
     return null;
   }
   holder = { tab, stoppable, stopped: false, workers: new Set() };
@@ -61,7 +67,7 @@ export function holdsEncoder(run: EncoderRun): boolean {
 /** Gives the encoder back, and says whether `run` still had it to give (see holdsEncoder). */
 export function releaseEncoder(run: EncoderRun): boolean {
   if (holder !== run) return false;
-  holder = null;
+  freeEncoder();
   return true;
 }
 
@@ -75,8 +81,21 @@ export function stopEncoderRun(): boolean {
 /** Stops whatever run holds the encoder and takes the encoder back from it, for a file load or Reset. */
 export function abandonEncoderRun(): void {
   const run = holder;
-  holder = null;
+  freeEncoder();
   if (run) stop(run);
+}
+
+/**
+ * Leaves the encoder free, and empties every note still saying that the run which held it is going:
+ * that run has ended, so a note left claiming it would send the reader to wait on nothing. A note
+ * written over since (by the run it belongs to, say) is left as it is.
+ */
+function freeEncoder(): void {
+  holder = null;
+  for (const [note, refusal] of refusals) {
+    if (note.textContent === refusal) note.textContent = "";
+  }
+  refusals.clear();
 }
 
 /**

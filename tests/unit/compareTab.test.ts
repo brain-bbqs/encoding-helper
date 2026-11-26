@@ -1941,6 +1941,33 @@ describe("one encode at a time", () => {
     expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["done"]);
   });
 
+  // A refusal names a run that is going. Once that run has ended, the note says nothing rather than
+  // still claiming a run that is no longer there.
+  it("takes a refusal back once the run it named has ended", async () => {
+    loadClip();
+    sweepOf(["superfast"]);
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    runButton(panel).click();
+    reencode.wholeFileButton.click();
+    await flush();
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
+    expect(reencode.wholeFileNote.textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
+
+    settleAbLoad!.resolve();
+    settleAbLoad = null;
+    await vi.waitFor(() => expect(reencode.runButton.disabled).toBe(false), WAIT);
+
+    expect(runNote(panel).textContent).toBe("");
+    expect(reencode.wholeFileNote.textContent).toBe("");
+  });
+
   // A sweep reads the file to identify it before encoding anything, which for a URL can be seconds
   // of reading. The encoder is taken before that read, so nothing starts in the gap, and the sweep's
   // Stop still reaches its cores once it is encoding.
@@ -2007,6 +2034,7 @@ describe("one encode at a time", () => {
     reading.resolve();
     await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
     expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(reencode.note.textContent).toBe("");
     expect(core.execs).toEqual([]);
 
     reencode.runButton.click();
