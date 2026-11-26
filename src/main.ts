@@ -1,7 +1,7 @@
 import "./style.css";
 import changelog from "../CHANGELOG.md?raw";
 import { initThemeToggle, initWhatsNew, renderVersion } from "@brain-bbqs/ui";
-import { onEducationalChange } from "./lib/educational";
+import { isEducationalEnabled, onEducationalChange } from "./lib/educational";
 import { THEME_KEY } from "./lib/settings";
 import { teachBox } from "./lib/dom";
 import { APP_INTRO } from "./lib/explainers";
@@ -65,29 +65,22 @@ els.clearCacheBtn.addEventListener("click", () => {
 // stored, the OS preference applies.
 initThemeToggle(els.themeToggle, { storageKey: THEME_KEY });
 
-/**
- * What the app is for, above the file picker. It sits outside the tab panels, so it is rebuilt on
- * its own rather than by renderAll, and it is the one card a reader meets before loading anything,
- * which is why it is put up whether or not a file has been opened.
- */
-function syncIntroCard(): void {
-  els.introCard.innerHTML = "";
-  els.introCard.append(teachBox(APP_INTRO, "🎓"));
-}
-
 // Teaching material (the "teach" boxes and the ⓘ info-icon popovers) is on by default and
 // remembered across reloads. The switch sits in the header beside the light/dark toggle: one
-// preference control for the whole app, outside the panels it rebuilds, so it is mounted once here
-// rather than by renderAll.
+// preference control for the whole app, so it is mounted once here rather than by renderAll. Every
+// panel builds its teaching material whatever the switch says, and the stylesheet hides it under
+// the edu-off class on <html> (see .edu in style.css): a flip changes that class alone, so a run in
+// flight and the results on screen are left as they are, on whichever page is up.
 els.eduToggleSlot.append(renderEducationalToggle());
-syncIntroCard();
-// Flipping it rebuilds every tab from scratch, so a panel not currently showing still picks up the
-// change next time it is visited. The intro card is redrawn either way, since it is on the page
-// before any file is.
-onEducationalChange(() => {
-  syncIntroCard();
-  if (els.app.style.display !== "none") renderAll();
-});
+const syncEducationalClass = (on: boolean): void => {
+  document.documentElement.classList.toggle("edu-off", !on);
+};
+syncEducationalClass(isEducationalEnabled());
+onEducationalChange(syncEducationalClass);
+
+// What the app is for, above the file picker: the one card a reader meets before loading anything,
+// which is why it is put up whether or not a file has been opened.
+els.introCard.append(teachBox(APP_INTRO, "🎓"));
 
 const loader = initFileLoadingUi(els, { onLoaded: renderAll });
 // The demo set replaces the bundled sample the app used to ship with: it lives on the EMBER archive

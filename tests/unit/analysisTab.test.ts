@@ -6,6 +6,7 @@ import { installObserverStub, stubClipboard } from "@brain-bbqs/test-utils/vites
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
+import { setEducationalEnabled } from "../../src/lib/educational";
 import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/qualityMatrix";
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
@@ -383,6 +384,44 @@ describe("renderAnalysisTab", () => {
     renderAnalysisTab(el);
     renderAnalysisTab(el);
     expect(el.querySelectorAll("iframe.doc-preview")).toHaveLength(1);
+  });
+
+  // The page's builders draw their teaching material whether or not the switch shows it; the
+  // document states what the file is without it either way, the panel's own intro aside.
+  it("writes the same document with the Educational switch on or off, with no teaching material in it", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 0, 1, 12));
+    try {
+      loadClip();
+      state.tags = { title: "Session 1" } as never;
+      state.seekResults = [
+        { t: 1, kf: 0, dist: 1, distFrames: 20, decodeMs: 10 },
+        { t: 2, kf: 1.5, dist: 0.5, distFrames: 10, decodeMs: 30 },
+      ];
+      loadComparison(5, 100_000);
+      const cells = makeMatrixCells(buildMatrixCombos(["high"], ["ultrafast", "fast"]));
+      cells.forEach((c, i) => {
+        c.status = "done";
+        c.bytes = 100_000 - i * 10_000;
+      });
+      sampledEncode.matrix.cells = cells;
+      const write = (): { html: string; md: string } => {
+        const el = panel();
+        renderAnalysisTab(el);
+        return { html: documentHtml(el), md: markdown(el) };
+      };
+
+      const on = write();
+      setEducationalEnabled(false);
+      const off = write();
+      expect(off).toEqual(on);
+      for (const mark of ['class="teach', 'class="info', "info-btn", "info-pop", "edu"]) {
+        expect(on.html).not.toContain(mark);
+      }
+    } finally {
+      setEducationalEnabled(true);
+      vi.useRealTimers();
+    }
   });
 
   it("empties the panel when the file it described has been closed", () => {

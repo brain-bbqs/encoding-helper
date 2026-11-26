@@ -1,9 +1,8 @@
-// The DOM-building helpers that are this app's own: the ones that read the educational toggle, and
-// the card and table shapes only its tabs draw. The generic ones (h, button, svgEl, ...) come from
-// @brain-bbqs/ui.
+// The DOM-building helpers that are this app's own: the teaching material the Educational switch
+// hides, and the card and table shapes only its tabs draw. The generic ones (h, button, svgEl, ...)
+// come from @brain-bbqs/ui.
 
 import { button, h, svgEl, writeClipboard } from "@brain-bbqs/ui";
-import { isEducationalEnabled } from "./educational";
 
 /** A card with its heading, the unit every tab is built from. */
 export function section(title: string): HTMLDivElement {
@@ -78,12 +77,10 @@ function infoGlyph(): SVGSVGElement {
  * pass in text read out of a media file without escaping it first.
  */
 export function infoIcon(html: string, label = "More information"): HTMLSpanElement {
-  // The ⓘ affordance is teaching material like the "teach" boxes below, so it goes with the same
-  // toggle: an empty, hidden span rather than `null`, since every call site treats infoIcon's
-  // return as always present (gridItem appends it unconditionally once it decides to call this).
-  if (!isEducationalEnabled()) return h("span", "info edu-off");
+  // Teaching material like the "teach" boxes below, so it carries the same `edu` mark the
+  // stylesheet hides while the Educational switch is off.
   bindInfoDismiss();
-  const wrap = h("span", "info");
+  const wrap = h("span", "info edu");
   const btn = button("info-btn");
   btn.append(infoGlyph());
   btn.setAttribute("aria-label", label);
@@ -172,19 +169,15 @@ export function dataTable(headers: string[], rows: string[][]): HTMLDivElement {
 
 /**
  * A left-accented "teach" callout box. `html` is trusted, author-authored explainer markup.
- * Rendered empty and hidden (rather than returning `null`) when the educational toggle is off, so
- * every call site can keep appending its result unconditionally.
+ * Built in full whatever the Educational switch says, marked `edu` for the stylesheet to hide while
+ * it is off, so a flip shows or hides it without the panel around it being drawn again.
  *
  * `mark` is the emoji in the gutter, saying what the box is about (🎥 for what this file's
  * container is, 🎨 for chroma subsampling), which gives a card of stacked boxes something to tell
  * them apart by at a glance.
  */
 export function teachBox(html: string, mark: string): HTMLDivElement {
-  const d = h("div", "teach");
-  if (!isEducationalEnabled()) {
-    d.classList.add("edu-off");
-    return d;
-  }
+  const d = h("div", "teach edu");
   const icon = h("span", "teach-icon", mark);
   icon.setAttribute("aria-hidden", "true");
   const body = h("div", "teach-body");

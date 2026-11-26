@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.10
+
+#### 🐛 Bug Fix
+
+- The Educational switch no longer clears results or interrupts runs, the A/B window shows draw errors, and a later file's sweep keeps its winner ringed ([#81](https://github.com/brain-bbqs/encoding-helper/pull/81))
+
 ## 1.5.9
 
 #### 🐛 Bug Fix

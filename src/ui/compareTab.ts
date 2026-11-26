@@ -65,7 +65,7 @@ interface MatrixUi extends RunUi {
 }
 
 // Whether the "Settings to sweep" <details> was left open, kept at module scope (rather than in
-// shared state) so it survives the full-panel rebuild the Educational toggle triggers: without it,
+// shared state) so it survives the full-panel rebuild loading another file triggers: without it,
 // every renderCompareTab() call would start the details closed again, forcibly collapsing it out
 // from under whoever had it open.
 let matrixSettingsOpen = false;

@@ -1,8 +1,8 @@
 // What main.ts does once a file has loaded: the file loader and the tab renderers are stubbed (each
 // has its own suite), so what is pinned here is main.ts's wiring between them. The loader it builds
 // is the one the demos page opens files through; a load draws every tab, the Inspect panel in the
-// file's own reading order; the Educational switch redraws them while a file is up; and the Full
-// Analysis tab is rebuilt on every visit.
+// file's own reading order; the Educational switch redraws none of them; and the Full Analysis tab
+// is rebuilt on every visit.
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { setEducationalEnabled } from "../../src/lib/educational";
 import { bootMain, el } from "./helpers/mainHarness";
@@ -98,12 +98,15 @@ describe("main.ts with a file loaded", () => {
     expect(calls).toEqual([]);
   });
 
-  it("redraws every tab when the switch flips with a file on screen", () => {
+  // Teaching material is hidden by a class on <html> (see main.educational.test.ts), so what the
+  // tabs hold, a run in flight among it, is left as it was.
+  it("leaves the tabs alone when the switch flips with a file on screen", () => {
     el("app").style.display = "";
     setEducationalEnabled(false);
-    expect(calls).toEqual(RENDER_ALL);
-    expect(el("introCard").querySelector(".teach")?.classList.contains("edu-off")).toBe(true);
+    expect(calls).toEqual([]);
+    expect(document.documentElement.classList.contains("edu-off")).toBe(true);
     setEducationalEnabled(true);
+    expect(calls).toEqual([]);
   });
 
   it("rebuilds Full Analysis each time its tab is opened", () => {

@@ -178,6 +178,35 @@ test.describe("Encoding Helper shell", () => {
     await expect(doc.locator(".doc-toc")).toContainText("Empirical Seeking Test");
   });
 
+  // The switch changes one class on <html>, which the stylesheet reads; the tabs are not drawn
+  // again, so a node marked before the flip is still there after it.
+  test("hides the teaching material from the header switch without drawing the tabs again", async ({ page }) => {
+    await loadDemo(page);
+    const panel = page.locator("#panel-inspect");
+    const teach = panel.locator(".teach").first();
+    const info = panel.locator(".item-head .info").first();
+    await expect(teach).toBeVisible();
+    await expect(info).toBeVisible();
+    await panel
+      .locator(".section")
+      .first()
+      .evaluate((el) => el.setAttribute("data-kept", ""));
+
+    const toggle = page.locator("#eduToggleSlot input.switch");
+    await toggle.uncheck();
+    await expect(teach).toBeHidden();
+    await expect(info).toBeHidden();
+    // `.info` also names the B-frames badge's colour (the demo has B-frames), which is a finding
+    // rather than teaching.
+    await expect(panel.locator(".badge.info")).toBeVisible();
+    await expect(panel.locator(".section[data-kept]")).toHaveCount(1);
+    expect(new URL(page.url()).searchParams.get("edu")).toBe("0");
+
+    await toggle.check();
+    await expect(teach).toBeVisible();
+    await expect(info).toBeVisible();
+  });
+
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {
     await loadDemo(page);
     const panel = page.locator("#panel-inspect");

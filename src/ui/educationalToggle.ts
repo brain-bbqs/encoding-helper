@@ -1,7 +1,7 @@
 // The Educational switch: one control for the whole app, mounted once into the header beside the
 // light/dark toggle (see main.ts) rather than into whichever card comes first. It reads the flag in
-// lib/educational when it is built and writes it on change; since it lives outside the panels that
-// a change rebuilds, it never needs to stay subscribed to later changes itself.
+// lib/educational when it is built and writes it on change; as the only control that writes the
+// flag, it never needs to stay subscribed to later changes itself.
 
 import { h } from "@brain-bbqs/ui";
 import { isEducationalEnabled, setEducationalEnabled } from "../lib/educational";
