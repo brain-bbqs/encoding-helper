@@ -14,6 +14,8 @@ let refuseInput = -1;
 let undecodableInput = -1;
 /** How long the stub says every stretch runs. */
 let stretchSeconds = 1;
+/** Called as each stretch is opened, for a test to act while a load is part-way through. */
+let onOpen: (() => void) | null = null;
 
 /** A decoded frame as the sinks hand one back: a canvas of the frame's own size. */
 interface FakeFrame {
@@ -33,6 +35,7 @@ vi.mock("../../src/lib/mediabunny", () => {
   class FakeInput {
     id = openedInputs++;
     async getPrimaryVideoTrack(): Promise<{ canDecode: () => Promise<boolean> } | null> {
+      onOpen?.();
       const decodable = this.id !== undecodableInput;
       return this.id === refuseInput ? null : { canDecode: async () => decodable };
     }
@@ -218,6 +221,7 @@ beforeEach(() => {
   refuseInput = -1;
   undecodableInput = -1;
   stretchSeconds = 1;
+  onOpen = null;
   frameAt = async () => null;
   frameRequests.length = 0;
   // Cleared after the reset, which disposes whatever the test before it left the window holding.
@@ -415,6 +419,25 @@ describe("loadEncodedIntoAB refusals", () => {
     expect(disposed).toEqual([0]);
     expect(sampledEncode.abSegments).toHaveLength(0);
     expect(host.style.display).toBe("none");
+  });
+
+  // Stopped part-way through opening its stretches, by Stop or by a file load or Reset, a run puts
+  // nothing in the window: after a load, the window and the state behind it are another file's.
+  it("puts nothing in the window for a run stopped while its stretches were being opened", async () => {
+    const host = hostSection();
+    await loadSampled(host, 2);
+    const held = sampledEncode.encodedInputs;
+    const run = { tab: "Compare Quality", stoppable: true, stopped: false, workers: new Set() };
+    onOpen = () => {
+      run.stopped = true;
+    };
+    const windows = [{ startSeconds: 0, seconds: 1 }];
+    await expect(
+      loadEncodedIntoAB(encodedStretches(1), SETTINGS, VIDEO_TRACK, host, { bytes: 1, windows }, run as never),
+    ).rejects.toThrow("Stopped");
+    expect(sampledEncode.encodedInputs).toBe(held);
+    expect(sampledEncode.abSegments).toHaveLength(2);
+    expect(disposed).toEqual([2]);
   });
 });
 

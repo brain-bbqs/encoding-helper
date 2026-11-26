@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
+import { encoderBusy, RunStopped } from "../../src/lib/encoderRun";
 import type { FfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { SAMPLE_SECONDS } from "../../src/lib/sampleTimeline";
 import { cli, sampledEncode, state } from "../../src/lib/state";
@@ -339,8 +340,8 @@ describe("running the command on a sample", () => {
     encoded = deferred();
     onProgress = null;
     run.worker.load.mockClear();
-    run.prepareRun.mockReset().mockImplementation((windows) => Promise.resolve(cutInputs(windows)));
-    run.encodeWindows.mockReset().mockImplementation((_cli, _inputs, _workers, _ui, progress) => {
+    run.prepareRun.mockReset().mockImplementation((_run, windows) => Promise.resolve(cutInputs(windows)));
+    run.encodeWindows.mockReset().mockImplementation((_run, _cli, _inputs, _workers, _ui, progress) => {
       onProgress = progress;
       return encoded.promise;
     });
@@ -368,14 +369,14 @@ describe("running the command on a sample", () => {
 
     expect(run.worker.load).toHaveBeenCalledTimes(1);
     const windows: SampleWindow[] = [{ startSeconds: 10, seconds: SAMPLE_SECONDS }];
-    expect(run.prepareRun.mock.calls[0][0]).toEqual(windows);
-    expect(run.prepareRun.mock.calls[0][1]).toEqual([run.worker]);
+    expect(run.prepareRun.mock.calls[0][1]).toEqual(windows);
+    expect(run.prepareRun.mock.calls[0][2]).toEqual([run.worker]);
     // The start of the stretch actually encoded is recorded (the A/B module is mocked here).
     expect(sampledEncode.startTime).toBe(10);
-    expect(sampledEncode.running).toBe(true);
+    expect(encoderBusy()).toBe(true);
     expect(ui.stopButton.style.display).toBe("");
     expect(ui.note.textContent).toBe("Encoding test segment…");
-    expect(run.encodeWindows.mock.calls[0].slice(0, 2)).toEqual([cli, cutInputs(windows)]);
+    expect(run.encodeWindows.mock.calls[0].slice(1, 3)).toEqual([cli, cutInputs(windows)]);
 
     onProgress!(0.5);
     expect(ui.fill.style.width).toBe("50%");
@@ -405,7 +406,7 @@ describe("running the command on a sample", () => {
     expect(ui.fill.style.width).toBe("100%");
     expect(ui.fill.classList.contains("done")).toBe(true);
     expect(ui.note.textContent).toBe("");
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.stopButton.style.display).toBe("none");
   });
@@ -426,7 +427,7 @@ describe("running the command on a sample", () => {
     // Nothing to show the length of, so the bar goes rather than freezing part-way.
     expect(ui.progress.style.display).toBe("none");
     expect(run.loadEncodedIntoAB).not.toHaveBeenCalled();
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
   });
 
@@ -439,37 +440,114 @@ describe("running the command on a sample", () => {
     expect(ui.stopButton.disabled).toBe(false);
 
     ui.stopButton.click();
-    expect(sampledEncode.cancelRequested).toBe(true);
+    expect(run.encodeWindows.mock.calls[0][0].stopped).toBe(true);
     expect(ui.stopButton.disabled).toBe(true);
     expect(ui.note.textContent).toBe("Stopping…");
 
     // The real encode is what turns a Stop into the end the failure handler recognises, so it is
     // the one that runs from here: with Stop pressed it never touches a core.
-    const [cliState, inputs, workers, runUi, progress] = run.encodeWindows.mock.calls[0];
-    realRun.encodeWindows(cliState, inputs, workers, runUi, progress).then(encoded.resolve, encoded.reject);
+    const [handle, cliState, inputs, workers, runUi, progress] = run.encodeWindows.mock.calls[0];
+    realRun.encodeWindows(handle, cliState, inputs, workers, runUi, progress).then(encoded.resolve, encoded.reject);
     await flush();
 
     expect(ui.note.textContent).toBe("Stopped.");
     expect(ui.progress.style.display).toBe("none");
     expect(run.loadEncodedIntoAB).not.toHaveBeenCalled();
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.stopButton.style.display).toBe("none");
   });
 
-  // One encoder and one pool: the sweep on the other tab has both, and its run came first.
-  it("waits for a sweep on the Compare Quality tab rather than running beside it", async () => {
+  // Stop terminates the core, so the encode in flight rejects with the library's own words rather
+  // than with the run's stop; the run still ends as stopped, and the Stop ends with it.
+  it("ends as stopped when Stop cuts the encode short, and forgets the Stop afterwards", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const panel = renderTab();
     const ui = sampleRun(panel);
-    sampledEncode.running = true;
     ui.runButton.click();
     await flush();
 
-    expect(ui.note.textContent).toBe("An encode is already running on the Compare Quality tab. Wait for it to finish.");
-    expect(run.prepareRun).not.toHaveBeenCalled();
-    // Still held, since the sweep that holds it has not finished.
-    expect(ui.runButton.disabled).toBe(true);
+    ui.stopButton.click();
+    encoded.reject(new Error("called FFmpeg.terminate()"));
+    await flush();
+
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.log.textContent).not.toContain("called FFmpeg.terminate()");
+    expect(error).not.toHaveBeenCalled();
+    expect(encoderBusy()).toBe(false);
+    expect(ui.runButton.disabled).toBe(false);
+
+    // The next press runs, rather than meeting the Stop pressed on the run before it.
+    encoded = deferred();
+    ui.runButton.click();
+    await flush();
+    expect(run.prepareRun).toHaveBeenCalledTimes(2);
+    expect(run.prepareRun.mock.calls[1][0].stopped).toBe(false);
+    expect(ui.note.textContent).toBe("Encoding test segment…");
+  });
+
+  // Stop pressed while the result is being opened for the A/B window, which the window does with the
+  // run it is handed: one stopped meanwhile is turned away, and the run ends as stopped rather than as
+  // finished with nothing shown.
+  it("ends as stopped when Stop lands while the result is opened for the A/B window", async () => {
+    const panel = renderTab();
+    const ui = sampleRun(panel);
+    const opening = deferred<void>();
+    run.loadEncodedIntoAB.mockImplementation(async (_blobs, _settings, _vt, _host, _totals, handed) => {
+      await opening.promise;
+      if (handed?.stopped) throw new RunStopped();
+    });
+    ui.runButton.click();
+    await flush();
+    encoded.resolve({ blobs: [new Blob(["encoded"])], bytes: 7, measured: [{ startSeconds: 10, seconds: 2.9 }] });
+    await flush();
+    expect(ui.note.textContent).toBe("Decoding frames…");
+
+    ui.stopButton.click();
+    opening.resolve();
+    await flush();
+
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.fill.classList.contains("done")).toBe(false);
+    expect(encoderBusy()).toBe(false);
+    expect(ui.runButton.disabled).toBe(false);
+  });
+
+  // One encoder and one pool: the sweep on the other tab has both, and its run came first. The press
+  // is refused with a note saying so, and the button is left usable rather than greyed out until
+  // something happens to rebuild the panel.
+  it("refuses a press while a sweep on the Compare Quality tab encodes, and leaves the button usable", async () => {
+    loadClip();
+    sampledEncode.matrix.qualities = ["high"];
+    sampledEncode.matrix.presets = ["superfast"];
+    sampledEncode.matrix.scales = [1];
+    const comparePanel = document.createElement("div");
+    document.body.append(comparePanel);
+    renderCompareTab(comparePanel);
+    const sweepButton = comparePanel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!;
+    const panel = renderTab();
+    const ui = sampleRun(panel);
+    sweepButton.click();
+    await vi.waitFor(() => expect(run.encodeWindows).toHaveBeenCalledTimes(1));
+
+    ui.runButton.click();
+    await flush();
+
+    expect(ui.runButton.disabled).toBe(false);
+    expect(ui.note.textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish or stop it.",
+    );
     expect(ui.stopButton.style.display).toBe("none");
+    expect(run.prepareRun).toHaveBeenCalledTimes(1);
+
+    // The sweep ends, and the same press now runs.
+    encoded.resolve({ blobs: [new Blob(["encoded"])], bytes: 7, measured: [{ startSeconds: 0, seconds: 5 }] });
+    await vi.waitFor(() => expect(sweepButton.disabled).toBe(false));
+    expect(ui.runButton.disabled).toBe(false);
+    ui.runButton.click();
+    await vi.waitFor(() => expect(run.loadEncodedIntoAB).toHaveBeenCalledTimes(2));
+    expect(run.prepareRun).toHaveBeenCalledTimes(2);
+    expect(ui.note.textContent).toBe("");
   });
 
   // Without a length there is no track to pick a stretch on, so there is nothing to encode.

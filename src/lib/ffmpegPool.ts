@@ -54,9 +54,11 @@ export function ffmpegPool(count: number): FfmpegWorker[] {
  * (a square retried mid-sweep) is picked up by whichever core reaches it, and the outer loop
  * catches the case where every core had already stopped when it arrived.
  *
- * An item that throws is that item's problem: `work` is expected to record the failure against it,
- * and one failure does not end the run, since finding out what this file and this browser can do is
- * usually the point.
+ * A failed item is that item's problem: `work` is expected to record the failure against it, and
+ * one failure does not end the run, since finding out what this file and this browser can do is
+ * usually the point. A `work` that throws anyway ends the run: no core is handed another item, the
+ * ones already in flight are waited for, and the first error is rethrown, so the caller never moves
+ * on while a core is still encoding for it.
  */
 export async function drainWithPool<T>(
   queue: T[],
@@ -65,19 +67,28 @@ export async function drainWithPool<T>(
   shouldStop: () => boolean = () => false,
 ): Promise<void> {
   let next = 0;
-  while (next < queue.length) {
+  // A list rather than a variable reassigned inside the callbacks, which type narrowing outside
+  // them would still read as never set.
+  const errors: unknown[] = [];
+  const more = (): boolean => next < queue.length && !errors.length && !shouldStop();
+  while (more()) {
     await Promise.all(
       workers.map(async (worker) => {
-        for (;;) {
-          if (shouldStop()) return;
+        // The bound is tested before an index is claimed: a core that claimed first and then found
+        // the queue empty would leave `next` past the end, where an item appended later is skipped.
+        while (more()) {
           // Read and claim in one step: JavaScript runs this to completion before any other core's
           // turn, so two of them cannot take the same item.
-          const index = next++;
-          if (index >= queue.length) return;
-          await work(queue[index], worker);
+          const item = queue[next++];
+          try {
+            await work(item, worker);
+          } catch (error) {
+            errors.push(error);
+            return;
+          }
         }
       }),
     );
-    if (shouldStop()) return;
   }
+  if (errors.length) throw errors[0];
 }

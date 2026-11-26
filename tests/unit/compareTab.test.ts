@@ -1,7 +1,9 @@
+import { mountHtml, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
+import { encoderBusy } from "../../src/lib/encoderRun";
 import { ffmpegPool, MAX_POOL_WORKERS } from "../../src/lib/ffmpegPool";
 import { matrixCache } from "../../src/lib/matrixCache";
 import {
@@ -14,7 +16,7 @@ import {
   MATRIX_SCALERS,
   MATRIX_SCALES,
 } from "../../src/lib/qualityMatrix";
-import { cli, sampledEncode, state } from "../../src/lib/state";
+import { cli, resetState, sampledEncode, state } from "../../src/lib/state";
 import type { EncodeSettings, MatrixCell, SampleWindow, X264Preset } from "../../src/lib/types";
 import { deferred, flush } from "./helpers/async";
 
@@ -26,10 +28,22 @@ const core = vi.hoisted(() => ({
   sizeOf: ((): number => 3) as (args: string[]) => number,
   /** Stands in for the encode itself; the default finishes at once. */
   exec: null as ((args: string[]) => Promise<void>) | null,
+  /** Stand in for a core's load, an input written to it and a file deleted from it while set, so a
+   * test can hold one part-way through. All finish at once by default. */
+  load: null as (() => Promise<void>) | null,
+  writeFile: null as ((path: string) => Promise<void>) | null,
+  deleteFile: null as ((path: string) => Promise<void>) | null,
 }));
 
 /** The stubbed decoder's answer for an encode's length. */
 const ENCODED_SECONDS = vi.hoisted(() => 1.9);
+
+/** What the page waits on outside the cores, held while set: measuring an encode's length, and
+ * parsing a file being loaded. Neither can be interrupted, so a run stopped meanwhile waits them out. */
+const slow = vi.hoisted(() => ({
+  measure: null as (() => Promise<void>) | null,
+  parse: null as (() => Promise<void>) | null,
+}));
 
 const fetchFile = vi.hoisted(() => vi.fn());
 
@@ -41,33 +55,37 @@ vi.mock("@ffmpeg/ffmpeg", () => {
   class FakeFFmpeg {
     /** The command whose output the next read hands back. */
     private lastExec: string[] = [];
-    /** The execs still in flight, which terminate() fails the way the real core does. */
+    /** The calls still in flight, which terminate() fails the way the real core does. */
     private pending: ((err: Error) => void)[] = [];
+    /** Settles as `outcome` does, unless the core is terminated first. */
+    private inFlight(outcome: Promise<void>): Promise<void> {
+      return new Promise<void>((resolve, reject) => {
+        this.pending.push(reject);
+        outcome.then(resolve, reject);
+      });
+    }
     on(): void {}
     load(): Promise<void> {
-      return Promise.resolve();
+      return core.load ? this.inFlight(core.load()) : Promise.resolve();
     }
     terminate(): void {
       core.terminated++;
       for (const reject of this.pending) reject(new Error("called FFmpeg.terminate()"));
       this.pending = [];
     }
-    writeFile(): Promise<void> {
-      return Promise.resolve();
+    writeFile(path: string): Promise<void> {
+      return core.writeFile ? this.inFlight(core.writeFile(path)) : Promise.resolve();
     }
     exec(args: string[]): Promise<void> {
       core.execs.push(args);
       this.lastExec = args;
-      return new Promise<void>((resolve, reject) => {
-        this.pending.push(reject);
-        (core.exec ? core.exec(args) : Promise.resolve()).then(resolve, reject);
-      });
+      return this.inFlight(core.exec ? core.exec(args) : Promise.resolve());
     }
     readFile(): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array(core.sizeOf(this.lastExec)));
     }
-    deleteFile(): Promise<void> {
-      return Promise.resolve();
+    deleteFile(path: string): Promise<void> {
+      return core.deleteFile ? this.inFlight(core.deleteFile(path)) : Promise.resolve();
     }
   }
   return { FFmpeg: FakeFFmpeg };
@@ -77,7 +95,7 @@ vi.mock("@ffmpeg/ffmpeg", () => {
 vi.mock("../../src/lib/mediabunny", () => {
   class FakeInput {
     computeDuration(): Promise<number> {
-      return Promise.resolve(ENCODED_SECONDS);
+      return slow.measure ? slow.measure().then(() => ENCODED_SECONDS) : Promise.resolve(ENCODED_SECONDS);
     }
     dispose(): void {}
   }
@@ -97,29 +115,70 @@ const abLoads: { blobs: number; settings: EncodeSettings; totals?: { bytes: numb
 let abDisplaced: (() => void) | null = null;
 
 // The A/B window decodes with mediabunny, which is not the part of choosing a square under test
-// here: what matters is what the grid does before and after the window has the square.
-vi.mock("../../src/ui/abPanel", () => ({
-  onAbDisplaced: (_host: HTMLElement, handler: () => void) => {
-    abDisplaced = handler;
+// here: what matters is what the grid does before and after the window has the square. It refuses a
+// stopped run as the real window does, so a run's own checks are what a test sees, not the stand-in.
+vi.mock("../../src/ui/abPanel", async () => {
+  const { RunStopped } = await import("../../src/lib/encoderRun");
+  return {
+    onAbDisplaced: (_host: HTMLElement, handler: () => void) => {
+      abDisplaced = handler;
+    },
+    loadEncodedIntoAB: (
+      blobs: Blob[],
+      settings: EncodeSettings,
+      _vt: unknown,
+      _host: unknown,
+      totals?: { bytes: number; windows: SampleWindow[] },
+      run?: { stopped: boolean },
+    ) => {
+      if (run?.stopped) return Promise.reject(new RunStopped());
+      abLoads.push({ blobs: blobs.length, settings, totals });
+      return new Promise<void>((resolve, reject) => {
+        settleAbLoad = { resolve: () => (run?.stopped ? reject(new RunStopped()) : resolve()), reject };
+      });
+    },
+  };
+});
+
+// What a file load parses, for the cases that open one through the page's own loader: the same
+// 20-second clip with a keyframe every two seconds that loadClip sets up by hand.
+vi.mock("../../src/lib/mp4boxParser", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/lib/mp4boxParser")>()),
+  parseWithMp4Box: async () => {
+    await slow.parse?.();
+    return { mp4boxFile: {}, info: { videoTracks: [{ id: 1, timescale: 600 }] } };
   },
-  loadEncodedIntoAB: (
-    blobs: Blob[],
-    settings: EncodeSettings,
-    _vt: unknown,
-    _host: unknown,
-    totals?: { bytes: number; windows: SampleWindow[] },
-  ) => {
-    abLoads.push({ blobs: blobs.length, settings, totals });
-    return new Promise<void>((resolve, reject) => {
-      settleAbLoad = { resolve, reject };
-    });
-  },
+  extractBoxTree: () => [],
+  detectFaststart: () => true,
+  extractSampleAnalysis: () => ({
+    samples: [],
+    keyframeDecodeIndices: [],
+    gopLengths: [],
+    hasBFrames: false,
+    keyframeTimestampsSec: Array.from({ length: 10 }, (_, i) => i * 2),
+  }),
+  extractDeclaredBitrate: () => null,
+}));
+vi.mock("../../src/lib/mediabunnyMeta", async () => {
+  const { VIDEO_TRACK: track } = await import("../fixtures/state");
+  const meta = { format: "MP4", mimeType: "video/mp4", duration: 20, tags: null, tracks: [track], fps: 30 };
+  return { loadMediabunnyMetadata: () => Promise.resolve({ ...meta, videoTrack: null }) };
+});
+
+/** Where the whole-file encode put what it saved; jsdom has no download to make. */
+const downloadBlob = vi.hoisted(() => vi.fn());
+vi.mock("../../src/lib/save", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/lib/save")>()),
+  downloadBlob,
 }));
 
 // The measurement cache opens the page's IndexedDB on first use, which jsdom does not have.
 globalThis.indexedDB = new IDBFactory();
 
 const { renderCompareTab } = await import("../../src/ui/compareTab");
+const { renderEncodeTab } = await import("../../src/ui/encodeTab");
+const { initFileLoadingUi } = await import("../../src/ui/fileLoading");
+const { getElements } = await import("../../src/ui/elements");
 
 /** The tab, rendered over one loaded 20-second file. The panel goes into the document because the
  * tab reaches for its fields by class, the way the app's own panels are already in the page. */
@@ -183,6 +242,17 @@ function loadClip(): void {
   state.keyframeTimestampsSec = Array.from({ length: 10 }, (_, i) => i * 2);
 }
 
+/** The page reloaded over the same file: nothing sampled or swept and the cores empty, so the
+ * measurement cache is all that is left of earlier runs. */
+function reloadClip(): void {
+  document.body.innerHTML = "";
+  resetCliDefaults();
+  for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
+  loadClip();
+  core.execs = [];
+  fetchFile.mockClear();
+}
+
 /** The next sweep: `presets` at one quality and the source resolution, over `segments` two-second
  * stretches (one unless a test asks for more). As few squares as still make a grid. */
 function sweepOf(presets: X264Preset[], segments = 1): void {
@@ -244,6 +314,69 @@ async function settleRun(panel: HTMLElement): Promise<void> {
   await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
 }
 
+/** Sweeps ultrafast and superfast with ultrafast failing, and waits for superfast, the winner, to
+ * be on its way into the A/B window. */
+async function sweepWithOneFailure(): Promise<{ panel: HTMLElement; cells: MatrixCell[] }> {
+  loadClip();
+  sweepOf(["ultrafast", "superfast"]);
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  core.exec = (args) => (args.includes("ultrafast") ? Promise.reject(new Error("x264 gave up")) : Promise.resolve());
+  const panel = renderTab();
+  await pressRun(panel);
+  return { panel, cells: sampledEncode.matrix.cells };
+}
+
+/** What a square says under its figure: "queued", "retry", "run it" and so on. */
+function squareSub(panel: HTMLElement, cell: MatrixCell): string {
+  return square(panel, cell).querySelector(".matrix-sub")!.textContent ?? "";
+}
+
+/** The controls of the Reencode with FFmpeg tab's two encodes: the sample run and the whole-file one. */
+interface ReencodeControls {
+  runButton: HTMLButtonElement;
+  stopButton: HTMLButtonElement;
+  note: HTMLElement;
+  wholeFileButton: HTMLButtonElement;
+  wholeFileNote: HTMLElement;
+}
+
+/** The Reencode with FFmpeg tab over the same file, beside the Compare tab as the page has it. */
+function renderReencodeTab(): ReencodeControls {
+  const panel = document.createElement("div");
+  document.body.append(panel);
+  renderEncodeTab(panel);
+  return reencodeControls(panel);
+}
+
+function reencodeControls(panel: HTMLElement): ReencodeControls {
+  const notes = panel.querySelectorAll<HTMLElement>(".progress-label");
+  return {
+    runButton: runButton(panel),
+    stopButton: stopButton(panel),
+    note: notes[0],
+    wholeFileButton: Array.from(panel.querySelectorAll("button")).find((b) => b.textContent!.endsWith(" and Save"))!,
+    wholeFileNote: notes[1],
+  };
+}
+
+/** Whether an exec is the whole-file encode: everything the sampled runs write is named et_…. */
+function isWholeFile(args: string[]): boolean {
+  return !args.at(-1)!.startsWith("et_");
+}
+
+/** The page's own markup and file loader, drawing both encoding tabs on every load as main.ts does. */
+function mountLoader(): { els: ReturnType<typeof getElements>; loader: ReturnType<typeof initFileLoadingUi> } {
+  mountHtml(readIndexHtml());
+  const els = getElements();
+  const loader = initFileLoadingUi(els, {
+    onLoaded: () => {
+      renderEncodeTab(els.panels.encode);
+      renderCompareTab(els.panels.compare);
+    },
+  });
+  return { els, loader };
+}
+
 /** How many records one of the cache's stores holds, read straight out of IndexedDB. */
 function storedCount(store: "measurements" | "windows"): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -272,9 +405,15 @@ beforeEach(async () => {
   core.execs = [];
   core.terminated = 0;
   core.exec = null;
+  core.load = null;
+  core.writeFile = null;
+  core.deleteFile = null;
   core.sizeOf = (args) => SEGMENT_BYTES[args[args.indexOf("-preset") + 1]] ?? 3;
+  slow.measure = null;
+  slow.parse = null;
   fetchFile.mockReset();
   fetchFile.mockResolvedValue(new Uint8Array(8));
+  downloadBlob.mockClear();
   // One core, so the squares encode in grid order and a held encode is the one a test expects.
   vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(2);
   // Nothing measured by an earlier test is read back by this one.
@@ -562,6 +701,26 @@ describe("choosing a square", () => {
     expect(runButton(panel).disabled).toBe(false);
   });
 
+  // Nor does a failed square take one: with no sweep's queue to join, retrying it would be a second
+  // encode, so it waits like the rest instead of offering a click that is only refused.
+  it("offers no retry of a failed square while another square is on its way into the window", async () => {
+    const cells = sweptGrid();
+    cells[1].status = "failed";
+    cells[1].error = "x264 gave up";
+    cells[1].bytes = null;
+    cells[1].blobs = null;
+    const panel = renderTab();
+    expect(square(panel, cells[1]).disabled).toBe(false);
+
+    square(panel, cells[0]).click();
+    expect(square(panel, cells[1]).disabled).toBe(true);
+
+    settleAbLoad!.resolve();
+    await flush();
+    expect(square(panel, cells[1]).disabled).toBe(false);
+    expect(runNote(panel).textContent).toBe("");
+  });
+
   // A square whose output was released is encoded again before the A/B window can have it, which
   // is seconds of work: the ring moves and the grid is held for all of it, not only for the load.
   it("moves the ring and holds the grid while a released square is encoded again", async () => {
@@ -622,6 +781,57 @@ describe("choosing a square", () => {
     expect(sampledEncode.duration).toBe(3);
     expect(duration.value).toBe("3");
     expect(abLoads.at(-1)?.totals?.windows).toEqual([{ startSeconds: 6, seconds: 3 }]);
+  });
+
+  // A square whose output was released is encoded again on the way into the window, which takes the
+  // encoder like any run: while the Reencode tab's run has it, the click is refused and says why.
+  it("refuses a square that would encode while the Reencode tab's run is encoding", async () => {
+    loadClip();
+    const cells = sweptGrid();
+    cells[1].blobs = null;
+    // The sample run encodes at the builder's medium quality, CRF 25, which no square here uses.
+    const held = deferred<void>();
+    core.exec = (args) => (args[args.indexOf("-crf") + 1] === "25" ? held.promise : Promise.resolve());
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+
+    square(panel, cells[1]).click();
+    await flush();
+
+    expect(encodes()).toHaveLength(1);
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
+    expect(sampledEncode.matrix.selectedKey).toBe(cells[0].combo.key);
+    expect(square(panel, cells[0]).classList.contains("selected")).toBe(true);
+    expect(square(panel, cells[1]).disabled).toBe(false);
+    held.resolve();
+  });
+
+  // A run on the Reencode tab takes the A/B window from the square showing here, which repaints the
+  // grid while that run is still going. The squares are usable once it ends, not left disabled until
+  // something else happens to repaint them.
+  it("leaves the grid usable after a run on the Reencode tab took the A/B window from it", async () => {
+    loadClip();
+    const cells = sweptGrid();
+    cells[1].blobs = null;
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    abDisplaced!();
+    settleAbLoad!.resolve();
+    settleAbLoad = null;
+    await vi.waitFor(() => expect(reencode.runButton.disabled).toBe(false), WAIT);
+
+    expect(square(panel, cells[0]).disabled).toBe(false);
+    expect(square(panel, cells[1]).disabled).toBe(false);
+    square(panel, cells[1]).click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    expect(abLoads.at(-1)?.settings.quality).toBe("low");
+    expect(sampledEncode.matrix.selectedKey).toBe(cells[1].combo.key);
   });
 
   it("leaves the fields alone for a grid that never recorded what it covered", () => {
@@ -778,16 +988,10 @@ describe("running the sweep", () => {
     expect(await storedCount("measurements")).toBe(2);
     expect(await storedCount("windows")).toBe(1);
 
-    // The page reloaded: nothing sampled, nothing swept, the cores empty, and the sampler would now
-    // draw elsewhere.
-    document.body.innerHTML = "";
-    resetCliDefaults();
-    for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
-    loadClip();
+    // The page reloaded, and the sampler would now draw elsewhere.
+    reloadClip();
     sweepOf(["ultrafast", "superfast"]);
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    core.execs = [];
-    fetchFile.mockClear();
     const panel = renderTab();
 
     await pressRun(panel);
@@ -891,9 +1095,15 @@ describe("running the sweep", () => {
     expect(logText(panel)).toContain("No video loaded");
     expect(progressBar(panel).style.display).toBe("none");
     expect(encodes()).toEqual([]);
-    expect(sampledEncode.running).toBe(false);
+    expect(encoderBusy()).toBe(false);
     expect(sampledEncode.matrix.running).toBe(false);
     expect(error).toHaveBeenCalledOnce();
+    // Nothing is left queued once no run will take it: the square the sweep never reached is
+    // offered to run, as one Stop left behind would be.
+    const [cell] = sampledEncode.matrix.cells;
+    expect(cell.status).toBe("skipped");
+    expect(squareSub(panel, cell)).toBe("run it");
+    expect(runButton(panel).textContent).toBe("Run 1 unmeasured");
   });
 
   it("asks for a quality and a preset before sweeping anything", async () => {
@@ -911,20 +1121,27 @@ describe("running the sweep", () => {
   });
 
   // The Reencode with FFmpeg tab's run holds the same encoder, so a press here while it is going
-  // starts nothing, whether it would have been a sweep or the run of a swept grid's holes.
-  it("does not start over a run already going on the other tab", async () => {
+  // starts nothing, whether it would have been a sweep or the run of a swept grid's holes. It says
+  // why, and the button is left usable rather than greyed out until a file load rebuilds the panel.
+  it("refuses a press while the Reencode tab's run is going, says why, and leaves the button usable", async () => {
     loadClip();
     sweepOf(["superfast"]);
     const panel = renderTab();
-    sampledEncode.running = true;
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    // Held while it puts its result in the A/B window, the last thing it does before letting go.
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    const execs = core.execs.length;
 
     runButton(panel).click();
     await flush();
 
-    expect(runButton(panel).disabled).toBe(true);
+    expect(runButton(panel).disabled).toBe(false);
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
     expect(sampledEncode.matrix.cells).toEqual([]);
-    expect(runNote(panel).textContent).toBe("");
-    expect(core.execs).toEqual([]);
+    expect(core.execs).toHaveLength(execs);
 
     const cells = makeMatrixCells(buildMatrixCombos(["high"], ["superfast"], [1], ["lanczos"]));
     cells[0].status = "failed";
@@ -935,9 +1152,21 @@ describe("running the sweep", () => {
     runButton(retryPanel).click();
     await flush();
 
-    expect(runButton(retryPanel).disabled).toBe(true);
+    expect(runButton(retryPanel).disabled).toBe(false);
+    expect(runNote(retryPanel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
     expect(cells[0].status).toBe("failed");
-    expect(core.execs).toEqual([]);
+    expect(core.execs).toHaveLength(execs);
+
+    // Once that run has ended, the same press runs.
+    settleAbLoad!.resolve();
+    settleAbLoad = null;
+    await vi.waitFor(() => expect(reencode.runButton.disabled).toBe(false), WAIT);
+    expect(runButton(retryPanel).disabled).toBe(false);
+    runButton(retryPanel).click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    expect(cells[0].status).toBe("done");
   });
 
   // With no length to spread stretches across, the sampler has nothing to draw; the sweep still
@@ -1017,6 +1246,157 @@ describe("running the sweep", () => {
     expect(cuts()).toHaveLength(2);
   });
 
+  // Stop can land while a core is being handed the video to cut from. Terminating the core fails
+  // that write as it fails an encode, so nothing more runs on it.
+  it("runs nothing once Stop lands while a core is handed the video to cut", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    let writing = false;
+    core.writeFile = () => {
+      writing = true;
+      return new Promise<void>(() => {});
+    };
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(writing).toBe(true), WAIT);
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(core.execs).toEqual([]);
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["skipped"]);
+  });
+
+  // Or while a second core is still loading to take its first square: Stop closes that core as well,
+  // so the sweep ends without waiting for the load, and that core encodes nothing.
+  it("encodes nothing on a core still loading when Stop lands", async () => {
+    vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    let loads = 0;
+    core.load = () => (++loads === 2 ? new Promise<void>(() => {}) : Promise.resolve());
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(loads).toBe(2), WAIT);
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(encodes()).toHaveLength(1);
+    expect(runNote(panel).textContent).toBe("Stopped: 0 of 2 encoded");
+  });
+
+  // A Stop ends the run it was pressed on, not whatever next needs an encoder: a square read back
+  // from the cache, clicked after a stopped sweep, is encoded into the A/B window.
+  it("encodes a square clicked after a stopped sweep instead of answering that it stopped", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const first = renderTab();
+    await pressRun(first);
+    await settleRun(first);
+    await matrixCache.flush();
+
+    // Swept again with one more preset: the first square comes back from the cache holding no
+    // output, and Stop lands while the new one encodes.
+    reloadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+    const cells = sampledEncode.matrix.cells;
+    expect(cells.map((c) => c.status)).toEqual(["done", "skipped"]);
+    expect(cells[0].blobs).toBeNull();
+
+    core.exec = null;
+    square(panel, cells[0]).click();
+    await awaitRun(panel);
+
+    expect(runNote(panel).textContent).not.toBe("Stopped.");
+    expect(settleAbLoad).not.toBeNull();
+    expect(abLoads.at(-1)?.settings.preset).toBe("ultrafast");
+    expect(sampledEncode.matrix.selectedKey).toBe(cells[0].combo.key);
+  });
+
+  // On a repeat sweep every square comes back from the cache, so encoding the winner again for the
+  // A/B window is the only encoding the run does: a Stop then ends the run as stopped, not as a
+  // winner that could not be shown.
+  it("ends as stopped when Stop lands while the winner is encoded for the A/B window", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const first = renderTab();
+    await pressRun(first);
+    await settleRun(first);
+    await matrixCache.flush();
+
+    reloadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+    expect(encodes()[0]).toContain("superfast");
+    expect(logText(panel)).toContain("Read 2 of 2 squares back from earlier runs of this file");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(progressBar(panel).style.display).toBe("none");
+    expect(logText(panel)).not.toContain("could not be shown");
+    expect(error).not.toHaveBeenCalled();
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["done", "done"]);
+    expect(sampledEncode.matrix.selectedKey).toBeNull();
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // Without a keyframe table the winner is encoded from the whole video, which is deleted from the
+  // core once that encode is done. A Stop landing during the delete ends the run as stopped, and the
+  // encode it caught is not kept for the square either.
+  it("keeps nothing of the winner's encode when Stop lands while its video is dropped from the core", async () => {
+    loadClip();
+    state.keyframeTimestampsSec = [];
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const first = renderTab();
+    await pressRun(first);
+    await settleRun(first);
+    await matrixCache.flush();
+
+    reloadClip();
+    state.keyframeTimestampsSec = [];
+    sweepOf(["ultrafast", "superfast"]);
+    let dropping = false;
+    core.deleteFile = (path) => {
+      if (path !== "et_in.mp4") return Promise.resolve();
+      dropping = true;
+      return new Promise<void>(() => {});
+    };
+    const panel = renderTab();
+    const shown = abLoads.length;
+    runButton(panel).click();
+    await vi.waitFor(() => expect(dropping).toBe(true), WAIT);
+    expect(encodes()).toHaveLength(1);
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(sampledEncode.matrix.cells[1].blobs).toBeNull();
+    expect(sampledEncode.matrix.selectedKey).toBeNull();
+    expect(abLoads).toHaveLength(shown);
+  });
+
   // Clicking a failed square while the sweep is still going puts it at the back of the queue the
   // sweep is working through, rather than asking for a second encode alongside it.
   it("queues a failed square back into the sweep still running when it is clicked", async () => {
@@ -1056,6 +1436,298 @@ describe("running the sweep", () => {
     expect(cells.map((c) => c.bytes)).toEqual([300, 200]);
     expect(runNote(panel).textContent).toBe("");
     expect(runButton(panel).textContent).toBe("Run Matrix");
+  });
+
+  // With a core per square, the one whose square failed has already left the queue by the time the
+  // retry is clicked; the core still encoding picks the retry up.
+  it("runs a square queued back after one of the sweep's cores has finished", async () => {
+    vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const held = deferred<void>();
+    let failedOnce = false;
+    core.exec = (args) => {
+      if (!args.includes("-crf")) return Promise.resolve();
+      if (args.includes("superfast")) return held.promise;
+      if (failedOnce) return Promise.resolve();
+      failedOnce = true;
+      return Promise.reject(new Error("x264 gave up"));
+    };
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(
+      () => expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["failed", "running"]),
+      WAIT,
+    );
+    const cells = sampledEncode.matrix.cells;
+    expect(logText(panel)).toContain("Encoding on 2 cores at once");
+
+    square(panel, cells[0]).click();
+    expect(logText(panel)).toContain("Queued a retry of high (CRF 18), ultrafast");
+    held.resolve();
+    await awaitRun(panel);
+    await settleRun(panel);
+
+    expect(encodes()).toHaveLength(3);
+    expect(cells.map((c) => c.status)).toEqual(["done", "done"]);
+    expect(cells.map((c) => c.bytes)).toEqual([300, 200]);
+    expect(runNote(panel).textContent).toBe("");
+    expect(runButton(panel).textContent).toBe("Run Matrix");
+  });
+
+  // Once the sweep's cores have run out of squares there is no queue left to join, so a failed
+  // square clicked while the winner goes into the A/B window asks for a run of its own, which the
+  // sweep still holding the encoder refuses. The square stays as it was rather than queued for
+  // nothing, and runs when clicked once the sweep has ended.
+  it("leaves a failed square as it was when it is clicked while the winner goes into the A/B window", async () => {
+    const { panel, cells } = await sweepWithOneFailure();
+    expect(settleAbLoad).not.toBeNull();
+
+    square(panel, cells[0]).click();
+    await flush();
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(logText(panel)).not.toContain("Queued a retry");
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish or stop it.",
+    );
+
+    await settleRun(panel);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("1 of 2 encoded, 1 failed");
+
+    core.exec = null;
+    square(panel, cells[0]).click();
+    await awaitRun(panel);
+    expect(cells.map((c) => c.status)).toEqual(["done", "done"]);
+    expect(encodes()).toHaveLength(3);
+    expect(runButton(panel).textContent).toBe("Run Matrix");
+  });
+
+  // A retry puts its squares in line before it has read or loaded anything. Stopped before it
+  // reaches them, it leaves each as it was: a failed square still failed, with what it failed with.
+  it("leaves a retried square as it was when Stop lands before the retry reaches it", async () => {
+    const { panel, cells } = await sweepWithOneFailure();
+    await settleRun(panel);
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    // The cores were emptied meanwhile, so the retry cuts the stretch out of the file again first,
+    // and that cut is held.
+    for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
+    core.exec = (args) => (args.includes("-crf") ? Promise.resolve() : new Promise<void>(() => {}));
+    runButton(panel).click();
+    await vi.waitFor(() => expect(cuts()).toHaveLength(2), WAIT);
+    expect(squareSub(panel, cells[0])).toBe("queued");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(encodes()).toHaveLength(2);
+  });
+
+  // Stopped while it encodes the square, a retry leaves it as it was too: the encode Stop cut short
+  // measured nothing, so the square still failed, and says what with.
+  it("leaves a retried square as it was when Stop cuts its encode short", async () => {
+    const { panel, cells } = await sweepWithOneFailure();
+    await settleRun(panel);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(3), WAIT);
+    expect(squareSub(panel, cells[0])).toBe("encoding");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("Stopped: 1 of 2 encoded");
+  });
+
+  // The same for a retry that fails before it reaches a square: the failure is the run's, not the
+  // square's, so the square keeps the error its own last attempt ended with.
+  it("leaves a retried square as it was when the retry cannot read the file", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { panel, cells } = await sweepWithOneFailure();
+    await settleRun(panel);
+    for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
+    fetchFile.mockRejectedValueOnce(new Error("the file could not be read"));
+    core.exec = null;
+
+    runButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("Failed: the file could not be read");
+    expect(encodes()).toHaveLength(2);
+    expect(error).toHaveBeenCalledOnce();
+  });
+
+  // A square queued back into a sweep that Stop then ends was never reached by it, so it too is
+  // left as it was before it was queued.
+  it("leaves a square queued back into a sweep as it was when Stop ends the sweep first", async () => {
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    let attempts = 0;
+    core.exec = (args) => {
+      if (!args.includes("-crf")) return Promise.resolve();
+      attempts++;
+      return attempts === 1 ? Promise.reject(new Error("x264 gave up")) : new Promise<void>(() => {});
+    };
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(attempts).toBe(2), WAIT);
+    const cells = sampledEncode.matrix.cells;
+    square(panel, cells[0]).click();
+    expect(squareSub(panel, cells[0])).toBe("queued");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "skipped"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(squareSub(panel, cells[1])).toBe("run it");
+    expect(runButton(panel).textContent).toBe("Run 2 unmeasured");
+    expect(runNote(panel).textContent).toBe("Stopped: 0 of 2 encoded");
+  });
+
+  // Once Stop is pressed the sweep takes nothing more from its queue, even while it still waits on a
+  // square it was measuring: a failed square clicked then is refused rather than queued for nothing.
+  it("queues no retry into a sweep that Stop has ended but that is still winding down", async () => {
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    core.exec = (args) => (args.includes("ultrafast") ? Promise.reject(new Error("x264 gave up")) : Promise.resolve());
+    const measuring = deferred<void>();
+    let measures = 0;
+    slow.measure = () => {
+      measures++;
+      return measuring.promise;
+    };
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(measures).toBe(1), WAIT);
+    const cells = sampledEncode.matrix.cells;
+    expect(cells[0].status).toBe("failed");
+    stopButton(panel).click();
+
+    square(panel, cells[0]).click();
+    await flush();
+
+    expect(logText(panel)).not.toContain("Queued a retry");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish.",
+    );
+    measuring.resolve();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+    expect(cells[0].status).toBe("failed");
+    expect(cells[0].error).toBe("x264 gave up");
+  });
+
+  // A Stop pressed while a fresh sweep still reads the file to fix its stretches is acted on once
+  // they are fixed, so the squares it leaves unreached are run later over the stretches the fields
+  // asked for rather than over whatever an earlier sweep covered.
+  it("fixes a sweep's stretches before ending it for a Stop pressed while it reads the file", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<void>();
+    const source = state.source!;
+    const readChunk = source.readChunk.bind(source);
+    source.readChunk = (offset, size) => reading.promise.then(() => readChunk(offset, size));
+    const panel = renderTab();
+    runButton(panel).click();
+    await flush();
+
+    stopButton(panel).click();
+    reading.resolve();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    const cells = sampledEncode.matrix.cells;
+    expect(cells.map((c) => c.status)).toEqual(["skipped"]);
+    expect(squareSub(panel, cells[0])).toBe("run it");
+    expect(runButton(panel).textContent).toBe("Run 1 unmeasured");
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(sampledEncode.matrix.windows).toEqual([{ startSeconds: 0, seconds: 2 }]);
+    expect(core.execs).toEqual([]);
+
+    await pressRun(panel);
+    expect(cells.map((c) => c.status)).toEqual(["done"]);
+    expect(cuts()[0]).toEqual(expect.arrayContaining(["-ss", "0", "-t", "2"]));
+  });
+
+  // The same Stop on a file measured before ends the run there too: nothing is read back from the
+  // earlier run, so the button is left to run every square.
+  it("reads nothing back from earlier runs for a Stop pressed while the sweep reads the file", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const first = renderTab();
+    await pressRun(first);
+    await settleRun(first);
+    await matrixCache.flush();
+
+    reloadClip();
+    sweepOf(["ultrafast"]);
+    const reading = deferred<void>();
+    const source = state.source!;
+    const readChunk = source.readChunk.bind(source);
+    source.readChunk = (offset, size) => reading.promise.then(() => readChunk(offset, size));
+    const panel = renderTab();
+    runButton(panel).click();
+    await flush();
+
+    stopButton(panel).click();
+    reading.resolve();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["skipped"]);
+    expect(logText(panel)).not.toContain("squares back from earlier runs");
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(runButton(panel).textContent).toBe("Run 1 unmeasured");
+    expect(core.execs).toEqual([]);
+  });
+
+  // Or while it reads them back: no core is loaded for a sweep already stopped, which on first use
+  // would be the whole core download for nothing.
+  it("loads no core for a Stop pressed while earlier measurements are read back", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<Awaited<ReturnType<typeof matrixCache.readMeasurements>>>();
+    vi.spyOn(matrixCache, "readMeasurements").mockReturnValueOnce(reading.promise);
+    let loads = 0;
+    core.load = () => {
+      loads++;
+      return Promise.resolve();
+    };
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(matrixCache.readMeasurements).toHaveBeenCalledOnce(), WAIT);
+
+    stopButton(panel).click();
+    reading.resolve(new Map());
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(loads).toBe(0);
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["skipped"]);
   });
 
   it("spreads the squares over the cores the machine offers, and says so", async () => {
@@ -1175,5 +1847,611 @@ describe("running the sweep", () => {
     );
     await matrixCache.flush();
     expect(await storedCount("measurements")).toBe(0);
+  });
+});
+
+// Stop closes a core still loading as it closes one encoding, so a run stopped before its core is
+// up ends there and then, on either tab, rather than once a load that would be thrown away is done.
+describe("a Stop while the core is still loading", () => {
+  /** Holds every core's load for good, and hands back how many have started. */
+  function holdLoads(): () => number {
+    let loads = 0;
+    core.load = () => {
+      loads++;
+      return new Promise<void>(() => {});
+    };
+    return () => loads;
+  }
+
+  it("ends a sweep at once, as stopped", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const loads = holdLoads();
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(loads()).toBe(1), WAIT);
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(core.terminated).toBe(1);
+    expect(core.execs).toEqual([]);
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["skipped"]);
+    expect(encoderBusy()).toBe(false);
+  });
+
+  it("ends a sample run on the Reencode tab at once, as stopped", async () => {
+    loadClip();
+    renderTab();
+    const loads = holdLoads();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(loads()).toBe(1), WAIT);
+
+    reencode.stopButton.click();
+    await vi.waitFor(() => expect(reencode.runButton.disabled).toBe(false), WAIT);
+
+    expect(reencode.note.textContent).toBe("Stopped.");
+    expect(core.terminated).toBe(1);
+    expect(core.execs).toEqual([]);
+    expect(abLoads).toEqual([]);
+    expect(encoderBusy()).toBe(false);
+  });
+});
+
+// Every kind of encode shares the cores, so only one of them runs at a time: the sweep, a square
+// encoded again for the A/B window, and both of the Reencode tab's runs. One started while another
+// holds the encoder is refused, and says so.
+describe("one encode at a time", () => {
+  it("refuses the whole-file encode while a sweep is encoding, and runs it once the sweep is done", async () => {
+    loadClip();
+    sweepOf(["superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const held = deferred<void>();
+    core.exec = (args) => (args.includes("-crf") ? held.promise : Promise.resolve());
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+
+    reencode.wholeFileButton.click();
+    await flush();
+
+    expect(core.execs.filter(isWholeFile)).toEqual([]);
+    expect(reencode.wholeFileNote.textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish or stop it.",
+    );
+    expect(reencode.wholeFileButton.disabled).toBe(false);
+
+    held.resolve();
+    await awaitRun(panel);
+    await settleRun(panel);
+    reencode.wholeFileButton.click();
+    await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledOnce(), WAIT);
+    expect(core.execs.filter(isWholeFile)).toHaveLength(1);
+  });
+
+  it("refuses a sweep while the whole-file encode runs, and sweeps once it is saved", async () => {
+    loadClip();
+    sweepOf(["superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const held = deferred<void>();
+    core.exec = (args) => (isWholeFile(args) ? held.promise : Promise.resolve());
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    reencode.wholeFileButton.click();
+    await vi.waitFor(() => expect(core.execs.filter(isWholeFile)).toHaveLength(1), WAIT);
+
+    runButton(panel).click();
+    await flush();
+
+    expect(runButton(panel).disabled).toBe(false);
+    // The whole-file encode has no Stop of its own, so the note says only to wait.
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish.",
+    );
+    expect(sampledEncode.matrix.cells).toEqual([]);
+    expect(core.execs).toHaveLength(1);
+
+    held.resolve();
+    await vi.waitFor(() => expect(downloadBlob).toHaveBeenCalledOnce(), WAIT);
+    await pressRun(panel);
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["done"]);
+  });
+
+  // A refusal names a run that is going. Once that run has ended, the note says nothing rather than
+  // still claiming a run that is no longer there.
+  it("takes a refusal back once the run it named has ended", async () => {
+    loadClip();
+    sweepOf(["superfast"]);
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    runButton(panel).click();
+    reencode.wholeFileButton.click();
+    await flush();
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
+    expect(reencode.wholeFileNote.textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
+
+    settleAbLoad!.resolve();
+    settleAbLoad = null;
+    await vi.waitFor(() => expect(reencode.runButton.disabled).toBe(false), WAIT);
+
+    expect(runNote(panel).textContent).toBe("");
+    expect(reencode.wholeFileNote.textContent).toBe("");
+  });
+
+  // A file load or Reset ends the run a refusal named as surely as the run finishing does. The
+  // panels are rebuilt only once the next file has loaded, so until then the old note is on screen.
+  it("takes a refusal back when a file load or Reset ends the run it named", async () => {
+    loadClip();
+    sweepOf(["superfast"]);
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    runButton(panel).click();
+    await flush();
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
+
+    resetState();
+
+    expect(runNote(panel).textContent).toBe("");
+  });
+
+  // A sweep reads the file to identify it before encoding anything, which for a URL can be seconds
+  // of reading. The encoder is taken before that read, so nothing starts in the gap, and the sweep's
+  // Stop still reaches its cores once it is encoding.
+  it("holds the encoder from the moment a sweep is pressed, through its reading of the file", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<void>();
+    const source = state.source!;
+    const readChunk = source.readChunk.bind(source);
+    source.readChunk = (offset, size) => reading.promise.then(() => readChunk(offset, size));
+    core.exec = (args) => (args.includes("ultrafast") ? new Promise<void>(() => {}) : Promise.resolve());
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    runButton(panel).click();
+    await flush();
+
+    reencode.runButton.click();
+    await flush();
+
+    expect(reencode.note.textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish or stop it.",
+    );
+    expect(reencode.runButton.disabled).toBe(false);
+    expect(core.execs).toEqual([]);
+
+    reading.resolve();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+    expect(core.terminated).toBe(1);
+    expect(runNote(panel).textContent).toBe("Stopped: 0 of 1 encoded");
+  });
+
+  // A stopped run can still be waiting on what Stop cannot cut short, such as its reading of the
+  // file. A press meanwhile is refused without offering the Stop already pressed, and runs once it
+  // ends.
+  it("asks only to wait for a stopped run that is still winding down", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<void>();
+    let reads = 0;
+    const source = state.source!;
+    const readChunk = source.readChunk.bind(source);
+    source.readChunk = (offset, size) => {
+      reads++;
+      return reading.promise.then(() => readChunk(offset, size));
+    };
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(reads).toBeGreaterThan(0), WAIT);
+    stopButton(panel).click();
+
+    reencode.runButton.click();
+    await flush();
+
+    expect(reencode.note.textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish.",
+    );
+    expect(reencode.runButton.disabled).toBe(false);
+
+    reading.resolve();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(reencode.note.textContent).toBe("");
+    expect(core.execs).toEqual([]);
+
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    expect(encodes()).toHaveLength(1);
+  });
+
+  // Without a keyframe table nothing is cut, so every core a run encodes on is written the whole
+  // video. All of them drop it afterwards: a core still holding it would be handed it again as the
+  // next such file of the same type, since it is known by that name.
+  it("drops the whole video from every core it was written to when there was nothing to cut", async () => {
+    vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
+    loadClip();
+    state.keyframeTimestampsSec = [];
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const panel = renderTab();
+
+    await pressRun(panel);
+    await settleRun(panel);
+
+    expect(logText(panel)).toContain("Encoding on 2 cores at once");
+    expect(cuts()).toEqual([]);
+    expect(ffmpegPool(2).map((worker) => worker.has("et_in.mp4"))).toEqual([false, false]);
+  });
+});
+
+// A file load or Reset replaces everything a run was working from, so it stops the run first. What
+// that run still has to unwind afterwards is its own business, and leaves the next file alone.
+describe("a run across a file change", () => {
+  /**
+   * Loads a.mp4 and sweeps it until its one square is encoded and being measured, which is held
+   * there, then loads b.mp4. Measuring is not the core's work, so the load cannot cut it short.
+   * `cut` false takes the keyframe table from both files, so each run writes the whole video into
+   * the core instead. Hands back the page and what lets the old sweep's measuring finish.
+   */
+  async function loadOverMeasuringSweep(
+    cut = true,
+  ): Promise<ReturnType<typeof mountLoader> & { measured: () => void }> {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const page = mountLoader();
+    await page.loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    if (!cut) state.keyframeTimestampsSec = [];
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const measuring = deferred<void>();
+    let measured = false;
+    slow.measure = () => {
+      measured = true;
+      return measuring.promise;
+    };
+    runButton(page.els.panels.compare).click();
+    await vi.waitFor(() => expect(measured).toBe(true), WAIT);
+
+    await page.loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    if (!cut) state.keyframeTimestampsSec = [];
+    slow.measure = null;
+    return { ...page, measured: () => measuring.resolve() };
+  }
+
+  it("stops a sweep when another file is loaded, and sweeps the new one from scratch", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    core.exec = (args) => (args.includes("ultrafast") ? new Promise<void>(() => {}) : Promise.resolve());
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+    const [stoppedCell] = sampledEncode.matrix.cells;
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+
+    expect(core.terminated).toBe(1);
+    await vi.waitFor(() => expect(stoppedCell.status).toBe("skipped"), WAIT);
+    expect(state.source!.name).toBe("b.mp4");
+    expect(runButton(els.panels.compare).disabled).toBe(false);
+    expect(stopButton(els.panels.compare).style.display).toBe("none");
+
+    sweepOf(["superfast"]);
+    await pressRun(els.panels.compare);
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["done"]);
+    expect(encodes().map((args) => args[args.indexOf("-preset") + 1])).toEqual(["ultrafast", "superfast"]);
+  });
+
+  // The sweep is still reading the first file (a URL downloading, say) when Reset is pressed, and
+  // that read cannot be interrupted. When it comes back the next file's sweep is already encoding:
+  // the stopped one goes no further, and the running one keeps its Stop.
+  it("leaves the next file's sweep alone when a sweep stopped by Reset catches up", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<Uint8Array>();
+    fetchFile.mockReturnValueOnce(reading.promise);
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(fetchFile).toHaveBeenCalledOnce(), WAIT);
+
+    els.resetBtn.click();
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    sweepOf(["superfast"]);
+    core.exec = (args) => (args.includes("superfast") ? new Promise<void>(() => {}) : Promise.resolve());
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+
+    reading.resolve(new Uint8Array(8));
+    await flush();
+    await flush();
+
+    expect(cuts()).toHaveLength(1);
+    expect(encodes()).toHaveLength(1);
+    expect(sampledEncode.matrix.running).toBe(true);
+    const terminated = core.terminated;
+    stopButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(runButton(els.panels.compare).disabled).toBe(false), WAIT);
+    expect(core.terminated).toBe(terminated + 1);
+    expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
+  });
+
+  // A sweep whose core is still loading when another file is loaded is not left loading beside the
+  // next file's: the file load closes that core on the spot, and the next file's sweep encodes on a
+  // core of its own, which its Stop reaches.
+  it("closes a sweep's core still loading when another file is loaded", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    let loads = 0;
+    core.load = () => {
+      loads++;
+      return new Promise<void>(() => {});
+    };
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(loads).toBe(1), WAIT);
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    expect(core.terminated).toBe(1);
+
+    core.load = null;
+    sweepOf(["superfast"]);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+    stopButton(els.panels.compare).click();
+
+    await vi.waitFor(() => expect(runButton(els.panels.compare).disabled).toBe(false), WAIT);
+    expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
+    expect(core.terminated).toBe(2);
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // A Stop lets a sweep still reading the file fix its stretches first, but a file load does not:
+  // the fields and the grid the stretches would be written into are the next file's by then.
+  it("fixes no stretches for the next file when a sweep stopped while reading the last one catches up", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<void>();
+    state.source!.readChunk = () => reading.promise.then(() => Promise.reject(new Error("read failed")));
+    runButton(els.panels.compare).click();
+    await flush();
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    reading.resolve();
+    await vi.waitFor(() => expect(warn).toHaveBeenCalled(), WAIT);
+    await flush();
+
+    expect(state.source!.name).toBe("b.mp4");
+    expect(sampledEncode.matrix.windows).toEqual([]);
+    expect(sampledEncode.sampled).toEqual([]);
+    expect(sampledEncode.matrix.cells).toEqual([]);
+    expect(core.execs).toEqual([]);
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // The same for the earlier stretches read back from the cache, the other wait before a sweep's
+  // stretches are fixed.
+  it("fixes no stretches for the next file when a sweep stopped while recalling earlier ones catches up", async () => {
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    state.source!.readChunk = (offset, size) =>
+      Promise.resolve(CLIP_BYTES.slice(offset, Math.min(offset + size, CLIP_BYTES.length)).buffer as ArrayBuffer);
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const recalling = deferred<null>();
+    vi.spyOn(matrixCache, "recallWindows").mockReturnValueOnce(recalling.promise);
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(matrixCache.recallWindows).toHaveBeenCalledOnce(), WAIT);
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    recalling.resolve(null);
+    for (let i = 0; i < 6; i++) await flush();
+
+    expect(sampledEncode.matrix.windows).toEqual([]);
+    expect(sampledEncode.sampled).toEqual([]);
+    expect(core.execs).toEqual([]);
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // A sweep still reading the old file (a URL downloading, say) when another is loaded cuts none of
+  // it once the read comes back, so the next file's sweep cuts its own stretch rather than finding
+  // the old file's in the core and measuring that.
+  it("cuts nothing of the old file when a sweep stopped while reading it catches up", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<Uint8Array>();
+    fetchFile.mockReturnValueOnce(reading.promise);
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(fetchFile).toHaveBeenCalledOnce(), WAIT);
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    reading.resolve(new Uint8Array(8));
+    for (let i = 0; i < 6; i++) await flush();
+    expect(cuts()).toEqual([]);
+    expect(encoderBusy()).toBe(false);
+
+    sweepOf(["ultrafast"]);
+    await pressRun(els.panels.compare);
+    expect(cuts()).toHaveLength(1);
+    expect(fetchFile).toHaveBeenCalledTimes(2);
+  });
+
+  // The same without a keyframe table, where the whole video goes into the core under a name that
+  // says only what type of file it is: the old file's is never written there for the next to use.
+  it("writes nothing of the old file into the core when a sweep stopped while reading it catches up", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    state.keyframeTimestampsSec = [];
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<Uint8Array>();
+    fetchFile.mockReturnValueOnce(reading.promise);
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(fetchFile).toHaveBeenCalledOnce(), WAIT);
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    state.keyframeTimestampsSec = [];
+    const writes: string[] = [];
+    core.writeFile = (path) => {
+      writes.push(path);
+      return Promise.resolve();
+    };
+    reading.resolve(new Uint8Array(8));
+    for (let i = 0; i < 6; i++) await flush();
+    expect(writes).toEqual([]);
+    expect(ffmpegPool(1)[0].has("et_in.mp4")).toBe(false);
+
+    sweepOf(["ultrafast"]);
+    await pressRun(els.panels.compare);
+    expect(writes).toEqual(["et_in.mp4"]);
+    expect(fetchFile).toHaveBeenCalledTimes(2);
+  });
+
+  // When the old sweep's measuring comes back, the grid is the next file's, and none of the outputs
+  // it holds are dropped to keep within a budget that was the old run's to keep.
+  it("drops none of the next file's outputs when a sweep stopped by a file load catches up", async () => {
+    const { measured } = await loadOverMeasuringSweep();
+    // The next file's grid holding more than a sweep keeps, as it does once a released square has
+    // been encoded again for the A/B window on top of the rest.
+    const cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1], ["lanczos"]));
+    for (const cell of cells) {
+      cell.status = "done";
+      cell.bytes = 100 * 1024 * 1024;
+      cell.blobs = [new Blob(["x"])];
+    }
+    sampledEncode.matrix.cells = cells;
+    sampledEncode.matrix.selectedKey = cells[0].combo.key;
+
+    measured();
+    await flush();
+
+    expect(cells.map((c) => c.blobs?.length)).toEqual([1, 1]);
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // Without a keyframe table every run writes the whole video into the core under one name. The old
+  // sweep catching up once the next file's sweep has written its own copy there leaves that copy be.
+  it("leaves the next file's video in the core when a sweep stopped by a file load catches up", async () => {
+    const { els, measured } = await loadOverMeasuringSweep(false);
+    const [firstCore] = ffmpegPool(1);
+    sweepOf(["superfast"]);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(2), WAIT);
+    expect(firstCore.has("et_in.mp4")).toBe(true);
+
+    measured();
+    await flush();
+
+    expect(firstCore.has("et_in.mp4")).toBe(true);
+    stopButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(runButton(els.panels.compare).disabled).toBe(false), WAIT);
+    expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
+  });
+
+  // A square is being encoded again for the A/B window, still reading the file (a URL downloading,
+  // say), when another file is loaded and swept. When the old read comes back, the square the next
+  // file's sweep chose stays chosen: the ring the stopped run would put back was the old grid's.
+  it("leaves the next file's chosen square alone when a square's re-encode a file load stopped catches up", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    const panel = els.panels.compare;
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    await pressRun(panel);
+    await settleRun(panel);
+    const old = sampledEncode.matrix.cells;
+    expect(sampledEncode.matrix.selectedKey).toBe(old[1].combo.key);
+    // Released to stay inside the memory budget, and its stretch no longer cut, so clicking it reads
+    // the file again to encode it.
+    old[0].blobs = null;
+    for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
+    const reading = deferred<Uint8Array>();
+    fetchFile.mockReturnValueOnce(reading.promise);
+    square(panel, old[0]).click();
+    await vi.waitFor(() => expect(fetchFile).toHaveBeenCalledTimes(2), WAIT);
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    sweepOf(["ultrafast", "superfast"]);
+    core.sizeOf = (args) => ({ ultrafast: 100, superfast: 200 })[args[args.indexOf("-preset") + 1] as "ultrafast"] ?? 3;
+    await pressRun(panel);
+    await settleRun(panel);
+    const next = sampledEncode.matrix.cells;
+    expect(sampledEncode.matrix.selectedKey).toBe(next[0].combo.key);
+
+    reading.resolve(new Uint8Array(8));
+    for (let i = 0; i < 6; i++) await flush();
+
+    expect(sampledEncode.matrix.selectedKey).toBe(next[0].combo.key);
+    expect(abLoads).toHaveLength(2);
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // The whole-file encode is still reading the file when another is loaded, and that read cannot be
+  // cut short. When it comes back the encode goes no further: nothing is encoded, saved or recorded.
+  it("encodes nothing once a file load stops the whole-file encode while it reads the file", async () => {
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    const reading = deferred<Uint8Array>();
+    fetchFile.mockReturnValueOnce(reading.promise);
+    reencodeControls(els.panels.encode).wholeFileButton.click();
+    await vi.waitFor(() => expect(fetchFile).toHaveBeenCalledOnce(), WAIT);
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    reading.resolve(new Uint8Array(8));
+    await flush();
+
+    expect(core.execs.filter(isWholeFile)).toEqual([]);
+    expect(downloadBlob).not.toHaveBeenCalled();
+    expect(state.reencodeResult).toBeNull();
+    expect(encoderBusy()).toBe(false);
+  });
+
+  it("stops the whole-file encode when the file is closed, and saves nothing", async () => {
+    const error = vi.spyOn(console, "error");
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    core.exec = (args) => (isWholeFile(args) ? new Promise<void>(() => {}) : Promise.resolve());
+    const reencode = reencodeControls(els.panels.encode);
+    reencode.wholeFileButton.click();
+    await vi.waitFor(() => expect(core.execs.filter(isWholeFile)).toHaveLength(1), WAIT);
+
+    els.resetBtn.click();
+
+    expect(core.terminated).toBe(1);
+    await vi.waitFor(() => expect(reencode.wholeFileNote.textContent).toBe("Stopped."), WAIT);
+    expect(downloadBlob).not.toHaveBeenCalled();
+    expect(state.reencodeResult).toBeNull();
+    expect(error).not.toHaveBeenCalled();
   });
 });

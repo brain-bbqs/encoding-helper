@@ -2,6 +2,7 @@
 // directly (no framework/store layer), mirroring the original monolithic script's globals, just typed.
 
 import { DEFAULT_SCALER } from "./cliCommand";
+import { abandonEncoderRun } from "./encoderRun";
 import {
   DEFAULT_MATRIX_FPS_FRACTIONS,
   DEFAULT_MATRIX_PRESETS,
@@ -65,8 +66,6 @@ function initialSampledEncode(matrix: SampledEncodeState["matrix"]): SampledEnco
     segments: 5,
     windows: [],
     sampled: [],
-    running: false,
-    cancelRequested: false,
     originalSink: null,
     abSegments: [],
     encodedInputs: [],
@@ -99,6 +98,9 @@ export const sampledEncode: SampledEncodeState = initialSampledEncode(initialMat
 
 /** Back to the pre-load defaults for everything but the command builder, whose settings are the reader's. */
 export function resetState(): void {
+  // A run still encoding is stopped first: everything it reads and writes is about to be another
+  // file's, or nothing's.
+  abandonEncoderRun();
   // Disposed before the references go: an Input holds a decoder and whatever it was reading from,
   // and a page that loads one file after another would otherwise keep every one of them.
   state.input?.dispose();

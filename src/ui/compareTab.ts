@@ -10,6 +10,15 @@ import { errorMessage } from "@brain-bbqs/utils";
 import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { button, h } from "@brain-bbqs/ui";
 import { cmdBlock, section } from "../lib/dom";
+import {
+  claimEncoder,
+  encoderBusy,
+  holdsEncoder,
+  releaseEncoder,
+  throwIfAbandoned,
+  throwIfStopped,
+  type EncoderRun,
+} from "../lib/encoderRun";
 import { describeFrameRate } from "../lib/format";
 import { FRAME_RATE_INFO, RESOLUTION_INFO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { matrixCache, measurementKey, videoChecksum } from "../lib/matrixCache";
@@ -51,7 +60,6 @@ import {
   runWindows,
   sampleFields,
   startRunUi,
-  stopRequested,
   syncSampleFields,
   type RunInputs,
   type RunUi,
@@ -281,7 +289,7 @@ function unmeasuredCells(): MatrixCell[] {
  */
 function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
   const matrix = sampledEncode.matrix;
-  if (matrix.running || sampledEncode.running || !unmeasuredCells().length) return;
+  if (matrix.running || encoderBusy() || !unmeasuredCells().length) return;
   const combos = tickedCombos();
   const keys = new Set(combos.map((c) => c.key));
   if (combos.length === matrix.cells.length && matrix.cells.every((c) => keys.has(c.combo.key))) return;
@@ -308,24 +316,35 @@ function runActionLabel(): string {
  * grid is to find out what this file and this browser can actually do.
  */
 async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  if (sampledEncode.running) return;
   const matrix = sampledEncode.matrix;
   const combos = tickedCombos();
   if (!combos.length) {
     ui.note.textContent = "Tick at least one quality level and one preset first.";
     return;
   }
+  // Taken before the file is read to sample it, which for a URL can be seconds of reading: nothing
+  // else may start encoding in that gap.
+  const run = claimEncoder("Compare Quality", true, ui.note);
+  if (!run) return;
   matrix.cells = makeMatrixCells(combos);
-  // Fixed here rather than read per encode, so a square retried after the fields have been moved
-  // still covers the seconds the rest of the grid was measured over. Sampled once for the whole
-  // sweep for the same reason squared: two squares measured over different stretches of video are
-  // not comparable, which is the only thing the grid is for.
-  matrix.windows = await sweepWindows();
+  matrix.selectedKey = null;
+  await encodeCells(run, matrix.cells, vt, ui, true);
+}
+
+/**
+ * Fixes the stretches a fresh sweep covers.
+ *
+ * Fixed here rather than read per encode, so a square retried after the fields have been moved
+ * still covers the seconds the rest of the grid was measured over. Sampled once for the whole
+ * sweep for the same reason squared: two squares measured over different stretches of video are
+ * not comparable, which is the only thing the grid is for.
+ */
+async function sampleSweep(run: EncoderRun): Promise<void> {
+  const matrix = sampledEncode.matrix;
+  matrix.windows = await sweepWindows(run);
   sampledEncode.sampled = matrix.windows;
   matrix.segmentStart = matrix.windows[0]?.startSeconds ?? sampledEncode.startTime;
   matrix.segmentLength = sampledEncode.duration;
-  matrix.selectedKey = null;
-  await encodeCells(matrix.cells, vt, ui);
 }
 
 /**
@@ -338,8 +357,12 @@ async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
  * two squares measured over different seconds are not comparable. Without this, a reloaded page
  * would sample somewhere else and every cached measurement of the file would be unreachable.
  */
-async function sweepWindows(): Promise<SampleWindow[]> {
+async function sweepWindows(run: EncoderRun): Promise<SampleWindow[]> {
   const checksum = await fileChecksum();
+  // A file loaded meanwhile took the encoder from this run, and the fields and file read below are
+  // the next file's. A Stop alone waits for the stretches to be fixed (encodeCells acts on it right
+  // after), so the squares it leaves unreached are later run over the stretches the fields asked for.
+  throwIfAbandoned(run);
   const fresh = runWindows();
   // windowsForRun hands the stretches already in hand straight back when they still fit what the
   // fields ask for, so anything else is a fresh random draw, which is exactly when an earlier
@@ -348,6 +371,7 @@ async function sweepWindows(): Promise<SampleWindow[]> {
     fresh !== sampledEncode.sampled && checksum
       ? await matrixCache.recallWindows(checksum, sampledEncode.duration, sampledEncode.segments)
       : null;
+  throwIfAbandoned(run);
   const windows = remembered ?? fresh;
   if (checksum) matrixCache.rememberWindows(checksum, sampledEncode.duration, sampledEncode.segments, windows);
   return windows;
@@ -416,35 +440,85 @@ function rememberMeasurement(checksum: string | null, cell: MatrixCell): void {
   }
 }
 
+/** What a square read before a retry put it back in line. */
+type CellOutcome = Pick<MatrixCell, "status" | "error">;
+
+/** The queue a sweep's cores are working through, with the sweep and what each square it retries
+ * read before it was put back in line. */
+interface ActiveQueue {
+  run: EncoderRun;
+  cells: MatrixCell[];
+  retried: Map<MatrixCell, CellOutcome>;
+}
+
 /**
- * The queue the run in progress is working through, or null between runs.
+ * The queue the sweep in progress is working through, or null whenever no core will take another
+ * square from it.
  *
  * Held so a square can be retried *during* a sweep. drainWithPool (lib/ffmpegPool) reads
  * `queue.length` on every pass: appending to the live queue puts the square at the back of the run that is already going,
  * which is what clicking a failed square while the sweep is still working now does.
  */
-let activeQueue: MatrixCell[] | null = null;
+let activeQueue: ActiveQueue | null = null;
+
+/** Lets go of `run`'s queue, unless a later sweep's has taken its place. */
+function forgetQueue(run: EncoderRun): void {
+  if (activeQueue?.run === run) activeQueue = null;
+}
+
+/**
+ * A failed or skipped square clicked: put at the back of the queue a sweep's cores are still
+ * working through, or else run on its own.
+ *
+ * On its own it takes the encoder like any run, so it is refused, saying why, while another run has
+ * it. That includes this tab's own sweep once its cores have left the queue (while the winner goes
+ * into the A/B window, say), and one that has been stopped: nothing would take the square from the
+ * queue then, and it would sit there queued.
+ */
+function retryCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): void {
+  if (activeQueue && !activeQueue.run.stopped) queueRetry(cell, activeQueue, ui, () => renderMatrixSection(vt, ui));
+  else void retryCells([cell], vt, ui);
+}
 
 /** Puts a failed square back in the running sweep's queue, to be re-encoded when it is reached. */
-function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
-  if (!activeQueue || !isUnmeasured(cell)) return;
-  markPending(cell);
-  activeQueue.push(cell);
+function queueRetry(cell: MatrixCell, queue: ActiveQueue, ui: MatrixUi, repaint: () => void): void {
+  if (!isUnmeasured(cell)) return;
+  markPending(cell, queue.retried);
+  queue.cells.push(cell);
   logLine(ui.log, `Queued a retry of ${describeSettings(cell.combo)}`, "info");
   repaint();
 }
 
 /** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
 async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  if (sampledEncode.running) return;
-  cells.forEach(markPending);
-  await encodeCells(cells, vt, ui);
+  const run = claimEncoder("Compare Quality", true, ui.note);
+  if (!run) return;
+  await encodeCells(run, cells, vt, ui, false);
 }
 
-/** Puts a square back in line to be encoded, clearing what its last attempt failed with. */
-function markPending(cell: MatrixCell): void {
+/** Puts a square back in line to be encoded, clearing what its last attempt failed with, and keeps
+ * that in `retried` for a run that ends without measuring it. */
+function markPending(cell: MatrixCell, retried: Map<MatrixCell, CellOutcome>): void {
+  retried.set(cell, { status: cell.status, error: cell.error });
   cell.status = "pending";
   cell.error = null;
+}
+
+/**
+ * Settles the squares a run leaves in line, since no run will take them once it has ended.
+ *
+ * A square a retry put back in line goes back to what it read before, so a retry that never
+ * reaches it leaves it as it was: a failed square still failed, and saying what with. The rest of
+ * `queue` is a fresh sweep's squares, which had nothing before it, so they are skipped, which
+ * offers them to run later.
+ */
+function settleUnreached(queue: MatrixCell[], retried: Map<MatrixCell, CellOutcome>): void {
+  for (const [cell, before] of retried) {
+    if (cell.status === "pending") Object.assign(cell, before);
+  }
+  for (const cell of queue) {
+    if (cell.status === "pending") cell.status = "skipped";
+  }
 }
 
 /** Writes a square's measurement onto it, whether just encoded or read back from the cache. */
@@ -477,24 +551,39 @@ function sweepNote(progress: ReturnType<typeof matrixProgress>): string {
  * reduction in the A/B window.
  *
  * Shared by the sweep and by a retry, so a square encoded on the second attempt is measured exactly
- * as its neighbours were.
+ * as its neighbours were. A `fresh` sweep samples its stretches first, over squares that are new; a
+ * retry keeps the stretches the grid was measured over, and puts its squares back in line.
+ *
+ * `run` already holds the encoder, taken by the caller before anything was awaited, and is given
+ * back here when the run ends.
  */
-async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
+async function encodeCells(
+  run: EncoderRun,
+  queue: MatrixCell[],
+  vt: TrackInfo,
+  ui: MatrixUi,
+  fresh: boolean,
+): Promise<void> {
   const matrix = sampledEncode.matrix;
   matrix.running = true;
-  activeQueue = queue;
+  const retried = new Map<MatrixCell, CellOutcome>();
+  if (!fresh) for (const cell of queue) markPending(cell, retried);
+  activeQueue = { run, cells: queue, retried };
   const fill = startRunUi(ui);
   const repaint = (): void => renderMatrixSection(vt, ui);
   repaint();
 
   let inputs: RunInputs | null = null;
   try {
+    if (fresh) await sampleSweep(run);
     // Read back before anything is loaded: a grid the cache can answer in full is a run that never
     // starts an encoder, which is the difference between a sweep and a table appearing.
     const checksum = await fileChecksum();
+    throwIfStopped(run);
     const pending = checksum ? await applyCachedMeasurements(queue, checksum, ui) : queue;
+    throwIfStopped(run);
     // A retry queued mid-run joins what is actually being encoded, not what was asked for.
-    activeQueue = pending;
+    activeQueue = { run, cells: pending, retried };
     repaint();
 
     // The bar alone for the whole run, however many cores are filling it: it counts finished
@@ -510,7 +599,7 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
     const showProgress = (): void => {
       // A stopped run leaves the bar where it got to instead of creeping on as the last cores
       // unwind: the figures it would show are of a sweep that is no longer happening.
-      if (stopRequested()) return;
+      if (run.stopped) return;
       const finished = queue.filter(hasRun).length;
       const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
       if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
@@ -524,9 +613,9 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
 
     if (pending.length) {
       ui.note.textContent = "Loading ffmpeg.wasm…";
-      const workers = acquireWorkers(pending.length);
+      const workers = acquireWorkers(run, pending.length);
       await workers[0].load();
-      const prepared = await prepareRun(matrixWindows(), workers, ui);
+      const prepared = await prepareRun(run, matrixWindows(), workers, ui);
       inputs = prepared;
       if (workers.length > 1) logLine(ui.log, `Encoding on ${workers.length} cores at once`, "info");
       await drainWithPool(
@@ -539,10 +628,17 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
           showProgress();
           const startedAt = performance.now();
           try {
-            const encoded = await encodeWindows(matrixCliState(cli, cell.combo), prepared, [worker], ui, (fraction) => {
-              inFlight.set(cell.combo.key, fraction);
-              showProgress();
-            });
+            const encoded = await encodeWindows(
+              run,
+              matrixCliState(cli, cell.combo),
+              prepared,
+              [worker],
+              ui,
+              (fraction) => {
+                inFlight.set(cell.combo.key, fraction);
+                showProgress();
+              },
+            );
             const elapsedMs = performance.now() - startedAt;
             markMeasured(
               cell,
@@ -552,25 +648,32 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
             );
             rememberMeasurement(checksum, cell);
           } catch (err) {
-            // A core terminated by Stop rejects whatever it was running; the square it was on was
-            // never measured, which is what "skipped" already means for the ones never reached.
-            cell.status = stopRequested() ? "skipped" : "failed";
-            cell.error = cell.status === "failed" ? errorMessage(err) : null;
-            if (cell.error) logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
+            if (run.stopped) {
+              // A core terminated by Stop rejects whatever it was running, so the square was never
+              // measured: one a retry put back in line reads what it did before (see
+              // settleUnreached), and a new one is skipped, as the ones never reached are.
+              Object.assign(cell, retried.get(cell) ?? { status: "skipped", error: null });
+            } else {
+              cell.status = "failed";
+              cell.error = errorMessage(err);
+              logLine(ui.log, `${describeSettings(cell.combo)}: ${cell.error}`, "error");
+            }
           }
           inFlight.delete(cell.combo.key);
+          // Nothing more is measured once the run is stopped, and after a file load the grid below
+          // is the next file's, so there is nothing of this run's left to evict or show.
+          if (run.stopped) return;
           evictBeyondBudget(matrix.cells, MATRIX_RETAINED_BYTES, matrix.selectedKey);
           repaint();
           showProgress();
         },
-        stopRequested,
+        () => run.stopped,
       );
     }
-    // Whatever Stop left unreached is not pending, it is not going to run.
-    for (const cell of queue) {
-      if (cell.status === "pending") cell.status = "skipped";
-    }
-    if (stopRequested()) {
+    // No core takes another square from here on, so a retry clicked from now is a run of its own,
+    // which this one, still holding the encoder while the winner loads, refuses.
+    forgetQueue(run);
+    if (run.stopped) {
       const stoppedAt = matrixProgress(matrix.cells);
       ui.note.textContent = `Stopped: ${stoppedAt.done} of ${stoppedAt.total} encoded`;
       ui.progress.style.display = "none";
@@ -587,8 +690,11 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
     if (best.combo.key !== matrix.selectedKey) {
       ui.note.textContent = "Loading the best reduction into the A/B window…";
       try {
-        await selectMatrixCell(best, vt, ui);
+        await selectMatrixCell(run, best, vt, ui);
       } catch (err) {
+        // Stop pressed while the winner was being encoded again for the window: the run was
+        // stopped, and says so, rather than reading as a winner the browser could not show.
+        throwIfStopped(run);
         // The sweep measured everything it was asked to; only the preview of the winner failed,
         // which is a browser that will not decode what ffmpeg just wrote. Reporting that as the
         // run failing would throw away a grid full of good measurements.
@@ -599,24 +705,51 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
     finishFill(fill);
     ui.note.textContent = sweepNote(matrixProgress(matrix.cells));
   } catch (err) {
-    reportRunFailure(err, ui);
+    reportRunFailure(run, err, ui);
   } finally {
-    await dropWholeFileInput(inputs);
-    activeQueue = null;
-    matrix.running = false;
+    // Whichever way the run ended, so that one stopped, or failing, before it reaches a square
+    // leaves none of them queued either.
+    forgetQueue(run);
+    settleUnreached(queue, retried);
+    // A file loaded or Reset mid-run has already stopped this run, terminating its cores, and taken
+    // the encoder back; the grid is the next file's by then, so all this run has left to hand back
+    // is its own controls.
+    if (holdsEncoder(run)) await dropWholeFileInput(inputs);
+    const current = releaseEncoder(run);
+    if (current) matrix.running = false;
     endRunUi(ui);
-    repaint();
+    if (current) repaint();
   }
 }
 
 /**
- * Whether a square is on its way into the A/B window right now.
+ * The run putting a square into the A/B window right now, or null.
  *
  * Getting one there usually means encoding it again (most squares have had their outputs released
  * to stay inside the memory budget), and there is one encoder, so the grid takes no second click
  * while that is in flight, exactly as it takes none during a sweep.
  */
-let selecting = false;
+let selecting: EncoderRun | null = null;
+
+/**
+ * A square clicked into the A/B window.
+ *
+ * Encoding it again takes the encoder like any run, so it is taken here, before anything is
+ * awaited, and a click while another run has it is refused and says why.
+ */
+async function chooseMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
+  const run = claimEncoder("Compare Quality", false, ui.note);
+  if (!run) return;
+  ui.runButton.disabled = true;
+  try {
+    await selectMatrixCell(run, cell, vt, ui);
+  } catch (err) {
+    reportRunFailure(run, err, ui);
+  } finally {
+    releaseEncoder(run);
+    ui.runButton.disabled = false;
+  }
+}
 
 /**
  * Puts one square of the grid in the A/B window, re-encoding it if its outputs have been released.
@@ -626,12 +759,11 @@ let selecting = false;
  * long reads as the click having missed rather than as work in progress; it goes back only if the
  * square never makes it, since then the old one really is what the window holds.
  */
-async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
+async function selectMatrixCell(run: EncoderRun, cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
   const matrix = sampledEncode.matrix;
   const previousKey = matrix.selectedKey;
   matrix.selectedKey = cell.combo.key;
-  selecting = true;
-  ui.runButton.disabled = true;
+  selecting = run;
   repaintMatrix(vt, ui);
   try {
     let blobs = cell.blobs;
@@ -639,32 +771,36 @@ async function selectMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
       // Its outputs were dropped to stay inside the memory budget, so the square is encoded again,
       // over the same stretches the sweep measured, which are usually still cut and waiting. All of
       // them, not just one: the window plays every stretch the square was measured over.
-      const workers = acquireWorkers(matrixWindows().length);
-      const inputs = await prepareRun(matrixWindows(), workers, ui);
+      const workers = acquireWorkers(run, matrixWindows().length);
+      const inputs = await prepareRun(run, matrixWindows(), workers, ui);
       let bytes: number;
       try {
-        ({ blobs, bytes } = await encodeWindows(matrixCliState(cli, cell.combo), inputs, workers, ui, () => {}));
+        ({ blobs, bytes } = await encodeWindows(run, matrixCliState(cli, cell.combo), inputs, workers, ui, () => {}));
       } finally {
-        await dropWholeFileInput(inputs);
+        if (holdsEncoder(run)) await dropWholeFileInput(inputs);
       }
+      throwIfStopped(run);
       cell.blobs = blobs;
       cell.bytes = bytes;
     }
     // The Duration field goes back to the length the grid was measured with, which it may have been
     // moved off since. The A/B window draws the original from the windows passed below.
     syncSegmentToMatrix();
-    await loadEncodedIntoAB(blobs, cell.combo, vt, ui.resultSec, {
-      bytes: cell.bytes ?? heldBytes(blobs),
-      windows: matrixCellWindows(cell),
-    });
+    await loadEncodedIntoAB(
+      blobs,
+      cell.combo,
+      vt,
+      ui.resultSec,
+      { bytes: cell.bytes ?? heldBytes(blobs), windows: matrixCellWindows(cell) },
+      run,
+    );
   } catch (err) {
-    matrix.selectedKey = previousKey;
+    // Unless a file load took the encoder meanwhile, in which case the grid is the next file's.
+    if (holdsEncoder(run)) matrix.selectedKey = previousKey;
     throw err;
   } finally {
-    selecting = false;
-    // A sweep re-enables its own button when it ends; this only undoes the disabling above.
-    if (!sampledEncode.running) ui.runButton.disabled = false;
-    repaintMatrix(vt, ui);
+    if (selecting === run) selecting = null;
+    if (holdsEncoder(run)) repaintMatrix(vt, ui);
   }
 }
 
@@ -736,8 +872,10 @@ function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Matrix Results"));
-  const sweeping = matrix.running || sampledEncode.running;
-  const busy = sweeping || selecting;
+  // What this tab has in flight itself. A run on the other tab is not counted: a click during one is
+  // refused when it lands, and says why, rather than every square staying disabled until a later
+  // repaint happens to notice that run has ended.
+  const busy = matrix.running || (selecting != null && holdsEncoder(selecting));
   // Which combination wins is a statement about the whole sweep, so it waits for the whole sweep: a
   // ★ that hops from square to square as the grid fills in names the best of what has finished so
   // far, which is not the question the grid is being run to answer. A square that failed has run
@@ -760,17 +898,14 @@ function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
       selectedKey: matrix.selectedKey,
       estimate: matrixCellEstimate,
       // Loading a square can mean re-encoding it, and there is only one encoder, so that waits for
-      // whatever is already using it. A failed square is different: retrying it mid-sweep joins the
+      // this tab's own sweep or square (and is refused, saying why, during the other tab's run: see
+      // chooseMatrixCell). A failed square is different during a sweep: retrying it joins the
       // queue the sweep is already working through, rather than asking for a second encode
-      // alongside it. There is no queue to join outside a sweep, so a retry then waits its turn.
-      onSelect: busy
-        ? undefined
-        : (cell) => void selectMatrixCell(cell, vt, ui).catch((err) => reportRunFailure(err, ui)),
-      onRetry: matrix.running
-        ? (cell) => queueRetry(cell, ui, () => renderMatrixSection(vt, ui))
-        : busy
-          ? undefined
-          : (cell) => void retryCells([cell], vt, ui),
+      // alongside it. Whether there is a queue to join is decided on the click (see retryCell),
+      // since the sweep's cores leave it without the grid being drawn again. A square on its way
+      // into the A/B window outside a sweep has no queue at all, so the retry waits for it too.
+      onSelect: busy ? undefined : (cell) => void chooseMatrixCell(cell, vt, ui),
+      onRetry: busy && !matrix.running ? undefined : (cell) => retryCell(cell, vt, ui),
     }),
   );
 }

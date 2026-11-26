@@ -84,6 +84,12 @@ interface FfmpegRunResult {
   data: Uint8Array<ArrayBuffer>;
 }
 
+/** What a terminated core fails its calls with, in the library's own words, so a load that a reset
+ * ended fails the same way as every other call the reset ended. */
+function terminatedError(): Error {
+  return new Error("called FFmpeg.terminate()");
+}
+
 /**
  * One loaded ffmpeg.wasm core, with its own virtual filesystem and its own log/progress callbacks.
  *
@@ -99,15 +105,21 @@ export interface FfmpegWorker {
   /** Rebinds the log/progress callbacks for this core's next run. */
   setHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void;
   load(): Promise<void>;
-  /** Puts `data` in this core's filesystem as `name`, unless it already holds it. */
+  /** Puts `data` in this core's filesystem as `name`, unless it already holds it. A reset meanwhile
+   * fails it at once, as it fails every call in flight but a delete, whether the core was still
+   * loading or already writing. */
   ensureInput(name: string, data: Uint8Array): Promise<void>;
   has(name: string): boolean;
   run(args: string[], outputName: string): Promise<FfmpegRunResult>;
   /** Runs `args` and leaves the output in this core's filesystem for a later run to read. */
   runToFile(args: string[], outputName: string): Promise<void>;
   readFile(name: string): Promise<Uint8Array<ArrayBuffer>>;
+  /** Removes `name` from this core's filesystem. Resolves whatever the core makes of it, a reset
+   * meanwhile included, since a core thrown away holds nothing anyway: so code awaiting a delete
+   * has to check for itself whether its run was stopped meanwhile. */
   deleteFile(name: string): Promise<void>;
-  /** Throws the core away, so the next run builds a new one. */
+  /** Throws the core away, closing one still loading too and failing every call waiting on either
+   * but a delete (see deleteFile), so the next run builds a new one. */
   reset(): void;
 }
 
@@ -122,16 +134,60 @@ export function createFfmpegWorker(id: number): FfmpegWorker {
    */
   const files = new Set<string>();
 
-  const ensureLoaded = async (): Promise<FFmpeg> => {
-    if (instance) return instance;
+  /** The load in flight, shared by every caller while it lasts. */
+  let loading: Promise<FFmpeg> | null = null;
+  /**
+   * Ends the load in flight on the spot, for a reset. Closing the core it is loading fails that
+   * core's load, as closing a core fails every call still in flight; a load still waiting on the
+   * download of the core's files stops waiting, and the download carries on for the next load.
+   */
+  let abandonLoad: (() => void) | null = null;
+  /**
+   * How many times the core has been reset, which a load compares against at each step to learn it
+   * was overtaken. A reset can land after the download or the load has finished but before the step
+   * after it has run: past the download, that step would start a core nothing closes again, and past
+   * the load, it would install the core the reset has just closed, for the next call to fail on.
+   */
+  let generation = 0;
+
+  const ensureLoaded = (): Promise<FFmpeg> => {
+    if (instance) return Promise.resolve(instance);
+    if (loading) return loading;
     const ffmpeg = new FFmpeg();
     ffmpeg.on("log", ({ message }) => {
       if (!CORE_EXIT_NOISE.test(message.trim())) onLog?.(message);
     });
     ffmpeg.on("progress", ({ progress }) => onProgress?.(progress));
-    await ffmpeg.load(await loadCoreUrls());
-    instance = ffmpeg;
-    return ffmpeg;
+    const started = generation;
+    const current = (): boolean => started === generation;
+    const abandoned = new Promise<never>((_, reject) => {
+      abandonLoad = () => {
+        ffmpeg.terminate();
+        reject(terminatedError());
+      };
+    });
+    loading = (async () => {
+      try {
+        const urls = await Promise.race([loadCoreUrls(), abandoned]);
+        if (!current()) throw terminatedError();
+        await ffmpeg.load(urls);
+        if (!current()) throw terminatedError();
+      } catch (err) {
+        // A reset has closed the core already and left `loading` to the next load. Any other failure
+        // closes it here, so a core that will never be used leaves no worker behind.
+        if (current()) {
+          ffmpeg.terminate();
+          loading = null;
+          abandonLoad = null;
+        }
+        throw err;
+      }
+      loading = null;
+      abandonLoad = null;
+      instance = ffmpeg;
+      return ffmpeg;
+    })();
+    return loading;
   };
 
   const deleteFile = async (name: string): Promise<void> => {
@@ -140,6 +196,10 @@ export function createFfmpegWorker(id: number): FfmpegWorker {
   };
 
   const reset = (): void => {
+    generation++;
+    abandonLoad?.();
+    abandonLoad = null;
+    loading = null;
     instance?.terminate();
     instance = null;
     files.clear();

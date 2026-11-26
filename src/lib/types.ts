@@ -243,9 +243,6 @@ export interface SampledEncodeState {
    * across runs so two settings are compared over the same seconds (and the cut snippets are still
    * in the core's filesystem to encode from). */
   sampled: SampleWindow[];
-  running: boolean;
-  /** Set by the Stop button; a run checks it between (and inside) encodes. */
-  cancelRequested: boolean;
   originalSink: CanvasSink | null;
   /** Every stretch the loaded comparison covers, in the order the window plays them. */
   abSegments: AbSegment[];

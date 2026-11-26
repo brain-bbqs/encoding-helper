@@ -21,6 +21,7 @@ import { UPSCALE_VIEW_INFO } from "../lib/explainers";
 import { FALLBACK_FPS } from "../lib/format";
 import { describeQuality, describeResolutionChange, heldBytes } from "../lib/qualityMatrix";
 import { fmtClock, rulerEdgeClass } from "../lib/sampleTimeline";
+import { RunStopped, type EncoderRun } from "../lib/encoderRun";
 import { ensureMediabunny } from "../lib/mediabunny";
 import type { Input } from "mediabunny";
 import { currentSizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
@@ -52,6 +53,9 @@ export function onAbDisplaced(host: HTMLElement, handler: () => void): void {
  * `blobs` is every stretch the run encoded, in the order it sampled them, and `totals.windows` says
  * where in the source each one came from. The two are read together, so the original side of the
  * pane at any moment is the same seconds as the encoded side.
+ *
+ * `run`, when given, is the run that encoded them: stopped while they were being opened, it puts
+ * nothing in the window.
  */
 export async function loadEncodedIntoAB(
   blobs: Blob[],
@@ -59,6 +63,7 @@ export async function loadEncodedIntoAB(
   vt: TrackInfo,
   host: HTMLElement,
   totals?: { bytes: number; windows: SampleWindow[] },
+  run?: EncoderRun,
 ): Promise<void> {
   if (!blobs.length) throw new Error("No encoded segment to compare");
   if (!state.videoTrack) throw new Error("No video track loaded");
@@ -88,6 +93,9 @@ export async function loadEncodedIntoAB(
         seconds,
       });
     }
+    // By Stop, or by a file load or Reset, after which the window and the state behind it are the
+    // next file's.
+    if (run?.stopped) throw new RunStopped();
   } catch (err) {
     for (const input of inputs) input.dispose();
     throw err;

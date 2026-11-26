@@ -9,6 +9,7 @@
 import { CRF_MAP, isDownscale } from "../lib/cliCommand";
 import { h } from "@brain-bbqs/ui";
 import { cmdBlock, section, teachBox } from "../lib/dom";
+import { claimEncoder, holdsEncoder, releaseEncoder } from "../lib/encoderRun";
 import { REENCODE_INTRO, SCALER_INFO, X264_PRESET_INFO } from "../lib/explainers";
 import { cliSettings, MATRIX_PRESETS } from "../lib/qualityMatrix";
 import { cli, currentVideoInfo, sampledEncode, videoTrackInfo } from "../lib/state";
@@ -220,43 +221,42 @@ function sampleRunSection(vt: TrackInfo): HTMLElement {
 /** Encodes the picked stretch at whatever the builder currently says, and puts it in the A/B
  * window. */
 async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resultSec: HTMLDivElement): Promise<void> {
-  // One encoder, one pool: a sweep running on the other tab has both, and its run is the one that
-  // was asked for first.
-  if (sampledEncode.running) {
-    ui.note.textContent = "An encode is already running on the Compare Quality tab. Wait for it to finish.";
-    return;
-  }
   if (!windows.length) {
     ui.note.textContent = "No video loaded to encode.";
     return;
   }
+  // One encoder, one pool: whatever run already has them is the one that was asked for first.
+  const run = claimEncoder("Reencode with FFmpeg", true, ui.note);
+  if (!run) return;
   const fill = startRunUi(ui);
   ui.note.textContent = "Loading ffmpeg.wasm…";
   let inputs: RunInputs | null = null;
   try {
-    const workers = acquireWorkers(windows.length);
+    const workers = acquireWorkers(run, windows.length);
     await workers[0].load();
-    inputs = await prepareRun(windows, workers, ui);
+    inputs = await prepareRun(run, windows, workers, ui);
     // Records where the encoded stretch starts. The A/B window draws the original from the windows
     // passed to it below, not from this.
     sampledEncode.startTime = windows[0].startSeconds;
     ui.note.textContent = "Encoding test segment…";
-    const { blobs, bytes, measured } = await encodeWindows(cli, inputs, workers, ui, (fraction) => {
+    const { blobs, bytes, measured } = await encodeWindows(run, cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;
       if (fill) fill.style.width = pct.toFixed(0) + "%";
       ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
     });
 
     ui.note.textContent = "Decoding frames…";
-    await loadEncodedIntoAB(blobs, cliSettings(cli), vt, resultSec, { bytes, windows: measured });
+    await loadEncodedIntoAB(blobs, cliSettings(cli), vt, resultSec, { bytes, windows: measured }, run);
     // A full bar, in the colour the app uses for a good outcome, rather than the word "Done." under
     // an empty one: the run either filled the bar or it did not.
     finishFill(fill);
     ui.note.textContent = "";
   } catch (err) {
-    reportRunFailure(err, ui);
+    reportRunFailure(run, err, ui);
   } finally {
-    await dropWholeFileInput(inputs);
+    // A file loaded or Reset meanwhile has stopped this run and terminated its cores already.
+    if (holdsEncoder(run)) await dropWholeFileInput(inputs);
+    releaseEncoder(run);
     endRunUi(ui);
   }
 }

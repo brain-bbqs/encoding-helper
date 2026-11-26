@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cutInputs } from "../fixtures/runInputs";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
+import { abandonEncoderRun, claimEncoder, releaseEncoder, type EncoderRun } from "../../src/lib/encoderRun";
 import { defaultFfmpegWorker } from "../../src/lib/ffmpegEngine";
 import { ffmpegPool, MAX_POOL_WORKERS } from "../../src/lib/ffmpegPool";
 import { cli, sampledEncode, state } from "../../src/lib/state";
@@ -23,7 +24,6 @@ import {
   runWindows,
   sampleFields,
   startRunUi,
-  stopRequested,
   syncSampleFields,
   type RunInputs,
   type RunUi,
@@ -136,6 +136,14 @@ function afterInput(args: string[], count: number): string[] {
   return args.slice(at, at + count);
 }
 
+/** The run each case encodes under, holding the encoder the way a tab's run does. */
+let run: EncoderRun;
+
+/** Takes the encoder for a run, the way a tab does before its first await. */
+function claim(): EncoderRun {
+  return claimEncoder("Compare Quality", true, document.createElement("div"))!;
+}
+
 /** The bar's fill, which the run advances. */
 function fillOf(ui: RunUi): HTMLElement {
   return ui.progress.querySelector<HTMLElement>(".fill")!;
@@ -158,9 +166,11 @@ beforeEach(() => {
   fetchFile.mockResolvedValue(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
   sampledEncode.duration = 2;
   loadClip();
+  run = claim();
 });
 
 afterEach(() => {
+  abandonEncoderRun();
   vi.restoreAllMocks();
 });
 
@@ -263,17 +273,16 @@ describe("runControls", () => {
 
   it("ignores Stop while nothing is running", () => {
     const ui = controls();
+    releaseEncoder(run);
     ui.stopButton.click();
-    expect(sampledEncode.cancelRequested).toBe(false);
+    expect(run.stopped).toBe(false);
     expect(ui.note.textContent).toBe("");
   });
 
   it("flags the stop and says so the moment Stop is pressed on a run", () => {
     const ui = controls();
-    sampledEncode.running = true;
     ui.stopButton.click();
-    expect(sampledEncode.cancelRequested).toBe(true);
-    expect(stopRequested()).toBe(true);
+    expect(run.stopped).toBe(true);
     expect(ui.stopButton.disabled).toBe(true);
     expect(ui.note.textContent).toBe("Stopping…");
   });
@@ -318,8 +327,8 @@ describe("runWindows", () => {
 describe("prepareRun", () => {
   it("cuts each stretch out of the source once, by stream copy, and drops the source", async () => {
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
-    const inputs = await prepareRun(WINDOWS, workers, ui);
+    const workers = acquireWorkers(run, WINDOWS.length);
+    const inputs = await prepareRun(run, WINDOWS, workers, ui);
 
     expect(inputs.preCut).toBe(true);
     expect(inputs.windows).toBe(WINDOWS);
@@ -369,9 +378,9 @@ describe("prepareRun", () => {
   // for it again.
   it("runs no cut and fetches nothing for stretches the core already holds", async () => {
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
-    const first = await prepareRun(WINDOWS, workers, ui);
-    const second = await prepareRun(WINDOWS, workers, ui);
+    const workers = acquireWorkers(run, WINDOWS.length);
+    const first = await prepareRun(run, WINDOWS, workers, ui);
+    const second = await prepareRun(run, WINDOWS, workers, ui);
     expect(second.names).toEqual(first.names);
     expect(fetchFile).toHaveBeenCalledTimes(1);
     expect(core.execs).toHaveLength(2);
@@ -381,9 +390,9 @@ describe("prepareRun", () => {
   // stretch is cut out of it.
   it("cuts only the stretches the core does not hold yet", async () => {
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
-    await prepareRun([WINDOWS[0]], workers, ui);
-    const inputs = await prepareRun(WINDOWS, workers, ui);
+    const workers = acquireWorkers(run, WINDOWS.length);
+    await prepareRun(run, [WINDOWS[0]], workers, ui);
+    const inputs = await prepareRun(run, WINDOWS, workers, ui);
     expect(fetchFile).toHaveBeenCalledTimes(2);
     expect(core.execs).toHaveLength(2);
     expect(core.execs[1].at(-1)).toBe(inputs.names[1]);
@@ -396,63 +405,99 @@ describe("prepareRun", () => {
       if (args.includes("copy")) handle.log(`copied packets into ${args.at(-1)}`);
       return Promise.resolve();
     };
-    const inputs = await prepareRun(WINDOWS, acquireWorkers(1), ui);
+    const inputs = await prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui);
     const lines = Array.from(ui.log.children).map((line) => line.textContent);
     expect(lines).toContain(`copied packets into ${inputs.names[0]}`);
     expect(lines).toContain(`copied packets into ${inputs.names[1]}`);
   });
 
-  // The cuts are named off the loaded file rather than off the bytes in hand, so a file unloaded
-  // while its bytes were being read still gets cuts, under a name no real file's cuts can share.
-  it("still cuts the stretches when the file is unloaded while its bytes are being read", async () => {
+  // The cuts are named for the file the run reads them out of, taken before the read, so one video's
+  // stretches are never filed under another's name, whatever is loaded by the time they are cut.
+  it("names the cuts for the file it read them from, whatever is loaded by the time they are cut", async () => {
     const ui = controls();
-    const workers = acquireWorkers(1);
-    const named = await prepareRun([WINDOWS[0]], workers, ui);
-    fetchFile.mockImplementation(() => {
-      state.source = null;
-      return Promise.resolve(new Uint8Array(8));
-    });
-    const unnamed = await prepareRun([WINDOWS[1]], workers, ui);
-    expect(unnamed.names[0]).toMatch(/^et_snip_[0-9a-z]+_6\.000_2\.000\.mp4$/);
-    expect(unnamed.names[0].split("_")[2]).not.toBe(named.names[0].split("_")[2]);
-    expect(core.execs).toHaveLength(2);
+    const workers = acquireWorkers(run, 1);
+    const named = await prepareRun(run, WINDOWS, workers, ui);
+    // Emptied, so the next run reads the file and cuts again.
+    workers[0].reset();
+    const reading = deferred<Uint8Array>();
+    fetchFile.mockReturnValueOnce(reading.promise);
+    const preparing = prepareRun(run, WINDOWS, workers, ui);
+    await vi.waitFor(() => expect(fetchFile).toHaveBeenCalledTimes(2));
+
+    loadClip("other.mp4");
+    reading.resolve(new Uint8Array(8));
+
+    const again = await preparing;
+    expect(again.names).toEqual(named.names);
+    expect(core.execs.map((args) => args.at(-1))).toEqual([...named.names, ...named.names]);
   });
 
   it("names the cuts for the file they came from, so another video is never handed them", async () => {
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
-    const first = await prepareRun(WINDOWS, workers, ui);
+    const workers = acquireWorkers(run, WINDOWS.length);
+    const first = await prepareRun(run, WINDOWS, workers, ui);
     loadClip("other.mp4");
-    const renamed = await prepareRun(WINDOWS, workers, ui);
+    const renamed = await prepareRun(run, WINDOWS, workers, ui);
     expect(renamed.names[0]).not.toBe(first.names[0]);
     expect(core.execs).toHaveLength(4);
 
     // Another video can carry the same name; its size still tells it apart.
     loadClip("clip.mp4", 16);
-    const resized = await prepareRun(WINDOWS, workers, ui);
+    const resized = await prepareRun(run, WINDOWS, workers, ui);
     expect(resized.names[0]).not.toBe(first.names[0]);
     expect(core.execs).toHaveLength(6);
   });
 
   it("stops before cutting anything when Stop has already been pressed", async () => {
     const ui = controls();
-    sampledEncode.cancelRequested = true;
-    const err = await prepareRun(WINDOWS, acquireWorkers(WINDOWS.length), ui).catch((e: unknown) => e);
+    run.stopped = true;
+    const err = await prepareRun(run, WINDOWS, acquireWorkers(run, WINDOWS.length), ui).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toBe("Stopped");
     expect(core.execs).toEqual([]);
     // A stop is not a failure to report as one.
-    reportRunFailure(err, ui);
+    reportRunFailure(run, err, ui);
     expect(ui.note.textContent).toBe("Stopped.");
     expect(ui.progress.style.display).toBe("none");
   });
 
+  // A run already stopped when it comes to the source reads none of it, which for a remote file
+  // would be the whole download over again.
+  it("reads nothing from the source once Stop has been pressed, cut or not", async () => {
+    const ui = controls();
+    run.stopped = true;
+    await expect(prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui)).rejects.toThrow("Stopped");
+    state.keyframeTimestampsSec = [];
+    await expect(prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui)).rejects.toThrow("Stopped");
+    expect(fetchFile).not.toHaveBeenCalled();
+    expect(core.writes).toEqual([]);
+  });
+
+  // Stop terminates the core mid-cut, so the cut rejects with the library's words rather than with
+  // the run's own stop; it still ends as a stop.
+  it("ends as stopped, not failed, when Stop terminates the cut", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ui = controls();
+    startRunUi(ui);
+    core.exec = () => new Promise(() => {});
+    const cutting = prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui).catch((e: unknown) => e);
+    await vi.waitFor(() => expect(core.execs).toHaveLength(1));
+
+    ui.stopButton.click();
+    reportRunFailure(run, await cutting, ui);
+
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.log.querySelector(".l.error")).toBeNull();
+    expect(error).not.toHaveBeenCalled();
+    endRunUi(ui);
+  });
+
   it("stops between the cuts and reading them back", async () => {
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
-    await prepareRun(WINDOWS, workers, ui);
-    sampledEncode.cancelRequested = true;
-    await expect(prepareRun(WINDOWS, workers, ui)).rejects.toThrow("Stopped");
+    const workers = acquireWorkers(run, WINDOWS.length);
+    await prepareRun(run, WINDOWS, workers, ui);
+    run.stopped = true;
+    await expect(prepareRun(run, WINDOWS, workers, ui)).rejects.toThrow("Stopped");
     expect(fetchFile).toHaveBeenCalledTimes(1);
   });
 
@@ -462,13 +507,13 @@ describe("prepareRun", () => {
     loadClip("clip.mov");
     state.keyframeTimestampsSec = [];
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
-    const inputs = await prepareRun(WINDOWS, workers, ui);
+    const workers = acquireWorkers(run, WINDOWS.length);
+    const inputs = await prepareRun(run, WINDOWS, workers, ui);
     expect(inputs.preCut).toBe(false);
     expect(inputs.names).toEqual(["et_in.mov", "et_in.mov"]);
     expect(inputs.data[0]).toBe(inputs.data[1]);
     expect(Array.from(inputs.data[0])).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(inputs.wholeFileOn).toBe(workers[0]);
+    expect(inputs.wholeFileOn).toBe(workers);
     expect(core.writes).toEqual(["et_in.mov"]);
     expect(core.execs).toEqual([]);
     expect(ui.note.textContent).toBe("");
@@ -483,21 +528,21 @@ describe("prepareRun", () => {
     state.source.size = 10;
     state.source.url = "https://example.org/clip.mp4";
     const ui = controls();
-    await prepareRun(WINDOWS, acquireWorkers(1), ui);
+    await prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui);
     expect(fetchFile).toHaveBeenCalledWith("https://example.org/clip.mp4");
 
     state.source.url = null;
     for (const worker of ffmpegPool(1)) worker.reset();
-    await prepareRun(WINDOWS, acquireWorkers(1), ui);
+    await prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui);
     expect(fetchFile).toHaveBeenLastCalledWith(undefined);
   });
 
   it("refuses to run with no video loaded, cut or not", async () => {
     const ui = controls();
     state.source = null;
-    await expect(prepareRun(WINDOWS, acquireWorkers(1), ui)).rejects.toThrow("No video loaded");
+    await expect(prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui)).rejects.toThrow("No video loaded");
     state.keyframeTimestampsSec = [];
-    await expect(prepareRun(WINDOWS, acquireWorkers(1), ui)).rejects.toThrow("No video loaded");
+    await expect(prepareRun(run, WINDOWS, acquireWorkers(run, 1), ui)).rejects.toThrow("No video loaded");
     expect(fetchFile).not.toHaveBeenCalled();
   });
 });
@@ -505,28 +550,47 @@ describe("prepareRun", () => {
 describe("dropWholeFileInput", () => {
   it("drops the whole video a run needed, and keeps cut stretches for the next run", async () => {
     const ui = controls();
-    const workers = acquireWorkers(1);
+    const workers = acquireWorkers(run, 1);
     await dropWholeFileInput(null);
-    await dropWholeFileInput(await prepareRun(WINDOWS, workers, ui));
+    await dropWholeFileInput(await prepareRun(run, WINDOWS, workers, ui));
     // The source was dropped as soon as it was cut; nothing else goes.
     expect(core.deletes).toEqual(["et_in.mp4"]);
 
     state.keyframeTimestampsSec = [];
-    const whole = await prepareRun(WINDOWS, workers, ui);
+    const whole = await prepareRun(run, WINDOWS, workers, ui);
     expect(workers[0].has("et_in.mp4")).toBe(true);
     await dropWholeFileInput(whole);
     expect(core.deletes).toEqual(["et_in.mp4", "et_in.mp4"]);
     expect(workers[0].has("et_in.mp4")).toBe(false);
+  });
+
+  // Each core that took a stretch was written its own copy of the video, and each drops it: the
+  // name says only what type of file it is, so a core left holding one would hand it to the next.
+  it("drops the whole video from every core it was written to", async () => {
+    vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
+    state.keyframeTimestampsSec = [];
+    const ui = controls();
+    const workers = acquireWorkers(run, WINDOWS.length);
+    const inputs = await prepareRun(run, WINDOWS, workers, ui);
+    await encodeWindows(run, cli, inputs, workers, ui, () => {});
+    expect(workers.map((w) => w.has("et_in.mp4"))).toEqual([true, true]);
+
+    await dropWholeFileInput(inputs);
+
+    expect(workers.map((w) => w.has("et_in.mp4"))).toEqual([false, false]);
+    expect(core.deletes.filter((name) => name === "et_in.mp4")).toHaveLength(2);
   });
 });
 
 describe("encodeWindows", () => {
   it("encodes every stretch from its cut, in sampled order, and adds the bytes up", async () => {
     const ui = controls();
-    const workers = acquireWorkers(1);
+    const workers = acquireWorkers(run, 1);
     const progress: number[] = [];
 
-    const result = await encodeWindows(cli, cutInputs(WINDOWS), workers, ui, (fraction) => progress.push(fraction));
+    const result = await encodeWindows(run, cli, cutInputs(WINDOWS), workers, ui, (fraction) =>
+      progress.push(fraction),
+    );
 
     expect(result.blobs.map((b) => b.size)).toEqual([3, 3]);
     expect(result.bytes).toBe(6);
@@ -548,9 +612,9 @@ describe("encodeWindows", () => {
 
   it("encodes the cut stretches straight from the core that cut them, writing nothing again", async () => {
     const ui = controls();
-    const workers = acquireWorkers(1);
-    const inputs = await prepareRun(WINDOWS, workers, ui);
-    const { blobs } = await encodeWindows(cli, inputs, workers, ui, () => {});
+    const workers = acquireWorkers(run, 1);
+    const inputs = await prepareRun(run, WINDOWS, workers, ui);
+    const { blobs } = await encodeWindows(run, cli, inputs, workers, ui, () => {});
     expect(blobs).toHaveLength(2);
     expect(core.writes).toEqual(["et_in.mp4"]);
     expect(afterInput(core.execs[2], 3)).toEqual(["-i", inputs.names[0], "-c:v"]);
@@ -560,16 +624,16 @@ describe("encodeWindows", () => {
   // same content, not merely start close to it.
   it("trims the whole video itself when the stretches could not be cut out beforehand", async () => {
     const ui = controls();
-    const workers = acquireWorkers(1);
+    const workers = acquireWorkers(run, 1);
     const data = new Uint8Array(8);
     const inputs: RunInputs = {
       windows: WINDOWS,
       names: ["et_in.mp4", "et_in.mp4"],
       data: [data, data],
       preCut: false,
-      wholeFileOn: workers[0],
+      wholeFileOn: workers,
     };
-    await encodeWindows(cli, inputs, workers, ui, () => {});
+    await encodeWindows(run, cli, inputs, workers, ui, () => {});
     expect(afterInput(core.execs[0], 6)).toEqual(["-i", "et_in.mp4", "-ss", "0", "-t", "2"]);
     expect(afterInput(core.execs[1], 6)).toEqual(["-i", "et_in.mp4", "-ss", "6", "-t", "2"]);
     expect(core.writes).toEqual(["et_in.mp4"]);
@@ -587,7 +651,9 @@ describe("encodeWindows", () => {
       handle.log("frame=   90 fps=30 q=20.0 size=30kB time=00:00:03.00 bitrate=80kbits/s");
       return Promise.resolve();
     };
-    await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, (fraction) => progress.push(fraction));
+    await encodeWindows(run, cli, cutInputs(WINDOWS), acquireWorkers(run, 1), ui, (fraction) =>
+      progress.push(fraction),
+    );
     expect(progress).toEqual([0.25, 0.5, 0.5, 0.75, 1, 1]);
     expect(ui.log.textContent).toContain("[libx264 @ 0x1] using SAR=1/1");
   });
@@ -600,14 +666,16 @@ describe("encodeWindows", () => {
       handle.log("frame=   30 fps=30 q=20.0 size=10kB time=00:00:01.00 bitrate=80kbits/s");
       return Promise.resolve();
     };
-    await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, (fraction) => progress.push(fraction));
+    await encodeWindows(run, cli, cutInputs(WINDOWS), acquireWorkers(run, 1), ui, (fraction) =>
+      progress.push(fraction),
+    );
     expect(progress).toEqual([0.5, 1]);
   });
 
   it("spreads the stretches over the cores, hands the results back in sampled order whichever finishes first, and says in the console which core each line came from", async () => {
     vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
+    const workers = acquireWorkers(run, WINDOWS.length);
     expect(workers.map((w) => w.id)).toEqual([0, 1]);
     // The first stretch's encode is held until the second has been encoded and measured, so the
     // second finishes first; each stretch's output has its own size, so the blobs can be told apart.
@@ -618,10 +686,10 @@ describe("encodeWindows", () => {
     };
     core.sizeOf = (args) => (args.includes("snip0.mp4") ? 5 : 7);
 
-    const run = encodeWindows(cli, cutInputs(WINDOWS), workers, ui, () => {});
+    const encoding = encodeWindows(run, cli, cutInputs(WINDOWS), workers, ui, () => {});
     await vi.waitFor(() => expect(mb.disposed).toBe(1));
     firstHeld.resolve();
-    const { blobs, measured } = await run;
+    const { blobs, measured } = await encoding;
 
     expect(blobs.map((b) => b.size)).toEqual([5, 7]);
     expect(measured.map((w) => w.startSeconds)).toEqual([0, 6]);
@@ -636,67 +704,76 @@ describe("encodeWindows", () => {
   it("falls back to the requested length when the encode's own cannot be measured", async () => {
     const ui = controls();
     mb.duration = new Error("undecodable");
-    let { measured } = await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {});
+    let { measured } = await encodeWindows(run, cli, cutInputs(WINDOWS), acquireWorkers(run, 1), ui, () => {});
     expect(measured.map((w) => w.seconds)).toEqual([2, 2]);
     // The Input is let go of either way: leaked by the hundred, the browser stops decoding at all.
     expect(mb.disposed).toBe(2);
 
     mb.duration = 0;
-    ({ measured } = await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {}));
+    ({ measured } = await encodeWindows(run, cli, cutInputs(WINDOWS), acquireWorkers(run, 1), ui, () => {}));
     expect(measured.map((w) => w.seconds)).toEqual([2, 2]);
   });
 
   it("refuses with nothing to encode", async () => {
     const ui = controls();
-    const run = encodeWindows(cli, cutInputs([]), acquireWorkers(1), ui, () => {});
-    await expect(run).rejects.toThrow("No stretch of video to encode");
+    const encoding = encodeWindows(run, cli, cutInputs([]), acquireWorkers(run, 1), ui, () => {});
+    await expect(encoding).rejects.toThrow("No stretch of video to encode");
     expect(core.execs).toEqual([]);
   });
 
   it("refuses without a video track to build the command for", async () => {
     state.tracks = [];
     const ui = controls();
-    const run = encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {});
-    await expect(run).rejects.toThrow("No video track loaded");
+    const encoding = encodeWindows(run, cli, cutInputs(WINDOWS), acquireWorkers(run, 1), ui, () => {});
+    await expect(encoding).rejects.toThrow("No video track loaded");
   });
 
   it("ends as stopped, not failed, when Stop lands between two stretches", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const ui = controls();
     core.exec = () => {
-      sampledEncode.cancelRequested = true;
+      run.stopped = true;
       return Promise.resolve();
     };
-    const err = await encodeWindows(cli, cutInputs(WINDOWS), acquireWorkers(1), ui, () => {}).catch((e: unknown) => e);
+    const err = await encodeWindows(run, cli, cutInputs(WINDOWS), acquireWorkers(run, 1), ui, () => {}).catch(
+      (e: unknown) => e,
+    );
     expect((err as Error).message).toBe("Stopped");
     // The second stretch was never handed out.
     expect(core.execs).toHaveLength(1);
 
-    reportRunFailure(err, ui);
+    reportRunFailure(run, err, ui);
     expect(ui.note.textContent).toBe("Stopped.");
     expect(ui.progress.style.display).toBe("none");
     expect(error).not.toHaveBeenCalled();
   });
 
   // Nothing interrupts a call already inside wasm, so the core is terminated: its pending call
-  // rejects, and the run unwinds through the error handling it already has.
-  it("terminates the core mid-encode when Stop is pressed, and the run unwinds", async () => {
+  // rejects, and the run unwinds through the error handling it already has, ending as a stop.
+  it("terminates the core mid-encode when Stop is pressed, and the run unwinds as stopped", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const ui = controls();
-    const workers = acquireWorkers(1);
+    const workers = acquireWorkers(run, 1);
     startRunUi(ui);
     core.exec = () => new Promise(() => {});
-    const run = encodeWindows(cli, cutInputs(WINDOWS), workers, ui, () => {});
+    const encoding = encodeWindows(run, cli, cutInputs(WINDOWS), workers, ui, () => {});
     await vi.waitFor(() => expect(core.execs).toHaveLength(1));
 
     ui.stopButton.click();
 
     expect(ui.note.textContent).toBe("Stopping…");
     expect(ui.stopButton.disabled).toBe(true);
-    await expect(run).rejects.toThrow("called FFmpeg.terminate()");
-    expect(stopRequested()).toBe(true);
+    const err = await encoding.catch((e: unknown) => e);
+    expect((err as Error).message).toBe("called FFmpeg.terminate()");
+    expect(run.stopped).toBe(true);
     expect(core.terminated).toBe(1);
     // The terminated core's filesystem went with it; the next run writes its cuts again.
     expect(workers[0].has("snip0.mp4")).toBe(false);
+
+    reportRunFailure(run, err, ui);
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.log.querySelector(".l.error")).toBeNull();
+    expect(error).not.toHaveBeenCalled();
     endRunUi(ui);
   });
 });
@@ -704,15 +781,15 @@ describe("encodeWindows", () => {
 describe("acquireWorkers", () => {
   it("sizes the pool for the work, leaving a CPU to the page", () => {
     vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
-    expect(acquireWorkers(10).map((w) => w.id)).toEqual([0, 1, 2]);
-    expect(acquireWorkers(2).map((w) => w.id)).toEqual([0, 1]);
-    const [only] = acquireWorkers(1);
+    expect(acquireWorkers(run, 10).map((w) => w.id)).toEqual([0, 1, 2]);
+    expect(acquireWorkers(run, 2).map((w) => w.id)).toEqual([0, 1]);
+    const [only] = acquireWorkers(run, 1);
     expect(only).toBe(defaultFfmpegWorker);
   });
 
   it("runs on the one core alone where the machine will not say how many it has", () => {
     vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(NaN);
-    expect(acquireWorkers(10)).toEqual([defaultFfmpegWorker]);
+    expect(acquireWorkers(run, 10)).toEqual([defaultFfmpegWorker]);
   });
 });
 
@@ -720,12 +797,9 @@ describe("the run's user interface", () => {
   it("readies the buttons, the bar and the console for a run", () => {
     const ui = controls();
     logLine(ui.log, "left over from last time");
-    sampledEncode.cancelRequested = true;
 
     const fill = startRunUi(ui);
 
-    expect(sampledEncode.running).toBe(true);
-    expect(sampledEncode.cancelRequested).toBe(false);
     expect(ui.runButton.disabled).toBe(true);
     expect(ui.stopButton.style.display).toBe("");
     expect(ui.stopButton.disabled).toBe(false);
@@ -736,23 +810,38 @@ describe("the run's user interface", () => {
     endRunUi(ui);
   });
 
-  it("hands the buttons back at the end, and forgets the cores Stop would have reached", async () => {
+  it("hands the buttons back at the end, and leaves Stop the cores of the run it is pressed on", async () => {
     const ui = controls();
-    const workers = acquireWorkers(1);
+    const workers = acquireWorkers(run, 1);
     await workers[0].load();
     startRunUi(ui);
     ui.runButton.textContent = "Retry 1 failed";
 
     endRunUi(ui);
+    releaseEncoder(run);
 
-    expect(sampledEncode.running).toBe(false);
     expect(ui.runButton.disabled).toBe(false);
     expect(ui.runButton.textContent).toBe("Run Matrix");
     expect(ui.stopButton.style.display).toBe("none");
     // A Stop pressed on a later run reaches that run's cores, not this one's.
-    sampledEncode.running = true;
+    const next = claim();
     ui.stopButton.click();
+    expect(next.stopped).toBe(true);
     expect(core.terminated).toBe(0);
+  });
+
+  // A Stop belongs to the run it was pressed on: carried over, the next square clicked would be
+  // read in full and then answer "Stopped." without encoding anything.
+  it("leaves the next run unstopped once the run Stop was pressed on has ended", () => {
+    const ui = controls();
+    startRunUi(ui);
+    ui.stopButton.click();
+    expect(run.stopped).toBe(true);
+
+    endRunUi(ui);
+    releaseEncoder(run);
+
+    expect(claim().stopped).toBe(false);
   });
 
   // A sweep encodes on several cores at once, so the one already inside wasm is not the only one
@@ -760,7 +849,7 @@ describe("the run's user interface", () => {
   it("terminates every core the run acquired when Stop is pressed", async () => {
     vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
     const ui = controls();
-    const workers = acquireWorkers(WINDOWS.length);
+    const workers = acquireWorkers(run, WINDOWS.length);
     await Promise.all(workers.map((worker) => worker.load()));
     startRunUi(ui);
 
@@ -768,7 +857,7 @@ describe("the run's user interface", () => {
 
     expect(workers).toHaveLength(2);
     expect(core.terminated).toBe(2);
-    expect(stopRequested()).toBe(true);
+    expect(run.stopped).toBe(true);
     endRunUi(ui);
   });
 
@@ -776,7 +865,7 @@ describe("the run's user interface", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const ui = controls();
     startRunUi(ui);
-    reportRunFailure(new Error("ffmpeg exited 1"), ui);
+    reportRunFailure(run, new Error("ffmpeg exited 1"), ui);
     expect(ui.note.textContent).toBe("Failed: ffmpeg exited 1");
     expect(ui.log.querySelector(".l.error")!.textContent).toBe("ffmpeg exited 1");
     expect(ui.progress.style.display).toBe("none");

@@ -4,9 +4,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetCliDefaults } from "../fixtures/state";
-import { cli, state } from "../../src/lib/state";
+import { encoderBusy } from "../../src/lib/encoderRun";
+import { cli, resetState, state } from "../../src/lib/state";
 import type { VideoInfo } from "../../src/lib/types";
 import { inBrowserEncodeSection } from "../../src/ui/inBrowserEncode";
+import { deferred, flush } from "./helpers/async";
 
 const ensureFfmpegLoaded = vi.hoisted(() => vi.fn());
 const runFfmpegEncode = vi.hoisted(() => vi.fn());
@@ -15,7 +17,15 @@ const pickSaveTarget = vi.hoisted(() => vi.fn());
 const downloadBlob = vi.hoisted(() => vi.fn());
 const fetchFile = vi.hoisted(() => vi.fn());
 
-vi.mock("../../src/lib/ffmpegEngine", () => ({ ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers }));
+/** The core the whole-file encode runs on, which a file load or Reset terminates to stop it. */
+const defaultFfmpegWorker = vi.hoisted(() => ({ reset: vi.fn() }));
+
+vi.mock("../../src/lib/ffmpegEngine", () => ({
+  ensureFfmpegLoaded,
+  runFfmpegEncode,
+  setFfmpegHandlers,
+  defaultFfmpegWorker,
+}));
 vi.mock("@ffmpeg/util", () => ({ fetchFile }));
 vi.mock("../../src/lib/save", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/lib/save")>()),
@@ -190,5 +200,89 @@ describe("inBrowserEncodeSection", () => {
       return Promise.resolve({ data: new Uint8Array(10) });
     });
     await run(button);
+  });
+
+  // The whole-file encode shares the cores with every other run, so it takes its turn like they do:
+  // a press while another encode holds them is refused, says why, and leaves the button usable.
+  it("refuses to start while another encode is running, and says why", async () => {
+    const encoding = deferred<{ data: Uint8Array }>();
+    runFfmpegEncode.mockReturnValueOnce(encoding.promise);
+    const first = section();
+    // A second section, standing in for any other control that takes the encoder (the runs on the
+    // other tabs are pressed against this one in compareTab's tests).
+    const second = section();
+    first.button.click();
+    await vi.waitFor(() => expect(runFfmpegEncode).toHaveBeenCalledOnce());
+
+    second.button.click();
+    await flush();
+
+    expect(runFfmpegEncode).toHaveBeenCalledOnce();
+    expect(second.note.textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish.",
+    );
+    expect(second.button.disabled).toBe(false);
+
+    encoding.resolve({ data: new Uint8Array(1000) });
+    await vi.waitFor(() => expect(first.button.disabled).toBe(false));
+    await run(second.button);
+    expect(runFfmpegEncode).toHaveBeenCalledTimes(2);
+  });
+
+  // The engine fails a core load that a file load or Reset lands in, so the encode never reaches the
+  // read then; the check before the read is the backstop for a load that comes back all the same.
+  it("reads nothing of the file once stopped, even by a core load that comes back", async () => {
+    ensureFfmpegLoaded.mockImplementationOnce(() => {
+      resetState();
+      return Promise.resolve();
+    });
+    const { button, note } = section();
+
+    await run(button);
+
+    expect(fetchFile).not.toHaveBeenCalled();
+    expect(runFfmpegEncode).not.toHaveBeenCalled();
+    expect(note.textContent).toBe("Stopped.");
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // A file load or Reset stops the encode. The engine's delete of the input swallows the stopped
+  // core's failure, so the encode can still come back as if it had finished: nothing is saved.
+  it("saves nothing when the file is closed as the encode comes back", async () => {
+    const encoding = deferred<{ data: Uint8Array }>();
+    runFfmpegEncode.mockReturnValueOnce(encoding.promise);
+    const { button, note } = section();
+    button.click();
+    await vi.waitFor(() => expect(runFfmpegEncode).toHaveBeenCalledOnce());
+
+    resetState();
+    encoding.resolve({ data: new Uint8Array(1000) });
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+
+    expect(defaultFfmpegWorker.reset).toHaveBeenCalledOnce();
+    expect(pickSaveTarget).not.toHaveBeenCalled();
+    expect(downloadBlob).not.toHaveBeenCalled();
+    expect(state.reencodeResult).toBeNull();
+    expect(note.textContent).toBe("Stopped.");
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // Closed while the output is being written to the file the reader picked, the saving is not
+  // recorded for Full Analysis, whose state is the next file's by then.
+  it("records nothing for the next file when the file is closed while the output is saved", async () => {
+    const writing = deferred<void>();
+    const writable = { write: vi.fn().mockReturnValue(writing.promise), close: vi.fn().mockResolvedValue(undefined) };
+    pickSaveTarget.mockResolvedValue({ kind: "stream", writable });
+    const { button, note } = section();
+    button.click();
+    await vi.waitFor(() => expect(writable.write).toHaveBeenCalledOnce());
+
+    resetState();
+    writing.resolve();
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+
+    expect(state.reencodeResult).toBeNull();
+    expect(note.textContent).toBe("Stopped.");
+    expect(encoderBusy()).toBe(false);
   });
 });
