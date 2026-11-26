@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🐛 Bug Fix
 
-- The Educational switch no longer clears results or interrupts runs, the A/B window shows draw errors, and a later file's sweep keeps its winner ringed ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- The Educational switch no longer clears results or interrupts runs, the A/B window shows draw errors, and a later file's sweep keeps its winner ringed ([#81](https://github.com/brain-bbqs/encoding-helper/pull/81))
 
 ## 1.5.9
 
