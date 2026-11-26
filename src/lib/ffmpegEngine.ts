@@ -107,7 +107,7 @@ export interface FfmpegWorker {
   runToFile(args: string[], outputName: string): Promise<void>;
   readFile(name: string): Promise<Uint8Array<ArrayBuffer>>;
   deleteFile(name: string): Promise<void>;
-  /** Throws the core away, so the next run builds a new one. */
+  /** Throws the core away, a load still in flight included, so the next run builds a new one. */
   reset(): void;
 }
 
@@ -122,16 +122,41 @@ export function createFfmpegWorker(id: number): FfmpegWorker {
    */
   const files = new Set<string>();
 
-  const ensureLoaded = async (): Promise<FFmpeg> => {
-    if (instance) return instance;
+  /** The load in flight, shared by every caller while it lasts. */
+  let loading: Promise<FFmpeg> | null = null;
+  /**
+   * How many times the core has been reset. A load cannot be interrupted, and the core it is
+   * loading is not yet the one a reset terminates, so one a reset overtook would otherwise come back
+   * and take the place of the core built after it, which the next reset (a Stop, say) would then miss.
+   */
+  let generation = 0;
+
+  const ensureLoaded = (): Promise<FFmpeg> => {
+    if (instance) return Promise.resolve(instance);
+    if (loading) return loading;
     const ffmpeg = new FFmpeg();
     ffmpeg.on("log", ({ message }) => {
       if (!CORE_EXIT_NOISE.test(message.trim())) onLog?.(message);
     });
     ffmpeg.on("progress", ({ progress }) => onProgress?.(progress));
-    await ffmpeg.load(await loadCoreUrls());
-    instance = ffmpeg;
-    return ffmpeg;
+    const started = generation;
+    loading = (async () => {
+      try {
+        await ffmpeg.load(await loadCoreUrls());
+      } catch (err) {
+        if (started === generation) loading = null;
+        throw err;
+      }
+      if (started !== generation) {
+        // Closed, and failed with the words a terminated core fails its calls with.
+        ffmpeg.terminate();
+        throw new Error("called FFmpeg.terminate()");
+      }
+      loading = null;
+      instance = ffmpeg;
+      return ffmpeg;
+    })();
+    return loading;
   };
 
   const deleteFile = async (name: string): Promise<void> => {
@@ -140,6 +165,8 @@ export function createFfmpegWorker(id: number): FfmpegWorker {
   };
 
   const reset = (): void => {
+    generation++;
+    loading = null;
     instance?.terminate();
     instance = null;
     files.clear();

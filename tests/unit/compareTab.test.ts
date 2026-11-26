@@ -28,10 +28,22 @@ const core = vi.hoisted(() => ({
   sizeOf: ((): number => 3) as (args: string[]) => number,
   /** Stands in for the encode itself; the default finishes at once. */
   exec: null as ((args: string[]) => Promise<void>) | null,
+  /** Stand in for a core's load, an input written to it and a file deleted from it while set, so a
+   * test can hold one part-way through. All finish at once by default. */
+  load: null as (() => Promise<void>) | null,
+  writeFile: null as ((path: string) => Promise<void>) | null,
+  deleteFile: null as ((path: string) => Promise<void>) | null,
 }));
 
 /** The stubbed decoder's answer for an encode's length. */
 const ENCODED_SECONDS = vi.hoisted(() => 1.9);
+
+/** What the page waits on outside the cores, held while set: measuring an encode's length, and
+ * parsing a file being loaded. Neither can be interrupted, so a run stopped meanwhile waits them out. */
+const slow = vi.hoisted(() => ({
+  measure: null as (() => Promise<void>) | null,
+  parse: null as (() => Promise<void>) | null,
+}));
 
 const fetchFile = vi.hoisted(() => vi.fn());
 
@@ -43,33 +55,37 @@ vi.mock("@ffmpeg/ffmpeg", () => {
   class FakeFFmpeg {
     /** The command whose output the next read hands back. */
     private lastExec: string[] = [];
-    /** The execs still in flight, which terminate() fails the way the real core does. */
+    /** The calls still in flight, which terminate() fails the way the real core does. */
     private pending: ((err: Error) => void)[] = [];
+    /** Settles as `outcome` does, unless the core is terminated first. */
+    private inFlight(outcome: Promise<void>): Promise<void> {
+      return new Promise<void>((resolve, reject) => {
+        this.pending.push(reject);
+        outcome.then(resolve, reject);
+      });
+    }
     on(): void {}
     load(): Promise<void> {
-      return Promise.resolve();
+      return core.load ? core.load() : Promise.resolve();
     }
     terminate(): void {
       core.terminated++;
       for (const reject of this.pending) reject(new Error("called FFmpeg.terminate()"));
       this.pending = [];
     }
-    writeFile(): Promise<void> {
-      return Promise.resolve();
+    writeFile(path: string): Promise<void> {
+      return core.writeFile ? this.inFlight(core.writeFile(path)) : Promise.resolve();
     }
     exec(args: string[]): Promise<void> {
       core.execs.push(args);
       this.lastExec = args;
-      return new Promise<void>((resolve, reject) => {
-        this.pending.push(reject);
-        (core.exec ? core.exec(args) : Promise.resolve()).then(resolve, reject);
-      });
+      return this.inFlight(core.exec ? core.exec(args) : Promise.resolve());
     }
     readFile(): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array(core.sizeOf(this.lastExec)));
     }
-    deleteFile(): Promise<void> {
-      return Promise.resolve();
+    deleteFile(path: string): Promise<void> {
+      return core.deleteFile ? this.inFlight(core.deleteFile(path)) : Promise.resolve();
     }
   }
   return { FFmpeg: FakeFFmpeg };
@@ -79,7 +95,7 @@ vi.mock("@ffmpeg/ffmpeg", () => {
 vi.mock("../../src/lib/mediabunny", () => {
   class FakeInput {
     computeDuration(): Promise<number> {
-      return Promise.resolve(ENCODED_SECONDS);
+      return slow.measure ? slow.measure().then(() => ENCODED_SECONDS) : Promise.resolve(ENCODED_SECONDS);
     }
     dispose(): void {}
   }
@@ -122,7 +138,10 @@ vi.mock("../../src/ui/abPanel", () => ({
 // 20-second clip with a keyframe every two seconds that loadClip sets up by hand.
 vi.mock("../../src/lib/mp4boxParser", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/lib/mp4boxParser")>()),
-  parseWithMp4Box: () => Promise.resolve({ mp4boxFile: {}, info: { videoTracks: [{ id: 1, timescale: 600 }] } }),
+  parseWithMp4Box: async () => {
+    await slow.parse?.();
+    return { mp4boxFile: {}, info: { videoTracks: [{ id: 1, timescale: 600 }] } };
+  },
   extractBoxTree: () => [],
   detectFaststart: () => true,
   extractSampleAnalysis: () => ({
@@ -378,7 +397,12 @@ beforeEach(async () => {
   core.execs = [];
   core.terminated = 0;
   core.exec = null;
+  core.load = null;
+  core.writeFile = null;
+  core.deleteFile = null;
   core.sizeOf = (args) => SEGMENT_BYTES[args[args.indexOf("-preset") + 1]] ?? 3;
+  slow.measure = null;
+  slow.parse = null;
   fetchFile.mockReset();
   fetchFile.mockResolvedValue(new Uint8Array(8));
   downloadBlob.mockClear();
@@ -1779,6 +1803,40 @@ describe("a run across a file change", () => {
     await vi.waitFor(() => expect(runButton(els.panels.compare).disabled).toBe(false), WAIT);
     expect(core.terminated).toBe(terminated + 1);
     expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
+  });
+
+  // The same for a sweep whose core is still loading when another file is loaded, which nothing
+  // interrupts either. The load is thrown away when it comes back rather than taking the place of
+  // the core the next file's sweep is encoding on, so that sweep's Stop still reaches it.
+  it("keeps a stopped sweep's late core load off the next file's sweep", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const staleLoad = deferred<void>();
+    let loads = 0;
+    core.load = () => {
+      loads++;
+      return staleLoad.promise;
+    };
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(loads).toBe(1), WAIT);
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    core.load = null;
+    sweepOf(["superfast"]);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    runButton(els.panels.compare).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+
+    staleLoad.resolve();
+    await flush();
+    stopButton(els.panels.compare).click();
+
+    await vi.waitFor(() => expect(runButton(els.panels.compare).disabled).toBe(false), WAIT);
+    expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
+    expect(encoderBusy()).toBe(false);
   });
 
   // A Stop lets a sweep still reading the file fix its stretches first, but a file load does not:

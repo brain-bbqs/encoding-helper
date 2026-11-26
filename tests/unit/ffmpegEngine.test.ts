@@ -8,6 +8,7 @@ import {
   runFfmpegArgs,
   runFfmpegEncode,
 } from "../../src/lib/ffmpegEngine";
+import { deferred } from "./helpers/async";
 
 type LogEvent = { message: string };
 type ProgressEvent = { progress: number };
@@ -23,9 +24,12 @@ const core = vi.hoisted(() => ({
   /** The callbacks the engine hung on the most recent core, for a test to fire as the core would. */
   onLog: null as ((ev: LogEvent) => void) | null,
   onProgress: null as ((ev: ProgressEvent) => void) | null,
-  /** Cores built and cores thrown away, in that order. */
+  /** Cores built and cores thrown away, in that order, and which cores (numbered as built) went. */
   built: 0,
   terminated: 0,
+  closed: [] as number[],
+  /** Stands in for a core's load while set, so a test can hold one part-way through. */
+  load: null as (() => Promise<void>) | null,
   blobUrls: 0,
   blobError: null as unknown,
   loadError: null as unknown,
@@ -42,18 +46,18 @@ vi.mock("@ffmpeg/util", () => ({
 
 vi.mock("@ffmpeg/ffmpeg", () => {
   class FakeFFmpeg {
-    constructor() {
-      core.built++;
-    }
+    readonly id = core.built++;
     on(event: string, handler: ((ev: LogEvent) => void) | ((ev: ProgressEvent) => void)): void {
       if (event === "log") core.onLog = handler as (ev: LogEvent) => void;
       if (event === "progress") core.onProgress = handler as (ev: ProgressEvent) => void;
     }
     load(): Promise<void> {
-      return core.loadError ? Promise.reject(core.loadError) : Promise.resolve();
+      if (core.loadError) return Promise.reject(core.loadError);
+      return core.load ? core.load() : Promise.resolve();
     }
     terminate(): void {
       core.terminated++;
+      core.closed.push(this.id);
     }
     writeFile(path: string, data: Uint8Array): Promise<void> {
       // The real client posts the array to its worker with the buffer in the transfer list, which
@@ -177,6 +181,8 @@ function resetCore(): void {
   core.onProgress = null;
   core.built = 0;
   core.terminated = 0;
+  core.closed = [];
+  core.load = null;
   core.blobUrls = 0;
   core.blobError = null;
   core.loadError = null;
@@ -239,6 +245,41 @@ describe("a pooled core", () => {
     expect(core.terminated).toBe(1);
     await worker.load();
     expect(core.built).toBe(2);
+  });
+
+  // A run and the first core it needs can both ask before the core has loaded; one core comes of it.
+  it("builds one core for every call that arrives while it loads", async () => {
+    const worker = createFfmpegWorker(1);
+    const loading = deferred<void>();
+    core.load = () => loading.promise;
+    const calls = [worker.load(), worker.ensureInput("in.mp4", INPUT)];
+    loading.resolve();
+    await Promise.all(calls);
+    expect(core.built).toBe(1);
+    expect(core.writes).toEqual(["in.mp4"]);
+  });
+
+  // A Stop or a file load resets the core while it may still be loading, which nothing interrupts.
+  // That load is closed when it comes back, not installed over the core built after the reset,
+  // which the next reset would then miss.
+  it("closes a load that a reset overtook instead of installing it over the core built after", async () => {
+    const worker = createFfmpegWorker(1);
+    const stale = deferred<void>();
+    core.load = () => stale.promise;
+    const overtaken = worker.load().catch((err: unknown) => err);
+    worker.reset();
+    core.load = null;
+    await worker.ensureInput("in.mp4", INPUT);
+
+    stale.resolve();
+    const err = await overtaken;
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe("called FFmpeg.terminate()");
+    expect(core.closed).toEqual([0]);
+    expect(worker.has("in.mp4")).toBe(true);
+
+    worker.reset();
+    expect(core.closed).toEqual([0, 1]);
   });
 
   it("knows which names its filesystem holds", async () => {
