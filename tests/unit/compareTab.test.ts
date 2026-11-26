@@ -1858,6 +1858,43 @@ describe("one encode at a time", () => {
     expect(runNote(panel).textContent).toBe("Stopped: 0 of 1 encoded");
   });
 
+  // A stopped run can still be waiting on what Stop cannot cut short, such as its core loading. A
+  // press meanwhile is refused without offering the Stop already pressed, and runs once it ends.
+  it("asks only to wait for a stopped run that is still winding down", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const loading = deferred<void>();
+    let loads = 0;
+    core.load = () => {
+      loads++;
+      return loading.promise;
+    };
+    const panel = renderTab();
+    const reencode = renderReencodeTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(loads).toBe(1), WAIT);
+    stopButton(panel).click();
+
+    reencode.runButton.click();
+    await flush();
+
+    expect(reencode.note.textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish.",
+    );
+    expect(reencode.runButton.disabled).toBe(false);
+
+    core.load = null;
+    loading.resolve();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(core.execs).toEqual([]);
+
+    reencode.runButton.click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    expect(encodes()).toHaveLength(1);
+  });
+
   // Without a keyframe table nothing is cut, so every core a run encodes on is written the whole
   // video. All of them drop it afterwards: a core still holding it would be handed it again as the
   // next such file of the same type, since it is known by that name.

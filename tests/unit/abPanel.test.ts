@@ -396,6 +396,15 @@ describe("loadEncodedIntoAB refusals", () => {
 
   // Asked up front rather than found out in the playback loop, where the failure would surface as
   // an unhandled rejection with nothing under the panes to say why.
+  it("refuses an encode the browser will not decode, letting go of what it opened", async () => {
+    const host = hostSection();
+    undecodableInput = 0;
+    await expect(load(host)).rejects.toThrow("will not decode the encode");
+    expect(disposed).toEqual([0]);
+    expect(sampledEncode.abSegments).toHaveLength(0);
+    expect(host.style.display).toBe("none");
+  });
+
   // Stopped part-way through opening its stretches, by Stop or by a file load or Reset, a run puts
   // nothing in the window: after a load, the window and the state behind it are another file's.
   it("puts nothing in the window for a run stopped while its stretches were being opened", async () => {
@@ -413,15 +422,6 @@ describe("loadEncodedIntoAB refusals", () => {
     expect(sampledEncode.encodedInputs).toBe(held);
     expect(sampledEncode.abSegments).toHaveLength(2);
     expect(disposed).toEqual([2]);
-  });
-
-  it("refuses an encode the browser will not decode, letting go of what it opened", async () => {
-    const host = hostSection();
-    undecodableInput = 0;
-    await expect(load(host)).rejects.toThrow("will not decode the encode");
-    expect(disposed).toEqual([0]);
-    expect(sampledEncode.abSegments).toHaveLength(0);
-    expect(host.style.display).toBe("none");
   });
 });
 

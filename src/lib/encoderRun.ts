@@ -38,12 +38,14 @@ export function encoderBusy(): boolean {
 }
 
 /** Takes the encoder for a run starting now, or, while another run has it, says so in `note` and
- * hands back null. */
+ * hands back null. Stopping that run is offered only while it can still be stopped: one already
+ * stopped can be waiting on something Stop cannot cut short, such as its core loading. */
 export function claimEncoder(tab: RunTab, stoppable: boolean, note: HTMLElement): EncoderRun | null {
   if (holder) {
+    const canStop = holder.stoppable && !holder.stopped;
     note.textContent =
       `An encode is already running on the ${holder.tab} tab. ` +
-      `Wait for it to finish${holder.stoppable ? " or stop it" : ""}.`;
+      `Wait for it to finish${canStop ? " or stop it" : ""}.`;
     return null;
   }
   holder = { tab, stoppable, stopped: false, workers: new Set() };
