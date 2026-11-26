@@ -5,6 +5,7 @@
 #### 🐛 Bug Fix
 
 - A failed or skipped square clicked late in a sweep on a multi-core machine is now encoded, instead of staying queued and ending skipped ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Stop now reads "Stopped." wherever it lands, rather than "Failed", and no longer stops the next square clicked after it ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
 
 ## 1.5.9
 

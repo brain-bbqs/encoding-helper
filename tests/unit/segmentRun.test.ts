@@ -447,6 +447,37 @@ describe("prepareRun", () => {
     expect(ui.progress.style.display).toBe("none");
   });
 
+  // A Stop pressed while the core was still downloading is honoured before the source is read,
+  // which for a remote file is the whole download over again.
+  it("reads nothing from the source once Stop has been pressed, cut or not", async () => {
+    const ui = controls();
+    sampledEncode.cancelRequested = true;
+    await expect(prepareRun(WINDOWS, acquireWorkers(1), ui)).rejects.toThrow("Stopped");
+    state.keyframeTimestampsSec = [];
+    await expect(prepareRun(WINDOWS, acquireWorkers(1), ui)).rejects.toThrow("Stopped");
+    expect(fetchFile).not.toHaveBeenCalled();
+    expect(core.writes).toEqual([]);
+  });
+
+  // Stop terminates the core mid-cut, so the cut rejects with the library's words rather than with
+  // the run's own stop; it still ends as a stop.
+  it("ends as stopped, not failed, when Stop terminates the cut", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ui = controls();
+    startRunUi(ui);
+    core.exec = () => new Promise(() => {});
+    const cutting = prepareRun(WINDOWS, acquireWorkers(1), ui).catch((e: unknown) => e);
+    await vi.waitFor(() => expect(core.execs).toHaveLength(1));
+
+    ui.stopButton.click();
+    reportRunFailure(await cutting, ui);
+
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.log.querySelector(".l.error")).toBeNull();
+    expect(error).not.toHaveBeenCalled();
+    endRunUi(ui);
+  });
+
   it("stops between the cuts and reading them back", async () => {
     const ui = controls();
     const workers = acquireWorkers(WINDOWS.length);
@@ -679,8 +710,9 @@ describe("encodeWindows", () => {
   });
 
   // Nothing interrupts a call already inside wasm, so the core is terminated: its pending call
-  // rejects, and the run unwinds through the error handling it already has.
-  it("terminates the core mid-encode when Stop is pressed, and the run unwinds", async () => {
+  // rejects, and the run unwinds through the error handling it already has, ending as a stop.
+  it("terminates the core mid-encode when Stop is pressed, and the run unwinds as stopped", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const ui = controls();
     const workers = acquireWorkers(1);
     startRunUi(ui);
@@ -692,11 +724,17 @@ describe("encodeWindows", () => {
 
     expect(ui.note.textContent).toBe("Stopping…");
     expect(ui.stopButton.disabled).toBe(true);
-    await expect(run).rejects.toThrow("called FFmpeg.terminate()");
+    const err = await run.catch((e: unknown) => e);
+    expect((err as Error).message).toBe("called FFmpeg.terminate()");
     expect(stopRequested()).toBe(true);
     expect(core.terminated).toBe(1);
     // The terminated core's filesystem went with it; the next run writes its cuts again.
     expect(workers[0].has("snip0.mp4")).toBe(false);
+
+    reportRunFailure(err, ui);
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.log.querySelector(".l.error")).toBeNull();
+    expect(error).not.toHaveBeenCalled();
     endRunUi(ui);
   });
 });
@@ -753,6 +791,19 @@ describe("the run's user interface", () => {
     sampledEncode.running = true;
     ui.stopButton.click();
     expect(core.terminated).toBe(0);
+  });
+
+  // A Stop belongs to the run it was pressed on: left set, the next square clicked would be read in
+  // full and then answer "Stopped." without encoding anything.
+  it("forgets a Stop once the run it stopped has ended", () => {
+    const ui = controls();
+    startRunUi(ui);
+    ui.stopButton.click();
+    expect(stopRequested()).toBe(true);
+
+    endRunUi(ui);
+
+    expect(stopRequested()).toBe(false);
   });
 
   // A sweep encodes on several cores at once, so the one already inside wasm is not the only one

@@ -183,6 +183,17 @@ function loadClip(): void {
   state.keyframeTimestampsSec = Array.from({ length: 10 }, (_, i) => i * 2);
 }
 
+/** The page reloaded over the same file: nothing sampled or swept and the cores empty, so the
+ * measurement cache is all that is left of earlier runs. */
+function reloadClip(): void {
+  document.body.innerHTML = "";
+  resetCliDefaults();
+  for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
+  loadClip();
+  core.execs = [];
+  fetchFile.mockClear();
+}
+
 /** The next sweep: `presets` at one quality and the source resolution, over `segments` two-second
  * stretches (one unless a test asks for more). As few squares as still make a grid. */
 function sweepOf(presets: X264Preset[], segments = 1): void {
@@ -778,16 +789,10 @@ describe("running the sweep", () => {
     expect(await storedCount("measurements")).toBe(2);
     expect(await storedCount("windows")).toBe(1);
 
-    // The page reloaded: nothing sampled, nothing swept, the cores empty, and the sampler would now
-    // draw elsewhere.
-    document.body.innerHTML = "";
-    resetCliDefaults();
-    for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
-    loadClip();
+    // The page reloaded, and the sampler would now draw elsewhere.
+    reloadClip();
     sweepOf(["ultrafast", "superfast"]);
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    core.execs = [];
-    fetchFile.mockClear();
     const panel = renderTab();
 
     await pressRun(panel);
@@ -1015,6 +1020,75 @@ describe("running the sweep", () => {
     expect(runNote(panel).textContent).toBe("");
     expect(runButton(panel).textContent).toBe("Run Matrix");
     expect(cuts()).toHaveLength(2);
+  });
+
+  // A Stop ends the run it was pressed on, not whatever next needs an encoder: a square read back
+  // from the cache, clicked after a stopped sweep, is encoded into the A/B window.
+  it("encodes a square clicked after a stopped sweep instead of answering that it stopped", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const first = renderTab();
+    await pressRun(first);
+    await settleRun(first);
+    await matrixCache.flush();
+
+    // Swept again with one more preset: the first square comes back from the cache holding no
+    // output, and Stop lands while the new one encodes.
+    reloadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+    const cells = sampledEncode.matrix.cells;
+    expect(cells.map((c) => c.status)).toEqual(["done", "skipped"]);
+    expect(cells[0].blobs).toBeNull();
+
+    core.exec = null;
+    square(panel, cells[0]).click();
+    await awaitRun(panel);
+
+    expect(runNote(panel).textContent).not.toBe("Stopped.");
+    expect(settleAbLoad).not.toBeNull();
+    expect(abLoads.at(-1)?.settings.preset).toBe("ultrafast");
+    expect(sampledEncode.matrix.selectedKey).toBe(cells[0].combo.key);
+  });
+
+  // On a repeat sweep every square comes back from the cache, so encoding the winner again for the
+  // A/B window is the only encoding the run does: a Stop then ends the run as stopped, not as a
+  // winner that could not be shown.
+  it("ends as stopped when Stop lands while the winner is encoded for the A/B window", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const first = renderTab();
+    await pressRun(first);
+    await settleRun(first);
+    await matrixCache.flush();
+
+    reloadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    core.exec = (args) => (args.includes("-crf") ? new Promise<void>(() => {}) : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+    expect(encodes()[0]).toContain("superfast");
+    expect(logText(panel)).toContain("Read 2 of 2 squares back from earlier runs of this file");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(progressBar(panel).style.display).toBe("none");
+    expect(logText(panel)).not.toContain("could not be shown");
+    expect(error).not.toHaveBeenCalled();
+    expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["done", "done"]);
+    expect(sampledEncode.matrix.selectedKey).toBeNull();
+    expect(sampledEncode.cancelRequested).toBe(false);
   });
 
   // Clicking a failed square while the sweep is still going puts it at the back of the queue the

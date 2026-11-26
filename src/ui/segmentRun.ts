@@ -329,6 +329,9 @@ async function encodeSegment(
  * in and each encode trims it itself, which is what the tab did before any of this.
  */
 export async function prepareRun(windows: SampleWindow[], workers: FfmpegWorker[], ui: RunUi): Promise<RunInputs> {
+  // Checked before the source is read: a Stop pressed while the core was still downloading would
+  // otherwise wait for the whole video to be read first, which for a URL is a full download.
+  if (stopRequested()) throw new RunStopped();
   if (canCutSnippets()) {
     const { names, data } = await ensureSnippets(windows, workers, ui);
     return { windows, names, data, preCut: true };
@@ -464,9 +467,9 @@ export async function dropWholeFileInput(inputs: RunInputs | null): Promise<void
 }
 
 /**
- * Whether Stop has been pressed, read through a call: the button flips the flag while the run is
- * awaiting an encode, and a call keeps type narrowing from treating the flag as whatever it was last
- * assigned.
+ * Whether Stop has been pressed on the run in progress, read through a call: the button flips the
+ * flag while the run is awaiting an encode, and a call keeps type narrowing from treating the flag
+ * as whatever it was last assigned.
  */
 export function stopRequested(): boolean {
   return sampledEncode.cancelRequested;
@@ -523,6 +526,10 @@ export function startRunUi(ui: RunUi): HTMLDivElement | null {
 
 export function endRunUi(ui: RunUi): void {
   sampledEncode.running = false;
+  // A Stop belongs to the run it was pressed on. Left set, it would also stop the next square
+  // clicked into the A/B window, which encodes without a run of its own, and only once that had
+  // read the whole video in.
+  sampledEncode.cancelRequested = false;
   activeWorkers = [];
   ui.runButton.disabled = false;
   ui.syncRunAction();
@@ -532,7 +539,9 @@ export function endRunUi(ui: RunUi): void {
 export function reportRunFailure(err: unknown, ui: RunUi): void {
   // Nothing to show the length of, so the bar goes rather than freezing wherever it stopped.
   ui.progress.style.display = "none";
-  if (err instanceof RunStopped) {
+  // Stop terminates the cores, so the call in flight rejects with the library's own message rather
+  // than with RunStopped; once Stop has been pressed, whatever the run ended on is that stop.
+  if (err instanceof RunStopped || stopRequested()) {
     ui.note.textContent = "Stopped.";
     return;
   }

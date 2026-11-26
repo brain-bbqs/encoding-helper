@@ -589,6 +589,9 @@ async function encodeCells(queue: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Pr
       try {
         await selectMatrixCell(best, vt, ui);
       } catch (err) {
+        // Stop pressed while the winner was being encoded again for the window: the run was
+        // stopped, and says so, rather than reading as a winner the browser could not show.
+        if (stopRequested()) throw err;
         // The sweep measured everything it was asked to; only the preview of the winner failed,
         // which is a browser that will not decode what ffmpeg just wrote. Reporting that as the
         // run failing would throw away a grid full of good measurements.

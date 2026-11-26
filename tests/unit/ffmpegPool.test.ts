@@ -124,6 +124,33 @@ describe("drainWithPool", () => {
     expect(seen).toEqual([1, 2, 3]);
   });
 
+  // `work` is meant to record its own failures; one that throws anyway does not leave a core busy
+  // behind a run that has already reported back, nor one still being handed items.
+  it("hands out nothing more once an item throws, and rethrows the first error after the rest finish", async () => {
+    const seen: number[] = [];
+    const first = new Error("item 1 failed");
+    const held = deferred<void>();
+    let settled = false;
+    const outcome = drainWithPool([1, 2, 3, 4], [fakeWorker(0), fakeWorker(1)], async (item) => {
+      seen.push(item);
+      if (item === 1) throw first;
+      await held.promise;
+    }).then(
+      () => null,
+      (err: unknown) => err,
+    );
+    void outcome.finally(() => {
+      settled = true;
+    });
+    await flush();
+    expect(settled).toBe(false);
+
+    held.reject(new Error("item 2 failed"));
+
+    expect(await outcome).toBe(first);
+    expect(seen).toEqual([1, 2]);
+  });
+
   it("stops handing out work once the run is cancelled", async () => {
     const seen: number[] = [];
     let stop = false;

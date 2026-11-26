@@ -457,6 +457,27 @@ describe("running the command on a sample", () => {
     expect(ui.stopButton.style.display).toBe("none");
   });
 
+  // Stop terminates the core, so the encode in flight rejects with the library's own words rather
+  // than with the run's stop; the run still ends as stopped, and the Stop ends with it.
+  it("ends as stopped when Stop cuts the encode short, and forgets the Stop afterwards", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const panel = renderTab();
+    const ui = sampleRun(panel);
+    ui.runButton.click();
+    await flush();
+
+    ui.stopButton.click();
+    encoded.reject(new Error("called FFmpeg.terminate()"));
+    await flush();
+
+    expect(ui.note.textContent).toBe("Stopped.");
+    expect(ui.log.textContent).not.toContain("called FFmpeg.terminate()");
+    expect(error).not.toHaveBeenCalled();
+    expect(sampledEncode.cancelRequested).toBe(false);
+    expect(sampledEncode.running).toBe(false);
+    expect(ui.runButton.disabled).toBe(false);
+  });
+
   // One encoder and one pool: the sweep on the other tab has both, and its run came first.
   it("waits for a sweep on the Compare Quality tab rather than running beside it", async () => {
     const panel = renderTab();
