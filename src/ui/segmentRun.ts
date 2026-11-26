@@ -212,8 +212,10 @@ async function ensureSnippets(
   ui: RunUi,
 ): Promise<{ names: string[]; data: Uint8Array[] }> {
   const cutter = workers[0];
-  const source = await sourceForWindows(windows, cutter);
+  // Named before the file is read, for the file the read is of, so the stretches cut out of it are
+  // filed under its name and never under whichever file is loaded by the time they are cut.
   const names = windows.map(snippetName);
+  const source = await sourceForWindows(names, cutter);
   if (source) await cutSnippets(run, windows, names, source, cutter, ui);
   // Read out of the core and kept for the run. Every core encodes from its own filesystem, so each
   // needs the cuts anyway; holding them here as well is what lets a core that crashed (and so
@@ -273,11 +275,11 @@ async function cutSnippets(
   await cutter.deleteFile(inputName);
 }
 
-/** The cut stretches this run needs, or null when every one of them is already in the filesystem,
- * which is the case that spares a remote file from being downloaded again. */
-async function sourceForWindows(windows: SampleWindow[], cutter: FfmpegWorker): Promise<SourceBytes | null> {
+/** The source the cut stretches `names` are cut from, or null when every one of them is already in
+ * the filesystem, which is the case that spares a remote file from being downloaded again. */
+async function sourceForWindows(names: string[], cutter: FfmpegWorker): Promise<SourceBytes | null> {
   if (!state.source) throw new Error("No video loaded");
-  if (windows.every((w) => cutter.has(snippetName(w)))) return null;
+  if (names.every((name) => cutter.has(name))) return null;
   return await readSource();
 }
 

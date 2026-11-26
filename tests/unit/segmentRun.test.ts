@@ -411,20 +411,25 @@ describe("prepareRun", () => {
     expect(lines).toContain(`copied packets into ${inputs.names[1]}`);
   });
 
-  // The cuts are named off the loaded file rather than off the bytes in hand, so a file unloaded
-  // while its bytes were being read still gets cuts, under a name no real file's cuts can share.
-  it("still cuts the stretches when the file is unloaded while its bytes are being read", async () => {
+  // The cuts are named for the file the run reads them out of, taken before the read, so one video's
+  // stretches are never filed under another's name, whatever is loaded by the time they are cut.
+  it("names the cuts for the file it read them from, whatever is loaded by the time they are cut", async () => {
     const ui = controls();
     const workers = acquireWorkers(run, 1);
-    const named = await prepareRun(run, [WINDOWS[0]], workers, ui);
-    fetchFile.mockImplementation(() => {
-      state.source = null;
-      return Promise.resolve(new Uint8Array(8));
-    });
-    const unnamed = await prepareRun(run, [WINDOWS[1]], workers, ui);
-    expect(unnamed.names[0]).toMatch(/^et_snip_[0-9a-z]+_6\.000_2\.000\.mp4$/);
-    expect(unnamed.names[0].split("_")[2]).not.toBe(named.names[0].split("_")[2]);
-    expect(core.execs).toHaveLength(2);
+    const named = await prepareRun(run, WINDOWS, workers, ui);
+    // Emptied, so the next run reads the file and cuts again.
+    workers[0].reset();
+    const reading = deferred<Uint8Array>();
+    fetchFile.mockReturnValueOnce(reading.promise);
+    const preparing = prepareRun(run, WINDOWS, workers, ui);
+    await vi.waitFor(() => expect(fetchFile).toHaveBeenCalledTimes(2));
+
+    loadClip("other.mp4");
+    reading.resolve(new Uint8Array(8));
+
+    const again = await preparing;
+    expect(again.names).toEqual(named.names);
+    expect(core.execs.map((args) => args.at(-1))).toEqual([...named.names, ...named.names]);
   });
 
   it("names the cuts for the file they came from, so another video is never handed them", async () => {
