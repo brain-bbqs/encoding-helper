@@ -107,14 +107,20 @@ export async function loadEncodedIntoAB(
   renderAbResult(host, vt, settings);
 }
 
-/** Empties whichever section last held the comparison, telling the tab that owned it. */
+/**
+ * Empties whichever section last held the comparison, telling the tab that owned it.
+ *
+ * Only while that section is still on the page: loading another file rebuilds the tabs, and the
+ * handler of a section rebuilt away would undo what its replacement has just set, such as the
+ * square a sweep chose.
+ */
 function displaceActiveHost(): void {
   if (!activeHost) return;
   const previous = activeHost;
   activeHost = null;
   previous.innerHTML = "";
   previous.style.display = "none";
-  displacedHandlers.get(previous)?.();
+  if (previous.isConnected) displacedHandlers.get(previous)?.();
 }
 
 /** Where one sampled stretch sits in the source, e.g. "12.3s–17.3s". */
@@ -464,6 +470,8 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     ]);
     drawFrame(origCanvas, originalFrame);
     drawFrame(encCanvas, encodedFrame, downscaled ? { width: srcWidth, height: srcHeight } : null);
+    // The message is about a frame that would not draw, so one that does takes it away.
+    drawError.style.display = "none";
   };
   /**
    * Draws a frame from a handler that cannot await it.
@@ -476,7 +484,8 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     void drawAt(relT).catch((err: unknown) => {
       console.error("[encoding-helper] could not draw the comparison:", err);
       drawError.textContent = "Could not draw the comparison: " + errorMessage(err);
-      drawError.style.display = "";
+      // "block" rather than cleared, as fileLoading.ts shows #errorMsg: the class's own rule hides it.
+      drawError.style.display = "block";
     });
   };
 
@@ -521,7 +530,9 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   stopActivePlayback = stopPlayback;
   const runPlayback = async (run: number): Promise<void> => {
     try {
-      while (playing && run === playRun) {
+      // Also ends once the section has left the page, as it does when another file loads: its Pause
+      // button goes with it, leaving nothing on screen to stop a loop decoding into unseen panes.
+      while (playing && run === playRun && host.isConnected) {
         let now = performance.now();
         let relT = baseT + (now - baseWall) / 1000;
         // The reel is every sampled stretch end to end, so this runs through all of them and then
@@ -600,7 +611,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     showTime(relT, false);
     // Scrubbing mid-playback moves the playhead instead of fighting the loop for the slider.
     if (playing) rebase(relT);
-    void drawAt(relT);
+    drawFrom(relT);
   });
   showTime(0);
   drawFrom(0);
