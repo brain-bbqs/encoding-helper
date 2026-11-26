@@ -223,7 +223,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
   // One encoder, one pool: a sweep running on the other tab has both, and its run is the one that
   // was asked for first.
   if (sampledEncode.running) {
-    ui.note.textContent = "An encode is already running on the Compare Quality tab. Wait for it to finish.";
+    ui.note.textContent = "An encode is already running on the Compare Quality tab. Wait for it to finish or stop it.";
     return;
   }
   if (!windows.length) {

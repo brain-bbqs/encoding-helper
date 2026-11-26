@@ -308,7 +308,7 @@ function runActionLabel(): string {
  * grid is to find out what this file and this browser can actually do.
  */
 async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  if (sampledEncode.running) return;
+  if (refusedWhileBusy(ui)) return;
   const matrix = sampledEncode.matrix;
   const combos = tickedCombos();
   if (!combos.length) {
@@ -436,9 +436,18 @@ function queueRetry(cell: MatrixCell, ui: MatrixUi, repaint: () => void): void {
 
 /** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
 async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
-  if (sampledEncode.running) return;
+  if (refusedWhileBusy(ui)) return;
   cells.forEach(markPending);
   await encodeCells(cells, vt, ui);
+}
+
+/** Whether the Reencode with FFmpeg tab's run has the encoder, saying so under the button when it
+ * does. This tab's own runs are not there to be pressed while they go. */
+function refusedWhileBusy(ui: MatrixUi): boolean {
+  if (!sampledEncode.running) return false;
+  ui.note.textContent =
+    "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.";
+  return true;
 }
 
 /** Puts a square back in line to be encoded, clearing what its last attempt failed with. */

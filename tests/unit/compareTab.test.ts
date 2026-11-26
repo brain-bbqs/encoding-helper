@@ -120,6 +120,7 @@ vi.mock("../../src/ui/abPanel", () => ({
 globalThis.indexedDB = new IDBFactory();
 
 const { renderCompareTab } = await import("../../src/ui/compareTab");
+const { renderEncodeTab } = await import("../../src/ui/encodeTab");
 
 /** The tab, rendered over one loaded 20-second file. The panel goes into the document because the
  * tab reaches for its fields by class, the way the app's own panels are already in the page. */
@@ -253,6 +254,15 @@ async function settleRun(panel: HTMLElement): Promise<void> {
   settleAbLoad?.resolve();
   settleAbLoad = null;
   await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+}
+
+/** The Reencode with FFmpeg tab over the same file, beside the Compare tab as the page has it, and
+ * its sample run's button. */
+function renderReencodeTab(): { runButton: HTMLButtonElement } {
+  const panel = document.createElement("div");
+  document.body.append(panel);
+  renderEncodeTab(panel);
+  return { runButton: panel.querySelector<HTMLButtonElement>(".compare-run-buttons button")! };
 }
 
 /** How many records one of the cache's stores holds, read straight out of IndexedDB. */
@@ -916,20 +926,27 @@ describe("running the sweep", () => {
   });
 
   // The Reencode with FFmpeg tab's run holds the same encoder, so a press here while it is going
-  // starts nothing, whether it would have been a sweep or the run of a swept grid's holes.
-  it("does not start over a run already going on the other tab", async () => {
+  // starts nothing, whether it would have been a sweep or the run of a swept grid's holes. It says
+  // why, and the button is left usable rather than greyed out until a file load rebuilds the panel.
+  it("refuses a press while the Reencode tab's run is going, says why, and leaves the button usable", async () => {
     loadClip();
     sweepOf(["superfast"]);
     const panel = renderTab();
-    sampledEncode.running = true;
+    const reencode = renderReencodeTab();
+    reencode.runButton.click();
+    // Held while it puts its result in the A/B window, the last thing it does before letting go.
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    const execs = core.execs.length;
 
     runButton(panel).click();
     await flush();
 
-    expect(runButton(panel).disabled).toBe(true);
+    expect(runButton(panel).disabled).toBe(false);
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
     expect(sampledEncode.matrix.cells).toEqual([]);
-    expect(runNote(panel).textContent).toBe("");
-    expect(core.execs).toEqual([]);
+    expect(core.execs).toHaveLength(execs);
 
     const cells = makeMatrixCells(buildMatrixCombos(["high"], ["superfast"], [1], ["lanczos"]));
     cells[0].status = "failed";
@@ -940,9 +957,21 @@ describe("running the sweep", () => {
     runButton(retryPanel).click();
     await flush();
 
-    expect(runButton(retryPanel).disabled).toBe(true);
+    expect(runButton(retryPanel).disabled).toBe(false);
+    expect(runNote(retryPanel).textContent).toBe(
+      "An encode is already running on the Reencode with FFmpeg tab. Wait for it to finish or stop it.",
+    );
     expect(cells[0].status).toBe("failed");
-    expect(core.execs).toEqual([]);
+    expect(core.execs).toHaveLength(execs);
+
+    // Once that run has ended, the same press runs.
+    settleAbLoad!.resolve();
+    settleAbLoad = null;
+    await vi.waitFor(() => expect(reencode.runButton.disabled).toBe(false), WAIT);
+    expect(runButton(retryPanel).disabled).toBe(false);
+    runButton(retryPanel).click();
+    await vi.waitFor(() => expect(settleAbLoad).not.toBeNull(), WAIT);
+    expect(cells[0].status).toBe("done");
   });
 
   // With no length to spread stretches across, the sampler has nothing to draw; the sweep still

@@ -130,9 +130,9 @@ export function onRunPress(ui: RunUi, start: () => Promise<void>): void {
     // the run has started.
     ui.runButton.disabled = true;
     // A run puts the button back itself when it ends; this is for the presses that never start
-    // one, such as a sweep with nothing ticked to sweep.
+    // one: a sweep with nothing ticked to sweep, or a press refused because another run has the
+    // encoder, which says so in the note and leaves the button to be pressed again.
     void start().finally(() => {
-      if (sampledEncode.running) return;
       ui.runButton.disabled = false;
       ui.syncRunAction();
     });

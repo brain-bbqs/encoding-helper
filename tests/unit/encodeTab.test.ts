@@ -478,19 +478,41 @@ describe("running the command on a sample", () => {
     expect(ui.runButton.disabled).toBe(false);
   });
 
-  // One encoder and one pool: the sweep on the other tab has both, and its run came first.
-  it("waits for a sweep on the Compare Quality tab rather than running beside it", async () => {
+  // One encoder and one pool: the sweep on the other tab has both, and its run came first. The press
+  // is refused with a note saying so, and the button is left usable rather than greyed out until
+  // something happens to rebuild the panel.
+  it("refuses a press while a sweep on the Compare Quality tab encodes, and leaves the button usable", async () => {
+    loadClip();
+    sampledEncode.matrix.qualities = ["high"];
+    sampledEncode.matrix.presets = ["superfast"];
+    sampledEncode.matrix.scales = [1];
+    const comparePanel = document.createElement("div");
+    document.body.append(comparePanel);
+    renderCompareTab(comparePanel);
+    const sweepButton = comparePanel.querySelector<HTMLButtonElement>(".compare-run-buttons button")!;
     const panel = renderTab();
     const ui = sampleRun(panel);
-    sampledEncode.running = true;
+    sweepButton.click();
+    await vi.waitFor(() => expect(run.encodeWindows).toHaveBeenCalledTimes(1));
+
     ui.runButton.click();
     await flush();
 
-    expect(ui.note.textContent).toBe("An encode is already running on the Compare Quality tab. Wait for it to finish.");
-    expect(run.prepareRun).not.toHaveBeenCalled();
-    // Still held, since the sweep that holds it has not finished.
-    expect(ui.runButton.disabled).toBe(true);
+    expect(ui.runButton.disabled).toBe(false);
+    expect(ui.note.textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish or stop it.",
+    );
     expect(ui.stopButton.style.display).toBe("none");
+    expect(run.prepareRun).toHaveBeenCalledTimes(1);
+
+    // The sweep ends, and the same press now runs.
+    encoded.resolve({ blobs: [new Blob(["encoded"])], bytes: 7, measured: [{ startSeconds: 0, seconds: 5 }] });
+    await vi.waitFor(() => expect(sweepButton.disabled).toBe(false));
+    expect(ui.runButton.disabled).toBe(false);
+    ui.runButton.click();
+    await vi.waitFor(() => expect(run.loadEncodedIntoAB).toHaveBeenCalledTimes(2));
+    expect(run.prepareRun).toHaveBeenCalledTimes(2);
+    expect(ui.note.textContent).toBe("");
   });
 
   // Without a length there is no track to pick a stretch on, so there is nothing to encode.
