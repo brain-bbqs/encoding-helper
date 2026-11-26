@@ -106,17 +106,20 @@ export interface FfmpegWorker {
   setHandlers(onLog: FfmpegLogHandler | null, onProgress: FfmpegProgressHandler | null): void;
   load(): Promise<void>;
   /** Puts `data` in this core's filesystem as `name`, unless it already holds it. A reset meanwhile
-   * fails it at once, as it fails every call in flight, whether the core was still loading or
-   * already writing. */
+   * fails it at once, as it fails every call in flight but a delete, whether the core was still
+   * loading or already writing. */
   ensureInput(name: string, data: Uint8Array): Promise<void>;
   has(name: string): boolean;
   run(args: string[], outputName: string): Promise<FfmpegRunResult>;
   /** Runs `args` and leaves the output in this core's filesystem for a later run to read. */
   runToFile(args: string[], outputName: string): Promise<void>;
   readFile(name: string): Promise<Uint8Array<ArrayBuffer>>;
+  /** Removes `name` from this core's filesystem. Resolves whatever the core makes of it, a reset
+   * meanwhile included, since a core thrown away holds nothing anyway: so code awaiting a delete
+   * has to check for itself whether its run was stopped meanwhile. */
   deleteFile(name: string): Promise<void>;
-  /** Throws the core away, closing one still loading too and failing every call waiting on either,
-   * so the next run builds a new one. */
+  /** Throws the core away, closing one still loading too and failing every call waiting on either
+   * but a delete (see deleteFile), so the next run builds a new one. */
   reset(): void;
 }
 

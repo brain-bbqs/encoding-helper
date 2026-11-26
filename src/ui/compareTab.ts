@@ -712,8 +712,8 @@ async function encodeCells(
     forgetQueue(run);
     settleUnreached(queue, retried);
     // A file loaded or Reset mid-run has already stopped this run, terminating its cores, and taken
-    // the encoder back; the grid and the queue are the next file's by then, so all this run has
-    // left to hand back is its own controls.
+    // the encoder back; the grid is the next file's by then, so all this run has left to hand back
+    // is its own controls.
     if (holdsEncoder(run)) await dropWholeFileInput(inputs);
     const current = releaseEncoder(run);
     if (current) matrix.running = false;

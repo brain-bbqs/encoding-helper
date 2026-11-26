@@ -326,6 +326,30 @@ describe("a pooled core", () => {
     expect(core.closed).toEqual([0, 1]);
   });
 
+  // A load can start in the same turn as the reset that overtook the one before it, before that one
+  // has unwound. The new load stays the one every call shares and the next reset closes, rather than
+  // being dropped by the old load on its way out and left running where nothing would close it.
+  it("keeps a load started right after a reset as the one a later reset closes", async () => {
+    const worker = createFfmpegWorker(1);
+    core.load = () => new Promise<void>(() => {});
+    const overtaken = worker.load().catch((err: unknown) => err);
+    await vi.waitFor(() => expect(core.loads).toBe(1));
+
+    worker.reset();
+    const next = worker.load().catch((err: unknown) => err);
+    await overtaken;
+    await vi.waitFor(() => expect(core.loads).toBe(2));
+    expect(core.closed).toEqual([0]);
+    const joined = worker.load().catch((err: unknown) => err);
+    expect(core.built).toBe(2);
+
+    worker.reset();
+
+    expect(core.closed).toEqual([0, 1]);
+    const errors = (await Promise.all([next, joined])) as Error[];
+    expect(errors.map((err) => err.message)).toEqual(["called FFmpeg.terminate()", "called FFmpeg.terminate()"]);
+  });
+
   it("knows which names its filesystem holds", async () => {
     const worker = createFfmpegWorker(1);
     expect(worker.has("in.mp4")).toBe(false);

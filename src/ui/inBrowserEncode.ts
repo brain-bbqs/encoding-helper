@@ -65,6 +65,8 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
   try {
     if (!source) throw new Error("No video loaded");
     await ensureFfmpegLoaded();
+    // Checked before the file is read, which for a URL is a full download. A stop during the load
+    // fails the load, so this is the backstop that keeps a stopped encode from reading any of it.
     throwIfStopped(run);
     const inputName = "in" + extOf(source.name);
     const outputName = encodedFileName(format);

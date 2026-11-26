@@ -220,12 +220,15 @@ async function ensureSnippets(
   // came back with an empty filesystem) be handed them again instead of failing every square it
   // is given afterwards. They are a few hundred KB apiece, which is the whole reason a pool is
   // affordable: a copy of the video per core would not be.
+  //
+  // Checked before each read: the source's delete that ends the cuts resolves even when a stop has
+  // closed the core meanwhile, so the first read is where a stop landing then is caught, and a stop
+  // landing during a read fails that read itself.
   const data: Uint8Array[] = [];
   for (const name of names) {
     throwIfStopped(run);
     data.push(await cutter.readFile(name));
   }
-  throwIfStopped(run);
   return { names, data };
 }
 
@@ -339,8 +342,9 @@ export async function prepareRun(
   workers: FfmpegWorker[],
   ui: RunUi,
 ): Promise<RunInputs> {
-  // Checked before the source is read, which for a URL is a full download: a run already stopped by
-  // the time it gets here reads none of it.
+  // Checked before the source is read, which for a URL is a full download, so that a run already
+  // stopped reads none of it. Its callers check before they get here, or have just loaded a core,
+  // which a stop fails, so this is the backstop for a caller that does not.
   throwIfStopped(run);
   if (canCutSnippets()) {
     const { names, data } = await ensureSnippets(run, windows, workers, ui);
