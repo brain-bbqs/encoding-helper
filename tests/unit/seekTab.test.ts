@@ -4,7 +4,7 @@ import { sample } from "../fixtures/samples";
 import { seekResult } from "../fixtures/seekResult";
 import { resetState, state } from "../../src/lib/state";
 import { flush } from "./helpers/async";
-import { gridValue } from "./helpers/grid";
+import { gridRows, gridValue } from "./helpers/grid";
 
 /** Every timestamp the run asked the sink to decode, in order. */
 const decodeRequests: number[] = [];
@@ -119,9 +119,11 @@ describe("the seeking test run", () => {
     await run(panel, "5");
 
     const wrap = panel.querySelector("#seekResultsWrap")!;
-    expect(gridValue(wrap, "Avg Keyframe Distance")).toBe("1.000 s");
-    expect(gridValue(wrap, "Avg Decode Time")).toBe("10.0 ms");
-    expect(gridValue(wrap, "Max Decode Time")).toBe("18.0 ms");
+    expect(gridRows(wrap)).toEqual([
+      { label: "Avg Keyframe Distance", value: "1.000 s", info: false, sm: false },
+      { label: "Avg Decode Time", value: "10.0 ms", info: false, sm: false },
+      { label: "Max Decode Time", value: "18.0 ms", info: false, sm: false },
+    ]);
     expect(wrap.querySelectorAll("svg.seek-scatter circle.pt")).toHaveLength(5);
 
     const fold = wrap.querySelector<HTMLDetailsElement>("details.fold")!;
@@ -452,13 +454,16 @@ describe("renderGopStructure", () => {
     expect(gridValue(panel, "Avg GOP")).toBe("30.0 frames (1.00 s)");
     expect(gridValue(panel, "Min / Max GOP")).toBe("30 / 30 frames");
     expect(panel.querySelector(".badge")!.textContent).toBe("Uses B-frames (cts ≠ dts)");
+    expect(panel.querySelector(".badge")!.className).toBe("badge info");
     expect(panel.querySelector(".hist")).not.toBeNull();
+    expect(panel.querySelector("h3")!.textContent).toBe("Empirical Seeking Test");
   });
 
   it("reads an empty file as no GOPs, no histogram and no B-frames", () => {
     const panel = renderTab();
     expect(gridValue(panel, "Min / Max GOP")).toBe("0 / 0 frames");
     expect(panel.querySelector(".badge")!.textContent).toBe("No B-frames");
+    expect(panel.querySelector(".badge")!.className).toBe("badge good");
     expect(panel.querySelector(".hist")).toBeNull();
   });
 

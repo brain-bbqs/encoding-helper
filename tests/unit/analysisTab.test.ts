@@ -318,6 +318,25 @@ describe("renderAnalysisTab", () => {
     expect(md.match(/★/g)).toHaveLength(1);
   });
 
+  // At the source resolution every kernel is the same encode, so a sweep over two kernels and a
+  // downscale has three outputs: one at 100%, and one per kernel at 50%.
+  it("prints the sweep's source-resolution output once, whatever kernels it ticked", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]));
+    cells.forEach((c, i) => {
+      c.status = "done";
+      c.bytes = 60_000 - i * 10_000;
+    });
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    expect(markdown(el).match(/^\| \d+%.*$/gm)).toEqual([
+      "| 100% | high (CRF 18) | 58.6 KB |",
+      "| 50% lanczos | high (CRF 18) | 48.8 KB |",
+      "| 50% bicubic | high (CRF 18) | 39.1 KB ★ |",
+    ]);
+  });
+
   it("leaves a sweep out while none of its squares have finished", () => {
     const el = panel();
     loadClip();

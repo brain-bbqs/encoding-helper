@@ -14,3 +14,25 @@ export function gridItem(root: ParentNode, label: string): HTMLElement {
 export function gridValue(root: ParentNode, label: string): string | null {
   return gridItem(root, label).querySelector(".val")?.textContent ?? null;
 }
+
+/** One item of a grid as a reader meets it: the label, the value, and whether the card gave it the
+ * ⓘ popover and the smaller value type. */
+export interface GridRow {
+  label: string | null;
+  value: string | null;
+  info: boolean;
+  sm: boolean;
+}
+
+/** Every item under `root`, in order. */
+export function gridRows(root: ParentNode): GridRow[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(".item")).map((item) => {
+    const val = item.querySelector(".val");
+    return {
+      label: item.querySelector("label")?.textContent ?? null,
+      value: val?.textContent ?? null,
+      info: item.querySelector(".info-btn") !== null,
+      sm: val?.classList.contains("sm") ?? false,
+    };
+  });
+}
