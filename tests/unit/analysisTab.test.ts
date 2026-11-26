@@ -52,7 +52,6 @@ function loadClip(over: { tracks?: TrackInfo[] } = {}): void {
   state.fps = 20;
   state.frameCount = 600;
   state.samples = evenSamples(600, 30, 1000, (i) => i % 30 === 0);
-  state.keyframeDecodeIndices = state.samples.map((s, i) => (s.is_sync ? i : -1)).filter((i) => i >= 0);
   state.gopLengths = Array.from({ length: 20 }, () => 30);
   state.keyframeTimestampsSec = state.samples.filter((s) => s.is_sync).map((s) => s.ctsSec);
   state.boxes = boxes();
@@ -530,7 +529,6 @@ describe("renderAnalysisTab", () => {
     const el = panel();
     loadClip();
     state.samples = evenSamples(3, 30, 1000, (i) => i === 0);
-    state.keyframeDecodeIndices = [0];
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("| Average | 500 kbps |");
@@ -541,7 +539,6 @@ describe("renderAnalysisTab", () => {
     const el = panel();
     loadClip();
     state.samples = [];
-    state.keyframeDecodeIndices = [];
     state.boxes = [];
     renderAnalysisTab(el);
     const md = markdown(el);

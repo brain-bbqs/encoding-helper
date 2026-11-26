@@ -73,7 +73,6 @@ export interface DeclaredBitrate {
 /** GOP/keyframe/B-frame analysis derived from a track's sample table. */
 export interface SampleAnalysis {
   samples: SampleInfo[];
-  keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
   keyframeTimestampsSec: number[];
@@ -289,7 +288,6 @@ export interface AppState {
   faststart: boolean | null;
   samples: SampleInfo[];
   declaredVideoBitrate: DeclaredBitrate | null;
-  keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
   keyframeTimestampsSec: number[];

@@ -152,7 +152,6 @@ vi.mock("../../src/lib/mp4boxParser", async (importOriginal) => ({
   detectFaststart: () => true,
   extractSampleAnalysis: () => ({
     samples: [],
-    keyframeDecodeIndices: [],
     gopLengths: [],
     hasBFrames: false,
     keyframeTimestampsSec: Array.from({ length: 10 }, (_, i) => i * 2),

@@ -31,7 +31,7 @@ export function renderGopStructure(panel: HTMLElement): void {
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
-    gridItem("Keyframes", state.keyframeDecodeIndices.length.toLocaleString()),
+    gridItem("Keyframes", state.gopLengths.length.toLocaleString()),
     gridItem("Avg GOP", describeAvgGop(avgGop, fps)),
     gridItem("Min / Max GOP", `${minGop} / ${maxGop} frames`),
   );

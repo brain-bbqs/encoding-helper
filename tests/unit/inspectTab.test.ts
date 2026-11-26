@@ -121,7 +121,6 @@ describe("the Inspect panel", () => {
     state.format = "mp4";
     state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
     state.gopLengths = [30, 30];
-    state.keyframeDecodeIndices = [0, 30];
     const panel = document.createElement("div");
     // The order main.ts appends them in.
     renderInspectHead(panel);

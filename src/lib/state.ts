@@ -29,7 +29,6 @@ function initialAppState(): AppState {
     faststart: null,
     samples: [],
     declaredVideoBitrate: null,
-    keyframeDecodeIndices: [],
     gopLengths: [],
     hasBFrames: false,
     keyframeTimestampsSec: [],

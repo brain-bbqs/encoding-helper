@@ -223,7 +223,7 @@ function gopSection(): AnalysisSection | null {
       kind: "kv",
       items: [
         ["Total Frames", state.samples.length.toLocaleString()],
-        ["Keyframes", state.keyframeDecodeIndices.length.toLocaleString()],
+        ["Keyframes", state.gopLengths.length.toLocaleString()],
         ["Avg GOP", describeAvgGop(avgGop, fps)],
         ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : NO_VALUE],
       ],

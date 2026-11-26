@@ -443,7 +443,6 @@ describe("renderGopHistogram", () => {
 describe("renderGopStructure", () => {
   it("prints the keyframe structure of the loaded file above the test", () => {
     state.samples = Array.from({ length: 90 }, () => sample(0, 1));
-    state.keyframeDecodeIndices = [0, 30, 60];
     state.gopLengths = [30, 30, 30];
     state.fps = 30;
     state.hasBFrames = true;

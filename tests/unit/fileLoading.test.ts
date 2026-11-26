@@ -32,9 +32,8 @@ vi.mock("../../src/lib/mp4boxParser", () => ({
   detectFaststart: () => true,
   extractSampleAnalysis: () => ({
     samples: [{ size: 1, ctsSec: 0, is_sync: true }],
-    keyframeDecodeIndices: [0],
     gopLengths: [1],
-    hasBFrames: false,
+    hasBFrames: true,
     keyframeTimestampsSec: [0],
   }),
   extractDeclaredBitrate: () => ({ avgBitrate: 500_000, maxBitrate: 500_000 }),
@@ -115,6 +114,9 @@ describe("loading a file", () => {
     expect(state.frameCount).toBe(1);
     expect(state.faststart).toBe(true);
     expect(state.boxes).toHaveLength(1);
+    expect(state.samples).toEqual([{ size: 1, ctsSec: 0, is_sync: true }]);
+    expect(state.gopLengths).toEqual([1]);
+    expect(state.hasBFrames).toBe(true);
     expect(state.keyframeTimestampsSec).toEqual([0]);
     expect(state.declaredVideoBitrate).toEqual({ avgBitrate: 500_000, maxBitrate: 500_000 });
     expect(els.app.style.display).toBe("block");
