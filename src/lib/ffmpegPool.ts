@@ -65,19 +65,18 @@ export async function drainWithPool<T>(
   shouldStop: () => boolean = () => false,
 ): Promise<void> {
   let next = 0;
-  while (next < queue.length) {
+  const more = (): boolean => next < queue.length && !shouldStop();
+  while (more()) {
     await Promise.all(
       workers.map(async (worker) => {
-        for (;;) {
-          if (shouldStop()) return;
+        // The bound is tested before an index is claimed: a core that claimed first and then found
+        // the queue empty would leave `next` past the end, where an item appended later is skipped.
+        while (more()) {
           // Read and claim in one step: JavaScript runs this to completion before any other core's
           // turn, so two of them cannot take the same item.
-          const index = next++;
-          if (index >= queue.length) return;
-          await work(queue[index], worker);
+          await work(queue[next++], worker);
         }
       }),
     );
-    if (shouldStop()) return;
   }
 }

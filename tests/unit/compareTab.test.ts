@@ -1058,6 +1058,44 @@ describe("running the sweep", () => {
     expect(runButton(panel).textContent).toBe("Run Matrix");
   });
 
+  // With a core per square, the one whose square failed has already left the queue by the time the
+  // retry is clicked; the core still encoding picks the retry up.
+  it("runs a square queued back after one of the sweep's cores has finished", async () => {
+    vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const held = deferred<void>();
+    let failedOnce = false;
+    core.exec = (args) => {
+      if (!args.includes("-crf")) return Promise.resolve();
+      if (args.includes("superfast")) return held.promise;
+      if (failedOnce) return Promise.resolve();
+      failedOnce = true;
+      return Promise.reject(new Error("x264 gave up"));
+    };
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(
+      () => expect(sampledEncode.matrix.cells.map((c) => c.status)).toEqual(["failed", "running"]),
+      WAIT,
+    );
+    const cells = sampledEncode.matrix.cells;
+    expect(logText(panel)).toContain("Encoding on 2 cores at once");
+
+    square(panel, cells[0]).click();
+    expect(logText(panel)).toContain("Queued a retry of high (CRF 18), ultrafast");
+    held.resolve();
+    await awaitRun(panel);
+    await settleRun(panel);
+
+    expect(encodes()).toHaveLength(3);
+    expect(cells.map((c) => c.status)).toEqual(["done", "done"]);
+    expect(cells.map((c) => c.bytes)).toEqual([300, 200]);
+    expect(runNote(panel).textContent).toBe("");
+    expect(runButton(panel).textContent).toBe("Run Matrix");
+  });
+
   it("spreads the squares over the cores the machine offers, and says so", async () => {
     vi.spyOn(navigator, "hardwareConcurrency", "get").mockReturnValue(4);
     loadClip();

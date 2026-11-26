@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { drainWithPool, ffmpegPool, MAX_POOL_WORKERS, poolSizeFor } from "../../src/lib/ffmpegPool";
 import { defaultFfmpegWorker, type FfmpegWorker } from "../../src/lib/ffmpegEngine";
+import { deferred, flush } from "./helpers/async";
 
 vi.mock("@ffmpeg/util", () => ({ toBlobURL: () => Promise.resolve("blob:core") }));
 vi.mock("@ffmpeg/ffmpeg", () => ({ FFmpeg: class {} }));
@@ -100,6 +101,27 @@ describe("drainWithPool", () => {
       }
     });
     expect(seen).toEqual([1, 2]);
+  });
+
+  // On a machine with cores to spare, a square retried late in a sweep arrives after one core has
+  // found the queue empty and left; the core still working takes it.
+  it("runs an item appended after one of its cores has run out of work", async () => {
+    const queue = [1, 2];
+    const seen: number[] = [];
+    const held = deferred<void>();
+    const drain = drainWithPool(queue, [fakeWorker(0), fakeWorker(1)], async (item) => {
+      seen.push(item);
+      if (item === 1) await held.promise;
+    });
+    // Item 2 is done and its core has found nothing left to take, while item 1 is still running.
+    await flush();
+    expect(seen).toEqual([1, 2]);
+
+    queue.push(3);
+    held.resolve();
+    await drain;
+
+    expect(seen).toEqual([1, 2, 3]);
   });
 
   it("stops handing out work once the run is cancelled", async () => {
