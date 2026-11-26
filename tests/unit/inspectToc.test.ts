@@ -91,6 +91,22 @@ describe("mountInspectToc", () => {
     expect(tocLinks(panel).map((a) => a.classList.contains("on"))).toEqual([false, true, false]);
   });
 
+  // The observer is told to fire as a heading crosses a line 96 px down the viewport, and the
+  // handler picks the section by that same line: a heading on it counts as scrolled past.
+  it("watches for the trigger line it reads the headings against", () => {
+    const panel = panelWith(["File Overview", "Atom Map", "Seeking"]);
+    mountInspectToc(panel);
+    expect(stub.instances[0].options).toEqual({ rootMargin: "-96px 0px -70% 0px", threshold: 0 });
+    const tops = [0, 96, 97];
+    panel.querySelectorAll<HTMLHeadingElement>("h2").forEach((hd, i) => {
+      hd.getBoundingClientRect = () => ({ top: tops[i] }) as DOMRect;
+    });
+
+    stub.instances[0].fire([{}]);
+
+    expect(tocLinks(panel).map((a) => a.classList.contains("on"))).toEqual([false, true, false]);
+  });
+
   it("stays on the first section while the page is still above every heading", () => {
     const panel = panelWith(["File Overview", "Atom Map"]);
     mountInspectToc(panel);

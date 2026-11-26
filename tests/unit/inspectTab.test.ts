@@ -1,3 +1,4 @@
+import { installObserverStub } from "@brain-bbqs/test-utils/vitest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { VIDEO_TRACK as SHARED_VIDEO_TRACK } from "../fixtures/state";
@@ -5,6 +6,7 @@ import { resetState, state } from "../../src/lib/state";
 import type { CodecInfo, DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
 import { renderAtomMap } from "../../src/ui/atomsTab";
 import { renderBitrateTimelineSection, renderInspectHead, renderInspectTail } from "../../src/ui/inspectTab";
+import { mountInspectToc } from "../../src/ui/inspectToc";
 import { renderGopStructure } from "../../src/ui/seekTab";
 import { gridItem, gridRows, gridValue } from "./helpers/grid";
 
@@ -150,6 +152,30 @@ describe("the Inspect panel", () => {
       "GOP / Keyframe Structure",
       "Video Bitrate Over Time",
     ]);
+  });
+
+  // The overview's container explainer names the atom map; its link goes to whatever id the "On
+  // this page" nav gives the atom card's heading.
+  it("links the overview's mention of the atom map to the atom card", () => {
+    const observers = installObserverStub("IntersectionObserver");
+    try {
+      loadClip();
+      state.format = "MP4";
+      state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
+      const panel = document.createElement("div");
+      renderInspectHead(panel);
+      renderAtomMap(panel);
+      renderGopStructure(panel);
+      renderInspectTail(panel);
+      mountInspectToc(panel);
+      const link = Array.from(panel.querySelectorAll<HTMLAnchorElement>(".teach a")).find(
+        (a) => a.textContent === "Atom Map",
+      )!;
+      const atomHeading = panel.querySelector(".atom-faststart")!.closest(".section")!.querySelector("h2")!;
+      expect(link.getAttribute("href")).toBe("#" + atomHeading.id);
+    } finally {
+      observers.restore();
+    }
   });
 
   // Faststart is a fact about where moov sits relative to mdat, so it is read against the map that
