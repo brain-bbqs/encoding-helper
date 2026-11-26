@@ -927,8 +927,9 @@ describe("playback", () => {
     expect(currentBand(host)).toBe(2);
   });
 
-  // A frame that will not decode ends playback rather than leaving the button stuck on Pause.
-  it("ends playback when a frame will not decode", async () => {
+  // A frame that will not decode ends playback rather than leaving the button stuck on Pause, and
+  // says why under the panes, as a scrub or a step that will not draw does.
+  it("ends playback when a frame will not decode, and says so under the panes", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const host = hostSection();
     await load(host);
@@ -941,6 +942,9 @@ describe("playback", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(play.textContent).toBe("Play");
     expect(error).toHaveBeenCalledWith("[encoding-helper] playback stopped:", expect.any(Error));
+    const msg = host.querySelector<HTMLElement>(".error-msg")!;
+    expect(msg.textContent).toBe("Could not draw the comparison: decoder gone");
+    expect(msg.style.display).toBe("block");
   });
 
   // A loop still waiting on a frame when Play is pressed again must neither keep drawing nor stop

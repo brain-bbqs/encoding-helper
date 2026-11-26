@@ -386,7 +386,7 @@ describe("renderAnalysisTab", () => {
     expect(el.querySelectorAll("iframe.doc-preview")).toHaveLength(1);
   });
 
-  // The page's builders now draw their teaching material whether or not the switch shows it; the
+  // The page's builders draw their teaching material whether or not the switch shows it; the
   // document states what the file is without it either way, the panel's own intro aside.
   it("writes the same document with the Educational switch on or off, with no teaching material in it", () => {
     vi.useFakeTimers({ toFake: ["Date"] });

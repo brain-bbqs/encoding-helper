@@ -473,19 +473,19 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     // The message is about a frame that would not draw, so one that does takes it away.
     drawError.style.display = "none";
   };
-  /**
-   * Draws a frame from a handler that cannot await it.
-   *
-   * A rejected draw used to leave the page with an unhandled rejection and the panes with whatever
-   * they last held, which reads as the comparison silently freezing. It says so under the panes
-   * instead, since a comparison that will not draw is the one thing this section is for.
-   */
+  /** Says under the panes why a frame did not draw: left alone, the panes keep whatever they last
+   * held, which reads as the comparison silently freezing. */
+  const showDrawError = (err: unknown): void => {
+    drawError.textContent = "Could not draw the comparison: " + errorMessage(err);
+    // "block" rather than cleared, as fileLoading.ts shows #errorMsg: the class's own rule hides it.
+    drawError.style.display = "block";
+  };
+  /** Draws a frame from a handler that cannot await it, saying so under the panes if it fails
+   * rather than leaving an unhandled rejection. */
   const drawFrom = (relT: number): void => {
     void drawAt(relT).catch((err: unknown) => {
       console.error("[encoding-helper] could not draw the comparison:", err);
-      drawError.textContent = "Could not draw the comparison: " + errorMessage(err);
-      // "block" rather than cleared, as fileLoading.ts shows #errorMsg: the class's own rule hides it.
-      drawError.style.display = "block";
+      showDrawError(err);
     });
   };
 
@@ -573,6 +573,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
     } catch (err) {
       // A frame that will not decode ends playback rather than leaving the button stuck on "Pause".
       console.error("[encoding-helper] playback stopped:", err);
+      showDrawError(err);
     } finally {
       if (run === playRun) stopPlayback();
     }
