@@ -282,15 +282,7 @@ export function currentSizeEstimate(): SizeEstimate | null {
   // The seconds are the measured output durations rather than the requested ones (a trim lands a
   // frame either side of the length asked for, and the ratio is only fair if both halves cover the
   // same seconds), which is what the run stored on each window.
-  const windows: SampleWindow[] = sampledEncode.windows.length
-    ? sampledEncode.windows
-    : [
-        {
-          startSeconds: sampledEncode.startTime,
-          seconds: sampledEncode.segDuration > 0 ? sampledEncode.segDuration : sampledEncode.duration,
-        },
-      ];
-  return estimateForWindows(windows, sampledEncode.encodedSize);
+  return estimateForWindows(sampledEncode.windows, sampledEncode.encodedSize);
 }
 
 /** A percentage at a readable precision: tighter below 10%, where a whole point is a big relative move. */

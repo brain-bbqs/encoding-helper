@@ -822,7 +822,8 @@ function describeFpsFraction(fraction: number): string {
   return `${Math.round(fraction * 100)}% (${describeFrameRate(rate)})`;
 }
 
-/** The stretches the sweep covered, or the one segment it used before several were asked for. */
+/** The stretches the sweep covered, or, where the sampler placed none (a file of unknown length),
+ * the one stretch its start and length describe. */
 function matrixWindows(): SampleWindow[] {
   const matrix = sampledEncode.matrix;
   if (matrix.windows.length) return matrix.windows;

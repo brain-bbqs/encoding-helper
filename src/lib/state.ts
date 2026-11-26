@@ -69,7 +69,6 @@ function initialSampledEncode(matrix: SampledEncodeState["matrix"]): SampledEnco
     originalSink: null,
     abSegments: [],
     encodedInputs: [],
-    segDuration: 0,
     encodedSize: null,
     activeCombo: null,
     upscaleSmoothing: false,
