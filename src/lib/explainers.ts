@@ -225,159 +225,183 @@ export const METADATA_TAGS_HOVER_HINT = "Hover the ⓘ on any tag for what it me
 
 export type TagSeed = [key: string, label: string, description: string];
 
-export const QUICKTIME_ORIGIN = "MP4 / QuickTime atom";
-export const QUICKTIME_KEY_ORIGIN = "QuickTime metadata key (mdta)";
-export const ID3_ORIGIN = "ID3v2 frame (MP3, ADTS)";
-export const VORBIS_ORIGIN = "Vorbis comment / Matroska tag (Ogg, FLAC, MKV)";
-export const RIFF_ORIGIN = "RIFF INFO chunk (WAVE)";
-export const NORMALIZED_ORIGIN = "Normalized by mediabunny";
+/** One family of tag names: where the names come from, and the names themselves. */
+export interface TagGroup {
+  origin: string;
+  seeds: TagSeed[];
+}
 
-// MP4/QuickTime `ilst` atoms. Four characters each, case-sensitive. The leading `©` on many of
-// them is byte 0xA9, QuickTime's text-atom marker, explained once in METADATA_TAGS_TEACH rather
-// than repeated on every entry below.
-export const QUICKTIME_TAGS: TagSeed[] = [
-  // Work and release
-  ["©nam", "Title", "The title of the work."],
-  ["©alb", "Album", "The album or collection this file belongs to."],
-  ["©day", "Date", "Release, recording or creation date, often just a year."],
-  ["©gen", "Genre", "Genre as free text (the <code>gnre</code> atom stores it as a numeric id instead)."],
-  ["gnre", "Genre (numeric)", "Genre stored as an ID3v1 genre number rather than as text."],
-  ["trkn", "Track number", "Track position within its album, stored as a packed number/total pair."],
-  ["disk", "Disc number", "Disc position within a multi-disc release, stored as a packed number/total pair."],
-  ["cpil", "Compilation", "Flag marking the album as a various-artists compilation."],
-  ["tmpo", "Tempo (BPM)", "Beats per minute."],
+/**
+ * Every tag name lib/metadataTagKb knows, family by family. The order matters there: its
+ * case-insensitive fallback keeps the first match, so the container-native spellings come before
+ * mediabunny's normalized field names, and a stray "Title" resolves to the Vorbis-style entry
+ * rather than to the normalized one.
+ */
+export const TAG_GROUPS: TagGroup[] = [
+  {
+    // MP4/QuickTime `ilst` atoms. Four characters each, case-sensitive. The leading `©` on many
+    // of them is byte 0xA9, QuickTime's text-atom marker, explained once in METADATA_TAGS_TEACH
+    // rather than repeated on every entry below.
+    origin: "MP4 / QuickTime atom",
+    seeds: [
+      // Work and release
+      ["©nam", "Title", "The title of the work."],
+      ["©alb", "Album", "The album or collection this file belongs to."],
+      ["©day", "Date", "Release, recording or creation date, often just a year."],
+      ["©gen", "Genre", "Genre as free text (the <code>gnre</code> atom stores it as a numeric id instead)."],
+      ["gnre", "Genre (numeric)", "Genre stored as an ID3v1 genre number rather than as text."],
+      ["trkn", "Track number", "Track position within its album, stored as a packed number/total pair."],
+      ["disk", "Disc number", "Disc position within a multi-disc release, stored as a packed number/total pair."],
+      ["cpil", "Compilation", "Flag marking the album as a various-artists compilation."],
+      ["tmpo", "Tempo (BPM)", "Beats per minute."],
 
-  // Credits
-  ["©ART", "Artist", "The credited artist or creator."],
-  ["aART", "Album artist", "The main artist for the album or collection as a whole."],
-  ["©wrt", "Composer", "The writer or composer of the work."],
-  ["©dir", "Director", "The credited director."],
+      // Credits
+      ["©ART", "Artist", "The credited artist or creator."],
+      ["aART", "Album artist", "The main artist for the album or collection as a whole."],
+      ["©wrt", "Composer", "The writer or composer of the work."],
+      ["©dir", "Director", "The credited director."],
 
-  // Description and text
-  ["©des", "Description", "A short description of the content."],
-  ["desc", "Description", "A short description, as written by iTunes-style taggers."],
-  ["ldes", "Long description", "A longer synopsis, used by Apple media apps."],
-  ["©cmt", "Comment", "Freeform notes about the file."],
-  ["©inf", "Information", "Freeform information about the file."],
-  ["keyw", "Keywords", "Searchable keywords."],
-  ["©lyr", "Lyrics", "Full lyrics or a transcript."],
+      // Description and text
+      ["©des", "Description", "A short description of the content."],
+      ["desc", "Description", "A short description, as written by iTunes-style taggers."],
+      ["ldes", "Long description", "A longer synopsis, used by Apple media apps."],
+      ["©cmt", "Comment", "Freeform notes about the file."],
+      ["©inf", "Information", "Freeform information about the file."],
+      ["keyw", "Keywords", "Searchable keywords."],
+      ["©lyr", "Lyrics", "Full lyrics or a transcript."],
 
-  // Rights
-  [
-    "©cpy",
-    "Copyright (QuickTime)",
-    "QuickTime's copyright notice. Unlike the other <code>©</code> atoms, this one really is about rights.",
-  ],
-  ["cprt", "Copyright", "The copyright notice for the work, as MP4 standardized it."],
+      // Rights
+      [
+        "©cpy",
+        "Copyright (QuickTime)",
+        "QuickTime's copyright notice. Unlike the other <code>©</code> atoms, this one really is about rights.",
+      ],
+      ["cprt", "Copyright", "The copyright notice for the work, as MP4 standardized it."],
 
-  // How the file was made
-  [
-    "©too",
-    "Encoding tool",
-    "The software that wrote this file, stamped in by the muxer. <code>too</code> is short for " +
-      '"tool", so this is the encoder signature, not a truncated word.',
-  ],
-  ["©swr", "Software", "The application that created the file, as distinct from the muxing library."],
-  ["©enc", "Encoded by", "The person or organization credited with encoding the file."],
+      // How the file was made
+      [
+        "©too",
+        "Encoding tool",
+        "The software that wrote this file, stamped in by the muxer. <code>too</code> is short for " +
+          '"tool", so this is the encoder signature, not a truncated word.',
+      ],
+      ["©swr", "Software", "The application that created the file, as distinct from the muxing library."],
+      ["©enc", "Encoded by", "The person or organization credited with encoding the file."],
 
-  // Playback and presentation
-  ["covr", "Cover art", "Embedded artwork bytes (JPEG or PNG)."],
-  ["stik", "Media kind", "Numeric hint at the content type, e.g. movie, TV show, music video or audiobook."],
-  ["rtng", "Content rating", "Numeric advisory rating, e.g. clean or explicit."],
-  ["pgap", "Gapless playback", "Flag telling players not to insert silence between tracks."],
-  ["purl", "Podcast URL", "Feed URL for podcast episodes."],
+      // Playback and presentation
+      ["covr", "Cover art", "Embedded artwork bytes (JPEG or PNG)."],
+      ["stik", "Media kind", "Numeric hint at the content type, e.g. movie, TV show, music video or audiobook."],
+      ["rtng", "Content rating", "Numeric advisory rating, e.g. clean or explicit."],
+      ["pgap", "Gapless playback", "Flag telling players not to insert silence between tracks."],
+      ["purl", "Podcast URL", "Feed URL for podcast episodes."],
 
-  // Capture
-  ["©xyz", "Location", "GPS coordinates in ISO 6709 form, written by phones and action cameras."],
-];
-
-// QuickTime metadata keys, written by Apple devices through the `mdta` handler: a `keys` atom
-// declares reverse-DNS names and the parallel `ilst` holds their values. Not four-character atoms,
-// and not interchangeable with the table above.
-export const QUICKTIME_KEY_TAGS: TagSeed[] = [
-  ["com.apple.quicktime.make", "Camera make", "Manufacturer of the recording device."],
-  ["com.apple.quicktime.model", "Camera model", "Model of the recording device."],
-  ["com.apple.quicktime.software", "Device software", "OS or app version on the recording device."],
-  ["com.apple.quicktime.creationdate", "Capture date", "When the recording was made, including the time zone."],
-  ["com.apple.quicktime.location.ISO6709", "Capture location", "GPS coordinates of the recording, in ISO 6709 form."],
-];
-
-// ID3v2 frames, used by MP3 and ADTS files.
-export const ID3_TAGS: TagSeed[] = [
-  ["TIT2", "Title", "ID3v2's title frame."],
-  ["TPE1", "Artist", "Lead performer or artist."],
-  ["TPE2", "Album artist", "Band, orchestra or album-level artist."],
-  ["TALB", "Album", "Album or collection name."],
-  ["TCON", "Genre", "Genre, either as text or as a legacy numeric code in parentheses."],
-  ["TRCK", "Track number", 'Track position, often written as "5/12".'],
-  ["TPOS", "Disc number", 'Disc position in a set, often written as "1/2".'],
-  ["TYER", "Year", "Four-digit year (ID3v2.3; superseded by <code>TDRC</code>)."],
-  ["TDRC", "Recording date", "Full recording timestamp (ID3v2.4)."],
-  ["TLEN", "Length", "Declared duration in milliseconds."],
-  ["TCOM", "Composer", "Composer of the work."],
-  [
-    "TSSE",
-    "Encoding settings",
-    "The software and settings used to encode the file, the ID3 equivalent of MP4's <code>©too</code>.",
-  ],
-  ["TENC", "Encoded by", "The person or tool credited with encoding."],
-  ["TBPM", "Tempo (BPM)", "Beats per minute."],
-  ["COMM", "Comment", "Freeform comment, with a language code and a short description attached."],
-  ["APIC", "Attached picture", "Embedded artwork such as cover art."],
-  ["TXXX", "User-defined text", "Custom key/value pairs that do not fit any standard frame."],
-  ["WXXX", "User-defined URL", "A custom URL, e.g. the artist or purchase page."],
-  ["TAG", "ID3v1 block", "The legacy 128-byte tag at the end of an MP3, kept for old players."],
-];
-
-// Vorbis comments (Ogg, FLAC) and Matroska SimpleTags. Conventionally uppercase.
-export const VORBIS_TAGS: TagSeed[] = [
-  ["TITLE", "Title", "The title of the work."],
-  ["ARTIST", "Artist", "The credited artist or creator."],
-  ["ALBUMARTIST", "Album artist", "The artist credited for the album as a whole."],
-  ["ALBUM", "Album", "Album or collection name."],
-  ["DATE", "Date", "Release or recording date."],
-  ["DATE_RELEASED", "Release date", "Matroska's release-date tag."],
-  ["GENRE", "Genre", "Genre as free text."],
-  ["TRACKNUMBER", "Track number", "Track position within the album."],
-  ["DISCNUMBER", "Disc number", "Disc position within the release."],
-  ["COMMENT", "Comment", "Freeform comment."],
-  ["DESCRIPTION", "Description", "A short description of the content."],
-  [
-    "ENCODER",
-    "Encoding tool",
-    "The software that wrote the file, the Vorbis/Matroska equivalent of MP4's <code>©too</code>.",
-  ],
-  ["ENCODED_BY", "Encoded by", "The person or organization credited with encoding."],
-  ["vendor", "Vendor string", "The encoder's own identification string from the comment header."],
-];
-
-// RIFF INFO chunks, used by WAVE files. Values are ISO 8859-1 text.
-export const RIFF_TAGS: TagSeed[] = [
-  ["INAM", "Title", "The name of the work."],
-  ["IART", "Artist", "The credited artist."],
-  ["IPRD", "Product / album", "The product or album the file belongs to."],
-  ["ICMT", "Comment", "Freeform comment."],
-  ["ICRD", "Creation date", "When the file was created."],
-  ["ISFT", "Software", "The software that wrote the file."],
-  ["IGNR", "Genre", "Genre as free text."],
-  ["ICOP", "Copyright", "The copyright notice."],
-  ["IENG", "Engineer", "The engineer credited with the recording."],
-];
-
-// mediabunny's own normalized field names, which appear alongside the raw ones.
-export const NORMALIZED_TAGS: TagSeed[] = [
-  ["title", "Title", "Normalized from whichever title tag the container uses."],
-  ["description", "Description", "Normalized short description or subtitle."],
-  ["artist", "Artist", "Normalized primary artist or creator."],
-  ["album", "Album", "Normalized album or collection name."],
-  ["albumArtist", "Album artist", "Normalized album-level artist."],
-  ["trackNumber", "Track number", "Normalized 1-based track position."],
-  ["tracksTotal", "Total tracks", "Normalized count of tracks in the album."],
-  ["discNumber", "Disc number", "Normalized 1-based disc position."],
-  ["discsTotal", "Total discs", "Normalized count of discs in the release."],
-  ["genre", "Genre", "Normalized genre."],
-  ["lyrics", "Lyrics", "Normalized lyrics or transcript."],
-  ["comment", "Comment", "Normalized freeform comment."],
+      // Capture
+      ["©xyz", "Location", "GPS coordinates in ISO 6709 form, written by phones and action cameras."],
+    ],
+  },
+  {
+    // QuickTime metadata keys, written by Apple devices through the `mdta` handler: a `keys` atom
+    // declares reverse-DNS names and the parallel `ilst` holds their values. Not four-character
+    // atoms, and not interchangeable with the group above.
+    origin: "QuickTime metadata key (mdta)",
+    seeds: [
+      ["com.apple.quicktime.make", "Camera make", "Manufacturer of the recording device."],
+      ["com.apple.quicktime.model", "Camera model", "Model of the recording device."],
+      ["com.apple.quicktime.software", "Device software", "OS or app version on the recording device."],
+      ["com.apple.quicktime.creationdate", "Capture date", "When the recording was made, including the time zone."],
+      [
+        "com.apple.quicktime.location.ISO6709",
+        "Capture location",
+        "GPS coordinates of the recording, in ISO 6709 form.",
+      ],
+    ],
+  },
+  {
+    // ID3v2 frames, used by MP3 and ADTS files.
+    origin: "ID3v2 frame (MP3, ADTS)",
+    seeds: [
+      ["TIT2", "Title", "ID3v2's title frame."],
+      ["TPE1", "Artist", "Lead performer or artist."],
+      ["TPE2", "Album artist", "Band, orchestra or album-level artist."],
+      ["TALB", "Album", "Album or collection name."],
+      ["TCON", "Genre", "Genre, either as text or as a legacy numeric code in parentheses."],
+      ["TRCK", "Track number", 'Track position, often written as "5/12".'],
+      ["TPOS", "Disc number", 'Disc position in a set, often written as "1/2".'],
+      ["TYER", "Year", "Four-digit year (ID3v2.3; superseded by <code>TDRC</code>)."],
+      ["TDRC", "Recording date", "Full recording timestamp (ID3v2.4)."],
+      ["TLEN", "Length", "Declared duration in milliseconds."],
+      ["TCOM", "Composer", "Composer of the work."],
+      [
+        "TSSE",
+        "Encoding settings",
+        "The software and settings used to encode the file, the ID3 equivalent of MP4's <code>©too</code>.",
+      ],
+      ["TENC", "Encoded by", "The person or tool credited with encoding."],
+      ["TBPM", "Tempo (BPM)", "Beats per minute."],
+      ["COMM", "Comment", "Freeform comment, with a language code and a short description attached."],
+      ["APIC", "Attached picture", "Embedded artwork such as cover art."],
+      ["TXXX", "User-defined text", "Custom key/value pairs that do not fit any standard frame."],
+      ["WXXX", "User-defined URL", "A custom URL, e.g. the artist or purchase page."],
+      ["TAG", "ID3v1 block", "The legacy 128-byte tag at the end of an MP3, kept for old players."],
+    ],
+  },
+  {
+    // Vorbis comments (Ogg, FLAC) and Matroska SimpleTags. Conventionally uppercase.
+    origin: "Vorbis comment / Matroska tag (Ogg, FLAC, MKV)",
+    seeds: [
+      ["TITLE", "Title", "The title of the work."],
+      ["ARTIST", "Artist", "The credited artist or creator."],
+      ["ALBUMARTIST", "Album artist", "The artist credited for the album as a whole."],
+      ["ALBUM", "Album", "Album or collection name."],
+      ["DATE", "Date", "Release or recording date."],
+      ["DATE_RELEASED", "Release date", "Matroska's release-date tag."],
+      ["GENRE", "Genre", "Genre as free text."],
+      ["TRACKNUMBER", "Track number", "Track position within the album."],
+      ["DISCNUMBER", "Disc number", "Disc position within the release."],
+      ["COMMENT", "Comment", "Freeform comment."],
+      ["DESCRIPTION", "Description", "A short description of the content."],
+      [
+        "ENCODER",
+        "Encoding tool",
+        "The software that wrote the file, the Vorbis/Matroska equivalent of MP4's <code>©too</code>.",
+      ],
+      ["ENCODED_BY", "Encoded by", "The person or organization credited with encoding."],
+      ["vendor", "Vendor string", "The encoder's own identification string from the comment header."],
+    ],
+  },
+  {
+    // RIFF INFO chunks, used by WAVE files. Values are ISO 8859-1 text.
+    origin: "RIFF INFO chunk (WAVE)",
+    seeds: [
+      ["INAM", "Title", "The name of the work."],
+      ["IART", "Artist", "The credited artist."],
+      ["IPRD", "Product / album", "The product or album the file belongs to."],
+      ["ICMT", "Comment", "Freeform comment."],
+      ["ICRD", "Creation date", "When the file was created."],
+      ["ISFT", "Software", "The software that wrote the file."],
+      ["IGNR", "Genre", "Genre as free text."],
+      ["ICOP", "Copyright", "The copyright notice."],
+      ["IENG", "Engineer", "The engineer credited with the recording."],
+    ],
+  },
+  {
+    // mediabunny's own normalized field names, which appear alongside the raw ones.
+    origin: "Normalized by mediabunny",
+    seeds: [
+      ["title", "Title", "Normalized from whichever title tag the container uses."],
+      ["description", "Description", "Normalized short description or subtitle."],
+      ["artist", "Artist", "Normalized primary artist or creator."],
+      ["album", "Album", "Normalized album or collection name."],
+      ["albumArtist", "Album artist", "Normalized album-level artist."],
+      ["trackNumber", "Track number", "Normalized 1-based track position."],
+      ["tracksTotal", "Total tracks", "Normalized count of tracks in the album."],
+      ["discNumber", "Disc number", "Normalized 1-based disc position."],
+      ["discsTotal", "Total discs", "Normalized count of discs in the release."],
+      ["genre", "Genre", "Normalized genre."],
+      ["lyrics", "Lyrics", "Normalized lyrics or transcript."],
+      ["comment", "Comment", "Normalized freeform comment."],
+    ],
+  },
 ];
 
 // Encoder signatures common enough to be worth decoding on sight. Each pattern captures only a
@@ -434,9 +458,10 @@ export function codecExplainer(codecInfo: CodecInfo | null): string | null {
 
 /**
  * What each codec is, keyed by mediabunny's short codec id, shown under the track that uses it.
- * The profile/level parsing that goes beside it stays in lib/codecKb, which reads these.
+ * The profile/level parsing that goes beside it stays in lib/codecKb, which reads these. Its keys
+ * are exactly the ones written here, so an entry there naming a key this lacks does not compile.
  */
-export const CODEC_DESCRIPTIONS: Record<string, string> = {
+export const CODEC_DESCRIPTIONS = {
   avc: "The most widely supported video codec in existence; nearly every browser, phone, and hardware decoder handles it natively. It works by splitting each frame into blocks, predicting them from earlier frames, and smoothing the block edges before the result is reused as a reference.",
   hevc: "Roughly 2&times; more efficient than H.264 at equal visual quality, using larger coding-tree blocks and richer intra/inter prediction, at the cost of much slower encoding and patchier hardware decode support (older devices and some browsers can't play it back at all, which is a poor fit for a shared QC/annotation pipeline).",
   vp9: "An open, royalty-free codec from Google built as a free alternative to H.265, with broadly similar compression efficiency. Well supported in Chrome/Firefox and common in WebM, but not universal on iOS/Safari or older hardware decoders.",
@@ -451,7 +476,7 @@ export const CODEC_DESCRIPTIONS: Record<string, string> = {
   flac: "Lossless compression, meaning bit-exact reconstruction of the original samples, at roughly 50&ndash;60% the size of raw PCM. Not used for lossy delivery, but common for archival audio.",
   ac3: "A perceptual multichannel (up to 5.1) audio codec common in broadcast, DVD, and streaming.",
   eac3: "An extension of AC-3 with higher efficiency and up to 7.1 channels; common in modern streaming and broadcast.",
-};
+} satisfies Record<string, string>;
 
 /** Shown for uncompressed audio, which has no knowledge-base entry of its own. */
 export const PCM_DESCRIPTION =

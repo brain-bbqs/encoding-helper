@@ -1,5 +1,5 @@
 // Metadata tag knowledge base: turns the container's own tag names into readable labels. The tables
-// it reads (the tag seeds and the encoder-signature hints) are prose, so they live with the rest of
+// it reads (the tag groups and the encoder-signature hints) are prose, so they live with the rest of
 // the app's copy in lib/explainers; the lookup is what is left here.
 //
 // mediabunny normalizes the handful of tags it recognizes (title, artist, ...) and dumps everything
@@ -8,24 +8,9 @@
 // atom names where a leading © (byte 0xA9) marks a QuickTime text atom, MP3/ADTS use ID3v2 frame
 // ids, Ogg/FLAC/Matroska use Vorbis-style words, and WAVE uses RIFF INFO chunk ids. QuickTime has a
 // second naming scheme besides its atoms (the reverse-DNS keys Apple devices write through the
-// `mdta` handler), which is a table of its own in lib/explainers and an origin of its own here.
+// `mdta` handler), which is a group of its own in lib/explainers, with an origin of its own.
 
-import {
-  ID3_ORIGIN,
-  ID3_TAGS,
-  NORMALIZED_ORIGIN,
-  NORMALIZED_TAGS,
-  QUICKTIME_KEY_ORIGIN,
-  QUICKTIME_KEY_TAGS,
-  QUICKTIME_ORIGIN,
-  QUICKTIME_TAGS,
-  RIFF_ORIGIN,
-  RIFF_TAGS,
-  VALUE_HINTS,
-  VORBIS_ORIGIN,
-  VORBIS_TAGS,
-  type TagSeed,
-} from "./explainers";
+import { TAG_GROUPS, VALUE_HINTS } from "./explainers";
 
 export interface MetadataTagInfo {
   /** The canonical key as this knowledge base spells it (never the untrusted key read off a file). */
@@ -38,21 +23,11 @@ export interface MetadataTagInfo {
   description: string;
 }
 
-function seedGroup(origin: string, seeds: TagSeed[]): MetadataTagInfo[] {
-  return seeds.map(([key, label, description]) => ({ key, label, origin, description }));
-}
-
-// Order matters for the case-insensitive fallback below: the container-native spellings are
-// registered before mediabunny's normalized field names, so a stray "Title" resolves to the
-// Vorbis-style entry rather than to the normalized one.
-const TAG_KB: MetadataTagInfo[] = [
-  ...seedGroup(QUICKTIME_ORIGIN, QUICKTIME_TAGS),
-  ...seedGroup(QUICKTIME_KEY_ORIGIN, QUICKTIME_KEY_TAGS),
-  ...seedGroup(ID3_ORIGIN, ID3_TAGS),
-  ...seedGroup(VORBIS_ORIGIN, VORBIS_TAGS),
-  ...seedGroup(RIFF_ORIGIN, RIFF_TAGS),
-  ...seedGroup(NORMALIZED_ORIGIN, NORMALIZED_TAGS),
-];
+// Flattened in TAG_GROUPS's order, which the case-insensitive fallback below depends on: of the
+// entries sharing an upper-cased key, it keeps the first registered.
+const TAG_KB: MetadataTagInfo[] = TAG_GROUPS.flatMap(({ origin, seeds }) =>
+  seeds.map(([key, label, description]) => ({ key, label, origin, description })),
+);
 
 const BY_EXACT_KEY = new Map<string, MetadataTagInfo>();
 const BY_UPPER_KEY = new Map<string, MetadataTagInfo>();
