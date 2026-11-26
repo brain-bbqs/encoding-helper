@@ -103,3 +103,9 @@ export class RunStopped extends Error {
 export function throwIfStopped(run: EncoderRun): void {
   if (run.stopped) throw new RunStopped();
 }
+
+/** Ends `run` here if a file load or Reset has taken the encoder from it, after which the state it
+ * would write to is the next file's. A run stopped by Stop alone goes on past this. */
+export function throwIfAbandoned(run: EncoderRun): void {
+  if (holder !== run) throw new RunStopped();
+}

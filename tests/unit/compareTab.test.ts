@@ -289,6 +289,23 @@ async function settleRun(panel: HTMLElement): Promise<void> {
   await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
 }
 
+/** Sweeps ultrafast and superfast with ultrafast failing, and waits for superfast, the winner, to
+ * be on its way into the A/B window. */
+async function sweepWithOneFailure(): Promise<{ panel: HTMLElement; cells: MatrixCell[] }> {
+  loadClip();
+  sweepOf(["ultrafast", "superfast"]);
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  core.exec = (args) => (args.includes("ultrafast") ? Promise.reject(new Error("x264 gave up")) : Promise.resolve());
+  const panel = renderTab();
+  await pressRun(panel);
+  return { panel, cells: sampledEncode.matrix.cells };
+}
+
+/** What a square says under its figure: "queued", "retry", "run it" and so on. */
+function squareSub(panel: HTMLElement, cell: MatrixCell): string {
+  return square(panel, cell).querySelector(".matrix-sub")!.textContent ?? "";
+}
+
 /** The controls of the Reencode with FFmpeg tab's two encodes: the sample run and the whole-file one. */
 interface ReencodeControls {
   runButton: HTMLButtonElement;
@@ -1029,6 +1046,12 @@ describe("running the sweep", () => {
     expect(encoderBusy()).toBe(false);
     expect(sampledEncode.matrix.running).toBe(false);
     expect(error).toHaveBeenCalledOnce();
+    // Nothing is left queued once no run will take it: the square the sweep never reached is
+    // offered to run, as one Stop left behind would be.
+    const [cell] = sampledEncode.matrix.cells;
+    expect(cell.status).toBe("skipped");
+    expect(squareSub(panel, cell)).toBe("run it");
+    expect(runButton(panel).textContent).toBe("Run 1 unmeasured");
   });
 
   it("asks for a quality and a preset before sweeping anything", async () => {
@@ -1317,6 +1340,148 @@ describe("running the sweep", () => {
     expect(cells.map((c) => c.bytes)).toEqual([300, 200]);
     expect(runNote(panel).textContent).toBe("");
     expect(runButton(panel).textContent).toBe("Run Matrix");
+  });
+
+  // Once the sweep's cores have run out of squares there is no queue left to join, so a failed
+  // square clicked while the winner goes into the A/B window asks for a run of its own, which the
+  // sweep still holding the encoder refuses. The square stays as it was rather than queued for
+  // nothing, and runs when clicked once the sweep has ended.
+  it("leaves a failed square as it was when it is clicked while the winner goes into the A/B window", async () => {
+    const { panel, cells } = await sweepWithOneFailure();
+    expect(settleAbLoad).not.toBeNull();
+
+    square(panel, cells[0]).click();
+    await flush();
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(logText(panel)).not.toContain("Queued a retry");
+    expect(runNote(panel).textContent).toBe(
+      "An encode is already running on the Compare Quality tab. Wait for it to finish or stop it.",
+    );
+
+    await settleRun(panel);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("1 of 2 encoded, 1 failed");
+
+    core.exec = null;
+    square(panel, cells[0]).click();
+    await awaitRun(panel);
+    expect(cells.map((c) => c.status)).toEqual(["done", "done"]);
+    expect(encodes()).toHaveLength(3);
+    expect(runButton(panel).textContent).toBe("Run Matrix");
+  });
+
+  // A retry puts its squares in line before it has read or loaded anything. Stopped before it
+  // reaches them, it leaves each as it was: a failed square still failed, with what it failed with.
+  it("leaves a retried square as it was when Stop lands before the retry reaches it", async () => {
+    const { panel, cells } = await sweepWithOneFailure();
+    await settleRun(panel);
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    // The cores were emptied meanwhile, so the retry cuts the stretch out of the file again first,
+    // and that cut is held.
+    for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
+    core.exec = (args) => (args.includes("-crf") ? Promise.resolve() : new Promise<void>(() => {}));
+    runButton(panel).click();
+    await vi.waitFor(() => expect(cuts()).toHaveLength(2), WAIT);
+    expect(squareSub(panel, cells[0])).toBe("queued");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(encodes()).toHaveLength(2);
+  });
+
+  // The same for a retry that fails before it reaches a square: the failure is the run's, not the
+  // square's, so the square keeps the error its own last attempt ended with.
+  it("leaves a retried square as it was when the retry cannot read the file", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { panel, cells } = await sweepWithOneFailure();
+    await settleRun(panel);
+    for (const worker of ffmpegPool(MAX_POOL_WORKERS)) worker.reset();
+    fetchFile.mockRejectedValueOnce(new Error("the file could not be read"));
+    core.exec = null;
+
+    runButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "done"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(runButton(panel).textContent).toBe("Retry 1 failed");
+    expect(runNote(panel).textContent).toBe("Failed: the file could not be read");
+    expect(encodes()).toHaveLength(2);
+    expect(error).toHaveBeenCalledOnce();
+  });
+
+  // A square queued back into a sweep that Stop then ends was never reached by it, so it too is
+  // left as it was before it was queued.
+  it("leaves a square queued back into a sweep as it was when Stop ends the sweep first", async () => {
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    let attempts = 0;
+    core.exec = (args) => {
+      if (!args.includes("-crf")) return Promise.resolve();
+      attempts++;
+      return attempts === 1 ? Promise.reject(new Error("x264 gave up")) : new Promise<void>(() => {});
+    };
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(attempts).toBe(2), WAIT);
+    const cells = sampledEncode.matrix.cells;
+    square(panel, cells[0]).click();
+    expect(squareSub(panel, cells[0])).toBe("queued");
+
+    stopButton(panel).click();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    expect(cells.map((c) => c.status)).toEqual(["failed", "skipped"]);
+    expect(cells[0].error).toBe("x264 gave up");
+    expect(squareSub(panel, cells[0])).toBe("retry");
+    expect(squareSub(panel, cells[1])).toBe("run it");
+    expect(runButton(panel).textContent).toBe("Run 2 unmeasured");
+    expect(runNote(panel).textContent).toBe("Stopped: 0 of 2 encoded");
+  });
+
+  // A Stop pressed while a fresh sweep still reads the file to fix its stretches is acted on once
+  // they are fixed, so the squares it leaves unreached are run later over the stretches the fields
+  // asked for rather than over whatever an earlier sweep covered.
+  it("fixes a sweep's stretches before ending it for a Stop pressed while it reads the file", async () => {
+    loadClip();
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<void>();
+    const source = state.source!;
+    const readChunk = source.readChunk.bind(source);
+    source.readChunk = (offset, size) => reading.promise.then(() => readChunk(offset, size));
+    const panel = renderTab();
+    runButton(panel).click();
+    await flush();
+
+    stopButton(panel).click();
+    reading.resolve();
+    await vi.waitFor(() => expect(runButton(panel).disabled).toBe(false), WAIT);
+
+    const cells = sampledEncode.matrix.cells;
+    expect(cells.map((c) => c.status)).toEqual(["skipped"]);
+    expect(squareSub(panel, cells[0])).toBe("run it");
+    expect(runButton(panel).textContent).toBe("Run 1 unmeasured");
+    expect(runNote(panel).textContent).toBe("Stopped.");
+    expect(sampledEncode.matrix.windows).toEqual([{ startSeconds: 0, seconds: 2 }]);
+    expect(core.execs).toEqual([]);
+
+    await pressRun(panel);
+    expect(cells.map((c) => c.status)).toEqual(["done"]);
+    expect(cuts()[0]).toEqual(expect.arrayContaining(["-ss", "0", "-t", "2"]));
   });
 
   it("spreads the squares over the cores the machine offers, and says so", async () => {
@@ -1614,6 +1779,32 @@ describe("a run across a file change", () => {
     await vi.waitFor(() => expect(runButton(els.panels.compare).disabled).toBe(false), WAIT);
     expect(core.terminated).toBe(terminated + 1);
     expect(runNote(els.panels.compare).textContent).toBe("Stopped: 0 of 1 encoded");
+  });
+
+  // A Stop lets a sweep still reading the file fix its stretches first, but a file load does not:
+  // the fields and the grid the stretches would be written into are the next file's by then.
+  it("fixes no stretches for the next file when a sweep stopped while reading the last one catches up", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { els, loader } = mountLoader();
+    await loader.loadFile(new File([CLIP_BYTES], "a.mp4"));
+    sweepOf(["ultrafast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const reading = deferred<void>();
+    state.source!.readChunk = () => reading.promise.then(() => Promise.reject(new Error("read failed")));
+    runButton(els.panels.compare).click();
+    await flush();
+
+    await loader.loadFile(new File([CLIP_BYTES], "b.mp4"));
+    reading.resolve();
+    await vi.waitFor(() => expect(warn).toHaveBeenCalled(), WAIT);
+    await flush();
+
+    expect(state.source!.name).toBe("b.mp4");
+    expect(sampledEncode.matrix.windows).toEqual([]);
+    expect(sampledEncode.sampled).toEqual([]);
+    expect(sampledEncode.matrix.cells).toEqual([]);
+    expect(core.execs).toEqual([]);
+    expect(encoderBusy()).toBe(false);
   });
 
   it("stops the whole-file encode when the file is closed, and saves nothing", async () => {
