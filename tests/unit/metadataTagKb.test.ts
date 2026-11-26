@@ -44,6 +44,12 @@ describe("describeMetadataTag", () => {
     expect(describeMetadataTag("ISFT")?.label).toBe("Software");
   });
 
+  it("names the container family each of those spellings comes from", () => {
+    expect(describeMetadataTag("TIT2")?.origin).toBe("ID3v2 frame (MP3, ADTS)");
+    expect(describeMetadataTag("ENCODER")?.origin).toBe("Vorbis comment / Matroska tag (Ogg, FLAC, MKV)");
+    expect(describeMetadataTag("ISFT")?.origin).toBe("RIFF INFO chunk (WAVE)");
+  });
+
   it("falls back to a case-insensitive match for containers that vary capitalization", () => {
     expect(describeMetadataTag("encoder")?.key).toBe("ENCODER");
     expect(describeMetadataTag("Title")?.key).toBe("TITLE");
