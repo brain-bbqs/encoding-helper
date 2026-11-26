@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.12
+
+#### 🏠 Internal
+
+- Simplified the encoding engine's helpers, the atom map's layout type, and the codec and tag tables; the app looks and works the same ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.11
 
 #### 🐛 Bug Fix
