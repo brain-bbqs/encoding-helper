@@ -87,7 +87,7 @@ function loadClip(opts: { keyframes?: boolean; byte?: number } = {}): void {
 }
 
 function controls(): RunUi {
-  const { nodes, ui } = runControls("Run");
+  const { nodes, ui } = runControls(() => "Run");
   document.body.append(...nodes);
   return ui;
 }

@@ -6,7 +6,7 @@
 // only useful next to the command that setting comes to, and the whole-file encode is that same
 // command over the whole file rather than a separate feature.
 
-import { CRF_MAP, isDownscale } from "../lib/cliCommand";
+import { CRF_MAP } from "../lib/cliCommand";
 import { h } from "@brain-bbqs/ui";
 import { cmdBlock, section, teachBox } from "../lib/dom";
 import { claimEncoder, holdsEncoder, releaseEncoder } from "../lib/encoderRun";
@@ -19,6 +19,7 @@ import { inBrowserEncodeSection } from "./inBrowserEncode";
 import {
   bindResolutionControls,
   parseScaler,
+  type QualityControls,
   refreshCliCommand,
   resolutionFields,
   scalerOptions,
@@ -61,11 +62,15 @@ export function renderEncodeTab(panel: HTMLElement): void {
 
   const builderSec = section("FFmpeg Command Builder");
   builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
+  // Made ahead of the fields that rewrite it, and placed under them.
+  const { wrap: cmdWrap, pre: cmdPre } = cmdBlock();
+  cmdPre.id = "cmdPre";
+  const refresh = (): void => refreshCliCommand(cmdPre);
 
   const form = h("div");
   // Capped rather than left to fill the form: the longest option is a few words, and a select as
   // wide as the page reads as a text field.
-  const qualityField = fieldSelect(
+  const { field: qualityField, select: qualitySelect } = fieldSelect(
     "cliQuality",
     "Quality",
     [
@@ -79,23 +84,46 @@ export function renderEncodeTab(panel: HTMLElement): void {
   );
   qualityField.classList.add("field-compact");
   form.append(qualityField);
-  const crfField = fieldNumber("cliCrf", "Custom CRF (0=lossless, 51=worst)", cli.crf, 0, 51, 1);
+  const { field: crfField, input: crfInput } = fieldNumber(
+    "cliCrf",
+    "Custom CRF (0=lossless, 51=worst)",
+    cli.crf,
+    0,
+    51,
+    1,
+  );
   crfField.classList.add("field-compact");
-  crfField.style.display = cli.quality === "custom" ? "" : "none";
   form.append(crfField);
 
   const row1 = h("div", "row");
-  const { scaleField, customField } = resolutionFields(info);
-  row1.append(scaleField, customField);
-  const cliScalerField = fieldSelect("cliScaler", "Scaler", scalerOptions(), cli.scaler, SCALER_INFO);
+  const resolution = resolutionFields(info);
+  row1.append(resolution.scaleField, resolution.customField);
+  const { field: cliScalerField, select: scalerSelect } = fieldSelect(
+    "cliScaler",
+    "Scaler",
+    scalerOptions(),
+    cli.scaler,
+    SCALER_INFO,
+  );
   // Shown at every resolution, the way the sweep lists its kernels, but only live where something is
-  // being resampled: at full resolution there is nothing for a kernel to do.
-  const scalerSelect = cliScalerField.querySelector("select")!;
-  scalerSelect.toggleAttribute("disabled", !isDownscale(cli.scale));
+  // being resampled (see syncQualityControls): at full resolution there is nothing for a kernel to do.
   row1.append(cliScalerField);
-  const presetField = fieldSelect("cliPreset", "x264 Preset", MATRIX_PRESETS, cli.preset, X264_PRESET_INFO);
+  const { field: presetField, select: presetSelect } = fieldSelect(
+    "cliPreset",
+    "x264 Preset",
+    MATRIX_PRESETS,
+    cli.preset,
+    X264_PRESET_INFO,
+  );
   row1.append(presetField);
-  const kfField = fieldNumber("cliKeyframeInterval", "Keyframe Interval (s)", cli.keyframeInterval, 0.1, 10, 0.1);
+  const { field: kfField, input: kfInput } = fieldNumber(
+    "cliKeyframeInterval",
+    "Keyframe Interval (s)",
+    cli.keyframeInterval,
+    0.1,
+    10,
+    0.1,
+  );
   row1.append(kfField);
   form.append(row1);
   // Content-width rather than a third of the form each: the labels differ in length, so equal
@@ -109,14 +137,14 @@ export function renderEncodeTab(panel: HTMLElement): void {
     const { field, input } = checkField(id, label, cli[key]);
     input.addEventListener("change", () => {
       cli[key] = input.checked;
-      refreshCliCommand();
+      refresh();
     });
     row2.append(field);
   }
   form.append(row2);
 
   const row3 = h("div", "row");
-  const audioField = fieldSelect(
+  const { field: audioField, select: audioSelect } = fieldSelect(
     "cliAudio",
     "Audio",
     [
@@ -127,16 +155,31 @@ export function renderEncodeTab(panel: HTMLElement): void {
   );
   audioField.classList.add("field-compact");
   row3.append(audioField);
-  const fpsField = fieldNumber("cliFps", "FPS override (blank = source)", cli.fps || "", 1, 240, 1);
+  const { field: fpsField, input: fpsInput } = fieldNumber(
+    "cliFps",
+    "FPS override (blank = source)",
+    cli.fps || "",
+    1,
+    240,
+    1,
+  );
   fpsField.classList.add("field-compact");
   row3.append(fpsField);
   form.append(row3);
   builderSec.append(form);
-
-  const { wrap: cmdWrap, pre: cmdPre } = cmdBlock();
-  cmdPre.id = "cmdPre";
   builderSec.append(cmdWrap);
   panel.append(builderSec);
+
+  const controls: QualityControls = {
+    ...resolution,
+    qualitySelect,
+    crfField,
+    crfInput,
+    presetSelect,
+    scalerSelect,
+    cmdPre,
+  };
+  const sync = (): void => syncQualityControls(controls);
 
   const bindNumber = (
     input: HTMLInputElement,
@@ -146,45 +189,43 @@ export function renderEncodeTab(panel: HTMLElement): void {
     input.addEventListener("input", () => {
       const v = input.value;
       assign(v === "" ? null : parse(v));
-      refreshCliCommand();
+      refresh();
     });
   };
-  const qualitySelect = qualityField.querySelector("select")!;
   qualitySelect.addEventListener("change", () => {
     cli.quality = qualitySelect.value as typeof cli.quality;
-    syncQualityControls();
+    sync();
   });
-  const crfInput = crfField.querySelector("input")!;
   crfInput.addEventListener("input", () => {
     cli.crf = parseInt(crfInput.value, 10) || 0;
-    syncQualityControls();
+    sync();
   });
-  const presetSelect = presetField.querySelector("select")!;
   presetSelect.addEventListener("change", () => {
     cli.preset = presetSelect.value as typeof cli.preset;
-    syncQualityControls();
+    sync();
   });
-  bindResolutionControls();
+  bindResolutionControls(resolution, sync);
   scalerSelect.addEventListener("change", () => {
     cli.scaler = parseScaler(scalerSelect.value);
-    syncQualityControls();
+    sync();
   });
-  bindNumber(kfField.querySelector("input")!, parseFloat, (parsed) => {
+  bindNumber(kfInput, parseFloat, (parsed) => {
     cli.keyframeInterval = parsed ?? cli.keyframeInterval;
   });
-  const audioSelect = audioField.querySelector("select")!;
   audioSelect.addEventListener("change", () => {
     cli.audioMode = audioSelect.value as typeof cli.audioMode;
-    refreshCliCommand();
+    refresh();
   });
   bindNumber(
-    fpsField.querySelector("input")!,
+    fpsInput,
     (v) => parseInt(v, 10),
     (parsed) => {
       cli.fps = parsed;
     },
   );
-  refreshCliCommand();
+  // The freshly built controls take the state the builder's settings put them in (the CRF field
+  // shown or hidden, the kernel live or inert), by the same rules every later change follows.
+  sync();
 
   panel.append(sampleRunSection(vt));
   panel.append(inBrowserEncodeSection(info));
@@ -204,7 +245,7 @@ function sampleRunSection(vt: TrackInfo): HTMLElement {
   const sec = section("Try It on a Sample");
   const picker = samplePicker();
   if (picker) sec.append(picker.el);
-  const { nodes, ui } = runControls("Run Comparison");
+  const { nodes, ui } = runControls(() => "Run Comparison");
   sec.append(...nodes);
 
   // The comparison lands inside this card rather than in one of its own: it is what the run above
@@ -241,7 +282,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     ui.note.textContent = "Encoding test segment…";
     const { blobs, bytes, measured } = await encodeWindows(run, cli, inputs, workers, ui, (fraction) => {
       const pct = fraction * 100;
-      if (fill) fill.style.width = pct.toFixed(0) + "%";
+      fill.style.width = pct.toFixed(0) + "%";
       ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
     });
 

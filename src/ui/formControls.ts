@@ -15,6 +15,7 @@ export function fieldHead(label: string, info?: string | null): HTMLElement {
   return head;
 }
 
+/** A labelled dropdown in a field of its own, the select handed back for the caller to listen to. */
 export function fieldSelect(
   id: string,
   label: string,
@@ -22,22 +23,23 @@ export function fieldSelect(
   value: string,
   /** Trusted, author-authored explainer markup, shown from an ⓘ next to the label. */
   info?: string | null,
-): HTMLDivElement {
-  const f = h("div", "field");
-  f.append(fieldHead(label, info));
-  const sel = h("select");
-  sel.id = id;
+): { field: HTMLDivElement; select: HTMLSelectElement } {
+  const field = h("div", "field");
+  field.append(fieldHead(label, info));
+  const select = h("select");
+  select.id = id;
   options.forEach((opt) => {
     const [v, text] = Array.isArray(opt) ? opt : [opt, opt];
     const o = h("option", null, text);
     o.value = v;
     if (v === value) o.selected = true;
-    sel.append(o);
+    select.append(o);
   });
-  f.append(sel);
-  return f;
+  field.append(select);
+  return { field, select };
 }
 
+/** A labelled number box in a field of its own, the input handed back for the caller to listen to. */
 export function fieldNumber(
   id: string,
   label: string,
@@ -45,24 +47,26 @@ export function fieldNumber(
   min: number,
   max: number,
   step: number,
-): HTMLDivElement {
-  const f = h("div", "field");
-  f.append(fieldHead(label));
-  const inp = h("input");
-  inp.type = "number";
-  inp.id = id;
-  inp.value = String(value);
-  inp.min = String(min);
-  inp.max = String(max);
-  inp.step = String(step);
-  f.append(inp);
-  return f;
+): { field: HTMLDivElement; input: HTMLInputElement } {
+  const field = h("div", "field");
+  field.append(fieldHead(label));
+  const input = h("input");
+  input.type = "number";
+  input.id = id;
+  input.value = String(value);
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  field.append(input);
+  return { field, input };
 }
 
 export interface EngineBox {
   el: HTMLDivElement;
   button: HTMLButtonElement;
   progress: HTMLDivElement;
+  /** The bar's fill, which the encode advances. */
+  fill: HTMLDivElement;
   note: HTMLDivElement;
   log: HTMLDivElement;
   result: HTMLDivElement;
@@ -78,7 +82,7 @@ export function engineBox(buttonLabel: string): EngineBox {
   const btn = button("btn", buttonLabel);
   btn.style.marginTop = "8px";
   el.append(btn);
-  const { wrap: progress } = progressBar();
+  const { wrap: progress, fill } = progressBar();
   el.append(progress);
   const note = h("div", "progress-label");
   note.style.marginTop = "4px";
@@ -88,7 +92,7 @@ export function engineBox(buttonLabel: string): EngineBox {
   const result = h("div");
   result.style.marginTop = "8px";
   el.append(result);
-  return { el, button: btn, progress, note, log, result };
+  return { el, button: btn, progress, fill, note, log, result };
 }
 
 /** A hidden progress bar and its fill, for the run that will show and advance it. */
@@ -100,20 +104,15 @@ export function progressBar(): { wrap: HTMLDivElement; fill: HTMLDivElement } {
   return { wrap, fill };
 }
 
-/** Shows a bar with its fill back at the start, and hands the fill back for the run to advance. */
-export function resetProgressFill(progress: HTMLDivElement): HTMLDivElement | null {
+/** Shows a bar with its fill back at the start, for the run to advance. */
+export function resetProgressFill(progress: HTMLDivElement, fill: HTMLDivElement): void {
   progress.style.display = "block";
-  const fill = progress.querySelector<HTMLDivElement>(".fill");
-  if (fill) {
-    fill.style.width = "0%";
-    fill.classList.remove("done");
-  }
-  return fill;
+  fill.style.width = "0%";
+  fill.classList.remove("done");
 }
 
 /** Fills a bar to the end, in the colour the app uses for a good outcome. */
-export function finishFill(fill: HTMLDivElement | null): void {
-  if (!fill) return;
+export function finishFill(fill: HTMLDivElement): void {
   fill.style.width = "100%";
   fill.classList.add("done");
 }

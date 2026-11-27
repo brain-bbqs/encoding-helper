@@ -17,39 +17,45 @@ const OPTIONS: [string, string][] = [
 ];
 
 describe("fieldSelect", () => {
-  it("builds a labelled select with the current value chosen", () => {
-    const field = fieldSelect("etPreset", "x264 Preset", OPTIONS, "veryslow");
+  it("builds a labelled select with the current value chosen, and hands the select back", () => {
+    const { field, select } = fieldSelect("etPreset", "x264 Preset", OPTIONS, "veryslow");
     expect(field.querySelector("label")!.textContent).toBe("x264 Preset");
-    const select = field.querySelector("select")!;
+    expect(field.querySelector("select")).toBe(select);
     expect(select.id).toBe("etPreset");
     expect(select.value).toBe("veryslow");
   });
 
   // Most option lists are plain names, where the value and its wording are the same thing.
   it("uses a plain string option as both its value and its wording", () => {
-    const field = fieldSelect("etCodec", "Codec", ["h264", ["hevc", "H.265 / HEVC"]], "h264");
-    const options = Array.from(field.querySelectorAll("option"));
+    const { select } = fieldSelect("etCodec", "Codec", ["h264", ["hevc", "H.265 / HEVC"]], "h264");
+    const options = Array.from(select.querySelectorAll("option"));
     expect(options.map((o) => [o.value, o.textContent])).toEqual([
       ["h264", "h264"],
       ["hevc", "H.265 / HEVC"],
     ]);
-    expect(field.querySelector("select")!.value).toBe("h264");
+    expect(select.value).toBe("h264");
   });
 
   it("leaves the label bare when there is nothing to explain", () => {
-    const field = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast");
+    const { field } = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast");
     expect(field.querySelector(".field-head")).toBeNull();
     expect(field.querySelector(".info-btn")).toBeNull();
   });
 
   it("puts an ⓘ beside the label when given explainer copy", () => {
-    const field = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast", "<b>Preset</b> sets how hard…");
+    const { field, select } = fieldSelect(
+      "etPreset",
+      "x264 Preset",
+      OPTIONS,
+      "superfast",
+      "<b>Preset</b> sets how hard…",
+    );
     const head = field.querySelector(".field-head")!;
     expect(head.querySelector("label")!.textContent).toBe("x264 Preset");
     expect(head.querySelector(".info-btn")!.getAttribute("aria-label")).toBe("About x264 Preset");
     expect(head.querySelector(".info-pop")!.innerHTML).toBe("<b>Preset</b> sets how hard…");
     // The control itself is unchanged by the explainer.
-    expect(field.querySelector("select")!.value).toBe("superfast");
+    expect(select.value).toBe("superfast");
   });
 });
 
@@ -113,10 +119,10 @@ describe("logConsole", () => {
 });
 
 describe("fieldNumber", () => {
-  it("builds a labelled number input with its range and step", () => {
-    const field = fieldNumber("etCrf", "CRF", 23, 0, 51, 1);
+  it("builds a labelled number input with its range and step, and hands the input back", () => {
+    const { field, input } = fieldNumber("etCrf", "CRF", 23, 0, 51, 1);
     expect(field.querySelector("label")!.textContent).toBe("CRF");
-    const input = field.querySelector("input")!;
+    expect(field.querySelector("input")).toBe(input);
     expect(input.type).toBe("number");
     expect(input.id).toBe("etCrf");
     expect(input.value).toBe("23");
@@ -133,7 +139,7 @@ describe("progress bars", () => {
     fill.style.width = "60%";
     fill.classList.add("done");
 
-    expect(resetProgressFill(wrap)).toBe(fill);
+    resetProgressFill(wrap, fill);
 
     expect(wrap.style.display).toBe("block");
     expect(fill.style.width).toBe("0%");
@@ -145,16 +151,6 @@ describe("progress bars", () => {
     finishFill(fill);
     expect(fill.style.width).toBe("100%");
     expect(fill.classList.contains("done")).toBe(true);
-  });
-
-  // A bar with no fill in it can still be shown; there is just nothing to advance, so the run gets
-  // null back and finishing it is a no-op rather than an error. Not throwing is the behaviour here.
-  it("shows a bar that has no fill, and finishes it without complaint", () => {
-    const bare = document.createElement("div");
-    const fill = resetProgressFill(bare);
-    expect(fill).toBeNull();
-    expect(bare.style.display).toBe("block");
-    expect(() => finishFill(fill)).not.toThrow();
   });
 });
 
@@ -171,6 +167,8 @@ describe("engineBox", () => {
       box.result,
     ]);
     expect(box.progress.style.display).toBe("none");
+    // The fill handed back is the bar's own, so advancing it moves the bar on the page.
+    expect(box.fill).toBe(box.progress.querySelector(".fill"));
     expect(box.note.className).toBe("progress-label");
     // The console is wired to its fold, so logging shows the fold.
     logLine(box.log, "started");

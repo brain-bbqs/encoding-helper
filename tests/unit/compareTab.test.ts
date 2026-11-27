@@ -109,7 +109,12 @@ vi.mock("../../src/lib/mediabunny", () => {
 let settleAbLoad: { resolve: () => void; reject: (err: Error) => void } | null = null;
 
 /** What the A/B window was handed, load by load. */
-const abLoads: { blobs: number; settings: EncodeSettings; totals?: { bytes: number; windows: SampleWindow[] } }[] = [];
+const abLoads: {
+  blobs: number;
+  settings: EncodeSettings;
+  vt: unknown;
+  totals?: { bytes: number; windows: SampleWindow[] };
+}[] = [];
 
 /** What the tab asked to be told when a run elsewhere takes the A/B window over. */
 let abDisplaced: (() => void) | null = null;
@@ -126,13 +131,13 @@ vi.mock("../../src/ui/abPanel", async () => {
     loadEncodedIntoAB: (
       blobs: Blob[],
       settings: EncodeSettings,
-      _vt: unknown,
+      vt: unknown,
       _host: unknown,
       totals?: { bytes: number; windows: SampleWindow[] },
       run?: { stopped: boolean },
     ) => {
       if (run?.stopped) return Promise.reject(new RunStopped());
-      abLoads.push({ blobs: blobs.length, settings, totals });
+      abLoads.push({ blobs: blobs.length, settings, vt, totals });
       return new Promise<void>((resolve, reject) => {
         settleAbLoad = { resolve: () => (run?.stopped ? reject(new RunStopped()) : resolve()), reject };
       });
@@ -1826,6 +1831,47 @@ describe("running the sweep", () => {
     // The file itself was identified, so its stretches were remembered; only the square was not.
     expect(await storedCount("windows")).toBe(1);
     expect(await storedCount("measurements")).toBe(0);
+  });
+
+  // The window sizes its panes and paces its playback off the track the grid was drawn for, so the
+  // winner of a sweep goes in against that track even when the state's tracks have been replaced
+  // while it encoded.
+  it("hands the A/B window the video track the tab was drawn with", async () => {
+    loadClip();
+    sweepOf(["superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const held = deferred<void>();
+    core.exec = (args) => (args.includes("-crf") ? held.promise : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(encodes()).toHaveLength(1), WAIT);
+
+    state.tracks = [{ ...VIDEO_TRACK }];
+    held.resolve();
+    await awaitRun(panel);
+    await settleRun(panel);
+
+    expect(abLoads).toHaveLength(1);
+    expect(abLoads[0].vt).toBe(VIDEO_TRACK);
+  });
+
+  // The bar is the sweep's progress: it moves on as each square is measured, rather than sitting
+  // empty until the sweep fills it at the end.
+  it("moves the bar on as each square is measured", async () => {
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const held = deferred<void>();
+    core.exec = (args) => (args.includes("superfast") && args.includes("-crf") ? held.promise : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(sampledEncode.matrix.cells[0]?.status).toBe("done"), WAIT);
+
+    expect(progressBar(panel).querySelector<HTMLElement>(".fill")!.style.width).toBe("50%");
+
+    held.resolve();
+    await awaitRun(panel);
+    await settleRun(panel);
   });
 
   // Without a video track there is no command to key a square by and none to encode with, so every

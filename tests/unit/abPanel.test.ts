@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VIDEO_TRACK } from "../fixtures/state";
 import { sampledEncode, resetState, state } from "../../src/lib/state";
-import type { EncodeSettings } from "../../src/lib/types";
+import { heldBytes } from "../../src/lib/qualityMatrix";
+import type { EncodeSettings, SampleWindow } from "../../src/lib/types";
 import { flush } from "./helpers/async";
 
 /** The id of every Input the stub has seen disposed, so the test can check the old ones are let go
@@ -86,8 +87,18 @@ function encodedStretches(count: number): Blob[] {
   return Array.from({ length: count }, (_, i) => new Blob(["encoded " + i]));
 }
 
+/** What a run hands over with `count` stretches, in the shape the tabs build it but with the stub's
+ * values: their bytes added up, and one window per stretch, each at the start of the file and the
+ * length the stub says it runs. */
+function totalsFor(count: number): { bytes: number; windows: SampleWindow[] } {
+  return {
+    bytes: heldBytes(encodedStretches(count)),
+    windows: Array.from({ length: count }, () => ({ startSeconds: 0, seconds: stretchSeconds })),
+  };
+}
+
 async function load(host: HTMLDivElement): Promise<void> {
-  await loadEncodedIntoAB(encodedStretches(1), SETTINGS, VIDEO_TRACK, host);
+  await loadEncodedIntoAB(encodedStretches(1), SETTINGS, VIDEO_TRACK, host, totalsFor(1));
 }
 
 /** A run of `count` one-second stretches, spread a few seconds apart the way the sampler places
@@ -304,7 +315,36 @@ describe("loadEncodedIntoAB", () => {
     await loadSampled(host, 3);
     expect(sampledEncode.abSegments).toHaveLength(3);
     expect(sampledEncode.abSegments.map((seg) => seg.window.startSeconds)).toEqual([0, 4, 8]);
-    expect(sampledEncode.segDuration).toBe(3);
+    expect(sampledEncode.encodedSize).toBe(4096);
+  });
+
+  // A stretch handed over without a window of its own is placed at the start the run recorded, for
+  // as long as it decoded to, so the reel and the panes still have a place in the source for it.
+  it("places a stretch that came without a window at the recorded start, for its decoded length", async () => {
+    stretchSeconds = 2;
+    sampledEncode.startTime = 7;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(2), SETTINGS, VIDEO_TRACK, host, {
+      bytes: 10,
+      windows: [{ startSeconds: 3, seconds: 2 }],
+    });
+    expect(sampledEncode.abSegments.map((seg) => seg.window)).toEqual([
+      { startSeconds: 3, seconds: 2 },
+      { startSeconds: 7, seconds: 2 },
+    ]);
+    expect(host.querySelectorAll(".compare-reel-seg")).toHaveLength(2);
+  });
+
+  // The size estimate beside the panes reads these, so they are the windows the run measured, as
+  // handed over, rather than the lengths the stretches decode to here.
+  it("keeps the run's own windows and bytes for the size estimate", async () => {
+    stretchSeconds = 1.04;
+    const windows = [
+      { startSeconds: 0, seconds: 1 },
+      { startSeconds: 4, seconds: 0.96 },
+    ];
+    await loadEncodedIntoAB(encodedStretches(2), SETTINGS, VIDEO_TRACK, hostSection(), { bytes: 4096, windows });
+    expect(sampledEncode.windows).toEqual(windows);
     expect(sampledEncode.encodedSize).toBe(4096);
   });
 
@@ -404,7 +444,9 @@ describe("loadEncodedIntoAB", () => {
 describe("loadEncodedIntoAB refusals", () => {
   it("refuses a run with nothing in it, and a window with no video track", async () => {
     const host = hostSection();
-    await expect(loadEncodedIntoAB([], SETTINGS, VIDEO_TRACK, host)).rejects.toThrow("No encoded segment");
+    await expect(loadEncodedIntoAB([], SETTINGS, VIDEO_TRACK, host, totalsFor(0))).rejects.toThrow(
+      "No encoded segment",
+    );
     state.videoTrack = null;
     await expect(load(host)).rejects.toThrow("No video track loaded");
     expect(host.style.display).toBe("none");
@@ -489,7 +531,7 @@ describe("the panes", () => {
     const encoded = frameOf(320, 240);
     answerEachSide(original, encoded);
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, scale: 0.5 }, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, scale: 0.5 }, VIDEO_TRACK, host, totalsFor(1));
     await flush();
     const [origCanvas, encCanvas] = Array.from(host.querySelectorAll("canvas"));
     expect([origCanvas.width, origCanvas.height]).toEqual([640, 480]);
@@ -585,7 +627,7 @@ describe("a downscaled encode", () => {
 
   it("says what resolution it was encoded at, and offers how to draw it back up", async () => {
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), DOWNSCALED, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(encodedStretches(1), DOWNSCALED, VIDEO_TRACK, host, totalsFor(1));
     expect(host.querySelector(".grid")!.textContent).toContain("Resolution");
     const encLabel = host.querySelectorAll(".pane-label")[1];
     expect(encLabel.textContent).toBe("Encoded (medium, superfast, 320×240)");
@@ -607,7 +649,7 @@ describe("a downscaled encode", () => {
     const { smoothing } = stubCanvasContext();
     frameAt = async () => frameOf(320, 240);
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), DOWNSCALED, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(encodedStretches(1), DOWNSCALED, VIDEO_TRACK, host, totalsFor(1));
     await flush();
     frameRequests.length = 0;
     const select = host.querySelector<HTMLSelectElement>("#etUpscaleView")!;
@@ -620,7 +662,7 @@ describe("a downscaled encode", () => {
     expect(smoothing).toEqual([false, false, true, true]);
     // Remembered across loads, so the next comparison opens on the view the reader chose.
     const again = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), DOWNSCALED, VIDEO_TRACK, again);
+    await loadEncodedIntoAB(encodedStretches(1), DOWNSCALED, VIDEO_TRACK, again, totalsFor(1));
     expect(again.querySelector<HTMLSelectElement>("#etUpscaleView")!.value).toBe("smooth");
   });
 });
@@ -736,7 +778,7 @@ describe("playback", () => {
   // A rate other than the fixture's 30, so a pace that ignored the track's own would show.
   it("paces a 10 fps track a tenth of a second a frame", async () => {
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: 10 }, host);
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: 10 }, host, totalsFor(1));
     frameRequests.length = 0;
     playButton(host).click();
     await vi.advanceTimersByTimeAsync(250);
@@ -748,7 +790,7 @@ describe("playback", () => {
   // no wait. At 10 fps a frame is a whole number of milliseconds, which the fake timers keep to.
   it("steps one frame at a time from a playhead parked at half a second", async () => {
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: 10 }, host);
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: 10 }, host, totalsFor(1));
     scrubTo(host, 500);
     frameRequests.length = 0;
     const play = playButton(host);
@@ -765,7 +807,7 @@ describe("playback", () => {
 
   it("asks for each frame once at 30 fps, whose frame time is not a whole number of milliseconds", async () => {
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, VIDEO_TRACK, host, totalsFor(1));
     scrubTo(host, 500);
     frameRequests.length = 0;
     const play = playButton(host);
@@ -791,7 +833,7 @@ describe("playback", () => {
   ])("asks for each frame once and in order at $at", async ({ rate, seconds, scrub, first, last }) => {
     stretchSeconds = seconds;
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: rate }, host);
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, { ...VIDEO_TRACK, packetRate: rate }, host, totalsFor(1));
     scrubTo(host, scrub);
     frameRequests.length = 0;
     playButton(host).click();
@@ -842,7 +884,7 @@ describe("playback", () => {
   it("starts the next stretch rather than wait for a frame that would begin in this one's last thousandth", async () => {
     stretchSeconds = 1.0005;
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(2), SETTINGS, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(encodedStretches(2), SETTINGS, VIDEO_TRACK, host, totalsFor(2));
     // Just past 0.9s into the reel.
     scrubTo(host, 450);
     frameRequests.length = 0;
@@ -856,7 +898,7 @@ describe("playback", () => {
   it("goes from the reel's last frame to its first without repeating the last", async () => {
     stretchSeconds = 0.4;
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(3), SETTINGS, { ...VIDEO_TRACK, packetRate: 25 }, host);
+    await loadEncodedIntoAB(encodedStretches(3), SETTINGS, { ...VIDEO_TRACK, packetRate: 25 }, host, totalsFor(3));
     frameRequests.length = 0;
     const play = playButton(host);
     // Past the 33 frames this run asks for.
@@ -890,7 +932,7 @@ describe("playback", () => {
   // it was encoded at, and the original is read at the same instants.
   it("steps at the encode's own frame rate when the run changed it", async () => {
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, fps: 15 }, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, fps: 15 }, VIDEO_TRACK, host, totalsFor(1));
     frameRequests.length = 0;
     playButton(host).click();
     await vi.advanceTimersByTimeAsync(400);
@@ -1056,7 +1098,13 @@ describe("the heading and labels", () => {
 
   it("labels a custom-quality encode by its CRF", async () => {
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, quality: "custom", crf: 18 }, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(
+      encodedStretches(1),
+      { ...SETTINGS, quality: "custom", crf: 18 },
+      VIDEO_TRACK,
+      host,
+      totalsFor(1),
+    );
     expect(host.querySelectorAll(".pane-label")[1].textContent).toBe("Encoded (CRF 18, superfast)");
   });
 
@@ -1066,7 +1114,7 @@ describe("the heading and labels", () => {
     vi.useFakeTimers();
     const host = hostSection();
     const bare = { ...VIDEO_TRACK, packetRate: null, codedWidth: undefined, codedHeight: undefined };
-    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, bare, host);
+    await loadEncodedIntoAB(encodedStretches(1), SETTINGS, bare, host, totalsFor(1));
     const [orig, enc] = Array.from(host.querySelectorAll("canvas"));
     expect([orig.width, orig.height, enc.width, enc.height]).toEqual([0, 0, 0, 0]);
     expect(host.querySelector<HTMLElement>(".compare-pane")!.style.aspectRatio).toBe("0 / 0");
@@ -1089,7 +1137,6 @@ describe("the heading and labels", () => {
     stretchSeconds = 0;
     const host = hostSection();
     await loadSampled(host, 2);
-    expect(sampledEncode.segDuration).toBe(0);
     const bands = host.querySelectorAll<HTMLElement>(".compare-reel-seg");
     expect([...bands].map((b) => b.style.left)).toEqual(["0%", "0%"]);
     scrubTo(host, 500);

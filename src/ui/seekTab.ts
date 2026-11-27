@@ -58,8 +58,7 @@ export function renderGopStructure(panel: HTMLElement): void {
   sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
-  const nField = fieldNumber("seekN", "Sample Count", DEFAULT_SEEK_SAMPLES, 5, 200, 1);
-  const nInput = nField.querySelector("input")!;
+  const { field: nField, input: nInput } = fieldNumber("seekN", "Sample Count", DEFAULT_SEEK_SAMPLES, 5, 200, 1);
   controls.append(nField);
   sec.append(controls);
   const runBtn = button("btn", "Run Seeking Test");

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.13
+
+#### 🏠 Internal
+
+- Simplified how the encoding tabs' run controls, command builder and comparison state are wired, with no visible change ([#84](https://github.com/brain-bbqs/encoding-helper/pull/84))
+
 ## 1.5.12
 
 #### 🏠 Internal
