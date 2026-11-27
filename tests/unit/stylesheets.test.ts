@@ -158,13 +158,22 @@ describe("the page stylesheet, against the TypeScript constants the code draws w
     return px(right) + px(sides[3] ?? right);
   };
 
+  /**
+   * What a label of the given size is drawn with for `property`: its own rule's value, else the rule every label
+   * shares, else, for an inherited font size, the block's.
+   */
+  const labelValue = (size: "wide" | "snug", property: "padding" | "font-size"): string | undefined =>
+    declared(`.atom-block.${size} .lbl`, property) ??
+    declared(".atom-block .lbl", property) ??
+    (property === "font-size" ? declared(".atom-block", property) : undefined);
+
   // The paddings are exact. The per-character figures are an estimate of a monospace glyph's advance, about 0.6em,
   // rounded up, so each is held to within 0.05em of that at the size its label is drawn.
   it("budgets an atom label by the font size and padding each label size is drawn at", () => {
-    expect(horizontalPadding(declared(".atom-block .lbl", "padding"))).toBe(LABEL_COST.wide.padding);
-    expect(horizontalPadding(declared(".atom-block.snug .lbl", "padding"))).toBe(LABEL_COST.snug.padding);
-    expect(LABEL_COST.wide.perChar / px(declared(".atom-block", "font-size"))).toBeCloseTo(0.6, 1);
-    expect(LABEL_COST.snug.perChar / px(declared(".atom-block.snug .lbl", "font-size"))).toBeCloseTo(0.6, 1);
+    expect(horizontalPadding(labelValue("wide", "padding"))).toBe(LABEL_COST.wide.padding);
+    expect(horizontalPadding(labelValue("snug", "padding"))).toBe(LABEL_COST.snug.padding);
+    expect(LABEL_COST.wide.perChar / px(labelValue("wide", "font-size"))).toBeCloseTo(0.6, 1);
+    expect(LABEL_COST.snug.perChar / px(labelValue("snug", "font-size"))).toBeCloseTo(0.6, 1);
   });
 
   it("draws both charts' viewBoxes as wide as the sheet lets either chart be", () => {
