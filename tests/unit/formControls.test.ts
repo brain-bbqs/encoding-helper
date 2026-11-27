@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   clearLog,
@@ -110,6 +112,29 @@ describe("logConsole", () => {
     expect(log.firstElementChild!.className).toBe("l warn");
     clearLog(log);
     expect(log.children).toHaveLength(0);
+  });
+
+  // "info" is also the class of the ⓘ icon's wrapper, whose inline-flex would otherwise run every
+  // run of info lines (all of ffmpeg's output) together on one row.
+  it("draws each line on a row of its own, whatever its level", () => {
+    const sheet = document.createElement("style");
+    sheet.textContent = readFileSync(resolve(process.cwd(), "src/style.css"), "utf-8");
+    document.head.append(sheet);
+    const { wrap, log } = logConsole();
+    document.body.append(wrap);
+    try {
+      for (const level of ["info", "info", "success", "warn", "error"] as const) logLine(log, level, level);
+      expect(Array.from(log.children, (line) => getComputedStyle(line).display)).toEqual([
+        "block",
+        "block",
+        "block",
+        "block",
+        "block",
+      ]);
+    } finally {
+      wrap.remove();
+      sheet.remove();
+    }
   });
 
   it("still shows and hides a fold that carries no line count", () => {

@@ -1383,7 +1383,10 @@ label.field-label {
   font-family: Monaco, Consolas, monospace;
   font-size: 11.5px;
 }
+/* Block stated outright: a line's level is also its class, and the bare .info rule above, meant for
+   the ⓘ icon's wrapper, would otherwise make info lines inline-flex and run them onto one row. */
 .log-console .l {
+  display: block;
   padding: 1px 0;
 }
 .log-console .l.info {
