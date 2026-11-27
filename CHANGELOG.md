@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.15
+
+#### 🏠 Internal
+
+- Tests are now type-checked and locale-independent, CI fails on a coverage drop or a lowered version, and each script's help shows its full header ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.14
 
 #### 🏠 Internal
