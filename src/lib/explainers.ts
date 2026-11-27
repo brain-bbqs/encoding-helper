@@ -476,6 +476,8 @@ export const CODEC_DESCRIPTIONS = {
   flac: "Lossless compression, meaning bit-exact reconstruction of the original samples, at roughly 50&ndash;60% the size of raw PCM. Not used for lossy delivery, but common for archival audio.",
   ac3: "A perceptual multichannel (up to 5.1) audio codec common in broadcast, DVD, and streaming.",
   eac3: "An extension of AC-3 with higher efficiency and up to 7.1 channels; common in modern streaming and broadcast.",
+  ulaw: "The telephone audio standard of North America and Japan. Each sample is stored in 8 bits on a logarithmic (companding) scale that keeps quiet sounds fine-grained and loud ones coarse. That rounding is lossy, trading some fidelity for half the size of 16-bit PCM.",
+  alaw: "The telephone audio standard of Europe and most of the world outside North America. Like &mu;-law it stores each sample in 8 bits on a logarithmic (companding) scale, with a slightly different curve; the rounding is lossy, trading some fidelity for half the size of 16-bit PCM.",
 } satisfies Record<string, string>;
 
 /** Shown for uncompressed audio, which has no knowledge-base entry of its own. */

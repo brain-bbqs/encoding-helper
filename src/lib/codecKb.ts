@@ -167,11 +167,23 @@ const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     year: 2005,
     description: CODEC_DESCRIPTIONS.eac3,
   },
+  ulaw: {
+    family: "G.711 μ-law",
+    fullName: "μ-law companded PCM",
+    year: 1972,
+    description: CODEC_DESCRIPTIONS.ulaw,
+  },
+  alaw: {
+    family: "G.711 A-law",
+    fullName: "A-law companded PCM",
+    year: 1972,
+    description: CODEC_DESCRIPTIONS.alaw,
+  },
 };
 
 export function describeCodec(shortCodec: string | null | undefined, codecString: string | null): CodecInfo | null {
   if (!shortCodec) return null;
-  if (shortCodec.startsWith("pcm-") || shortCodec === "ulaw" || shortCodec === "alaw") {
+  if (shortCodec.startsWith("pcm-")) {
     return {
       family: "PCM (uncompressed)",
       fullName: "Pulse-Code Modulation",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { describeCodec } from "../../src/lib/codecKb";
-import { CODEC_DESCRIPTIONS } from "../../src/lib/explainers";
+import { CODEC_DESCRIPTIONS, PCM_DESCRIPTION } from "../../src/lib/explainers";
 
 /** Each codec the knowledge base knows, with a phrase only its own description says. */
 const DESCRIBED_CODECS: [codec: string, phrase: string][] = [
@@ -17,6 +17,8 @@ const DESCRIBED_CODECS: [codec: string, phrase: string][] = [
   ["flac", "Lossless compression"],
   ["ac3", "up to 5.1"],
   ["eac3", "extension of AC-3"],
+  ["ulaw", "North America and Japan"],
+  ["alaw", "outside North America"],
 ];
 
 describe("describeCodec", () => {
@@ -128,9 +130,18 @@ describe("describeCodec", () => {
     expect(describeCodec("aac", "mp4a.40.99")?.details).toEqual([{ label: "Profile", value: "Object type 99" }]);
   });
 
-  it("treats the telephony companding codecs as PCM too", () => {
-    expect(describeCodec("ulaw", null)?.family).toBe("PCM (uncompressed)");
-    expect(describeCodec("alaw", null)?.family).toBe("PCM (uncompressed)");
+  // G.711's 8-bit logarithmic companding rounds every sample, so it is neither uncompressed nor
+  // lossless, which is what the PCM entry says.
+  it.each([
+    ["ulaw", "G.711 μ-law"],
+    ["alaw", "G.711 A-law"],
+  ])("describes %s as lossy companding rather than as PCM", (codec, family) => {
+    const info = describeCodec(codec, null);
+    expect(info?.family).toBe(family);
+    expect(info?.description).not.toBe(PCM_DESCRIPTION);
+    expect(info?.description).toContain("lossy");
+    expect(info?.description).toContain("logarithmic");
+    expect(info?.description).not.toMatch(/lossless|uncompressed/i);
   });
 
   // The description is joined to the codec by hand, one line per codec, so a line naming the wrong
