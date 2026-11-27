@@ -108,8 +108,9 @@ describe("chromaFromCodecString", () => {
     expect(chromaFromCodecString("avc", "avc1.640028")).toBeNull();
   });
 
-  // Only profile 1 pins the format down. Profile 0 may also be monochrome, and profile 2 may be
-  // monochrome or, at 12 bit, any subsampling, so the profile digit alone says nothing for those.
+  // Only profile 1 pins the format down. A short form implies 4:2:0 by default, but mediabunny
+  // writes the same short form as a guess when it cannot read the sequence header, so for profiles
+  // 0 and 2 (either of which may also be monochrome) it says nothing without the long form.
   it("takes AV1's format from its profile only where the profile fixes it", () => {
     expect(chromaFromCodecString("av1", "av01.1.08M.08")).toBe("4:4:4");
     expect(chromaFromCodecString("av1", "av01.0.08M.08")).toBeNull();

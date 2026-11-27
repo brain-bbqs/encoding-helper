@@ -134,9 +134,12 @@ export function chromaFromCodecString(codec: string | null, codecString: string 
   const avc = /^avc[13]\.([0-9a-f]{2})/i.exec(codecString);
   if (avc) return AVC_PROFILES_WITH_CHROMA.has(parseInt(avc[1], 16)) ? null : "4:2:0";
 
-  // av01.P.LLT.DD[.M.CCC…]: only profile 1 fixes the format (4:4:4). Profile 0 may also be
-  // monochrome, and profile 2 may be monochrome or, at 12 bit, any subsampling, so for those it is
-  // the long form's monochrome flag (M) and subsampling digits (the first two of CCC) that settle it.
+  // av01.P.LLT.DD[.M.CCC…]: the long form states the monochrome flag (M) and the subsampling (the
+  // first two digits of CCC). A short form leaves both at their defaults (not monochrome, 4:2:0),
+  // but mediabunny also writes a bare av01.0.LLM.08 as a guess when it cannot read the sequence
+  // header, and nothing tells the two apart, so a short form is not taken as stating 4:2:0. Only
+  // profile 1, which allows nothing but 4:4:4, answers without the long form: profile 0 may also be
+  // monochrome, and profile 2 may be monochrome or, at 12 bit, any subsampling.
   const av1Long = /^av01\.[0-2]\.\d+[MH]\.\d+\.([01])\.([01])([01])\d/.exec(codecString);
   if (av1Long) return av1ChromaFromFlags(av1Long[1] === "1", av1Long[2] === "1", av1Long[3] === "1");
   const av1 = /^av01\.(\d)/.exec(codecString);
