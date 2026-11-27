@@ -229,6 +229,10 @@ describe("syncQualityControls", () => {
     const b = renderBuilder();
     expect(b.scalerSelect.disabled).toBe(true);
 
+    cli.quality = "custom";
+    b.sync();
+    expect(b.scalerSelect.disabled).toBe(true);
+
     cli.scale = 0.5;
     cli.scaler = "bicubic";
     b.sync();
