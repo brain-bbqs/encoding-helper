@@ -467,6 +467,11 @@ describe("renderGopHistogram", () => {
     expect(bars.map((b) => b.classList.contains("tall"))).toEqual([false, false, true]);
     expect(bars[2].title).toBe("90 frames");
   });
+
+  it("keeps a bar too short to see at the floor height", () => {
+    const bars = Array.from(renderGopHistogram([1, 100]).querySelectorAll<HTMLDivElement>(".bar"));
+    expect(bars.map((b) => b.style.height)).toEqual(["2px", "90px"]);
+  });
 });
 
 describe("renderGopStructure", () => {

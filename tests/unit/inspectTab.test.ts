@@ -108,6 +108,32 @@ describe("renderBitrateTimelineSection", () => {
     expect(section!.textContent).toContain("160 kbps");
   });
 
+  it("takes a constant declaration at its word when there are too few frames to test it", () => {
+    loadFile({
+      durationSec: 1,
+      samples: samples(3, 1, () => 1000),
+      declared: { avgBitrate: 24_000, maxBitrate: 24_000 },
+    });
+    const section = renderBitrateTimelineSection();
+    expect(chartOf(section)).toBeNull();
+    expect(section!.querySelector(".grid")).toBeNull();
+    expect(section!.textContent).toContain("constant bitrate");
+    expect(section!.textContent).not.toContain("too few frames");
+  });
+
+  // A btrt whose maximum is above its average declares a variable rate, so neither the flat frames
+  // nor the declaration are grounds to drop the plot or to question the file.
+  it("plots, and questions nothing, under a declaration whose peak sits above its average", () => {
+    loadFile({
+      durationSec: 30,
+      samples: samples(600, 30, () => 1000),
+      declared: { avgBitrate: 160_000, maxBitrate: 300_000 },
+    });
+    const section = renderBitrateTimelineSection();
+    expect(chartOf(section)).not.toBeNull();
+    expect(section!.textContent).not.toContain("The sample sizes say otherwise");
+  });
+
   it("still plots when the declaration says constant but the frame sizes disagree", () => {
     // What ffmpeg-muxed files look like: btrt repeats the average as the maximum regardless.
     loadFile({

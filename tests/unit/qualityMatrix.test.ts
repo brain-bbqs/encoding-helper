@@ -78,6 +78,17 @@ describe("buildMatrixCombos", () => {
     expect(combos.map((c) => `${c.scale}:${c.scaler}`)).toEqual(["1:lanczos", "0.5:lanczos", "0.5:bicubic"]);
   });
 
+  it("orders resolutions and kernels as the dropdowns do, not as they were ticked", () => {
+    const combos = buildMatrixCombos(["high"], ["fast"], [0.5, 1], ["bicubic", "lanczos"]);
+    expect(combos.map((c) => `${c.scale}:${c.scaler}`)).toEqual(["1:lanczos", "0.5:lanczos", "0.5:bicubic"]);
+  });
+
+  // Each rate's outputs stay together, so the grid stacks one rate's resolutions before the next rate's.
+  it("nests the resolution axis inside the rate axis", () => {
+    const combos = buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos"], [null, 15]);
+    expect(combos.map((c) => `${c.fps}@${c.scale}`)).toEqual(["null@1", "null@0.5", "15@1", "15@0.5"]);
+  });
+
   it("gives squares that differ only by resolution or kernel distinct keys", () => {
     const combos = buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]);
     expect(new Set(combos.map((c) => c.key)).size).toBe(combos.length);

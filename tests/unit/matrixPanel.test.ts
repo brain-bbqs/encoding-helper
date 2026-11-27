@@ -87,6 +87,17 @@ describe("renderMatrixTable", () => {
     expect(table.querySelectorAll(".matrix-group-head")).toHaveLength(2);
   });
 
+  it("stacks every resolution at one rate before moving to the next rate", () => {
+    const swept = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos"], [null, 15]));
+    const table = renderMatrixTable({ cells: swept, scaleLabel: (s) => `${s * 100}%` });
+    expect(Array.from(table.querySelectorAll(".matrix-group-head")).map((e) => e.textContent)).toEqual([
+      "100%",
+      "50%",
+      "100%15 fps",
+      "50%15 fps",
+    ]);
+  });
+
   it("shades consecutive blocks apart", () => {
     const swept = makeMatrixCells(buildMatrixCombos(["high", "low"], ["fast"], [1, 0.5]));
     const table = renderMatrixTable({ cells: swept });
