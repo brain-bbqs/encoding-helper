@@ -12,8 +12,8 @@
 //     in a handful of bytes at a fixed place. That is what is read here, rather than the sequence
 //     parameter set inside it, which would mean an exp-Golomb decoder for one field.
 //  2. Failing that, the codec parameter string, which pins the format down for some codecs by
-//     itself: H.264 outside the High profiles cannot be anything but 4:2:0, AV1 states its profile,
-//     and VP9's long form carries the subsampling as a field.
+//     itself: H.264 outside the High profiles cannot be anything but 4:2:0, AV1's High profile
+//     cannot be anything but 4:4:4, and the long forms of AV1 and VP9 carry the subsampling as fields.
 //
 // Anything else (no description, a truncated codec string, an `avcC` from a High-profile encoder
 // that left the optional trailing byte off) comes back null, which the copy then reads as "this
@@ -68,16 +68,19 @@ function fromHvcC(data: Uint8Array): ChromaFormat | null {
   return CHROMA_FORMAT_IDC[data[16] & 0x03];
 }
 
+/** AV1's monochrome flag and two subsampling bits, as `av1C` and the long codec string both carry them. */
+function av1ChromaFromFlags(mono: boolean, subX: boolean, subY: boolean): ChromaFormat {
+  if (mono) return "monochrome";
+  if (subX && subY) return "4:2:0";
+  if (subX) return "4:2:2";
+  return "4:4:4";
+}
+
 /** `av1C`'s second byte carries the monochrome flag and the two subsampling bits (AV1-ISOBMFF §2.3). */
 function fromAv1C(data: Uint8Array): ChromaFormat | null {
   if (data.length < 3 || (data[0] & 0x80) === 0) return null;
   const flags = data[2];
-  if ((flags & 0x10) !== 0) return "monochrome";
-  const subX = (flags & 0x08) !== 0;
-  const subY = (flags & 0x04) !== 0;
-  if (subX && subY) return "4:2:0";
-  if (subX) return "4:2:2";
-  return "4:4:4";
+  return av1ChromaFromFlags((flags & 0x10) !== 0, (flags & 0x08) !== 0, (flags & 0x04) !== 0);
 }
 
 /** VP9's subsampling code, as `vpcC` and the codec string both carry it. 0 and 1 are both 4:2:0,
@@ -131,9 +134,13 @@ export function chromaFromCodecString(codec: string | null, codecString: string 
   const avc = /^avc[13]\.([0-9a-f]{2})/i.exec(codecString);
   if (avc) return AVC_PROFILES_WITH_CHROMA.has(parseInt(avc[1], 16)) ? null : "4:2:0";
 
-  // av01.P…: AV1's profile fixes the format: 0 is 4:2:0, 1 is 4:4:4, 2 is 4:2:2.
+  // av01.P.LLT.DD[.M.CCC…]: only profile 1 fixes the format (4:4:4). Profile 0 may also be
+  // monochrome, and profile 2 may be monochrome or, at 12 bit, any subsampling, so for those it is
+  // the long form's monochrome flag (M) and subsampling digits (the first two of CCC) that settle it.
+  const av1Long = /^av01\.[0-2]\.\d+[MH]\.\d+\.([01])\.([01])([01])\d/.exec(codecString);
+  if (av1Long) return av1ChromaFromFlags(av1Long[1] === "1", av1Long[2] === "1", av1Long[3] === "1");
   const av1 = /^av01\.(\d)/.exec(codecString);
-  if (av1) return ({ 0: "4:2:0", 1: "4:4:4", 2: "4:2:2" } as Record<string, ChromaFormat>)[av1[1]] ?? null;
+  if (av1) return av1[1] === "1" ? "4:4:4" : null;
 
   // vp09.PP.LL.DD.CC: the fifth field is the subsampling code, and is often left off.
   const vp9 = /^vp09(?:\.\d+){3}\.(\d+)/.exec(codecString);
