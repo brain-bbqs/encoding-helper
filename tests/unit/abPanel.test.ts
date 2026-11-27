@@ -87,8 +87,9 @@ function encodedStretches(count: number): Blob[] {
   return Array.from({ length: count }, (_, i) => new Blob(["encoded " + i]));
 }
 
-/** What a run hands over with `count` stretches, as the tabs build it: their bytes added up, and
- * one window per stretch, at the start of the file and the length the stub says it runs. */
+/** What a run hands over with `count` stretches, in the shape the tabs build it but with the stub's
+ * values: their bytes added up, and one window per stretch, each at the start of the file and the
+ * length the stub says it runs. */
 function totalsFor(count: number): { bytes: number; windows: SampleWindow[] } {
   return {
     bytes: heldBytes(encodedStretches(count)),
@@ -314,6 +315,36 @@ describe("loadEncodedIntoAB", () => {
     await loadSampled(host, 3);
     expect(sampledEncode.abSegments).toHaveLength(3);
     expect(sampledEncode.abSegments.map((seg) => seg.window.startSeconds)).toEqual([0, 4, 8]);
+    expect(sampledEncode.encodedSize).toBe(4096);
+  });
+
+  // A stretch handed over without a window of its own is placed at the start the run recorded, for
+  // as long as it decoded to, so the reel and the panes still have a place in the source for it.
+  it("places a stretch that came without a window at the recorded start, for its decoded length", async () => {
+    stretchSeconds = 2;
+    sampledEncode.startTime = 7;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(2), SETTINGS, VIDEO_TRACK, host, {
+      bytes: 10,
+      windows: [{ startSeconds: 3, seconds: 2 }],
+    });
+    expect(sampledEncode.abSegments.map((seg) => seg.window)).toEqual([
+      { startSeconds: 3, seconds: 2 },
+      { startSeconds: 7, seconds: 2 },
+    ]);
+    expect(host.querySelectorAll(".compare-reel-seg")).toHaveLength(2);
+  });
+
+  // The size estimate beside the panes reads these, so they are the windows the run measured, as
+  // handed over, rather than the lengths the stretches decode to here.
+  it("keeps the run's own windows and bytes for the size estimate", async () => {
+    stretchSeconds = 1.04;
+    const windows = [
+      { startSeconds: 0, seconds: 1 },
+      { startSeconds: 4, seconds: 0.96 },
+    ];
+    await loadEncodedIntoAB(encodedStretches(2), SETTINGS, VIDEO_TRACK, hostSection(), { bytes: 4096, windows });
+    expect(sampledEncode.windows).toEqual(windows);
     expect(sampledEncode.encodedSize).toBe(4096);
   });
 
