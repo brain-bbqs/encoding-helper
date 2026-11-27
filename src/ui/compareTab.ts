@@ -65,8 +65,12 @@ import {
   type RunUi,
 } from "./segmentRun";
 
-/** The run's controls, plus the three sections a sweep fills in below them. */
+/** The run's controls, plus the three sections a sweep fills in below them and the track it is for. */
 interface MatrixUi extends RunUi {
+  /** The video track the tab was drawn for, which the A/B window sizes its panes and paces its
+   * playback by. Taken once, beside the size check that let the tab draw, rather than read again
+   * when a square goes into the window. */
+  vt: TrackInfo;
   matrixSec: HTMLDivElement;
   resultSec: HTMLDivElement;
   cmdSec: HTMLDivElement;
@@ -103,17 +107,14 @@ export function renderCompareTab(panel: HTMLElement): void {
 
   sec.append(sampleFields("et"));
 
-  const { nodes: runNodes, ui: runUi } = runControls(runActionLabel());
+  const { nodes: runNodes, ui: runUi } = runControls(runActionLabel);
   const matrixSec = h("div", "section matrix-section");
   matrixSec.style.display = "none";
   const resultSec = h("div", "section");
   resultSec.style.display = "none";
   const cmdSec = h("div", "section");
   cmdSec.style.display = "none";
-  const ui: MatrixUi = { ...runUi, matrixSec, resultSec, cmdSec };
-  ui.syncRunAction = () => {
-    ui.runButton.textContent = runActionLabel();
-  };
+  const ui: MatrixUi = { ...runUi, vt, matrixSec, resultSec, cmdSec };
 
   // Which values the sweep spans is a decision most runs never revisit, so the five tick lists fold
   // away behind a bar carrying what they currently come to. <details> rather than a hand-rolled
@@ -132,7 +133,7 @@ export function renderCompareTab(panel: HTMLElement): void {
   // See resetStaleMatrix for why an axis change has to do more than recount.
   const onAxisChange = (): void => {
     refreshAxisCount();
-    resetStaleMatrix(ui, vt);
+    resetStaleMatrix(ui);
   };
   axisSummary.append(axisCount);
   axisSettings.append(axisSummary);
@@ -227,18 +228,18 @@ export function renderCompareTab(panel: HTMLElement): void {
   // anymore and the command under it is no longer the command for what is on screen.
   onAbDisplaced(resultSec, () => {
     sampledEncode.matrix.selectedKey = null;
-    repaintMatrix(vt, ui);
+    repaintMatrix(ui);
   });
 
   // Drawn from the state rather than only from a run, so a grid and the square showing in the A/B
   // window survive the panel being rebuilt.
-  repaintMatrix(vt, ui);
+  repaintMatrix(ui);
 
   onRunPress(ui, () => {
     // A grid with holes in it is what the one button offers to fill: sweeping the whole thing
     // again would re-encode everything that already worked.
     const unmeasured = unmeasuredCells();
-    return unmeasured.length ? retryCells(unmeasured, vt, ui) : runMatrix(vt, ui);
+    return unmeasured.length ? retryCells(unmeasured, ui) : runMatrix(ui);
   });
 }
 
@@ -287,7 +288,7 @@ function unmeasuredCells(): MatrixCell[] {
  * once pressed. It is only the half-run grid, offered back as something to resume, that has to match
  * what is ticked or it is resuming into the wrong shape.
  */
-function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
+function resetStaleMatrix(ui: MatrixUi): void {
   const matrix = sampledEncode.matrix;
   if (matrix.running || encoderBusy() || !unmeasuredCells().length) return;
   const combos = tickedCombos();
@@ -295,7 +296,7 @@ function resetStaleMatrix(ui: MatrixUi, vt: TrackInfo): void {
   if (combos.length === matrix.cells.length && matrix.cells.every((c) => keys.has(c.combo.key))) return;
   matrix.cells = [];
   matrix.selectedKey = null;
-  repaintMatrix(vt, ui);
+  repaintMatrix(ui);
   ui.syncRunAction();
 }
 
@@ -315,7 +316,7 @@ function runActionLabel(): string {
  * the in-browser core (which then replaces itself: see `guarded` in createFfmpegWorker), and the point of running the
  * grid is to find out what this file and this browser can actually do.
  */
-async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
+async function runMatrix(ui: MatrixUi): Promise<void> {
   const matrix = sampledEncode.matrix;
   const combos = tickedCombos();
   if (!combos.length) {
@@ -328,7 +329,7 @@ async function runMatrix(vt: TrackInfo, ui: MatrixUi): Promise<void> {
   if (!run) return;
   matrix.cells = makeMatrixCells(combos);
   matrix.selectedKey = null;
-  await encodeCells(run, matrix.cells, vt, ui, true);
+  await encodeCells(run, matrix.cells, ui, true);
 }
 
 /**
@@ -475,9 +476,9 @@ function forgetQueue(run: EncoderRun): void {
  * into the A/B window, say), and one that has been stopped: nothing would take the square from the
  * queue then, and it would sit there queued.
  */
-function retryCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): void {
-  if (activeQueue && !activeQueue.run.stopped) queueRetry(cell, activeQueue, ui, () => renderMatrixSection(vt, ui));
-  else void retryCells([cell], vt, ui);
+function retryCell(cell: MatrixCell, ui: MatrixUi): void {
+  if (activeQueue && !activeQueue.run.stopped) queueRetry(cell, activeQueue, ui, () => renderMatrixSection(ui));
+  else void retryCells([cell], ui);
 }
 
 /** Puts a failed square back in the running sweep's queue, to be re-encoded when it is reached. */
@@ -490,10 +491,10 @@ function queueRetry(cell: MatrixCell, queue: ActiveQueue, ui: MatrixUi, repaint:
 }
 
 /** Runs the squares that never produced a size, in place, keeping everything the sweep measured. */
-async function retryCells(cells: MatrixCell[], vt: TrackInfo, ui: MatrixUi): Promise<void> {
+async function retryCells(cells: MatrixCell[], ui: MatrixUi): Promise<void> {
   const run = claimEncoder("Compare Quality", true, ui.note);
   if (!run) return;
-  await encodeCells(run, cells, vt, ui, false);
+  await encodeCells(run, cells, ui, false);
 }
 
 /** Puts a square back in line to be encoded, clearing what its last attempt failed with, and keeps
@@ -557,20 +558,14 @@ function sweepNote(progress: ReturnType<typeof matrixProgress>): string {
  * `run` already holds the encoder, taken by the caller before anything was awaited, and is given
  * back here when the run ends.
  */
-async function encodeCells(
-  run: EncoderRun,
-  queue: MatrixCell[],
-  vt: TrackInfo,
-  ui: MatrixUi,
-  fresh: boolean,
-): Promise<void> {
+async function encodeCells(run: EncoderRun, queue: MatrixCell[], ui: MatrixUi, fresh: boolean): Promise<void> {
   const matrix = sampledEncode.matrix;
   matrix.running = true;
   const retried = new Map<MatrixCell, CellOutcome>();
   if (!fresh) for (const cell of queue) markPending(cell, retried);
   activeQueue = { run, cells: queue, retried };
   const fill = startRunUi(ui);
-  const repaint = (): void => renderMatrixSection(vt, ui);
+  const repaint = (): void => renderMatrixSection(ui);
   repaint();
 
   let inputs: RunInputs | null = null;
@@ -602,7 +597,7 @@ async function encodeCells(
       if (run.stopped) return;
       const finished = queue.filter(hasRun).length;
       const partial = [...inFlight.values()].reduce((sum, f) => sum + f, 0);
-      if (fill) fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
+      fill.style.width = (((finished + partial) / queue.length) * 100).toFixed(1) + "%";
       // Whatever phase wrote there last ("Loading ffmpeg.wasm…") is over once squares are being
       // encoded, so it goes rather than standing for the rest of the sweep.
       ui.note.textContent = "";
@@ -690,7 +685,7 @@ async function encodeCells(
     if (best.combo.key !== matrix.selectedKey) {
       ui.note.textContent = "Loading the best reduction into the A/B window…";
       try {
-        await selectMatrixCell(run, best, vt, ui);
+        await selectMatrixCell(run, best, ui);
       } catch (err) {
         // Stop pressed while the winner was being encoded again for the window: the run was
         // stopped, and says so, rather than reading as a winner the browser could not show.
@@ -737,12 +732,12 @@ let selecting: EncoderRun | null = null;
  * Encoding it again takes the encoder like any run, so it is taken here, before anything is
  * awaited, and a click while another run has it is refused and says why.
  */
-async function chooseMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
+async function chooseMatrixCell(cell: MatrixCell, ui: MatrixUi): Promise<void> {
   const run = claimEncoder("Compare Quality", false, ui.note);
   if (!run) return;
   ui.runButton.disabled = true;
   try {
-    await selectMatrixCell(run, cell, vt, ui);
+    await selectMatrixCell(run, cell, ui);
   } catch (err) {
     reportRunFailure(run, err, ui);
   } finally {
@@ -759,12 +754,12 @@ async function chooseMatrixCell(cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): 
  * long reads as the click having missed rather than as work in progress; it goes back only if the
  * square never makes it, since then the old one really is what the window holds.
  */
-async function selectMatrixCell(run: EncoderRun, cell: MatrixCell, vt: TrackInfo, ui: MatrixUi): Promise<void> {
+async function selectMatrixCell(run: EncoderRun, cell: MatrixCell, ui: MatrixUi): Promise<void> {
   const matrix = sampledEncode.matrix;
   const previousKey = matrix.selectedKey;
   matrix.selectedKey = cell.combo.key;
   selecting = run;
-  repaintMatrix(vt, ui);
+  repaintMatrix(ui);
   try {
     let blobs = cell.blobs;
     if (!blobs) {
@@ -789,7 +784,7 @@ async function selectMatrixCell(run: EncoderRun, cell: MatrixCell, vt: TrackInfo
     await loadEncodedIntoAB(
       blobs,
       cell.combo,
-      vt,
+      ui.vt,
       ui.resultSec,
       { bytes: cell.bytes ?? heldBytes(blobs), windows: matrixCellWindows(cell) },
       run,
@@ -800,7 +795,7 @@ async function selectMatrixCell(run: EncoderRun, cell: MatrixCell, vt: TrackInfo
     throw err;
   } finally {
     if (selecting === run) selecting = null;
-    if (holdsEncoder(run)) repaintMatrix(vt, ui);
+    if (holdsEncoder(run)) repaintMatrix(ui);
   }
 }
 
@@ -822,7 +817,8 @@ function describeFpsFraction(fraction: number): string {
   return `${Math.round(fraction * 100)}% (${describeFrameRate(rate)})`;
 }
 
-/** The stretches the sweep covered, or the one segment it used before several were asked for. */
+/** The stretches the sweep covered, or, where the sampler placed none (a file of unknown length),
+ * the one stretch its start and length describe. */
 function matrixWindows(): SampleWindow[] {
   const matrix = sampledEncode.matrix;
   if (matrix.windows.length) return matrix.windows;
@@ -862,7 +858,7 @@ function matrixCellEstimate(cell: MatrixCell): SizeEstimate | null {
   return estimateForWindows(matrixCellWindows(cell), cell.bytes);
 }
 
-function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
+function renderMatrixSection(ui: MatrixUi): void {
   const sec = ui.matrixSec;
   const matrix = sampledEncode.matrix;
   sec.innerHTML = "";
@@ -904,15 +900,15 @@ function renderMatrixSection(vt: TrackInfo, ui: MatrixUi): void {
       // alongside it. Whether there is a queue to join is decided on the click (see retryCell),
       // since the sweep's cores leave it without the grid being drawn again. A square on its way
       // into the A/B window outside a sweep has no queue at all, so the retry waits for it too.
-      onSelect: busy ? undefined : (cell) => void chooseMatrixCell(cell, vt, ui),
-      onRetry: busy && !matrix.running ? undefined : (cell) => retryCell(cell, vt, ui),
+      onSelect: busy ? undefined : (cell) => void chooseMatrixCell(cell, ui),
+      onRetry: busy && !matrix.running ? undefined : (cell) => retryCell(cell, ui),
     }),
   );
 }
 
 /** Redraws the grid and the command under it, which change together. */
-function repaintMatrix(vt: TrackInfo, ui: MatrixUi): void {
-  renderMatrixSection(vt, ui);
+function repaintMatrix(ui: MatrixUi): void {
+  renderMatrixSection(ui);
   renderSelectedCommand(ui.cmdSec);
 }
 

@@ -453,13 +453,6 @@ describe("currentSizeEstimate", () => {
     expect(card.savedFraction).toBe(square.savedFraction);
   });
 
-  it("falls back to the stretch on screen when a run recorded no windows", () => {
-    sampledEncode.encodedSize = 1_000_000;
-    sampledEncode.segDuration = 5;
-    const est = currentSizeEstimate()!;
-    expect(est.segmentSeconds).toBe(5);
-  });
-
   it("has nothing to project before a comparison has run", () => {
     sampledEncode.encodedSize = null;
     expect(currentSizeEstimate()).toBeNull();

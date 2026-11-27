@@ -1,10 +1,16 @@
 # Changelog
 
-## 1.5.13
+## 1.5.14
 
 #### 🏠 Internal
 
 - The page and the Full Analysis document build their shared rows and chart axes from one place, with no visible change ([#83](https://github.com/brain-bbqs/encoding-helper/pull/83))
+
+## 1.5.13
+
+#### 🏠 Internal
+
+- Simplified how the encoding tabs' run controls, command builder and comparison state are wired, with no visible change ([#84](https://github.com/brain-bbqs/encoding-helper/pull/84))
 
 ## 1.5.12
 

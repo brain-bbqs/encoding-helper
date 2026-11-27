@@ -19,7 +19,7 @@ import { factGrid, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
 import { FALLBACK_FPS } from "../lib/format";
-import { describeQuality, describeResolutionChange, heldBytes } from "../lib/qualityMatrix";
+import { describeQuality, describeResolutionChange } from "../lib/qualityMatrix";
 import { fmtClock, rulerEdgeClass } from "../lib/sampleTimeline";
 import { RunStopped, type EncoderRun } from "../lib/encoderRun";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -62,7 +62,7 @@ export async function loadEncodedIntoAB(
   settings: EncodeSettings,
   vt: TrackInfo,
   host: HTMLElement,
-  totals?: { bytes: number; windows: SampleWindow[] },
+  totals: { bytes: number; windows: SampleWindow[] },
   run?: EncoderRun,
 ): Promise<void> {
   if (!blobs.length) throw new Error("No encoded segment to compare");
@@ -88,7 +88,7 @@ export async function loadEncodedIntoAB(
       }
       const seconds = await encodedInput.computeDuration();
       segments.push({
-        window: totals?.windows[i] ?? { startSeconds: sampledEncode.startTime, seconds },
+        window: totals.windows[i] ?? { startSeconds: sampledEncode.startTime, seconds },
         sink: new mb.CanvasSink(encodedTrack, { poolSize: 2 }),
         seconds,
       });
@@ -106,11 +106,10 @@ export async function loadEncodedIntoAB(
   sampledEncode.encodedInputs = inputs;
   sampledEncode.originalSink = new mb.CanvasSink(state.videoTrack, { poolSize: 2 });
   sampledEncode.abSegments = segments;
-  sampledEncode.segDuration = segments.reduce((sum, seg) => sum + seg.seconds, 0);
   // The bytes are the run's rather than these blobs' added up, so a square whose output was dropped
   // and re-encoded still reports what the sweep measured.
-  sampledEncode.encodedSize = totals?.bytes ?? heldBytes(blobs);
-  sampledEncode.windows = totals?.windows ?? segments.map((seg) => seg.window);
+  sampledEncode.encodedSize = totals.bytes;
+  sampledEncode.windows = totals.windows;
   sampledEncode.activeCombo = settings;
   renderAbResult(host, vt, settings);
 }

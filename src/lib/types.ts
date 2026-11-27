@@ -215,10 +215,11 @@ interface MatrixState {
   /** The last sweep's squares, in canonical order; empty before one has been started. */
   cells: MatrixCell[];
   /** Where the sweep's first stretch started and how long each was asked to run, which the Duration
-   * field may have moved off since. */
+   * field may have moved off since. They stand in for `windows` where the sampler placed none. */
   segmentStart: number;
   segmentLength: number;
-  /** Every stretch each square covered, which is the one above unless the run sampled several. */
+  /** Every stretch each square covered, one or several, as the sweep sampled them. Empty only
+   * before a sweep or when the sampler returned none (a file of unknown length, say). */
   windows: SampleWindow[];
   running: boolean;
   /** The combination showing in the A/B window. */
@@ -233,8 +234,8 @@ export interface SampledEncodeState {
    * below belong to the Compare Quality sweep. */
   sampleStart: number;
   duration: number;
-  /** How many stretches of `duration` a run encodes. Above 1 they are placed at random (see
-   * pickSampleWindows) and the start field stops applying. */
+  /** How many stretches of `duration` the sweep asks the sampler for, which places each at random and
+   * fits fewer into a file too short for them all (see pickSampleWindows). */
   segments: number;
   /** The stretches the loaded comparison actually covered, with their measured lengths. */
   windows: SampleWindow[];
@@ -247,8 +248,6 @@ export interface SampledEncodeState {
   abSegments: AbSegment[];
   /** The Inputs behind those sinks, held so they can be disposed when the next encode takes over. */
   encodedInputs: Input[];
-  /** The encoded stretches' lengths added together, i.e. how long the window's reel runs. */
-  segDuration: number;
   encodedSize: number | null;
   /** The settings the encode currently in the A/B window was made with, whichever tab loaded it. */
   activeCombo: EncodeSettings | null;

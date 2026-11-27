@@ -30,6 +30,8 @@ export interface RunUi {
   syncRunAction: () => void;
   stopButton: HTMLButtonElement;
   progress: HTMLDivElement;
+  /** The bar's fill, which the run advances. */
+  fill: HTMLDivElement;
   note: HTMLDivElement;
   log: HTMLDivElement;
 }
@@ -65,10 +67,22 @@ export function sampleFields(idPrefix: string): HTMLDivElement {
   const maxDuration = maxSampleDuration();
   sampledEncode.duration = Math.min(Math.max(1, sampledEncode.duration || 3), maxDuration);
   const row = h("div", "row compare-grid");
-  const durationField = fieldNumber(idPrefix + "Duration", "Duration (s)", sampledEncode.duration, 1, maxDuration, 0.5);
-  const segmentsField = fieldNumber(idPrefix + "Segments", "Segments", sampledEncode.segments, 1, MAX_SEGMENTS, 1);
-  const duration = durationField.querySelector("input")!;
-  const segments = segmentsField.querySelector("input")!;
+  const { field: durationField, input: duration } = fieldNumber(
+    idPrefix + "Duration",
+    "Duration (s)",
+    sampledEncode.duration,
+    1,
+    maxDuration,
+    0.5,
+  );
+  const { field: segmentsField, input: segments } = fieldNumber(
+    idPrefix + "Segments",
+    "Segments",
+    sampledEncode.segments,
+    1,
+    MAX_SEGMENTS,
+    1,
+  );
   duration.classList.add("sample-duration");
   segments.classList.add("sample-segments");
   duration.addEventListener("input", () => {
@@ -84,8 +98,8 @@ export function sampleFields(idPrefix: string): HTMLDivElement {
   return row;
 }
 
-/** Puts every copy of the sample fields back to what the state says, leaving the one being typed in
- * alone so a half-typed number is not rewritten under the cursor. */
+/** Puts the sample fields back to what the state says (the Compare tab holds the only copy), leaving
+ * the one being typed in alone so a half-typed number is not rewritten under the cursor. */
 export function syncSampleFields(except?: HTMLElement | null): void {
   document.querySelectorAll<HTMLInputElement>("input.sample-duration").forEach((input) => {
     if (input !== except) input.value = String(sampledEncode.duration);
@@ -95,36 +109,37 @@ export function syncSampleFields(except?: HTMLElement | null): void {
   });
 }
 
-/** The run button, Stop beside it, the bar, the line under it and the console, as one block. */
-export function runControls(runLabel: string): { nodes: HTMLElement[]; ui: RunUi } {
+/**
+ * The run button, Stop beside it, the bar, the line under it and the console, as one block.
+ *
+ * `label` says what pressing the run button would do, and is asked again by `syncRunAction`
+ * whenever a run may have changed that.
+ */
+export function runControls(label: () => string): { nodes: HTMLElement[]; ui: RunUi } {
   const buttons = h("div", "compare-run-buttons");
-  const runButton = button("btn", runLabel);
+  const runButton = button("btn", label());
   const stopButton = button("btn sec", "Stop");
   stopButton.style.display = "none";
   buttons.append(runButton, stopButton);
-  const { wrap: progress } = progressBar();
+  const { wrap: progress, fill } = progressBar();
   const note = h("div", "progress-label");
   const { wrap: logWrap, log } = logConsole();
   const ui: RunUi = {
     runButton,
     stopButton,
     progress,
+    fill,
     note,
     log,
     syncRunAction: () => {
-      runButton.textContent = runLabel;
+      runButton.textContent = label();
     },
   };
   stopButton.addEventListener("click", () => requestStop(ui));
   return { nodes: [buttons, progress, note, logWrap], ui };
 }
 
-/**
- * Calls `start` on every press of the run button, for both tabs.
- *
- * `ui` is the tab's own, the one whose `syncRunAction` relabels the button: on the Compare tab that
- * is the copy it makes of what runControls returned, not the original.
- */
+/** Calls `start` on every press of the run button, for both tabs. */
 export function onRunPress(ui: RunUi, start: () => Promise<void>): void {
   ui.runButton.addEventListener("click", () => {
     // Disabled here as well as by the run itself, so a second click cannot land in the gap before
@@ -506,15 +521,15 @@ function requestStop(ui: RunUi): void {
 }
 
 /** Readies the progress bar and console for a run, and hands back the bar's fill. */
-export function startRunUi(ui: RunUi): HTMLDivElement | null {
+export function startRunUi(ui: RunUi): HTMLDivElement {
   ui.runButton.disabled = true;
   // Offered by both tabs: a sweep encodes several stretches for every square, and even the one
   // stretch of a single run can take long enough to want out of.
   ui.stopButton.style.display = "";
   ui.stopButton.disabled = false;
-  const fill = resetProgressFill(ui.progress);
+  resetProgressFill(ui.progress, ui.fill);
   clearLog(ui.log);
-  return fill;
+  return ui.fill;
 }
 
 /** Hands the run's controls back once it has ended. */
