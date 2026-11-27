@@ -103,7 +103,14 @@ describe("resolutionFields", () => {
     expect(renderBuilder().customField.style.display).toBe("none");
   });
 
-  it("shows the custom field, seeded from the scale in play, when the scale is off the ladder", () => {
+  it("seeds the custom field from the scale in play when the scale is off the ladder", () => {
+    cli.scale = 0.33;
+    const { scaleSelect, customInput } = resolutionFields({ width: 640, height: 480 });
+    expect(scaleSelect.value).toBe("custom");
+    expect(customInput.value).toBe("33");
+  });
+
+  it("comes up with the custom field showing while the scale is off the ladder", () => {
     cli.scale = 0.33;
     const { scaleSelect, customInput, customField } = renderBuilder();
     expect(scaleSelect.value).toBe("custom");

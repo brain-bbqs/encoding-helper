@@ -463,8 +463,10 @@ describe("renderGopStructure", () => {
     expect(panel.querySelector(".hist")).toBeNull();
   });
 
-  it("offers a hundred sampled timestamps as the seeking test's starting point", () => {
+  it("offers a hundred sampled timestamps to begin with, in steps of one from five to two hundred", () => {
     const panel = renderTab();
-    expect(panel.querySelector<HTMLInputElement>("#seekN")!.value).toBe("100");
+    const count = panel.querySelector<HTMLInputElement>("#seekN")!;
+    expect(count.value).toBe("100");
+    expect([count.min, count.max, count.step]).toEqual(["5", "200", "1"]);
   });
 });

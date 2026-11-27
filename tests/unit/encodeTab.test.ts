@@ -204,6 +204,59 @@ describe("the command builder's fields", () => {
     expect(command(panel)).toContain("-crf 12");
   });
 
+  // Every control comes up on the builder's settings, whether the sync writes it or only the field
+  // that built it does, so a control wired into the sync in another's place shows here.
+  it("comes up showing the builder's settings in every control", () => {
+    Object.assign(cli, {
+      quality: "custom",
+      crf: 12,
+      preset: "veryslow",
+      scale: 0.5,
+      scaler: "bicubic",
+      audioMode: "strip",
+      keyframeInterval: 3,
+      fps: 24,
+    });
+    const panel = renderTab();
+    const ids = [
+      "cliQuality",
+      "cliCrf",
+      "cliPreset",
+      "cliScale",
+      "cliScaler",
+      "cliAudio",
+      "cliKeyframeInterval",
+      "cliFps",
+    ];
+    const values = ids.map((id) => panel.querySelector<HTMLInputElement | HTMLSelectElement>(`#${id}`)!.value);
+    expect(values).toEqual(["custom", "12", "veryslow", "0.5", "bicubic", "strip", "3", "24"]);
+  });
+
+  // The browser's spinner and its validation keep to these.
+  it("gives each number field the range and step it takes", () => {
+    const panel = renderTab();
+    const ranges = ["cliCrf", "cliScaleCustom", "cliKeyframeInterval", "cliFps"].map((id) => {
+      const input = panel.querySelector<HTMLInputElement>(`#${id}`)!;
+      return [id, input.min, input.max, input.step];
+    });
+    expect(ranges).toEqual([
+      ["cliCrf", "0", "51", "1"],
+      ["cliScaleCustom", "1", "100", "1"],
+      ["cliKeyframeInterval", "0.1", "10", "0.1"],
+      ["cliFps", "1", "240", "1"],
+    ]);
+  });
+
+  // The command is what the fields come to, so it sits under every one of them.
+  it("puts the command under the fields that build it", () => {
+    const panel = renderTab();
+    const pre = panel.querySelector("#cmdPre")!;
+    const fields = Array.from(pre.closest(".section")!.querySelectorAll("[id^='cli']"));
+    expect(fields).toHaveLength(12);
+    const below = fields.filter((el) => pre.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(below.map((el) => el.id)).toEqual([]);
+  });
+
   it("writes the picked preset into the command", () => {
     const panel = renderTab();
     pick(panel, "cliPreset", "veryslow");
