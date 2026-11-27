@@ -1,7 +1,9 @@
 import { jsonResponse, mountHtml, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { demoVideoPath } from "../fixtures/demoPaths";
+import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { assetDownloadUrl, EMBER_DANDISET, type DemoFile, type DemoSet } from "../../src/lib/demoArchive";
+import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initDemosPage, renderDemoBrowser } from "../../src/ui/demosPage";
 import { flush } from "./helpers/async";
@@ -324,7 +326,14 @@ describe("initDemosPage", () => {
   const shownSessions = (): string[] =>
     [...els.demosPage.querySelectorAll<HTMLElement>(".demo-tile")].map((t) => t.dataset.session ?? "");
 
+  /** What the file loader leaves behind once a file has loaded: the state naming it, and the tabs up. */
+  function loadedFile(): void {
+    state.source = ChunkedSource.fromFile(new File([new Uint8Array(8)], "clip.mp4", { type: "video/mp4" }));
+    els.app.style.display = "block";
+  }
+
   beforeEach(() => {
+    resetState();
     mountHtml(INDEX_HTML);
     window.history.replaceState({}, "", "/");
     els = getElements();
@@ -376,7 +385,7 @@ describe("initDemosPage", () => {
   });
 
   it("puts back what it hid, including a loaded file's tabs, when the back button is pressed", async () => {
-    els.app.style.display = "block";
+    loadedFile();
     init();
     els.browseDemosBtn.click();
     await flush();
@@ -491,7 +500,7 @@ describe("initDemosPage", () => {
 
   // Back and forward walk the page the way the button and its back link imply.
   it("follows the browser's back and forward between the page and the picker", async () => {
-    els.app.style.display = "block";
+    loadedFile();
     init();
     els.browseDemosBtn.click();
     await flush();
@@ -520,15 +529,41 @@ describe("initDemosPage", () => {
     expect(els.demosPage.style.display).toBe("none");
   });
 
-  // Opened twice in a row (a link restored over a page already up), it still remembers what #app
-  // looked like before the first opening, not the "none" it set itself.
-  it("restores the tabs' display from before the first opening, not from a repeat", async () => {
-    els.app.style.display = "block";
+  // Opened twice in a row (a link restored over a page already up), it still brings a loaded file's
+  // tabs back rather than the "none" it set itself.
+  it("brings a loaded file's tabs back after being opened twice in a row", async () => {
+    loadedFile();
     init();
     els.browseDemosBtn.click();
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(els.app.style.display).toBe("none");
     els.demosPage.querySelector<HTMLButtonElement>("#demosBackBtn")!.click();
     expect(els.app.style.display).toBe("block");
+  });
+
+  // A link carrying both ?demos and ?src= starts the file loading and opens the page over it, so the
+  // load can finish while the page is up.
+  it("shows the tabs of a file that finished loading while it was up", async () => {
+    init();
+    els.browseDemosBtn.click();
+    await flush();
+    loadedFile();
+
+    els.demosPage.querySelector<HTMLButtonElement>("#demosBackBtn")!.click();
+
+    expect(els.app.style.display).toBe("block");
+  });
+
+  // A load that fails, or is replaced, while the page is up leaves no file behind its tabs.
+  it("keeps the tabs down when the file they showed went while it was up", async () => {
+    loadedFile();
+    init();
+    els.browseDemosBtn.click();
+    await flush();
+    resetState();
+
+    els.demosPage.querySelector<HTMLButtonElement>("#demosBackBtn")!.click();
+
+    expect(els.app.style.display).toBe("none");
   });
 });
