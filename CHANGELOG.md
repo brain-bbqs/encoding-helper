@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.15
+
+#### 🐛 Bug Fix
+
+- Fixed console lines running together, line breaks in Markdown exports, wrong u-law/A-law and AV1 chroma details, unlinked form labels, and odd tab names in links ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.14
 
 #### 🏠 Internal
