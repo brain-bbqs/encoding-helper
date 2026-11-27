@@ -235,8 +235,8 @@ export interface SampledEncodeState {
    * below belong to the Compare Quality sweep. */
   sampleStart: number;
   duration: number;
-  /** How many stretches of `duration` the sweep encodes, each placed at random by the sampler (see
-   * pickSampleWindows). */
+  /** How many stretches of `duration` the sweep asks the sampler for, which places each at random and
+   * fits fewer into a file too short for them all (see pickSampleWindows). */
   segments: number;
   /** The stretches the loaded comparison actually covered, with their measured lengths. */
   windows: SampleWindow[];
