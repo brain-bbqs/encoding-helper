@@ -9,8 +9,10 @@
 // Download button writes and the print dialog prints, so there is no "preview" that can disagree
 // with the file.
 //
-// State-gathering lives here; how a section is drawn lives in lib/analysisDoc.ts. Sections are
-// rebuilt on every visit to the tab, since the seeking test and the two encode tabs add to them.
+// Which sections the document has, and in what order, is decided here, along with the rows only the
+// document states. The rows a section shares with a card come from the module that draws that card,
+// and how a section is drawn lives in lib/analysisDoc.ts. Sections are rebuilt on every visit to the
+// tab, since the seeking test and the two encode tabs add to them.
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";

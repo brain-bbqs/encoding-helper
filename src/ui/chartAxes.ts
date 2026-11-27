@@ -1,7 +1,7 @@
 // The frame both SVG charts are drawn in: a grid line and a tick label each way per step, then the
 // two axes, then their titles. The bitrate chart and the seek scatter differ only in their height,
-// left margin, tick text and titles, so the frame is built here once, and the markup the exported
-// document embeds comes out the same whichever chart drew it.
+// left margin, tick text and titles, so the frame is built here once, with its elements and their
+// attributes in the same order for both charts.
 
 import { svgEl, svgText } from "@brain-bbqs/ui";
 

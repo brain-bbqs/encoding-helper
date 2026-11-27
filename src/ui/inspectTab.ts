@@ -97,7 +97,7 @@ export function overviewTitle(): string {
 }
 
 /** The whole file's bitrate, every byte of it over its running time, or null before a file is open. */
-export function overallBitrate(): number | null {
+function overallBitrate(): number | null {
   return state.duration && state.source ? (state.source.size * 8) / state.duration : null;
 }
 

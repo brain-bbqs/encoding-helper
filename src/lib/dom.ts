@@ -43,7 +43,7 @@ export function factGrid(rows: FactRow[]): HTMLDivElement {
   return grid;
 }
 
-/** A verdict as the page draws it. */
+/** A verdict drawn as a badge, on the page and in the Full Analysis document alike. */
 export function badgeEl(badge: Badge): HTMLSpanElement {
   return h("span", "badge " + badge.tone, badge.text);
 }
