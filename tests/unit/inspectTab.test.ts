@@ -458,6 +458,15 @@ describe("the overview and track cards", () => {
     expect(gridValue(panel, "Codec")).toBe("avc");
   });
 
+  // An empty codec string names nothing either, so the short id stands in for it as for a missing one.
+  it("names the video codec by its short id when the file's codec string is empty", () => {
+    loadClip();
+    state.tracks = [{ ...VIDEO_TRACK, codecString: "" }];
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(gridValue(panel, "Codec")).toBe("avc");
+  });
+
   // The overall bitrate is the whole file's size over its running time (2,000,000 B over 30 s), not
   // the 500 kbps the video track states.
   it("states the file's size, overall bitrate and MIME type in the overview", () => {

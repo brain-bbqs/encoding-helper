@@ -1069,7 +1069,10 @@ describe("the heading and labels", () => {
 
   it("puts a downscaled encode's resolution between its settings and its size", async () => {
     const host = hostSection();
-    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, scale: 0.5 }, VIDEO_TRACK, host);
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, scale: 0.5 }, VIDEO_TRACK, host, {
+      bytes: 9,
+      windows: [{ startSeconds: 0, seconds: stretchSeconds }],
+    });
     expect(gridRows(host.querySelector(".grid")!).map((row) => [row.label, row.value])).toEqual([
       ["Segment", "0.0s–1.0s"],
       ["Quality", "medium (CRF 25)"],
