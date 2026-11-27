@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🏠 Internal
 
-- Simplified how the encoding tabs' run controls, command builder and comparison state are wired, with no visible change ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Simplified how the encoding tabs' run controls, command builder and comparison state are wired, with no visible change ([#84](https://github.com/brain-bbqs/encoding-helper/pull/84))
 
 ## 1.5.11
 
