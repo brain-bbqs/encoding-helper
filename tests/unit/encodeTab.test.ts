@@ -107,6 +107,14 @@ describe("renderEncodeTab", () => {
     expect(sampledEncode.sampleStart).toBe(17);
   });
 
+  it("ties every dropdown and number box to the label naming it", () => {
+    const panel = renderTab();
+    const controls = Array.from(panel.querySelectorAll("select, input[type=number]"));
+    const labelled = Array.from(panel.querySelectorAll<HTMLLabelElement>("label.field-label"), (l) => l.control);
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) expect(labelled).toContain(control);
+  });
+
   // The whole-file encode is the last step of the same page: build the command, try it, run it.
   it("ends with the in-browser encode of the whole file, on ffmpeg alone", () => {
     const panel = renderTab();
