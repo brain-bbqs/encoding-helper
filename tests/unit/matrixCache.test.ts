@@ -93,6 +93,19 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** Leaves the test database at a later version, as a newer build of the app would, so that opening
+ * it at this build's version fails. */
+function leaveNewerDatabase(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 2);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      request.result.close();
+      resolve();
+    };
+  });
+}
+
 /** Makes every transaction of `mode` fail before its requests run, the way a full disk or an
  * evicted origin does: each pending request errors and the transaction aborts. */
 function abortTransactions(mode: IDBTransactionMode): void {
@@ -368,19 +381,32 @@ describe("a store that cannot be trusted", () => {
   // A database left at a later version by a newer build of the app cannot be opened at this one:
   // the open fails, and the sweep runs as if there were no cache.
   it("degrades to no cache when the database cannot be opened", async () => {
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 2);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        request.result.close();
-        resolve();
-      };
-    });
+    await leaveNewerDatabase();
     const cache = open();
     cache.writeMeasurement("k", measurement(4096));
     await expect(cache.flush()).resolves.toBeUndefined();
     expect(await readOne(cache, "k")).toBe(null);
     expect(await cache.recallWindows("sabc", 5, 2)).toBe(null);
+  });
+
+  // A refusal is not remembered: once the newer build's database is gone, the same cache opens the
+  // store and keeps what it is given.
+  it("asks for the database again after an open that failed", async () => {
+    await leaveNewerDatabase();
+    const cache = open();
+    cache.writeMeasurement("lost", measurement(1));
+    await cache.flush();
+    expect(await readOne(cache, "lost")).toBe(null);
+
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+    cache.writeMeasurement("kept", measurement(4096));
+    await cache.flush();
+    expect(await readOne(cache, "kept")).toEqual(measurement(4096));
+    expect(await storedKeys("measurements")).toEqual(["kept"]);
   });
 
   // A write that fails partway is a write that did not happen, and the writes behind it still go.
