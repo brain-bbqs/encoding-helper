@@ -23,7 +23,7 @@ describe("describeMetadataTag", () => {
     expect(describeMetadataTag("©nam")?.description).not.toContain("0xA9");
   });
 
-  // Reverse-DNS keys reach the same lookup from a table of their own, so an Apple recording still
+  // Reverse-DNS keys reach the same lookup from a group of their own, so an Apple recording still
   // resolves to a label and an explanation rather than showing its raw key.
   it("resolves the QuickTime metadata keys Apple devices write", () => {
     const info = describeMetadataTag("com.apple.quicktime.model");
@@ -42,6 +42,31 @@ describe("describeMetadataTag", () => {
     expect(describeMetadataTag("TSSE")?.label).toBe("Encoding settings");
     expect(describeMetadataTag("ENCODER")?.label).toBe("Encoding tool");
     expect(describeMetadataTag("ISFT")?.label).toBe("Software");
+  });
+
+  it("names the ID3v2, Vorbis and RIFF families as the origins of TIT2, ENCODER and ISFT", () => {
+    expect(describeMetadataTag("TIT2")?.origin).toBe("ID3v2 frame (MP3, ADTS)");
+    expect(describeMetadataTag("ENCODER")?.origin).toBe("Vorbis comment / Matroska tag (Ogg, FLAC, MKV)");
+    expect(describeMetadataTag("ISFT")?.origin).toBe("RIFF INFO chunk (WAVE)");
+  });
+
+  // The first and last name of every family, so a name that slips across the boundary into the
+  // family beside it shows up as the wrong origin.
+  it.each([
+    ["©nam", "MP4 / QuickTime atom"],
+    ["©xyz", "MP4 / QuickTime atom"],
+    ["com.apple.quicktime.make", "QuickTime metadata key (mdta)"],
+    ["com.apple.quicktime.location.ISO6709", "QuickTime metadata key (mdta)"],
+    ["TIT2", "ID3v2 frame (MP3, ADTS)"],
+    ["TAG", "ID3v2 frame (MP3, ADTS)"],
+    ["TITLE", "Vorbis comment / Matroska tag (Ogg, FLAC, MKV)"],
+    ["vendor", "Vorbis comment / Matroska tag (Ogg, FLAC, MKV)"],
+    ["INAM", "RIFF INFO chunk (WAVE)"],
+    ["IENG", "RIFF INFO chunk (WAVE)"],
+    ["title", "Normalized by mediabunny"],
+    ["comment", "Normalized by mediabunny"],
+  ])("files %s, at the edge of its family, under %s", (key, origin) => {
+    expect(describeMetadataTag(key)?.origin).toBe(origin);
   });
 
   it("falls back to a case-insensitive match for containers that vary capitalization", () => {

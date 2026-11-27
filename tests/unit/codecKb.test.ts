@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { describeCodec } from "../../src/lib/codecKb";
+import { CODEC_DESCRIPTIONS } from "../../src/lib/explainers";
+
+/** Each codec the knowledge base knows, with a phrase only its own description says. */
+const DESCRIBED_CODECS: [codec: string, phrase: string][] = [
+  ["avc", "most widely supported video codec"],
+  ["hevc", "more efficient than H.264"],
+  ["vp9", "free alternative to H.265"],
+  ["av1", "Alliance for Open Media"],
+  ["vp8", "earlier royalty-free codec from On2/Google"],
+  ["prores", "professional mezzanine codec"],
+  ["aac", "successor to MP3"],
+  ["opus", "default for WebRTC"],
+  ["mp3", "classic lossy audio format"],
+  ["vorbis", "predecessor to Opus"],
+  ["flac", "Lossless compression"],
+  ["ac3", "up to 5.1"],
+  ["eac3", "extension of AC-3"],
+];
 
 describe("describeCodec", () => {
   it("returns null for a falsy short codec", () => {
@@ -108,5 +126,17 @@ describe("describeCodec", () => {
   it("treats the telephony companding codecs as PCM too", () => {
     expect(describeCodec("ulaw", null)?.family).toBe("PCM (uncompressed)");
     expect(describeCodec("alaw", null)?.family).toBe("PCM (uncompressed)");
+  });
+
+  // The description is joined to the codec by hand, one line per codec, so a line naming the wrong
+  // codec's text, or a key the description table does not have, shows up here.
+  it.each(DESCRIBED_CODECS)("describes %s in its own words", (codec, phrase) => {
+    const description = describeCodec(codec, null)?.description;
+    expect(description).toBe(CODEC_DESCRIPTIONS[codec]);
+    expect(description).toContain(phrase);
+  });
+
+  it("has a description test for every codec the description table holds", () => {
+    expect(Object.keys(CODEC_DESCRIPTIONS).sort()).toEqual(DESCRIBED_CODECS.map(([codec]) => codec).sort());
   });
 });

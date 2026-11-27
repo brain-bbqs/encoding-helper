@@ -1,22 +1,19 @@
+import { mountHtml, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { initTabs } from "../../src/ui/tabs";
 import { setUrl } from "./helpers/url";
 
-/** A reduced tab bar: the three tab buttons, one unknown tab, and the Full Analysis button, all in
- * one row (the page keeps that button outside it), with one panel each. */
+const INDEX_HTML = readIndexHtml();
+
+/** The page itself, its tab bar and panels included, with one button added to the row of tabs that
+ * names a tab the app does not have. */
 function mountTabBar(): void {
-  document.body.innerHTML = `
-    <div class="tabs">
-      <button class="tab on" data-tab="inspect">Inspect</button>
-      <button class="tab" data-tab="encode">Encode</button>
-      <button class="tab" data-tab="compare">Compare</button>
-      <button class="tab" data-tab="nope">Retired</button>
-      <button data-tab="analysis">Full Analysis</button>
-    </div>
-    <div id="panel-inspect" class="tab-panel on"></div>
-    <div id="panel-encode" class="tab-panel"></div>
-    <div id="panel-compare" class="tab-panel"></div>
-    <div id="panel-analysis" class="tab-panel"></div>`;
+  mountHtml(INDEX_HTML);
+  const retired = document.createElement("button");
+  retired.className = "tab";
+  retired.dataset.tab = "nope";
+  retired.textContent = "Retired";
+  document.querySelector(".tabs")!.append(retired);
 }
 
 function click(tab: string): void {
@@ -70,6 +67,7 @@ describe("initTabs", () => {
     initTabs(onShowAnalysis);
     click("analysis");
     expect(shownPanel()).toBe("panel-analysis");
+    expect(litButtons()).toEqual(["analysis"]);
     expect(onShowAnalysis).toHaveBeenCalledOnce();
   });
 

@@ -1,10 +1,16 @@
 # Changelog
 
-## 1.5.12
+## 1.5.13
 
 #### 🏠 Internal
 
 - The page and the Full Analysis document build their shared rows and chart axes from one place, with no visible change ([#83](https://github.com/brain-bbqs/encoding-helper/pull/83))
+
+## 1.5.12
+
+#### 🏠 Internal
+
+- Simplified the encoding engine's helpers, the atom map's layout type, and the codec and tag tables; the app looks and works the same ([#85](https://github.com/brain-bbqs/encoding-helper/pull/85))
 
 ## 1.5.11
 
