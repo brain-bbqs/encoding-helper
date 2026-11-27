@@ -67,6 +67,7 @@ describe("initTabs", () => {
     initTabs(onShowAnalysis);
     click("analysis");
     expect(shownPanel()).toBe("panel-analysis");
+    expect(litButtons()).toEqual(["analysis"]);
     expect(onShowAnalysis).toHaveBeenCalledOnce();
   });
 
