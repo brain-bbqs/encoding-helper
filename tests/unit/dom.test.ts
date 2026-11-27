@@ -4,7 +4,7 @@ import {
   type ClipboardStub,
   type ExecCommandStub,
 } from "@brain-bbqs/test-utils/vitest";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { button, copyToClipboard, escapeHtml, resetIcon } from "@brain-bbqs/ui";
 import { closeInfoPopovers, cmdBlock, dataTable, fold, gridItem, infoIcon, section, teachBox } from "../../src/lib/dom";
 import { setEducationalEnabled } from "../../src/lib/educational";
@@ -371,8 +371,8 @@ async function settle(): Promise<void> {
 }
 
 describe("clipboard", () => {
-  let writeText: ReturnType<typeof vi.fn>;
-  let execCommand: ReturnType<typeof vi.fn>;
+  let writeText: Mock<(text: string) => Promise<void>>;
+  let execCommand: Mock<(command: string) => boolean>;
   let clipboard: ClipboardStub;
   let execCommandStub: ExecCommandStub;
 

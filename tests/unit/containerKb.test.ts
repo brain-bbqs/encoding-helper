@@ -4,6 +4,7 @@ import { describeContainer } from "../../src/lib/containerKb";
 describe("describeContainer", () => {
   it("returns null for a missing format name", () => {
     expect(describeContainer(null)).toBeNull();
+    // @ts-expect-error: undefined is outside the type, but the falsy guard turns it away all the same.
     expect(describeContainer(undefined)).toBeNull();
     expect(describeContainer("")).toBeNull();
   });

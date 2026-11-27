@@ -3,7 +3,7 @@ import { describeCodec } from "../../src/lib/codecKb";
 import { CODEC_DESCRIPTIONS } from "../../src/lib/explainers";
 
 /** Each codec the knowledge base knows, with a phrase only its own description says. */
-const DESCRIBED_CODECS: [codec: string, phrase: string][] = [
+const DESCRIBED_CODECS: [codec: keyof typeof CODEC_DESCRIPTIONS, phrase: string][] = [
   ["avc", "most widely supported video codec"],
   ["hevc", "more efficient than H.264"],
   ["vp9", "free alternative to H.265"],

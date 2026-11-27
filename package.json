@@ -16,7 +16,7 @@
     "test:coverage": "vitest run --coverage --config configs/vitest.config.ts",
     "test:integration": "playwright test --config configs/playwright.config.ts",
     "test:chromatic": "playwright test --config configs/playwright.chromatic.config.ts",
-    "typecheck": "tsc",
+    "typecheck": "tsc && tsc -p configs/tsconfig.tests.json",
     "lint": "eslint --config configs/eslint.config.js .",
     "format:check": "prettier --config configs/prettier.config.js --check .",
     "storybook": "storybook dev -p 6006 --config-dir configs/storybook",

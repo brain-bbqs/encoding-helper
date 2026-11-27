@@ -3,7 +3,7 @@
 // `state`. That sequencing is what these cases pin down.
 
 import { mountHtml, pickFiles, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
@@ -83,7 +83,7 @@ function mediabunnyReader(): unknown {
 }
 
 let els: AppElements;
-let onLoaded: ReturnType<typeof vi.fn>;
+let onLoaded: Mock<() => void>;
 
 beforeEach(() => {
   setUrl("");
