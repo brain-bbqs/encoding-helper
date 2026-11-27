@@ -4,7 +4,7 @@ import { sample } from "../fixtures/samples";
 import { seekResult } from "../fixtures/seekResult";
 import { resetState, state } from "../../src/lib/state";
 import { flush } from "./helpers/async";
-import { gridValue } from "./helpers/grid";
+import { gridRows, gridValue } from "./helpers/grid";
 
 /** Every timestamp the run asked the sink to decode, in order. */
 const decodeRequests: number[] = [];
@@ -119,9 +119,11 @@ describe("the seeking test run", () => {
     await run(panel, "5");
 
     const wrap = panel.querySelector("#seekResultsWrap")!;
-    expect(gridValue(wrap, "Avg Keyframe Distance")).toBe("1.000 s");
-    expect(gridValue(wrap, "Avg Decode Time")).toBe("10.0 ms");
-    expect(gridValue(wrap, "Max Decode Time")).toBe("18.0 ms");
+    expect(gridRows(wrap)).toEqual([
+      { label: "Avg Keyframe Distance", value: "1.000 s", info: false, sm: false },
+      { label: "Avg Decode Time", value: "10.0 ms", info: false, sm: false },
+      { label: "Max Decode Time", value: "18.0 ms", info: false, sm: false },
+    ]);
     expect(wrap.querySelectorAll("svg.seek-scatter circle.pt")).toHaveLength(5);
 
     const fold = wrap.querySelector<HTMLDetailsElement>("details.fold")!;
@@ -416,6 +418,33 @@ describe("renderSeekScatter", () => {
     expect(Number(pts[1].getAttribute("cy"))).toBeCloseTo(240 - 224 / 1.08, 6);
   });
 
+  // The frame's markup is what the exported document embeds, so it is pinned as written: a 528 by
+  // 224 plot 56 px in from the left and 16 px down, cut into four steps.
+  it("frames the plot with grid lines, ticks, two axes and a turned vertical title", () => {
+    const svg = renderSeekScatter([seekResult({ dist: 0, decodeMs: 0 }), seekResult({ dist: 2, decodeMs: 100 })])!;
+    const markup = (selector: string, index: number): string => svg.querySelectorAll(selector)[index].outerHTML;
+    expect(svg.querySelectorAll("line.grid-line")).toHaveLength(10);
+    expect(markup("line.grid-line", 2)).toBe(
+      '<line class="grid-line" x1="188" y1="16" x2="188" y2="240" stroke-width="1"></line>',
+    );
+    expect(markup("line.grid-line", 3)).toBe(
+      '<line class="grid-line" x1="56" y1="72" x2="584" y2="72" stroke-width="1"></line>',
+    );
+    expect(markup("text.tick", 2)).toBe(
+      '<text class="tick" x="188" y="256" font-size="10" text-anchor="middle">0.54</text>',
+    );
+    expect(markup("text.tick", 3)).toBe('<text class="tick" x="48" y="187" font-size="10" text-anchor="end">27</text>');
+    expect(Array.from(svg.querySelectorAll("line.axis")).map((el) => el.outerHTML)).toEqual([
+      '<line class="axis" x1="56" y1="16" x2="56" y2="240" stroke-width="1"></line>',
+      '<line class="axis" x1="56" y1="240" x2="584" y2="240" stroke-width="1"></line>',
+    ]);
+    expect(Array.from(svg.querySelectorAll("text.axis-title")).map((el) => el.outerHTML)).toEqual([
+      '<text class="axis-title" x="320" y="276" font-size="11" text-anchor="middle">Keyframe distance (s)</text>',
+      '<text class="axis-title" x="12" y="128" font-size="11" text-anchor="middle" transform="rotate(-90 12 128)">' +
+        "Decode time (ms)</text>",
+    ]);
+  });
+
   // Every seek landing on a keyframe and decoding instantly leaves nothing to scale by; the axes
   // then run to one rather than dividing by zero.
   it("gives an all-zero run unit axes instead of collapsing them", () => {
@@ -438,12 +467,16 @@ describe("renderGopHistogram", () => {
     expect(bars.map((b) => b.classList.contains("tall"))).toEqual([false, false, true]);
     expect(bars[2].title).toBe("90 frames");
   });
+
+  it("keeps a bar too short to see at the floor height", () => {
+    const bars = Array.from(renderGopHistogram([1, 100]).querySelectorAll<HTMLDivElement>(".bar"));
+    expect(bars.map((b) => b.style.height)).toEqual(["2px", "90px"]);
+  });
 });
 
 describe("renderGopStructure", () => {
   it("prints the keyframe structure of the loaded file above the test", () => {
     state.samples = Array.from({ length: 90 }, () => sample(0, 1));
-    state.keyframeDecodeIndices = [0, 30, 60];
     state.gopLengths = [30, 30, 30];
     state.fps = 30;
     state.hasBFrames = true;
@@ -453,13 +486,16 @@ describe("renderGopStructure", () => {
     expect(gridValue(panel, "Avg GOP")).toBe("30.0 frames (1.00 s)");
     expect(gridValue(panel, "Min / Max GOP")).toBe("30 / 30 frames");
     expect(panel.querySelector(".badge")!.textContent).toBe("Uses B-frames (cts ≠ dts)");
+    expect(panel.querySelector(".badge")!.className).toBe("badge info");
     expect(panel.querySelector(".hist")).not.toBeNull();
+    expect(panel.querySelector("h3")!.textContent).toBe("Empirical Seeking Test");
   });
 
   it("reads an empty file as no GOPs, no histogram and no B-frames", () => {
     const panel = renderTab();
     expect(gridValue(panel, "Min / Max GOP")).toBe("0 / 0 frames");
     expect(panel.querySelector(".badge")!.textContent).toBe("No B-frames");
+    expect(panel.querySelector(".badge")!.className).toBe("badge good");
     expect(panel.querySelector(".hist")).toBeNull();
   });
 

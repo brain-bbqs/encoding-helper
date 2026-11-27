@@ -104,8 +104,7 @@ describe("describeFrameRate", () => {
 });
 
 describe("describeFrameCount", () => {
-  it("prints the count with thousands separators, or the placeholder without one", () => {
+  it("prints the count with thousands separators", () => {
     expect(describeFrameCount(12345)).toBe((12345).toLocaleString());
-    expect(describeFrameCount(null)).toBe("–");
   });
 });

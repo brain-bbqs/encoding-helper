@@ -45,6 +45,6 @@ export function describeFrameRate(packetRate: number | null | undefined): string
   return packetRate != null ? fmtRate(packetRate) + " fps" : NO_VALUE;
 }
 
-export function describeFrameCount(count: number | null): string {
-  return count != null ? count.toLocaleString() : NO_VALUE;
+export function describeFrameCount(count: number): string {
+  return count.toLocaleString();
 }

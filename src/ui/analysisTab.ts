@@ -9,12 +9,13 @@
 // Download button writes and the print dialog prints, so there is no "preview" that can disagree
 // with the file.
 //
-// State-gathering lives here; how a section is drawn lives in lib/analysisDoc.ts. Sections are
-// rebuilt on every visit to the tab, since the seeking test and the two encode tabs add to them.
+// Which sections the document has, and in what order, is decided here, along with the rows only the
+// document states. The rows a section shares with a card come from the module that draws that card,
+// and how a section is drawn lives in lib/analysisDoc.ts. Sections are rebuilt on every visit to the
+// tab, since the seeking test and the two encode tabs add to them.
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
-import { computeBitrateTimeline, isEffectivelyConstant } from "../lib/bitrateTimeline";
 import { buildFfmpegArgs, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
 import { button, copyToClipboard, h } from "@brain-bbqs/ui";
 import { section, teachBox } from "../lib/dom";
@@ -30,32 +31,50 @@ import {
   describeFrameRate,
   fmtBits,
   fmtDur,
-  fmtMs,
   fmtSizeChangePct,
   NO_VALUE,
 } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
-import { declaresConstantBitrate } from "../lib/mp4boxParser";
 import {
   bestReductionCell,
   cliSettings,
   comboCrf,
   comboKey,
-  describeQuality,
   describeResolutionChange,
   isMeasured,
   matrixAxes,
+  matrixOutputs,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
-import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
+import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
 import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
-import type { AnalysisBlock, AnalysisSection, TrackInfo } from "../lib/types";
-import { renderStaticAtomMap } from "./atomsTab";
-import { describeSampledStretches } from "./abPanel";
+import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/types";
+import { faststartBadge, renderStaticAtomMap } from "./atomsTab";
+import { compareSummaryRows } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
-import { flattenMetadataTags, overallBitrate, overviewTitle } from "./inspectTab";
-import { renderGopHistogram, renderSeekScatter } from "./seekTab";
+import {
+  AUDIO_TRACK_TITLE,
+  audioTrackRows,
+  BITRATE_TITLE,
+  bitrateShape,
+  bitrateTimelineRows,
+  codecLabel,
+  flattenMetadataTags,
+  METADATA_TAGS_TITLE,
+  overviewRows,
+  overviewTitle,
+  trackAverageRow,
+  VIDEO_TRACK_TITLE,
+} from "./inspectTab";
+import {
+  bFramesBadge,
+  GOP_TITLE,
+  renderGopHistogram,
+  renderSeekScatter,
+  SEEK_TEST_TITLE,
+  seekSummaryRows,
+} from "./seekTab";
 
 /** Printed in the document so a copy saved to disk still says where it came from. */
 const APP_URL = "https://encoding-helper.brain-bbqs.org";
@@ -67,12 +86,17 @@ const APP_URL = "https://encoding-helper.brain-bbqs.org";
  */
 const DOCUMENT_WIDTH_PX = 772;
 
+/** A card's shared rows as a key-value block's items: the label and the value, without the card's hints. */
+function kvItems(rows: FactRow[]): [string, string | number][] {
+  return rows.map((row) => [row.label, row.value]);
+}
+
 /** The headline strip under the document title: what the file is, in one line. */
 function headlineFacts(): [string, string][] {
   const vt = videoTrackInfo();
   const facts: [string, string][] = [["Container", state.format || NO_VALUE]];
   if (vt) {
-    facts.push(["Video Codec", vt.codecString || vt.codec]);
+    facts.push(["Video Codec", codecLabel(vt)]);
     facts.push(["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`]);
     if (vt.packetRate != null) facts.push(["Frame Rate", describeFrameRate(vt.packetRate)]);
   }
@@ -91,72 +115,45 @@ function documentMeta(): DocumentMeta {
 }
 
 function overviewSection(): AnalysisSection {
-  const fileBitrate = overallBitrate();
-  return {
-    title: overviewTitle(),
-    blocks: [
-      {
-        kind: "kv",
-        items: [
-          ["File Size", fmtBytes(state.source?.size)],
-          ["Duration", fmtDur(state.duration)],
-          ["Overall Bitrate", fmtBits(fileBitrate)],
-          ["MIME Type", state.mimeType || NO_VALUE],
-        ],
-      },
-    ],
-  };
+  return { title: overviewTitle(), blocks: [{ kind: "kv", items: kvItems(overviewRows()) }] };
 }
 
 function videoTrackSection(vt: TrackInfo): AnalysisSection {
   // No Bitrate item: the track average heads the bitrate section below, with the plot the single
   // number cannot draw, the same split the Inspect tab makes.
   const items: [string, string | number][] = [
-    ["Codec", vt.codecString || vt.codec],
+    ["Codec", codecLabel(vt)],
     ["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`],
   ];
   if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
     items.push(["Display Size", `${vt.displayWidth ?? "?"}×${vt.displayHeight ?? "?"}`]);
   }
-  items.push(["Frame Rate", describeFrameRate(vt.packetRate)], ["Frames", describeFrameCount(state.frameCount)]);
+  items.push(["Frame Rate", describeFrameRate(vt.packetRate)], ["Frames", describeFrameCount(state.samples.length)]);
   if (vt.rotation) items.push(["Rotation", vt.rotation + "°"]);
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
   if (vt.colorSpace) items.push(["Color Space", describeColorSpace(vt.colorSpace)]);
   if (vt.hdr) items.push(["HDR", "Yes"]);
-  return { title: "Video Track", blocks: [{ kind: "kv", items }] };
+  return { title: VIDEO_TRACK_TITLE, blocks: [{ kind: "kv", items }] };
 }
 
 /** Mirrors the Inspect tab's card, including the two cases where there is no plot to draw. */
 function bitrateSection(vt: TrackInfo): AnalysisSection {
-  const declared = state.declaredVideoBitrate;
-  const declaresConstant = declaresConstantBitrate(declared);
-  const timeline = computeBitrateTimeline(state.samples, state.duration ?? 0);
-
-  if (declaresConstant && declared && (!timeline || isEffectivelyConstant(timeline))) {
+  const shape = bitrateShape();
+  if (shape.kind === "declared") {
     return {
-      title: "Video Bitrate Over Time",
-      blocks: [{ kind: "kv", items: [["Declared Bitrate", fmtBits(declared.avgBitrate)]] }],
+      title: BITRATE_TITLE,
+      blocks: [{ kind: "kv", items: [["Declared Bitrate", fmtBits(shape.declared.avgBitrate)]] }],
     };
   }
-  if (!timeline) {
-    return {
-      title: "Video Bitrate Over Time",
-      blocks: [{ kind: "kv", items: [["Average", fmtBits(vt.bitrate)]] }],
-    };
+  if (shape.kind === "average") {
+    return { title: BITRATE_TITLE, blocks: [{ kind: "kv", items: kvItems([trackAverageRow(vt)]) }] };
   }
 
+  const { timeline } = shape;
   return {
-    title: "Video Bitrate Over Time",
+    title: BITRATE_TITLE,
     blocks: [
-      {
-        kind: "kv",
-        items: [
-          ["Average", fmtBits(timeline.averageBitrate)],
-          ["Peak Window", fmtBits(timeline.peakBitrate)],
-          ["Quietest Window", fmtBits(timeline.minBitrate)],
-          ["Peak ÷ Average", timeline.peakToAverage.toFixed(2) + "×"],
-        ],
-      },
+      { kind: "kv", items: kvItems(bitrateTimelineRows(timeline)) },
       {
         kind: "figure",
         caption: `Video bitrate per ${timeline.binSeconds.toFixed(2)} s window, against the track average`,
@@ -167,21 +164,14 @@ function bitrateSection(vt: TrackInfo): AnalysisSection {
 }
 
 function audioTrackSection(at: TrackInfo): AnalysisSection {
-  const items: [string, string | number][] = [
-    ["Codec", at.codecString || at.codec],
-    ["Sample Rate", at.sampleRate ? at.sampleRate.toLocaleString() + " Hz" : NO_VALUE],
-    ["Channels", at.channels != null ? at.channels : NO_VALUE],
-    ["Bitrate", fmtBits(at.bitrate)],
-  ];
-  if (at.codecInfo) at.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
-  return { title: "Audio Track", blocks: [{ kind: "kv", items }] };
+  return { title: AUDIO_TRACK_TITLE, blocks: [{ kind: "kv", items: kvItems(audioTrackRows(at)) }] };
 }
 
 function metadataTagsSection(): AnalysisSection | null {
   const flatTags = flattenMetadataTags();
   if (!Object.keys(flatTags).length) return null;
   return {
-    title: "Metadata Tags",
+    title: METADATA_TAGS_TITLE,
     blocks: [
       {
         kind: "kv",
@@ -205,11 +195,7 @@ function atomMapSection(): AnalysisSection | null {
   return {
     title: "MP4 Atom Map",
     blocks: [
-      {
-        kind: "badge",
-        tone: state.faststart ? "good" : "bad",
-        text: state.faststart ? "✓ Fast start" : "✗ Not fast start",
-      },
+      { kind: "badge", ...faststartBadge() },
       { kind: "figure", caption: ATOM_MAP_DOC_CAPTION, element: map },
     ],
   };
@@ -223,36 +209,26 @@ function gopSection(): AnalysisSection | null {
       kind: "kv",
       items: [
         ["Total Frames", state.samples.length.toLocaleString()],
-        ["Keyframes", state.keyframeDecodeIndices.length.toLocaleString()],
+        ["Keyframes", state.gopLengths.length.toLocaleString()],
         ["Avg GOP", describeAvgGop(avgGop, fps)],
         ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : NO_VALUE],
       ],
     },
-    {
-      kind: "badge",
-      tone: state.hasBFrames ? "info" : "good",
-      text: state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames",
-    },
+    { kind: "badge", ...bFramesBadge() },
   ];
   if (gop.length > 1) {
     blocks.push({ kind: "figure", caption: GOP_HISTOGRAM_CAPTION, element: renderGopHistogram(gop) });
   }
-  return { title: "GOP / Keyframe Structure", blocks };
+  return { title: GOP_TITLE, blocks };
 }
 
 function seekingSection(): AnalysisSection | null {
   const results = state.seekResults;
   if (!results || !results.length) return null;
-  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
   const blocks: AnalysisBlock[] = [
     {
       kind: "kv",
-      items: [
-        ["Timestamps Sampled", results.length.toLocaleString()],
-        ["Avg Keyframe Distance", avgDist.toFixed(3) + " s"],
-        ["Avg Decode Time", fmtMs(avgDecode)],
-        ["Max Decode Time", fmtMs(maxDecode)],
-      ],
+      items: [["Timestamps Sampled", results.length.toLocaleString()], ...kvItems(seekSummaryRows(results))],
     },
   ];
   const scatter = renderSeekScatter(results);
@@ -262,7 +238,7 @@ function seekingSection(): AnalysisSection | null {
     headers: SEEK_TABLE_HEADERS,
     rows: results.map(seekResultRow),
   });
-  return { title: "Empirical Seeking Test", blocks };
+  return { title: SEEK_TEST_TITLE, blocks };
 }
 
 function cliCommandSection(): AnalysisSection | null {
@@ -279,18 +255,14 @@ function compareSection(): AnalysisSection | null {
   // The settings the loaded encode was made with: after a matrix sweep that is the winning square's,
   // which is not what the command builder says.
   const settings = sampledEncode.activeCombo ?? cliSettings(cli);
-  const items: [string, string | number][] = [
-    ["Segment", describeSampledStretches()],
-    ["Quality", describeQuality(settings)],
-    ["Preset", settings.preset],
-  ];
   // Only when it is not the source's: a resolution row reading "100%" on every document would say
   // nothing, but a comparison made at half resolution is not comparable to one that was not.
   const vt = videoTrackInfo();
-  if (isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight) {
-    items.push(["Resolution", describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)]);
-  }
-  items.push(["Encoded Segment Size", fmtBytes(sampledEncode.encodedSize)]);
+  const resolution =
+    isDownscale(settings.scale) && vt?.codedWidth && vt.codedHeight
+      ? describeResolutionChange(vt.codedWidth, vt.codedHeight, settings)
+      : null;
+  const items = kvItems(compareSummaryRows(settings, resolution));
 
   const est = currentSizeEstimate();
   if (est) {
@@ -324,22 +296,21 @@ function matrixSection(): AnalysisSection | null {
   // it becomes a leading column instead: the same information, in the shape a table can carry.
   const swept = scales.length > 1 || scalers.length > 1;
   const rows: string[][] = [];
-  for (const scale of scales) {
-    for (const scaler of isDownscale(scale) ? scalers : scalers.slice(0, 1)) {
-      for (const quality of qualities) {
-        const head = [`${quality} (CRF ${comboCrf(quality)})`];
-        if (swept) head.unshift(`${scalePercent(scale)}${isDownscale(scale) ? ` ${scaler}` : ""}`);
-        rows.push([
-          ...head,
-          ...presets.map((preset) => {
-            const cell = byKey.get(comboKey(quality, preset, scale, scaler));
-            if (!cell) return NO_VALUE;
-            const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
-            const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
-            return `${fmtBytes(cell.bytes)}${took}${mark}`;
-          }),
-        ]);
-      }
+  // The source's own rate alone: the table has no column for a reduced one.
+  for (const { fps, scale, scaler } of matrixOutputs([null], scales, scalers)) {
+    for (const quality of qualities) {
+      const head = [`${quality} (CRF ${comboCrf(quality)})`];
+      if (swept) head.unshift(`${scalePercent(scale)}${isDownscale(scale) ? ` ${scaler}` : ""}`);
+      rows.push([
+        ...head,
+        ...presets.map((preset) => {
+          const cell = byKey.get(comboKey(quality, preset, scale, scaler, fps));
+          if (!cell) return NO_VALUE;
+          const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
+          const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
+          return `${fmtBytes(cell.bytes)}${took}${mark}`;
+        }),
+      ]);
     }
   }
   return {

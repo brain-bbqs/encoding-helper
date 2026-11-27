@@ -4,6 +4,7 @@ import { sampledEncode, resetState, state } from "../../src/lib/state";
 import { heldBytes } from "../../src/lib/qualityMatrix";
 import type { EncodeSettings, SampleWindow } from "../../src/lib/types";
 import { flush } from "./helpers/async";
+import { gridRows } from "./helpers/grid";
 
 /** The id of every Input the stub has seen disposed, so the test can check the old ones are let go
  * of. */
@@ -1094,6 +1095,33 @@ describe("the heading and labels", () => {
     await load(host);
     expect(host.querySelector("h2")).toBeNull();
     expect(host.querySelector("h3")!.textContent).toBe("Side-by-Side");
+  });
+
+  // The encoded size is the one stretch's own bytes: "encoded 0" is nine of them.
+  it("lists the seconds encoded, the settings and the size above the panes, in that order", async () => {
+    const host = hostSection();
+    await load(host);
+    expect(gridRows(host.querySelector(".grid")!)).toEqual([
+      { label: "Segment", value: "0.0s–1.0s", info: false, sm: false },
+      { label: "Quality", value: "medium (CRF 25)", info: false, sm: false },
+      { label: "Preset", value: "superfast", info: false, sm: false },
+      { label: "Encoded Segment Size", value: "9 B", info: false, sm: false },
+    ]);
+  });
+
+  it("puts a downscaled encode's resolution between its settings and its size", async () => {
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, scale: 0.5 }, VIDEO_TRACK, host, {
+      bytes: 9,
+      windows: [{ startSeconds: 0, seconds: stretchSeconds }],
+    });
+    expect(gridRows(host.querySelector(".grid")!).map((row) => [row.label, row.value])).toEqual([
+      ["Segment", "0.0s–1.0s"],
+      ["Quality", "medium (CRF 25)"],
+      ["Preset", "superfast"],
+      ["Resolution", "640×480 → 320×240 (50%, lanczos)"],
+      ["Encoded Segment Size", "9 B"],
+    ]);
   });
 
   it("labels a custom-quality encode by its CRF", async () => {

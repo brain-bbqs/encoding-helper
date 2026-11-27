@@ -1,3 +1,4 @@
+import { installObserverStub } from "@brain-bbqs/test-utils/vitest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { VIDEO_TRACK as SHARED_VIDEO_TRACK } from "../fixtures/state";
@@ -5,8 +6,9 @@ import { resetState, state } from "../../src/lib/state";
 import type { CodecInfo, DeclaredBitrate, SampleInfo, TrackInfo } from "../../src/lib/types";
 import { renderAtomMap } from "../../src/ui/atomsTab";
 import { renderBitrateTimelineSection, renderInspectHead, renderInspectTail } from "../../src/ui/inspectTab";
+import { mountInspectToc } from "../../src/ui/inspectToc";
 import { renderGopStructure } from "../../src/ui/seekTab";
-import { gridItem, gridValue } from "./helpers/grid";
+import { gridItem, gridRows, gridValue } from "./helpers/grid";
 
 /** The shared track, at the 20 fps these tests read their figures against. */
 const VIDEO_TRACK: TrackInfo = { ...SHARED_VIDEO_TRACK, packetRate: 20 };
@@ -63,7 +65,7 @@ describe("renderBitrateTimelineSection", () => {
     loadFile({ durationSec: 1, samples: samples(3, 1, () => 1000) });
     const section = renderBitrateTimelineSection();
     expect(chartOf(section)).toBeNull();
-    expect(section!.textContent).toContain("500 kbps");
+    expect(gridRows(section!)).toEqual([{ label: "Average", value: "500 kbps", info: true, sm: false }]);
     expect(section!.textContent).toContain("too few frames");
   });
 
@@ -72,6 +74,18 @@ describe("renderBitrateTimelineSection", () => {
     const section = renderBitrateTimelineSection();
     expect(chartOf(section)).not.toBeNull();
     expect(section!.textContent).toContain("Video Bitrate Over Time");
+  });
+
+  // 980,000 bytes over 30 s on average; a second holding a 20,000-byte keyframe carries 39,000
+  // bytes, and one without a keyframe 20,000.
+  it("heads the plot with the average, the peak and quietest windows and their ratio", () => {
+    loadFile({ durationSec: 30, samples: samples(600, 30, (i) => (i % 30 === 0 ? 20_000 : 1_000)) });
+    expect(gridRows(renderBitrateTimelineSection()!)).toEqual([
+      { label: "Average", value: "261 kbps", info: true, sm: false },
+      { label: "Peak Window", value: "312 kbps", info: false, sm: false },
+      { label: "Quietest Window", value: "160 kbps", info: false, sm: false },
+      { label: "Peak ÷ Average", value: "1.19×", info: true, sm: false },
+    ]);
   });
 
   it("plots a track with no btrt declaration even when its rate happens not to move", () => {
@@ -89,8 +103,35 @@ describe("renderBitrateTimelineSection", () => {
     });
     const section = renderBitrateTimelineSection();
     expect(chartOf(section)).toBeNull();
+    expect(section!.querySelector(".grid")).toBeNull();
     expect(section!.textContent).toContain("constant bitrate");
     expect(section!.textContent).toContain("160 kbps");
+  });
+
+  it("takes a constant declaration at its word when there are too few frames to test it", () => {
+    loadFile({
+      durationSec: 1,
+      samples: samples(3, 1, () => 1000),
+      declared: { avgBitrate: 24_000, maxBitrate: 24_000 },
+    });
+    const section = renderBitrateTimelineSection();
+    expect(chartOf(section)).toBeNull();
+    expect(section!.querySelector(".grid")).toBeNull();
+    expect(section!.textContent).toContain("constant bitrate");
+    expect(section!.textContent).not.toContain("too few frames");
+  });
+
+  // A btrt whose maximum is above its average declares a variable rate, so neither the flat frames
+  // nor the declaration are grounds to drop the plot or to question the file.
+  it("plots, and questions nothing, under a declaration whose peak sits above its average", () => {
+    loadFile({
+      durationSec: 30,
+      samples: samples(600, 30, () => 1000),
+      declared: { avgBitrate: 160_000, maxBitrate: 300_000 },
+    });
+    const section = renderBitrateTimelineSection();
+    expect(chartOf(section)).not.toBeNull();
+    expect(section!.textContent).not.toContain("The sample sizes say otherwise");
   });
 
   it("still plots when the declaration says constant but the frame sizes disagree", () => {
@@ -121,7 +162,6 @@ describe("the Inspect panel", () => {
     state.format = "mp4";
     state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
     state.gopLengths = [30, 30];
-    state.keyframeDecodeIndices = [0, 30];
     const panel = document.createElement("div");
     // The order main.ts appends them in.
     renderInspectHead(panel);
@@ -140,6 +180,30 @@ describe("the Inspect panel", () => {
     ]);
   });
 
+  // The overview's container explainer names the atom map; its link goes to whatever id the "On
+  // this page" nav gives the atom card's heading.
+  it("links the overview's mention of the atom map to the atom card", () => {
+    const observers = installObserverStub("IntersectionObserver");
+    try {
+      loadClip();
+      state.format = "MP4";
+      state.boxes = [{ type: "ftyp", start: 0, size: 32, children: [] }];
+      const panel = document.createElement("div");
+      renderInspectHead(panel);
+      renderAtomMap(panel);
+      renderGopStructure(panel);
+      renderInspectTail(panel);
+      mountInspectToc(panel);
+      const link = Array.from(panel.querySelectorAll<HTMLAnchorElement>(".teach a")).find(
+        (a) => a.textContent === "Atom Map",
+      )!;
+      const atomHeading = panel.querySelector(".atom-faststart")!.closest(".section")!.querySelector("h2")!;
+      expect(link.getAttribute("href")).toBe("#" + atomHeading.id);
+    } finally {
+      observers.restore();
+    }
+  });
+
   // Faststart is a fact about where moov sits relative to mdat, so it is read against the map that
   // draws them rather than in the file overview.
   it("reports faststart on the atom card, not on the overview", () => {
@@ -153,6 +217,13 @@ describe("the Inspect panel", () => {
     const atoms = document.createElement("div");
     renderAtomMap(atoms);
     expect(atoms.querySelector(".atom-faststart")?.textContent).toBe("✓ Fast start");
+    expect(atoms.querySelector(".atom-faststart .badge")?.className).toBe("badge good");
+
+    state.faststart = false;
+    const late = document.createElement("div");
+    renderAtomMap(late);
+    expect(late.querySelector(".atom-faststart")?.textContent).toBe("✗ Not fast start");
+    expect(late.querySelector(".atom-faststart .badge")?.className).toBe("badge bad");
   });
 
   // The container's own card was folded into the overview, and its explainer names the container,
@@ -280,7 +351,6 @@ describe("the overview and track cards", () => {
 
   it("lists every optional video-track figure the file states", () => {
     loadClip();
-    state.frameCount = 600;
     state.tracks = [
       {
         ...VIDEO_TRACK,
@@ -352,12 +422,13 @@ describe("the overview and track cards", () => {
     const panel = document.createElement("div");
     renderInspectTail(panel);
     expect(headings(panel)).toEqual(["Video Bitrate Over Time", "Audio Track"]);
-    const values = (label: string): string | null => gridValue(panel, label);
-    expect(values("Codec")).toBe("mp4a.40.2");
-    expect(values("Sample Rate")).toBe("48,000 Hz");
-    expect(values("Channels")).toBe("2");
-    expect(values("Bitrate")).toBe("128 kbps");
-    expect(values("Object Type")).toBe("AAC-LC");
+    expect(gridRows(panel.querySelectorAll(".section")[1]!)).toEqual([
+      { label: "Codec", value: "mp4a.40.2", info: false, sm: true },
+      { label: "Sample Rate", value: "48,000 Hz", info: false, sm: false },
+      { label: "Channels", value: "2", info: false, sm: false },
+      { label: "Bitrate", value: "128 kbps", info: true, sm: false },
+      { label: "Object Type", value: "AAC-LC", info: false, sm: false },
+    ]);
     expect(panel.querySelectorAll(".section")[1]!.querySelector(".teach")?.textContent).toContain(
       "AAC (1997), Advanced Audio Coding",
     );
@@ -386,6 +457,15 @@ describe("the overview and track cards", () => {
     expect(gridValue(panel, "Codec")).toBe("avc");
   });
 
+  // An empty codec string names nothing either, so the short id stands in for it as for a missing one.
+  it("names the video codec by its short id when the file's codec string is empty", () => {
+    loadClip();
+    state.tracks = [{ ...VIDEO_TRACK, codecString: "" }];
+    const panel = document.createElement("div");
+    renderInspectHead(panel);
+    expect(gridValue(panel, "Codec")).toBe("avc");
+  });
+
   // The overall bitrate is the whole file's size over its running time (2,000,000 B over 30 s), not
   // the 500 kbps the video track states.
   it("states the file's size, overall bitrate and MIME type in the overview", () => {
@@ -393,9 +473,12 @@ describe("the overview and track cards", () => {
     state.mimeType = "video/mp4";
     const panel = document.createElement("div");
     renderInspectHead(panel);
-    expect(gridValue(panel, "File Size")).toBe("1.9 MB");
-    expect(gridValue(panel, "Overall Bitrate")).toBe("533 kbps");
-    expect(gridValue(panel, "MIME Type")).toBe("video/mp4");
+    expect(gridRows(panel.querySelector(".section .grid")!)).toEqual([
+      { label: "File Size", value: "1.9 MB", info: false, sm: false },
+      { label: "Duration", value: "30.000 s", info: false, sm: false },
+      { label: "Overall Bitrate", value: "533 kbps", info: true, sm: false },
+      { label: "MIME Type", value: "video/mp4", info: true, sm: true },
+    ]);
   });
 
   // A file whose header gives no duration has no rate to divide by, so the overview and the bitrate

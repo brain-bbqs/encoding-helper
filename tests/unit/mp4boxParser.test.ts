@@ -267,7 +267,6 @@ describe("extractSampleAnalysis", () => {
 
     expect(analysis.samples).toHaveLength(10);
     expect(analysis.samples[1]).toEqual({ size: 1000, ctsSec: 20 / 600, is_sync: false });
-    expect(analysis.keyframeDecodeIndices).toEqual([0, 4, 8]);
     // The last GOP runs to the end of the file, however short that leaves it.
     expect(analysis.gopLengths).toEqual([4, 4, 2]);
     expect(analysis.keyframeTimestampsSec).toEqual([0, 80 / 600, 160 / 600]);

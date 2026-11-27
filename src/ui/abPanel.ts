@@ -15,7 +15,7 @@
 
 import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
 import { button, h } from "@brain-bbqs/ui";
-import { gridItem, infoIcon } from "../lib/dom";
+import { factGrid, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
 import { FALLBACK_FPS } from "../lib/format";
@@ -26,7 +26,7 @@ import { ensureMediabunny } from "../lib/mediabunny";
 import type { Input } from "mediabunny";
 import { currentSizeEstimate, windowsSeconds } from "../lib/sizeEstimate";
 import { sampledEncode, state } from "../lib/state";
-import type { AbSegment, EncodeSettings, SampleWindow, TrackInfo } from "../lib/types";
+import type { AbSegment, EncodeSettings, FactRow, SampleWindow, TrackInfo } from "../lib/types";
 import { renderSavingsDetail, renderSavingsStrip } from "./savingsPanel";
 import { attachSyncedZoomPan, ZOOM_BUTTON_STEP, ZOOM_MAX, ZOOM_MIN } from "./zoomPan";
 
@@ -148,21 +148,27 @@ export function describeSampledStretches(): string {
   );
 }
 
-/** The facts above the panes: which seconds were encoded, at what settings, and what they came to.
- * The resolution row appears only when it is not the source's, since a row reading "100%" over
- * every comparison would say nothing. */
+/**
+ * The facts above the panes, which the Full Analysis document states as well: which seconds were
+ * encoded, at what settings, and what they came to. `resolution` is the resolution row's value, or
+ * null for none; each caller decides when it has one, since a row reading "100%" over every
+ * comparison would say nothing.
+ */
+export function compareSummaryRows(settings: EncodeSettings, resolution: string | null): FactRow[] {
+  const rows: FactRow[] = [
+    { label: "Segment", value: describeSampledStretches() },
+    { label: "Quality", value: describeQuality(settings) },
+    { label: "Preset", value: settings.preset },
+  ];
+  if (resolution !== null) rows.push({ label: "Resolution", value: resolution });
+  rows.push({ label: "Encoded Segment Size", value: fmtBytes(sampledEncode.encodedSize) });
+  return rows;
+}
+
+/** The page's summary grid, with a resolution row whenever the encode was downscaled. */
 function compareSummaryGrid(settings: EncodeSettings, srcWidth: number, srcHeight: number): HTMLDivElement {
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Segment", describeSampledStretches()),
-    gridItem("Quality", describeQuality(settings)),
-    gridItem("Preset", settings.preset),
-  );
-  if (isDownscale(settings.scale)) {
-    g.append(gridItem("Resolution", describeResolutionChange(srcWidth, srcHeight, settings)));
-  }
-  g.append(gridItem("Encoded Segment Size", fmtBytes(sampledEncode.encodedSize)));
-  return g;
+  const resolution = isDownscale(settings.scale) ? describeResolutionChange(srcWidth, srcHeight, settings) : null;
+  return factGrid(compareSummaryRows(settings, resolution));
 }
 
 /** Kept off the very end of a stretch, which decodes to nothing: a sink asked for its own duration

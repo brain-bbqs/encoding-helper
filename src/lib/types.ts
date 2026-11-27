@@ -73,7 +73,6 @@ export interface DeclaredBitrate {
 /** GOP/keyframe/B-frame analysis derived from a track's sample table. */
 export interface SampleAnalysis {
   samples: SampleInfo[];
-  keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
   keyframeTimestampsSec: number[];
@@ -283,17 +282,35 @@ export interface AppState {
   tags: MetadataTags | null;
   tracks: TrackInfo[] | null;
   fps: number | null;
-  frameCount: number | null;
   boxes: BoxNode[];
   faststart: boolean | null;
   samples: SampleInfo[];
   declaredVideoBitrate: DeclaredBitrate | null;
-  keyframeDecodeIndices: number[];
   gopLengths: number[];
   hasBFrames: boolean;
   keyframeTimestampsSec: number[];
   seekResults: SeekResult[] | null;
   reencodeResult: ReencodeResult | null;
+}
+
+/**
+ * One labelled figure that a card on the page and the Full Analysis document both state, built once
+ * by the module that owns the card. `sm` and `info` are the card's hints (the smaller value type and
+ * the ⓘ popover); the document applies its own length rule and carries no popovers, so it reads the
+ * label and the value alone.
+ */
+export interface FactRow {
+  label: string;
+  value: string | number;
+  sm?: boolean;
+  /** Trusted, author-authored explainer markup. */
+  info?: string | null;
+}
+
+/** A one-line verdict drawn as a badge, on the page and in the document alike. */
+export interface Badge {
+  tone: "good" | "bad" | "info";
+  text: string;
 }
 
 /**
@@ -309,7 +326,7 @@ export type AnalysisBlock =
       /** Keeps label casing as-is; set for blocks whose labels are container-native tag names. */
       rawLabels?: boolean;
     }
-  | { kind: "badge"; text: string; tone: "good" | "bad" | "info" }
+  | ({ kind: "badge" } & Badge)
   | { kind: "code"; lang: string; content: string }
   | { kind: "table"; headers: string[]; rows: string[][] }
   /** A chart, built by whichever tab owns it. Renderers clone it, so a section can be drawn twice. */

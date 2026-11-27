@@ -11,6 +11,7 @@ import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/q
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
+import { gridRows } from "./helpers/grid";
 
 const downloads: { name: string; text: string }[] = [];
 
@@ -50,9 +51,7 @@ function loadClip(over: { tracks?: TrackInfo[] } = {}): void {
   state.duration = 30;
   state.tracks = over.tracks ?? [VIDEO_TRACK, AUDIO_TRACK];
   state.fps = 20;
-  state.frameCount = 600;
   state.samples = evenSamples(600, 30, 1000, (i) => i % 30 === 0);
-  state.keyframeDecodeIndices = state.samples.map((s, i) => (s.is_sync ? i : -1)).filter((i) => i >= 0);
   state.gopLengths = Array.from({ length: 20 }, () => 30);
   state.keyframeTimestampsSec = state.samples.filter((s) => s.is_sync).map((s) => s.ctsSec);
   state.boxes = boxes();
@@ -77,6 +76,16 @@ function panel(): HTMLElement {
 /** The document HTML the panel put in its preview frame. */
 function documentHtml(el: HTMLElement): string {
   return el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!.srcdoc;
+}
+
+/** The label and value of each field in the document's section headed `title`, in order. */
+function documentRows(el: HTMLElement, title: string): [string | null, string | null][] {
+  const doc = new DOMParser().parseFromString(documentHtml(el), "text/html");
+  const sec = Array.from(doc.querySelectorAll("section.section")).find(
+    (s) => s.querySelector("h2")?.textContent === title,
+  );
+  if (!sec) throw new Error(`No "${title}" section in the document`);
+  return gridRows(sec).map((row) => [row.label, row.value]);
 }
 
 function clickButton(el: HTMLElement, label: string): void {
@@ -249,6 +258,13 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("## Empirical Seeking Test");
     expect(md).toContain("| Timestamps Sampled | 2 |");
     expect(md).toContain("| Max Decode Time | 30.0 ms |");
+    // The count leads, then the three figures the page's card shows.
+    expect(documentRows(el, "Empirical Seeking Test")).toEqual([
+      ["Timestamps Sampled", "2"],
+      ["Avg Keyframe Distance", "0.750 s"],
+      ["Avg Decode Time", "20.0 ms"],
+      ["Max Decode Time", "30.0 ms"],
+    ]);
     // Every sampled timestamp, as the table on the page prints it.
     expect(md).toContain("| 1.000s |");
     expect(md).toContain("| 2.000s |");
@@ -317,6 +333,41 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| Quality | ultrafast | fast |");
     // ★ marks the largest reduction, which is the smallest of the four.
     expect(md.match(/★/g)).toHaveLength(1);
+  });
+
+  // At the source resolution every kernel is the same encode, so a sweep over two kernels and a
+  // downscale has three outputs: one at 100%, and one per kernel at 50%.
+  it("prints the sweep's source-resolution output once, whatever kernels it ticked", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]));
+    cells.forEach((c, i) => {
+      c.status = "done";
+      c.bytes = 60_000 - i * 10_000;
+    });
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    expect(markdown(el).match(/^\| \d+%.*$/gm)).toEqual([
+      "| 100% | high (CRF 18) | 58.6 KB |",
+      "| 50% lanczos | high (CRF 18) | 48.8 KB |",
+      "| 50% bicubic | high (CRF 18) | 39.1 KB ★ |",
+    ]);
+  });
+
+  // The table has no rate column (NV-10 in docs/code-reviews/2026-11-22-code-quality-review.md), so a
+  // reduced rate's squares would repeat each quality's row with nothing to tell the copies apart.
+  it("prints a sweep's source-rate squares alone, one row per quality, when it also covered a reduced rate", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [null, 15]));
+    cells.forEach((c, i) => {
+      c.status = "done";
+      c.bytes = 60_000 - i * 10_000;
+    });
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    const table = markdown(el).split("## Compare Quality Matrix")[1];
+    expect(table.match(/^\| high.*$/gm)).toEqual(["| high (CRF 18) | 58.6 KB |"]);
   });
 
   it("leaves a sweep out while none of its squares have finished", () => {
@@ -526,11 +577,19 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("| Declared Bitrate |");
   });
 
+  it("states a constant declaration under the bitrate heading when there are too few frames to test it", () => {
+    const el = panel();
+    loadClip();
+    state.samples = evenSamples(3, 30, 1000, (i) => i === 0);
+    state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
+    renderAnalysisTab(el);
+    expect(documentRows(el, "Video Bitrate Over Time")).toEqual([["Declared Bitrate", "160 kbps"]]);
+  });
+
   it("falls back to the track average when there are too few frames to bin", () => {
     const el = panel();
     loadClip();
     state.samples = evenSamples(3, 30, 1000, (i) => i === 0);
-    state.keyframeDecodeIndices = [0];
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("| Average | 500 kbps |");
@@ -541,7 +600,6 @@ describe("renderAnalysisTab", () => {
     const el = panel();
     loadClip();
     state.samples = [];
-    state.keyframeDecodeIndices = [];
     state.boxes = [];
     renderAnalysisTab(el);
     const md = markdown(el);
@@ -600,6 +658,17 @@ describe("renderAnalysisTab", () => {
     renderAnalysisTab(el);
     const ab = markdown(el).split("## Side-by-Side (A/B) Result")[1];
     expect(ab).not.toContain("| Resolution |");
+  });
+
+  it("leaves the resolution change out when the track's coded size is unknown", () => {
+    const el = panel();
+    loadClip({ tracks: [{ ...VIDEO_TRACK, codedWidth: undefined, codedHeight: undefined }, AUDIO_TRACK] });
+    loadComparison(5, 100_000);
+    sampledEncode.activeCombo = { ...cliSettings(cli), scale: 0.5 };
+    renderAnalysisTab(el);
+    const labels = documentRows(el, "Side-by-Side (A/B) Result").map(([label]) => label);
+    expect(labels).toContain("Quality");
+    expect(labels).not.toContain("Resolution");
   });
 
   it("leads a sweep over more than one resolution with an output column", () => {

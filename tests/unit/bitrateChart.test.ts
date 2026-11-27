@@ -54,6 +54,35 @@ describe("renderBitrateChart", () => {
     expect(first).toContain("kbps");
     expect(first).toContain("frames");
   });
+
+  // The frame's markup is what the exported document embeds, so it is pinned as written: a 520 by
+  // 204 plot 64 px in from the left and 16 px down, cut into four steps.
+  it("frames the plot with grid lines, ticks, two axes and a turned vertical title", () => {
+    const svg = renderBitrateChart(timeline);
+    const markup = (selector: string, index: number): string => svg.querySelectorAll(selector)[index].outerHTML;
+    expect(svg.querySelectorAll("line.grid-line")).toHaveLength(10);
+    expect(markup("line.grid-line", 2)).toBe(
+      '<line class="grid-line" x1="194" y1="16" x2="194" y2="220" stroke-width="1"></line>',
+    );
+    expect(markup("line.grid-line", 3)).toBe(
+      '<line class="grid-line" x1="64" y1="67" x2="584" y2="67" stroke-width="1"></line>',
+    );
+    expect(markup("text.tick", 2)).toBe(
+      '<text class="tick" x="194" y="236" font-size="10" text-anchor="middle">7.5s</text>',
+    );
+    expect(markup("text.tick", 3)).toBe(
+      '<text class="tick" x="56" y="172" font-size="10" text-anchor="end">200</text>',
+    );
+    expect(Array.from(svg.querySelectorAll("line.axis")).map((el) => el.outerHTML)).toEqual([
+      '<line class="axis" x1="64" y1="16" x2="64" y2="220" stroke-width="1"></line>',
+      '<line class="axis" x1="64" y1="220" x2="584" y2="220" stroke-width="1"></line>',
+    ]);
+    expect(Array.from(svg.querySelectorAll("text.axis-title")).map((el) => el.outerHTML)).toEqual([
+      '<text class="axis-title" x="324" y="256" font-size="11" text-anchor="middle">Playback time</text>',
+      '<text class="axis-title" x="12" y="118" font-size="11" text-anchor="middle" transform="rotate(-90 12 118)">' +
+        "Bitrate (kbps)</text>",
+    ]);
+  });
 });
 
 /** The text of every element of `cls` in the chart, in document order. */

@@ -9,8 +9,9 @@
 import { svgEl, svgText } from "@brain-bbqs/ui";
 import type { BitrateTimeline } from "../lib/bitrateTimeline";
 import { fmtBits } from "../lib/format";
+import { appendAxes, AXIS_STEPS, CHART_WIDTH, type ChartGeometry } from "./chartAxes";
 
-const W = 600;
+const W = CHART_WIDTH;
 const H = 260;
 const ML = 64;
 const MR = 16;
@@ -20,10 +21,10 @@ const PLOT_W = W - ML - MR;
 const PLOT_H = H - MT - MB;
 const PLOT_BOTTOM = MT + PLOT_H;
 const PLOT_RIGHT = ML + PLOT_W;
-const STEPS = 4;
+const GEOMETRY: ChartGeometry = { H, ML, MT, plotW: PLOT_W, plotH: PLOT_H };
 
 /**
- * The smallest top-of-axis at or above `peak` that divides into `STEPS` round ticks, so the axis
+ * The smallest top-of-axis at or above `peak` that divides into `steps` round ticks, so the axis
  * reads 0 / 200 / 400 / 600 / 800 rather than 0 / 200 / 400 / 601 / 801.
  */
 export function niceAxisMax(peak: number, steps: number): number {
@@ -60,7 +61,7 @@ function tickDecimals(step: number): number {
  */
 function fmtTime(sec: number, durationSec: number): string {
   if (durationSec < 60) {
-    const decimals = Number.isInteger(durationSec / STEPS) ? 0 : 1;
+    const decimals = Number.isInteger(durationSec / AXIS_STEPS) ? 0 : 1;
     return sec.toFixed(decimals) + "s";
   }
   const m = Math.floor(sec / 60);
@@ -72,7 +73,7 @@ function fmtTime(sec: number, durationSec: number): string {
 export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
   const { bins } = timeline;
   const durationSec = bins[bins.length - 1].endSec;
-  const maxY = niceAxisMax(timeline.peakBitrate, STEPS);
+  const maxY = niceAxisMax(timeline.peakBitrate, AXIS_STEPS);
   const unit = rateUnit(maxY);
   const xScale = (t: number): number => ML + (t / durationSec) * PLOT_W;
   const yScale = (bps: number): number => PLOT_BOTTOM - (bps / maxY) * PLOT_H;
@@ -87,7 +88,13 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
       `lowest ${fmtBits(timeline.minBitrate)}.`,
   });
 
-  appendAxes(svg, durationSec, maxY, unit);
+  const decimals = tickDecimals(maxY / unit.divisor / AXIS_STEPS);
+  appendAxes(svg, GEOMETRY, {
+    xTick: (i) => fmtTime((durationSec * i) / AXIS_STEPS, durationSec),
+    yTick: (i) => ((maxY * i) / AXIS_STEPS / unit.divisor).toFixed(decimals),
+    xTitle: durationSec < 60 ? "Playback time" : "Playback time (m:ss)",
+    yTitle: `Bitrate (${unit.label})`,
+  });
 
   // One horizontal run per window, joined by the vertical jumps between them.
   const steps = bins
@@ -124,55 +131,6 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
 
   appendHoverLayer(svg, bins, durationSec, xScale, yScale);
   return svg;
-}
-
-/** The grid lines, tick labels, the two axes and their titles. */
-function appendAxes(svg: SVGSVGElement, durationSec: number, maxY: number, unit: RateUnit): void {
-  const decimals = tickDecimals(maxY / unit.divisor / STEPS);
-  for (let i = 0; i <= STEPS; i++) {
-    const gx = ML + (PLOT_W * i) / STEPS;
-    const gy = MT + (PLOT_H * i) / STEPS;
-    svg.append(svgEl("line", { class: "grid-line", x1: gx, y1: MT, x2: gx, y2: PLOT_BOTTOM, "stroke-width": 1 }));
-    svg.append(svgEl("line", { class: "grid-line", x1: ML, y1: gy, x2: PLOT_RIGHT, y2: gy, "stroke-width": 1 }));
-    svg.append(
-      svgText(
-        "tick",
-        { x: gx, y: PLOT_BOTTOM + 16, "font-size": 10, "text-anchor": "middle" },
-        fmtTime((durationSec * i) / STEPS, durationSec),
-      ),
-    );
-    svg.append(
-      svgText(
-        "tick",
-        { x: ML - 8, y: PLOT_BOTTOM - (PLOT_H * i) / STEPS + 3, "font-size": 10, "text-anchor": "end" },
-        ((maxY * i) / STEPS / unit.divisor).toFixed(decimals),
-      ),
-    );
-  }
-  svg.append(svgEl("line", { class: "axis", x1: ML, y1: MT, x2: ML, y2: PLOT_BOTTOM, "stroke-width": 1 }));
-  svg.append(
-    svgEl("line", { class: "axis", x1: ML, y1: PLOT_BOTTOM, x2: PLOT_RIGHT, y2: PLOT_BOTTOM, "stroke-width": 1 }),
-  );
-  svg.append(
-    svgText(
-      "axis-title",
-      { x: ML + PLOT_W / 2, y: H - 4, "font-size": 11, "text-anchor": "middle" },
-      durationSec < 60 ? "Playback time" : "Playback time (m:ss)",
-    ),
-  );
-  svg.append(
-    svgText(
-      "axis-title",
-      {
-        x: 12,
-        y: MT + PLOT_H / 2,
-        "font-size": 11,
-        "text-anchor": "middle",
-        transform: `rotate(-90 12 ${MT + PLOT_H / 2})`,
-      },
-      `Bitrate (${unit.label})`,
-    ),
-  );
 }
 
 /**

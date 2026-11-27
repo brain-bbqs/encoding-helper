@@ -126,7 +126,7 @@ export function extractSampleAnalysis(mp4boxFile: ISOFile, videoTrackId: number,
   const presentationOrder = samples.slice().sort((a, b) => a.ctsSec - b.ctsSec);
   const keyframeTimestampsSec = presentationOrder.filter((s) => s.is_sync).map((s) => s.ctsSec);
 
-  return { samples, keyframeDecodeIndices, gopLengths, hasBFrames, keyframeTimestampsSec };
+  return { samples, gopLengths, hasBFrames, keyframeTimestampsSec };
 }
 
 // Binary search: largest keyframe timestamp <= t (or null if t is before the first keyframe).

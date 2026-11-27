@@ -94,7 +94,10 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     const videoTrackId = info.videoTracks[0].id;
     const timescale = info.videoTracks[0].timescale;
     const analysis = extractSampleAnalysis(mp4boxFile, videoTrackId, timescale);
-    Object.assign(state, analysis);
+    state.samples = analysis.samples;
+    state.gopLengths = analysis.gopLengths;
+    state.hasBFrames = analysis.hasBFrames;
+    state.keyframeTimestampsSec = analysis.keyframeTimestampsSec;
     state.declaredVideoBitrate = extractDeclaredBitrate(mp4boxFile, videoTrackId);
 
     setLoadingUi(els, "Reading metadata (mediabunny)…");
@@ -110,7 +113,6 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     state.tags = meta.tags;
     state.tracks = meta.tracks;
     state.fps = meta.fps || estimateFpsFromSamples();
-    state.frameCount = state.samples.length;
 
     els.app.style.display = "block";
     // Only a remote URL can be handed to someone else; a local file leaves the address bar clean.

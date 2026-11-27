@@ -132,7 +132,10 @@ describe("renderAtomMap", () => {
   // The legend is a key to what is on the map, so a progressive file gets no row for the fragment
   // index it has none of, nor for the collapsed runs it is far too small to produce.
   it("keys only the families the map actually drew", () => {
-    expect(legendLabels(render(progressiveFile()))).toEqual(["moov", "mdat", "other"]);
+    const panel = render(progressiveFile());
+    expect(legendLabels(panel)).toEqual(["moov", "mdat", "other"]);
+    // A box outside the three families takes the neutral color the "other" row keys.
+    expect(blockNamed(panel, "ftyp").classList[1]).toBe("f-other");
   });
 
   // A fragmented file's boxes are each too narrow to draw, so the map is all collapsed runs, and
@@ -211,6 +214,7 @@ describe("renderStaticAtomMap", () => {
     const wrap = renderStaticAtomMap(progressiveFile(), 800)!;
     const els = Array.from(wrap.querySelectorAll<HTMLElement>(".atom-block"));
     expect(els.map((el) => el.textContent)).toEqual(["ftyp", "moov", "mdat", "mvhd", "trak", "tkhd"]);
+    expect(els.map((el) => el.classList[1])).toEqual(["f-other", "f-moov", "f-mdat", "f-moov", "f-moov", "f-moov"]);
     expect(els[1].title).toBe("moov — index · offset 32 · 2.0 KB (2,000 B)");
     expect(wrap.querySelector("button")).toBeNull();
     expect(wrap.querySelector(".atom-crumbs")).toBeNull();

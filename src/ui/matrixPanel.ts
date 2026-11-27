@@ -13,9 +13,17 @@ import { fmtBytes } from "@brain-bbqs/utils";
 import { button, h } from "@brain-bbqs/ui";
 import { describeFrameRate, NO_VALUE } from "../lib/format";
 import { isDownscale, scalePercent } from "../lib/cliCommand";
-import { comboKey, describeSettings, isMeasured, isUnmeasured, matrixAxes } from "../lib/qualityMatrix";
+import {
+  comboKey,
+  describeSettings,
+  isMeasured,
+  isUnmeasured,
+  matrixAxes,
+  matrixOutputs,
+  type MatrixOutput,
+} from "../lib/qualityMatrix";
 import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
-import type { MatrixCell, Scaler } from "../lib/types";
+import type { MatrixCell } from "../lib/types";
 
 interface MatrixTableOptions {
   cells: MatrixCell[];
@@ -153,11 +161,7 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
   const width = Math.max(1, presets.length);
   // One block per output actually encoded. Nothing is resampled at the source resolution, so it
   // contributes one block whatever kernels were ticked, and no square anywhere goes unfilled.
-  const blocks = fpsValues.flatMap((fps) =>
-    scales.flatMap((scale) =>
-      (isDownscale(scale) ? scalers : scalers.slice(0, 1)).map((scaler) => ({ scale, scaler, fps })),
-    ),
-  );
+  const blocks = matrixOutputs(fpsValues, scales, scalers);
 
   const wrap = h("div", "scroll-x");
   const table = h("table", "data matrix-table");
@@ -202,7 +206,7 @@ export function renderMatrixTable(opts: MatrixTableOptions): HTMLElement {
 /** The heading over one block of rows: the resolution it was encoded at, the kernel that got it
  * there when the sweep tried more than one, and the rate where that was swept too. */
 function blockTitleRow(
-  block: { scale: number; scaler: Scaler; fps: number | null },
+  block: MatrixOutput,
   showScaler: boolean,
   width: number,
   band: string,

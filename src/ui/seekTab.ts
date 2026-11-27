@@ -4,8 +4,8 @@
 // go and look at.
 
 import { errorMessage } from "@brain-bbqs/utils";
-import { button, h, svgEl, svgText } from "@brain-bbqs/ui";
-import { dataTable, fold, gridItem, section, teachBox } from "../lib/dom";
+import { button, h, svgEl } from "@brain-bbqs/ui";
+import { badgeEl, dataTable, factGrid, fold, gridItem, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { FALLBACK_FPS, fmtMs } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -13,7 +13,8 @@ import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state } from "../lib/state";
-import type { SeekResult } from "../lib/types";
+import type { Badge, FactRow, SeekResult } from "../lib/types";
+import { appendAxes, AXIS_STEPS, CHART_WIDTH } from "./chartAxes";
 import { fieldNumber, progressBar } from "./formControls";
 
 /**
@@ -22,28 +23,44 @@ import { fieldNumber, progressBar } from "./formControls";
  */
 const DEFAULT_SEEK_SAMPLES = 100;
 
+// The card's title and the seeking test's, which the Full Analysis document heads its matching
+// sections with. They live here, with the card, rather than in analysisTab.ts, which imports this
+// module.
+export const GOP_TITLE = "GOP / Keyframe Structure";
+export const SEEK_TEST_TITLE = "Empirical Seeking Test";
+
+/** Whether the file reorders frames, read off its decode and presentation times. */
+export function bFramesBadge(): Badge {
+  return state.hasBFrames ? { tone: "info", text: "Uses B-frames (cts ≠ dts)" } : { tone: "good", text: "No B-frames" };
+}
+
+/** A seeking run's summary figures. */
+export function seekSummaryRows(results: SeekResult[]): FactRow[] {
+  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
+  return [
+    { label: "Avg Keyframe Distance", value: avgDist.toFixed(3) + " s" },
+    { label: "Avg Decode Time", value: fmtMs(avgDecode) },
+    { label: "Max Decode Time", value: fmtMs(maxDecode) },
+  ];
+}
+
 export function renderGopStructure(panel: HTMLElement): void {
   const { gop, avgGop, fps } = gopStats();
   const minGop = gop.length ? Math.min(...gop) : 0;
   const maxGop = gop.length ? Math.max(...gop) : 0;
 
-  const sec = section("GOP / Keyframe Structure");
+  const sec = section(GOP_TITLE);
   const g = h("div", "grid");
   g.append(
     gridItem("Total Frames", state.samples.length.toLocaleString()),
-    gridItem("Keyframes", state.keyframeDecodeIndices.length.toLocaleString()),
+    gridItem("Keyframes", state.gopLengths.length.toLocaleString()),
     gridItem("Avg GOP", describeAvgGop(avgGop, fps)),
     gridItem("Min / Max GOP", `${minGop} / ${maxGop} frames`),
   );
   sec.append(g);
-  const bBadge = h(
-    "span",
-    "badge " + (state.hasBFrames ? "info" : "good"),
-    state.hasBFrames ? "Uses B-frames (cts ≠ dts)" : "No B-frames",
-  );
   const bWrap = h("div");
   bWrap.style.margin = "10px 0";
-  bWrap.append(bBadge);
+  bWrap.append(badgeEl(bFramesBadge()));
   sec.append(bWrap);
 
   if (gop.length > 1) sec.append(renderGopHistogram(gop));
@@ -52,7 +69,7 @@ export function renderGopStructure(panel: HTMLElement): void {
 
   // The seeking test lives in the same card rather than one of its own: what nearest-keyframe
   // distance costs to seek to is the GOP structure's consequence, not a separate finding.
-  sec.append(h("h3", null, "Empirical Seeking Test"));
+  sec.append(h("h3", null, SEEK_TEST_TITLE));
   // Set as a teach box like every other explanation on the page, rather than as bare body text in
   // its own size.
   sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
@@ -121,6 +138,11 @@ async function runSeekingTest(
   }
 }
 
+/** The histogram's height and its shortest bar, in px; the stylesheet's `.hist` and `.hist .bar`
+ * rules give the same two figures. */
+export const HIST_HEIGHT_PX = 90;
+export const HIST_MIN_BAR_PX = 2;
+
 /**
  * One bar per keyframe interval, tall ones (over 1.5× the average) called out in the warning color
  * since those are the spans a seek lands furthest from a keyframe in. Exported for the Full
@@ -132,7 +154,7 @@ export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
   const hist = h("div", "hist");
   gopLengths.forEach((len) => {
     const bar = h("div", "bar" + (len > avgGop * 1.5 ? " tall" : ""));
-    bar.style.height = Math.max(2, (len / maxLen) * 90) + "px";
+    bar.style.height = Math.max(HIST_MIN_BAR_PX, (len / maxLen) * HIST_HEIGHT_PX) + "px";
     bar.title = len + " frames";
     hist.append(bar);
   });
@@ -140,14 +162,7 @@ export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
 }
 
 function renderSeekResults(wrap: HTMLDivElement, results: SeekResult[]): void {
-  const { avgDist, avgDecode, maxDecode } = seekSummary(results);
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Avg Keyframe Distance", avgDist.toFixed(3) + " s"),
-    gridItem("Avg Decode Time", fmtMs(avgDecode)),
-    gridItem("Max Decode Time", fmtMs(maxDecode)),
-  );
-  wrap.append(g);
+  wrap.append(factGrid(seekSummaryRows(results)));
 
   const scatter = renderSeekScatter(results);
   if (scatter) wrap.append(scatter);
@@ -200,7 +215,7 @@ function seekResultsTsv(results: SeekResult[]): Blob {
 export function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
   const pts = results.filter((r): r is SeekResult & { dist: number } => r.dist != null);
   if (pts.length < 2) return null;
-  const W = 600;
+  const W = CHART_WIDTH;
   const H = 280;
   const ML = 56;
   const MR = 16;
@@ -220,51 +235,15 @@ export function renderSeekScatter(results: SeekResult[]): SVGSVGElement | null {
     "aria-label": "Scatter plot of keyframe distance versus decode time, one point per sampled timestamp",
   });
 
-  const STEPS = 4;
-  for (let i = 0; i <= STEPS; i++) {
-    const gx = ML + (plotW * i) / STEPS;
-    const gy = MT + (plotH * i) / STEPS;
-    svg.append(svgEl("line", { class: "grid-line", x1: gx, y1: MT, x2: gx, y2: MT + plotH, "stroke-width": 1 }));
-    svg.append(svgEl("line", { class: "grid-line", x1: ML, y1: gy, x2: ML + plotW, y2: gy, "stroke-width": 1 }));
-    svg.append(
-      svgText(
-        "tick",
-        { x: gx, y: MT + plotH + 16, "font-size": 10, "text-anchor": "middle" },
-        ((maxX * i) / STEPS).toFixed(2),
-      ),
-    );
-    svg.append(
-      svgText(
-        "tick",
-        { x: ML - 8, y: MT + plotH - (plotH * i) / STEPS + 3, "font-size": 10, "text-anchor": "end" },
-        String(Math.round((maxY * i) / STEPS)),
-      ),
-    );
-  }
-  svg.append(svgEl("line", { class: "axis", x1: ML, y1: MT, x2: ML, y2: MT + plotH, "stroke-width": 1 }));
-  svg.append(
-    svgEl("line", { class: "axis", x1: ML, y1: MT + plotH, x2: ML + plotW, y2: MT + plotH, "stroke-width": 1 }),
-  );
-
-  svg.append(
-    svgText(
-      "axis-title",
-      { x: ML + plotW / 2, y: H - 4, "font-size": 11, "text-anchor": "middle" },
-      "Keyframe distance (s)",
-    ),
-  );
-  svg.append(
-    svgText(
-      "axis-title",
-      {
-        x: 12,
-        y: MT + plotH / 2,
-        "font-size": 11,
-        "text-anchor": "middle",
-        transform: `rotate(-90 12 ${MT + plotH / 2})`,
-      },
-      "Decode time (ms)",
-    ),
+  appendAxes(
+    svg,
+    { H, ML, MT, plotW, plotH },
+    {
+      xTick: (i) => ((maxX * i) / AXIS_STEPS).toFixed(2),
+      yTick: (i) => String(Math.round((maxY * i) / AXIS_STEPS)),
+      xTitle: "Keyframe distance (s)",
+      yTitle: "Decode time (ms)",
+    },
   );
 
   pts.forEach((r) => {
