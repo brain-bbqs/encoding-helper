@@ -282,7 +282,6 @@ export interface AppState {
   tags: MetadataTags | null;
   tracks: TrackInfo[] | null;
   fps: number | null;
-  frameCount: number | null;
   boxes: BoxNode[];
   faststart: boolean | null;
   samples: SampleInfo[];

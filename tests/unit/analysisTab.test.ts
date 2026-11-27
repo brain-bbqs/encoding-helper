@@ -51,7 +51,6 @@ function loadClip(over: { tracks?: TrackInfo[] } = {}): void {
   state.duration = 30;
   state.tracks = over.tracks ?? [VIDEO_TRACK, AUDIO_TRACK];
   state.fps = 20;
-  state.frameCount = 600;
   state.samples = evenSamples(600, 30, 1000, (i) => i % 30 === 0);
   state.gopLengths = Array.from({ length: 20 }, () => 30);
   state.keyframeTimestampsSec = state.samples.filter((s) => s.is_sync).map((s) => s.ctsSec);

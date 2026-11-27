@@ -24,7 +24,6 @@ function initialAppState(): AppState {
     tags: null,
     tracks: null,
     fps: null,
-    frameCount: null,
     boxes: [],
     faststart: null,
     samples: [],

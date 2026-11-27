@@ -128,7 +128,7 @@ function videoTrackSection(vt: TrackInfo): AnalysisSection {
   if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
     items.push(["Display Size", `${vt.displayWidth ?? "?"}×${vt.displayHeight ?? "?"}`]);
   }
-  items.push(["Frame Rate", describeFrameRate(vt.packetRate)], ["Frames", describeFrameCount(state.frameCount)]);
+  items.push(["Frame Rate", describeFrameRate(vt.packetRate)], ["Frames", describeFrameCount(state.samples.length)]);
   if (vt.rotation) items.push(["Rotation", vt.rotation + "°"]);
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
   if (vt.colorSpace) items.push(["Color Space", describeColorSpace(vt.colorSpace)]);

@@ -111,7 +111,6 @@ describe("loading a file", () => {
     expect(state.format).toBe("MP4");
     expect(state.duration).toBe(30);
     expect(state.fps).toBe(30);
-    expect(state.frameCount).toBe(1);
     expect(state.faststart).toBe(true);
     expect(state.boxes).toHaveLength(1);
     expect(state.samples).toEqual([{ size: 1, ctsSec: 0, is_sync: true }]);

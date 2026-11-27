@@ -164,7 +164,7 @@ function renderVideoTrackSection(): HTMLDivElement | null {
   // the peak and the spread the single number cannot show.
   g.append(
     gridItem("Frame Rate", describeFrameRate(vt.packetRate)),
-    gridItem("Frames", describeFrameCount(state.frameCount)),
+    gridItem("Frames", describeFrameCount(state.samples.length)),
   );
   if (vt.rotation) g.append(gridItem("Rotation", vt.rotation + "°"));
   if (vt.codecInfo) vt.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));

@@ -351,7 +351,6 @@ describe("the overview and track cards", () => {
 
   it("lists every optional video-track figure the file states", () => {
     loadClip();
-    state.frameCount = 600;
     state.tracks = [
       {
         ...VIDEO_TRACK,

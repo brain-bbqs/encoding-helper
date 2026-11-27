@@ -113,7 +113,6 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     state.tags = meta.tags;
     state.tracks = meta.tracks;
     state.fps = meta.fps || estimateFpsFromSamples();
-    state.frameCount = state.samples.length;
 
     els.app.style.display = "block";
     // Only a remote URL can be handed to someone else; a local file leaves the address bar clean.
