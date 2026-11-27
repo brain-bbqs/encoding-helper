@@ -180,7 +180,9 @@ export function describeCodec(shortCodec: string | null | undefined, codecString
       details: [],
     };
   }
-  const info = CODEC_KB[shortCodec];
+  // Own entries only, so a name every object inherits (constructor, __proto__, ...) is not taken
+  // for a codec.
+  const info = Object.hasOwn(CODEC_KB, shortCodec) ? CODEC_KB[shortCodec] : undefined;
   if (!info) return null;
   return {
     family: info.family,

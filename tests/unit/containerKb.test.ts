@@ -12,6 +12,11 @@ describe("describeContainer", () => {
     expect(describeContainer("Not A Container")).toBeNull();
   });
 
+  // Names every object inherits are not containers the table describes.
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])("returns null for %s", (name) => {
+    expect(describeContainer(name)).toBeNull();
+  });
+
   it("describes MP4, including which codecs it carries", () => {
     const info = describeContainer("MP4");
     expect(info?.name).toBe("MP4");

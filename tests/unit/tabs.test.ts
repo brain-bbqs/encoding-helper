@@ -54,6 +54,15 @@ describe("initTabs", () => {
     expect(new URL(window.location.href).searchParams.get("tab")).toBe("inspect");
   });
 
+  // A name every object inherits used to come back as a function: no panel kept `on`, and the
+  // function's source text was written into the address bar.
+  it("treats a link naming an inherited object key like any other unknown tab", () => {
+    setUrl("?tab=constructor");
+    initTabs(() => {});
+    expect(shownPanel()).toBe("panel-inspect");
+    expect(new URL(window.location.href).searchParams.get("tab")).toBe("constructor");
+  });
+
   it("shows one panel at a time and records the click in the address bar", () => {
     initTabs(() => {});
     click("encode");

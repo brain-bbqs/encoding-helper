@@ -29,6 +29,11 @@ describe("describeCodec", () => {
     expect(describeCodec("not-a-real-codec", null)).toBeNull();
   });
 
+  // Names every object inherits are not codecs the table describes.
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])("returns null for %s", (name) => {
+    expect(describeCodec(name, null)).toBeNull();
+  });
+
   it("parses H.264/AVC profile and level from the RFC 6381 codec string", () => {
     const info = describeCodec("avc", "avc1.640028");
     expect(info?.family).toBe("H.264 / AVC");
