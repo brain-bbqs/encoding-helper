@@ -194,6 +194,9 @@ async function pickFile(els: AppElements): Promise<File | null> {
   }
   return new Promise((resolve) => {
     els.fileInput.onchange = () => resolve(els.fileInput.files?.[0] || null);
+    // Emptied first: browsers fire no change event for a pick that matches what the input already
+    // holds, so the file opened before a Reset could not be picked again.
+    els.fileInput.value = "";
     els.fileInput.click();
   });
 }

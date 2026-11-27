@@ -671,4 +671,33 @@ describe("the file picker", () => {
 
     expect(state.source!.name).toBe("input.mp4");
   });
+
+  // The input stands in for a browser that fires no change event when the pick matches what the
+  // input already holds.
+  it("opens the same file again from the hidden file input after Reset", async () => {
+    const file = videoFile("same.mp4");
+    let selected = "";
+    Object.defineProperty(els.fileInput, "value", {
+      get: (): string => selected,
+      set: (value: string): void => {
+        selected = value;
+      },
+      configurable: true,
+    });
+    vi.spyOn(els.fileInput, "click").mockImplementation(() => {
+      const picked = "C:\\fakepath\\" + file.name;
+      if (selected === picked) return;
+      selected = picked;
+      pickFiles(els.fileInput, [file]);
+    });
+    initFileLoadingUi(els, { onLoaded });
+    els.pickFileBtn.click();
+    await vi.waitFor(() => expect(onLoaded).toHaveBeenCalledOnce());
+
+    els.resetBtn.click();
+    els.pickFileBtn.click();
+
+    await vi.waitFor(() => expect(onLoaded).toHaveBeenCalledTimes(2));
+    expect(state.source!.name).toBe("same.mp4");
+  });
 });
