@@ -9,5 +9,7 @@ export default defineConfig(
     // branches, 100% of functions and lines), so a refactor that drops a branch or two still passes
     // but a change that leaves real code untested fails `npm run test:coverage` and CI with it.
     thresholds: { statements: 99, branches: 97, functions: 99, lines: 99 },
+    // Pins the default locale to en-US in every worker (see the file for why it is not LC_ALL).
+    overrides: { test: { setupFiles: ["tests/fixtures/fixedLocale.ts"] } },
   }),
 );
