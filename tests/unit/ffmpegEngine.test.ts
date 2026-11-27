@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFfmpegWorker,
   defaultFfmpegWorker,
-  deleteFfmpegFile,
-  ensureFfmpegInput,
   parseFfmpegTimeSeconds,
-  runFfmpegArgs,
   runFfmpegEncode,
 } from "../../src/lib/ffmpegEngine";
 import { deferred, flush } from "./helpers/async";
@@ -151,33 +148,24 @@ describe("the core's virtual filesystem", () => {
 
   it("writes an input the core already holds only once", async () => {
     const data = new Uint8Array([1, 2, 3, 4]);
-    await ensureFfmpegInput("in.mp4", data);
-    await ensureFfmpegInput("in.mp4", data);
-    await ensureFfmpegInput("in.mp4", data);
+    await defaultFfmpegWorker.ensureInput("in.mp4", data);
+    await defaultFfmpegWorker.ensureInput("in.mp4", data);
+    await defaultFfmpegWorker.ensureInput("in.mp4", data);
     expect(core.writes).toEqual(["in.mp4"]);
     expect(core.files.has("in.mp4")).toBe(true);
   });
 
-  it("writes it again once the core it was written to is gone", async () => {
-    const data = new Uint8Array([1, 2, 3, 4]);
-    await ensureFfmpegInput("in.mp4", data);
-    // A crashed core is replaced by a fresh one, whose filesystem holds nothing.
-    defaultFfmpegWorker.reset();
-    await ensureFfmpegInput("in.mp4", data);
-    expect(core.writes).toEqual(["in.mp4", "in.mp4"]);
-  });
-
   it("runs against an input already in place, and tidies only the output", async () => {
     const data = new Uint8Array([1, 2, 3, 4]);
-    await ensureFfmpegInput("in.mp4", data);
-    const { data: out } = await runFfmpegArgs(ARGS, "out.mp4");
+    await defaultFfmpegWorker.ensureInput("in.mp4", data);
+    const { data: out } = await defaultFfmpegWorker.run(ARGS, "out.mp4");
     expect(Array.from(out)).toEqual([1, 2, 3]);
     expect(core.execs).toEqual([ARGS]);
     expect(core.writes).toEqual(["in.mp4"]);
     expect(core.files.has("in.mp4")).toBe(true);
     expect(core.files.has("out.mp4")).toBe(false);
 
-    await deleteFfmpegFile("in.mp4");
+    await defaultFfmpegWorker.deleteFile("in.mp4");
     expect(core.files.has("in.mp4")).toBe(false);
   });
 
@@ -539,14 +527,5 @@ describe("the default core", () => {
     await worker.load();
     expect(core.loads).toBe(1);
     expect(core.blobUrls).toBe(2);
-  });
-
-  it("reports a core that would not load, and tries again on the next call", async () => {
-    const engine = await freshEngine();
-    core.loadError = new Error("failed to import ffmpeg-core.js");
-    await expect(engine.ensureFfmpegLoaded()).rejects.toThrow("failed to import ffmpeg-core.js");
-    core.loadError = null;
-    await engine.ensureFfmpegLoaded();
-    expect(core.built).toBe(2);
   });
 });

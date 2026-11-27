@@ -33,9 +33,8 @@ export interface Placement {
   children: Placement[];
 }
 
-/** One drawn rectangle: either a single atom, or a run of neighbours collapsed into one block. */
-export interface AtomRect {
-  kind: "box" | "group";
+/** What every drawn rectangle carries, whichever of the two kinds below it is. */
+interface AtomRectBase {
   /** Nesting depth, which is also the lane the rect is drawn in. */
   depth: number;
   /** Zoom target, on the atom-slot axis. */
@@ -47,8 +46,6 @@ export interface AtomRect {
   /** Left edge and width as fractions (0..1) of the visible range, clipped to it. */
   x: number;
   w: number;
-  /** The atom itself on a "box" rect; null on a "group". */
-  box: BoxNode | null;
   /** Type of the top-level atom this one descends from ("moov", "mdat", …). On a "group" holding a
    *  mix, it is whichever family covers most of the block, so a fragmented file's collapsed runs
    *  still read as the sample data they mostly are. Null only when there is nothing to name. */
@@ -57,6 +54,23 @@ export interface AtomRect {
    *  (subtrees included) for a group. */
   count: number;
 }
+
+/** A single atom, drawn on its own. */
+interface BoxRect extends AtomRectBase {
+  kind: "box";
+  /** The atom itself. */
+  box: BoxNode;
+}
+
+/** A run of neighbours too narrow to draw one by one, collapsed into one block. */
+interface GroupRect extends AtomRectBase {
+  kind: "group";
+  /** Null rather than absent, since consumers test `box !== null` as readily as `kind`. */
+  box: null;
+}
+
+/** One drawn rectangle: either a single atom, or a run of neighbours collapsed into one block. */
+export type AtomRect = BoxRect | GroupRect;
 
 interface AtomLayout {
   rects: AtomRect[];
