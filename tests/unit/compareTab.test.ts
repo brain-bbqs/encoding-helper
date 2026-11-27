@@ -1855,6 +1855,25 @@ describe("running the sweep", () => {
     expect(abLoads[0].vt).toBe(VIDEO_TRACK);
   });
 
+  // The bar is the sweep's progress: it moves on as each square is measured, rather than sitting
+  // empty until the sweep fills it at the end.
+  it("moves the bar on as each square is measured", async () => {
+    loadClip();
+    sweepOf(["ultrafast", "superfast"]);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const held = deferred<void>();
+    core.exec = (args) => (args.includes("superfast") && args.includes("-crf") ? held.promise : Promise.resolve());
+    const panel = renderTab();
+    runButton(panel).click();
+    await vi.waitFor(() => expect(sampledEncode.matrix.cells[0]?.status).toBe("done"), WAIT);
+
+    expect(progressBar(panel).querySelector<HTMLElement>(".fill")!.style.width).toBe("50%");
+
+    held.resolve();
+    await awaitRun(panel);
+    await settleRun(panel);
+  });
+
   // Without a video track there is no command to key a square by and none to encode with, so every
   // square says what was missing and nothing is written to the cache.
   it("fails every square on the spot when the video track is gone", async () => {

@@ -168,6 +168,25 @@ describe("inBrowserEncodeSection", () => {
     expect(el.querySelector<HTMLElement>(".fill")!.style.width).toBe("0%");
   });
 
+  // The bar is the encode's progress, so it shows from the press, emptied of the encode before it,
+  // and goes again once the encode is over.
+  it("shows the bar from the press, emptied of the last encode's", async () => {
+    const { button, el } = section();
+    const bar = el.querySelector<HTMLElement>(".progress-wrap")!;
+    const fill = el.querySelector<HTMLElement>(".fill")!;
+    fill.style.width = "100%";
+    fill.classList.add("done");
+
+    // Read before the encode's first wait, so this is the bar as the press left it.
+    button.click();
+
+    expect(bar.style.display).toBe("block");
+    expect(fill.style.width).toBe("0%");
+    expect(fill.classList.contains("done")).toBe(false);
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    expect(bar.style.display).toBe("none");
+  });
+
   it("says what failed, in the note and in the log, and re-enables the button", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     runFfmpegEncode.mockRejectedValue(new Error("ffmpeg exited 1"));
