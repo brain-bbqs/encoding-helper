@@ -4,7 +4,7 @@
 
 #### 🏠 Internal
 
-- The page and the Full Analysis document build their shared rows and chart axes from one place, with no visible change ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- The page and the Full Analysis document build their shared rows and chart axes from one place, with no visible change ([#83](https://github.com/brain-bbqs/encoding-helper/pull/83))
 
 ## 1.5.11
 
