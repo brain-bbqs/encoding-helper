@@ -223,10 +223,10 @@ export const METADATA_TAGS_TEACH =
 /** Only true where the tags are rendered with their ⓘ affordances, so the document leaves it off. */
 export const METADATA_TAGS_HOVER_HINT = "Hover the ⓘ on any tag for what it means.";
 
-export type TagSeed = [key: string, label: string, description: string];
+type TagSeed = [key: string, label: string, description: string];
 
 /** One family of tag names: where the names come from, and the names themselves. */
-export interface TagGroup {
+interface TagGroup {
   origin: string;
   seeds: TagSeed[];
 }

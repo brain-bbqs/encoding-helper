@@ -17,7 +17,7 @@ export interface MetadataTagInfo {
   key: string;
   /** Readable label shown in place of the raw key. */
   label: string;
-  /** Where the name comes from, e.g. "QuickTime/iTunes atom". */
+  /** Where the name comes from, e.g. "MP4 / QuickTime atom". */
   origin: string;
   /** Trusted, author-authored explainer markup. */
   description: string;
