@@ -207,6 +207,30 @@ test.describe("Encoding Helper shell", () => {
     await expect(info).toBeVisible();
   });
 
+  // ffmpeg's output is logged at the "info" level, which is also the class the ⓘ wrapper's
+  // inline-flex rule names. Specificity decides which rule a line takes, and jsdom goes by source
+  // order alone, so only a real browser can check it. ffmpeg itself is not run: the lines are
+  // written the way logLine writes them.
+  test("puts each ffmpeg console line on a row of its own", async ({ page }) => {
+    await loadDemo(page, "&tab=encode");
+    const tops = await page
+      .locator("#panel-encode .log-details")
+      .first()
+      .evaluate((wrap: HTMLDetailsElement) => {
+        wrap.style.display = "";
+        wrap.open = true;
+        const log = wrap.querySelector(".log-console")!;
+        for (const level of ["info", "info", "info", "success", "warn", "error"]) {
+          const line = document.createElement("div");
+          line.className = `l ${level}`;
+          line.textContent = `ffmpeg says ${level}`;
+          log.append(line);
+        }
+        return Array.from(log.children, (line) => Math.round(line.getBoundingClientRect().top));
+      });
+    expect(new Set(tops).size).toBe(6);
+  });
+
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {
     await loadDemo(page);
     const panel = page.locator("#panel-inspect");

@@ -115,24 +115,19 @@ describe("logConsole", () => {
   });
 
   // "info" is also the class of the ⓘ icon's wrapper, whose inline-flex would otherwise run every
-  // run of info lines (all of ffmpeg's output) together on one row.
-  it("draws each line on a row of its own, whatever its level", () => {
+  // run of info lines (all of ffmpeg's output) together on one row. This pins the declaration
+  // only: jsdom resolves the cascade by source order rather than specificity, so that the rule
+  // wins in a browser is checked by the integration suite instead.
+  it("declares every line a block of its own", () => {
     const sheet = document.createElement("style");
     sheet.textContent = readFileSync(resolve(process.cwd(), "src/style.css"), "utf-8");
     document.head.append(sheet);
-    const { wrap, log } = logConsole();
-    document.body.append(wrap);
     try {
-      for (const level of ["info", "info", "success", "warn", "error"] as const) logLine(log, level, level);
-      expect(Array.from(log.children, (line) => getComputedStyle(line).display)).toEqual([
-        "block",
-        "block",
-        "block",
-        "block",
-        "block",
-      ]);
+      const lineRules = Array.from(sheet.sheet!.cssRules).filter(
+        (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".log-console .l",
+      );
+      expect(lineRules.map((rule) => rule.style.display)).toEqual(["block"]);
     } finally {
-      wrap.remove();
       sheet.remove();
     }
   });
