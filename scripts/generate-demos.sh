@@ -7,9 +7,10 @@
 # (rotation, VFR, resolution, audio) and metadata tags. The non-MP4 containers
 # and exotic profiles double as interoperability test files.
 #
-# Every file (except the deliberately stripped one) carries its own explanation
-# in its `title`/`comment` metadata tags, so loading it in encoding-helper
-# shows what to look at, in the app's Metadata Tags section.
+# Every transcoded file (all but the unmodified original and the deliberately
+# stripped one) carries its own explanation in its `title`/`comment` metadata
+# tags, so loading it in encoding-helper shows what to look at, in the app's
+# Metadata Tags section.
 #
 # The output is a BEP047 dataset (bids-standard/bids-specification#2231, the
 # convention clip-extractor writes): one subject, each variant its own session,
@@ -30,10 +31,11 @@
 # in dataset_description.json, namespaced under an "encoding-helper" key, so
 # one fetch of that file says what every demo in the set is.
 #
-# Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir]
+# Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir] [-h]
 #   -s  source video (default: scripts/data/Video_S1.m4v, fetched from the
 #       archive when absent)
 #   -o  output directory (default: demo-out)
+#   -h  print this help and exit
 
 set -euo pipefail
 
@@ -64,7 +66,8 @@ while getopts "s:o:h" opt; do
     s) SRC=$OPTARG ;;
     o) OUT=$OPTARG ;;
     h)
-      sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      # The header up to its first non-comment line, so the help grows with it.
+      awk 'NR > 1 { if (!/^#/) exit; sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
       exit 0
       ;;
     *) exit 2 ;;
