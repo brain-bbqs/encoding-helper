@@ -93,13 +93,29 @@ export const cli: CliState = {
 
 export const sampledEncode: SampledEncodeState = initialSampledEncode(initialMatrix());
 
+/** How many times the state has been let go of (see resetState). */
+let generation = 0;
+
+/**
+ * Which file the state is about, as a number that changes at every file load and Reset. Work that
+ * awaits (a load, a seeking run) compares it with the one it started under: once they differ, what
+ * it would write belongs to a file that is no longer open, so it writes nothing.
+ */
+export function stateGeneration(): number {
+  return generation;
+}
+
 /** Back to the pre-load defaults for everything but the command builder, whose settings are the reader's. */
 export function resetState(): void {
+  generation++;
   // A run still encoding is stopped first: everything it reads and writes is about to be another
   // file's, or nothing's.
   abandonEncoderRun();
   // Disposed before the references go: an Input holds a decoder and whatever it was reading from,
-  // and a page that loads one file after another would otherwise keep every one of them.
+  // and a page that loads one file after another would otherwise keep every one of them. Nothing
+  // still in use reads from it: the A/B window's sink over it goes with sampledEncode below (a frame
+  // it was part-way through is cancelled, which its own error handling reports), encodes read the
+  // source's bytes rather than this Input, and a seeking run stops at the generation bumped above.
   state.input?.dispose();
   for (const input of sampledEncode.encodedInputs) input.dispose();
   Object.assign(state, initialAppState());
