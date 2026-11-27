@@ -276,8 +276,9 @@ export function createFfmpegWorker(id: number): FfmpegWorker {
 
 /**
  * The core every part of the app reaches for by default, and the one a pool's extra cores are extra
- * to. The module-level functions below are its methods as free functions, for the whole-file encode
- * (ui/inBrowserEncode), which runs on this core alone; sample runs and sweeps take pooled workers.
+ * to. setFfmpegHandlers, ensureFfmpegLoaded and runFfmpegEncode below drive it for the whole-file
+ * encode (ui/inBrowserEncode), which runs on this core alone; sample runs and sweeps take pooled
+ * workers.
  */
 export const defaultFfmpegWorker = createFfmpegWorker(0);
 
@@ -287,22 +288,6 @@ export function setFfmpegHandlers(onLog: FfmpegLogHandler | null, onProgress: Ff
 
 export async function ensureFfmpegLoaded(): Promise<void> {
   await defaultFfmpegWorker.load();
-}
-
-export async function ensureFfmpegInput(name: string, data: Uint8Array): Promise<void> {
-  await defaultFfmpegWorker.ensureInput(name, data);
-}
-
-export async function deleteFfmpegFile(name: string): Promise<void> {
-  await defaultFfmpegWorker.deleteFile(name);
-}
-
-/**
- * Runs `args` against files already in the core's filesystem, and reads `outputName` back out: the
- * middle of `runFfmpegEncode`, which writes the input before it and deletes it after.
- */
-export async function runFfmpegArgs(args: string[], outputName: string): Promise<FfmpegRunResult> {
-  return await defaultFfmpegWorker.run(args, outputName);
 }
 
 /**
@@ -315,11 +300,11 @@ export async function runFfmpegEncode(
   inputData: Uint8Array,
   outputName: string,
 ): Promise<FfmpegRunResult> {
-  await ensureFfmpegInput(inputName, inputData);
+  await defaultFfmpegWorker.ensureInput(inputName, inputData);
   try {
-    return await runFfmpegArgs(args, outputName);
+    return await defaultFfmpegWorker.run(args, outputName);
   } finally {
-    await deleteFfmpegFile(inputName);
+    await defaultFfmpegWorker.deleteFile(inputName);
   }
 }
 
