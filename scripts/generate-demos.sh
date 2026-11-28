@@ -7,10 +7,10 @@
 # (rotation, VFR, resolution, audio) and metadata tags. The non-MP4 containers
 # and exotic profiles double as interoperability test files.
 #
-# Every transcoded file (all but the unmodified original and the deliberately
-# stripped one) carries its own explanation in its `title`/`comment` metadata
-# tags, so loading it in encoding-helper shows what to look at, in the app's
-# Metadata Tags section.
+# Every file except the unmodified original and the deliberately stripped one
+# carries its own explanation in its `title`/`comment` metadata tags, so
+# loading it in encoding-helper shows what to look at, in the app's Metadata
+# Tags section.
 #
 # The output is a BEP047 dataset (bids-standard/bids-specification#2231, the
 # convention clip-extractor writes): one subject, each variant its own session,
