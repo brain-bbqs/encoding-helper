@@ -5,7 +5,7 @@
 
 import { errorMessage } from "@brain-bbqs/utils";
 import { button, h, svgEl } from "@brain-bbqs/ui";
-import { badgeEl, dataTable, factGrid, fold, gridItem, section, teachBox } from "../lib/dom";
+import { badgeEl, dataTable, factGrid, fold, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
 import { FALLBACK_FPS, fmtMs, NO_VALUE } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
@@ -59,19 +59,24 @@ export function seekSummaryRows(results: SeekResult[]): FactRow[] {
   ];
 }
 
-export function renderGopStructure(panel: HTMLElement): void {
+/** The GOP card's figures, which the Full Analysis document states as well. */
+export function gopRows(): FactRow[] {
   const { gop, avgGop, fps } = gopStats();
   const range = gopRange(gop);
+  return [
+    { label: "Total Frames", value: state.samples.length.toLocaleString() },
+    { label: "Keyframes", value: state.gopLengths.length.toLocaleString() },
+    { label: "Avg GOP", value: describeAvgGop(avgGop, fps) },
+    // A file with no GOPs has no shortest or longest one, rather than one of zero frames.
+    { label: "Min / Max GOP", value: range ? `${range.min} / ${range.max} frames` : NO_VALUE },
+  ];
+}
+
+export function renderGopStructure(panel: HTMLElement): void {
+  const gop = state.gopLengths;
 
   const sec = section(GOP_TITLE);
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Total Frames", state.samples.length.toLocaleString()),
-    gridItem("Keyframes", state.gopLengths.length.toLocaleString()),
-    gridItem("Avg GOP", describeAvgGop(avgGop, fps)),
-    gridItem("Min / Max GOP", `${range?.min ?? 0} / ${range?.max ?? 0} frames`),
-  );
-  sec.append(g);
+  sec.append(factGrid(gopRows()));
   const bWrap = h("div");
   bWrap.style.margin = "10px 0";
   bWrap.append(badgeEl(bFramesBadge()));

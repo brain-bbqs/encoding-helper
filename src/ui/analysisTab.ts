@@ -41,7 +41,7 @@ import {
   type MatrixOutput,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
-import { describeAvgGop, gopRange, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
+import { SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
 import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/types";
@@ -67,6 +67,7 @@ import {
 } from "./inspectTab";
 import {
   bFramesBadge,
+  gopRows,
   GOP_TITLE,
   renderGopHistogram,
   renderSeekScatter,
@@ -188,18 +189,9 @@ function atomMapSection(): AnalysisSection | null {
 
 function gopSection(): AnalysisSection | null {
   if (!state.samples.length) return null;
-  const { gop, avgGop, fps } = gopStats();
-  const range = gopRange(gop);
+  const gop = state.gopLengths;
   const blocks: AnalysisBlock[] = [
-    {
-      kind: "kv",
-      items: [
-        ["Total Frames", state.samples.length.toLocaleString()],
-        ["Keyframes", state.gopLengths.length.toLocaleString()],
-        ["Avg GOP", describeAvgGop(avgGop, fps)],
-        ["Min / Max GOP", range ? `${range.min} / ${range.max} frames` : NO_VALUE],
-      ],
-    },
+    { kind: "kv", items: kvItems(gopRows()) },
     { kind: "badge", ...bFramesBadge() },
   ];
   if (gop.length > 1) {

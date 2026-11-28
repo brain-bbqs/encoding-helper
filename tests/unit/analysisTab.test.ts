@@ -12,6 +12,7 @@ import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
 import { renderInspectHead } from "../../src/ui/inspectTab";
+import { renderGopStructure } from "../../src/ui/seekTab";
 import { capArguments } from "./helpers/arguments";
 import { gridRows } from "./helpers/grid";
 
@@ -1060,6 +1061,20 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("**Uses B-frames (cts ≠ dts)**");
     expect(md).toContain("| Min / Max GOP | – |");
     expect(md).not.toContain("_Chart: GOP length per keyframe interval");
+  });
+
+  // One list of rows for the GOP card and the document's section, with GOPs measured and without.
+  it("states the keyframe structure exactly as the Inspect card does", () => {
+    for (const gopLengths of [[20, 40, 30], []]) {
+      const el = panel();
+      loadClip();
+      state.gopLengths = gopLengths;
+      renderAnalysisTab(el);
+      const card = document.createElement("div");
+      renderGopStructure(card);
+      const pageRows = gridRows(card.querySelector(".section > .grid")!).map((row) => [row.label, row.value]);
+      expect(documentRows(el, "GOP / Keyframe Structure")).toEqual(pageRows);
+    }
   });
 
   // An all-intra recording of an hour or so has more GOPs than Math.min or Math.max can take as the

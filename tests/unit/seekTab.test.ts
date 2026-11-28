@@ -663,9 +663,10 @@ describe("renderGopStructure", () => {
     expect(panel.querySelectorAll<HTMLDivElement>(".hist .bar")[6].style.height).toBe("90px");
   });
 
+  // No GOP has a shortest or longest length, which a dash says and "0 / 0 frames" does not.
   it("reads an empty file as no GOPs, no histogram and no B-frames", () => {
     const panel = renderTab();
-    expect(gridValue(panel, "Min / Max GOP")).toBe("0 / 0 frames");
+    expect(gridValue(panel, "Min / Max GOP")).toBe("–");
     expect(panel.querySelector(".badge")!.textContent).toBe("No B-frames");
     expect(panel.querySelector(".badge")!.className).toBe("badge good");
     expect(panel.querySelector(".hist")).toBeNull();
