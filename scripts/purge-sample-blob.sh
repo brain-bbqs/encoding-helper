@@ -19,7 +19,7 @@
 #   -r  repository to rewrite (default: this checkout's `origin` URL)
 #   -w  directory to make the mirror clone in (default: a fresh temporary one)
 #   -f  actually force-push the rewritten history; without it the script stops just before,
-#       leaving the rewritten mirror in place to inspect
+#       leaving the rewritten mirror in place to inspect and printing the command that pushes it
 #   -h  print this help and exit
 #
 # Requires git-filter-repo (https://github.com/newren/git-filter-repo, `pip install git-filter-repo`
@@ -116,7 +116,10 @@ if [ "$DO_PUSH" = 0 ]; then
   echo
   echo "Stopping before the push (no -f given). The rewritten mirror is at:"
   echo "  $MIRROR"
-  echo "Inspect it, then re-run with -f -w $WORKDIR to push it."
+  # Not a re-run with -f: that deletes this mirror and rewrites a fresh clone, so what it pushed
+  # would not be the history that was inspected.
+  echo "Inspect it, then push that same mirror with:"
+  printf '  git -C %q push --force --mirror %q\n' "$MIRROR" "$REMOTE"
   exit 0
 fi
 
