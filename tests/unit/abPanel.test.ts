@@ -691,6 +691,14 @@ describe("an encode at a frame rate of its own", () => {
     await load(host);
     expect(gridRows(host).map((row) => row.label)).not.toContain("Frame Rate");
   });
+
+  // The Reencode tab's FPS override takes any rate, the source's own included.
+  it("leaves the rate out of an encode given the source's rate as its own", async () => {
+    state.fps = 30;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, fps: 30 }, VIDEO_TRACK, host, totalsFor(1));
+    expect(gridRows(host).map((row) => row.label)).not.toContain("Frame Rate");
+  });
 });
 
 describe("the size estimate", () => {

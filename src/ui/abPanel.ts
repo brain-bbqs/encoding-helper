@@ -153,7 +153,8 @@ export function describeSampledStretches(): string {
  * encoded, at what settings, and what they came to. `resolution` is the resolution row's value, or
  * null for none; each caller decides when it has one, since a row reading "100%" over every
  * comparison would say nothing. The frame rate is stated the same way, only where the encode was
- * given one of its own: fewer frames is a change the panes alone do not show.
+ * given one of its own that reads differently from the source's: fewer frames is a change the
+ * panes alone do not show, and the FPS override accepts the source's own rate too.
  */
 export function compareSummaryRows(settings: EncodeSettings, resolution: string | null): FactRow[] {
   const rows: FactRow[] = [
@@ -162,9 +163,10 @@ export function compareSummaryRows(settings: EncodeSettings, resolution: string 
     { label: "Preset", value: settings.preset },
   ];
   if (resolution !== null) rows.push({ label: "Resolution", value: resolution });
-  if (settings.fps != null) {
-    const encoded = describeFrameRate(settings.fps);
-    rows.push({ label: "Frame Rate", value: state.fps ? `${describeFrameRate(state.fps)} → ${encoded}` : encoded });
+  const encoded = settings.fps != null ? describeFrameRate(settings.fps) : null;
+  const source = state.fps ? describeFrameRate(state.fps) : null;
+  if (encoded !== null && encoded !== source) {
+    rows.push({ label: "Frame Rate", value: source ? `${source} → ${encoded}` : encoded });
   }
   rows.push({ label: "Encoded Segment Size", value: fmtBytes(sampledEncode.encodedSize) });
   return rows;
