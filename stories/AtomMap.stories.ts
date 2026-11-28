@@ -1,3 +1,4 @@
+import { detectFaststart } from "../src/lib/mp4boxParser";
 import { state } from "../src/lib/state";
 import type { BoxNode } from "../src/lib/types";
 import { renderAtomMap } from "../src/ui/atomsTab";
@@ -31,6 +32,9 @@ const FRAGMENTED: BoxNode[] = (() => {
 
 function renderWith(boxes: BoxNode[]): HTMLElement {
   state.boxes = boxes;
+  // Read off the boxes as a load does: left unset, the badge says it cannot tell, of files that
+  // plainly have moov ahead of mdat.
+  state.faststart = detectFaststart(boxes);
   const panel = document.createElement("div");
   renderAtomMap(panel);
   return panel;
