@@ -218,6 +218,25 @@ describe("sampleFields", () => {
     expect(bDuration.value).toBe("1");
   });
 
+  // The field's maximum is what the file can give, at most ten seconds; typed past it, a sweep sampled
+  // stretches of whatever was typed until the tab was next drawn.
+  it("holds the duration inside what the file can give, on every copy", () => {
+    state.duration = 8;
+    document.body.append(sampleFields("a"), sampleFields("b"));
+    const aDuration = document.querySelector<HTMLInputElement>("#aDuration")!;
+    const bDuration = document.querySelector<HTMLInputElement>("#bDuration")!;
+    aDuration.value = "50";
+    aDuration.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(sampledEncode.duration).toBe(8);
+    expect(aDuration.value).toBe("50");
+    expect(bDuration.value).toBe("8");
+
+    aDuration.value = "-3";
+    aDuration.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(sampledEncode.duration).toBe(1);
+    expect(bDuration.value).toBe("1");
+  });
+
   it("holds the segment count inside what a run can sensibly encode, on every copy", () => {
     document.body.append(sampleFields("a"), sampleFields("b"));
     const aSegments = document.querySelector<HTMLInputElement>("#aSegments")!;

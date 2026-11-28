@@ -84,13 +84,16 @@ let matrixSettingsOpen = false;
 
 /** What the ticked axes come to, as the settings bar says it: the factors, and the runs they multiply to. */
 function axisCountLabel(): string {
-  const { qualities, presets, scales, scalers, fpsFractions } = sampledEncode.matrix;
+  const { qualities, presets, scales, scalers } = sampledEncode.matrix;
   // The three outer axes are left out at one value each, where they multiply the sweep by one and
   // saying so would only make the bar longer.
   const counts = [qualities.length, presets.length];
   if (scales.length > 1) counts.push(scales.length);
   if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
-  if (fpsFractions.length > 1) counts.push(fpsFractions.length);
+  // The rates the ticks come to rather than the ticks, as the sweep runs them: with the source's rate
+  // unknown, every tick is the source's own.
+  const rates = new Set(matrixFps()).size;
+  if (rates > 1) counts.push(rates);
   // The product is what the run costs, which is the number the factors are read for; a single
   // axis is its own product, so it is left to stand alone.
   const squares = counts.reduce((product, n) => product * n, 1);

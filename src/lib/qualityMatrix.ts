@@ -210,7 +210,9 @@ export function buildMatrixCombos(
   const cols = MATRIX_PRESETS.filter((p) => presets.includes(p));
   const scaleAxis = MATRIX_SCALES.filter((s) => scales.includes(s));
   const scalerAxis = MATRIX_SCALERS.filter((s) => scalers.includes(s));
-  const fpsAxis = fpsValues.length ? fpsValues : [null];
+  // Each rate once: two ticks can resolve to the same rate (both to the source's own, null, when its
+  // rate is unknown), and entered twice each square would be encoded twice under one key.
+  const fpsAxis = fpsValues.length ? [...new Set(fpsValues)] : [null];
   // One output per rate, resolution and kernel: the properties of the file a square produces, and
   // the blocks the grid stacks.
   const combos: MatrixCombo[] = [];

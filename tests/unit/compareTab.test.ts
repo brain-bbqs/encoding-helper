@@ -479,6 +479,8 @@ describe("renderCompareTab", () => {
   });
 
   it("multiplies the sweep by every rate ticked beyond the source's", () => {
+    // A file whose rate is known, which the ticked fractions resolve against.
+    state.fps = 30;
     const panel = renderTab();
     tickAxis(panel, "Frame rates", "0.5", true);
     expect(sampledEncode.matrix.fpsFractions).toEqual([1, 0.5]);
@@ -589,6 +591,7 @@ describe("renderCompareTab", () => {
   });
 
   it("ticks every value on every axis from the one select-all button", () => {
+    state.fps = 30;
     const panel = renderTab();
     panel.querySelector<HTMLButtonElement>(".axis-select-all")!.click();
     expect(sampledEncode.matrix.qualities).toEqual(MATRIX_QUALITIES);
@@ -909,6 +912,30 @@ describe("the command for the selected square", () => {
 // combination on the faked cores, fills the grid in as it goes, and puts the winner in the A/B
 // window. Everything between the button and the core is the page's own code.
 describe("running the sweep", () => {
+  // With the source's rate unknown every tick resolves to the source's own, so a second tick adds no
+  // encode: counted, the bar promised twice the runs, and the sweep encoded each square twice.
+  it("encodes each square once when the source's rate is unknown, however many rates are ticked", async () => {
+    loadClip();
+    state.fps = null;
+    try {
+      sweepOf(["ultrafast", "superfast"]);
+      sampledEncode.matrix.fpsFractions = [1, 0.5];
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const panel = renderTab();
+      expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("1 × 2 = 2 runs");
+
+      await pressRun(panel);
+
+      const keys = sampledEncode.matrix.cells.map((c) => c.combo.key);
+      expect(keys).toHaveLength(2);
+      expect(new Set(keys).size).toBe(2);
+      expect(encodes()).toHaveLength(2);
+      await settleRun(panel);
+    } finally {
+      state.fps = 30;
+    }
+  });
+
   it("encodes every ticked combination over the sampled stretch and shows the best reduction", async () => {
     loadClip();
     sweepOf(["ultrafast", "superfast"]);

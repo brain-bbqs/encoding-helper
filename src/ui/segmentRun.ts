@@ -20,7 +20,15 @@ import { extOf } from "../lib/save";
 import { windowsForRun } from "../lib/sizeEstimate";
 import { currentVideoInfo, sampledEncode, state } from "../lib/state";
 import type { CliState, SampleWindow } from "../lib/types";
-import { clearLog, fieldNumber, logConsole, logLine, progressBar, resetProgressFill } from "./formControls";
+import {
+  clampToField,
+  clearLog,
+  fieldNumber,
+  logConsole,
+  logLine,
+  progressBar,
+  resetProgressFill,
+} from "./formControls";
 
 /** The controls a run drives: its buttons, its bar, the line under it and its console. */
 export interface RunUi {
@@ -86,7 +94,9 @@ export function sampleFields(idPrefix: string): HTMLDivElement {
   duration.classList.add("sample-duration");
   segments.classList.add("sample-segments");
   duration.addEventListener("input", () => {
-    sampledEncode.duration = parseFloat(duration.value) || 1;
+    // Held to the field's range as it is typed, as the segment count is, rather than only once the
+    // tab is next drawn: a sweep run before then sampled stretches of whatever had been typed.
+    sampledEncode.duration = clampToField(duration, parseFloat(duration.value) || 1);
     syncSampleFields(duration);
   });
   segments.addEventListener("input", () => {
