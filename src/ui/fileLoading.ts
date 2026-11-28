@@ -151,11 +151,12 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     if (superseded()) return;
     console.error("[encoding-helper] load failed:", err);
     // The file before this one went at the reset above, and whatever this one got as far as goes
-    // here, so the tabs come down too rather than showing either under the error. Nothing is loaded
-    // now, so the address bar offers no file either, as after Reset.
+    // here, so the tabs come down too rather than showing either under the error. The address bar
+    // drops the file before this one; a URL that failed keeps its own link, since a reload may well
+    // open it (a dropped connection, a host that was down), where a local file has nothing to reload.
     resetState();
     els.app.style.display = "none";
-    writeSrcToUrl(null);
+    writeSrcToUrl(req.kind === "url" ? req.url : null);
     showError(els, errorMessage(err));
     els.dropZone.classList.remove("collapsed");
   }

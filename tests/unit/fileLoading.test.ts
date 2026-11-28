@@ -367,7 +367,9 @@ describe("when a load fails", () => {
     expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
   });
 
-  it("leaves no link in the address bar to a URL whose tabs failed to draw", async () => {
+  // A URL that failed may open on a second try (a dropped connection, a host that was down), so its
+  // own link stays for a reload to retry, where a failed local file leaves nothing to reload.
+  it("keeps a failed URL's own link in the address bar, so a reload tries it again", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     onLoaded.mockImplementationOnce(() => {
       throw new RangeError("Maximum call stack size exceeded");
@@ -377,7 +379,28 @@ describe("when a load fails", () => {
     await loader.loadUrl("https://example.org/remote.mp4");
 
     expect(state.source).toBeNull();
-    expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/remote.mp4");
+  });
+
+  it("puts a failed URL's link in place of the file before it", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadUrl("https://example.org/good.mp4");
+    parseWithMp4Box.mockRejectedValueOnce(new Error("bad.mp4 is not an MP4"));
+
+    await loader.loadUrl("https://example.org/bad.mp4");
+
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/bad.mp4");
+  });
+
+  it("keeps a shared link that failed to open", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    parseWithMp4Box.mockRejectedValueOnce(new Error("shared.mp4 is not an MP4"));
+    setUrl("?src=" + encodeURIComponent("https://example.org/shared.mp4"));
+    initFileLoadingUi(els, { onLoaded });
+    await vi.waitFor(() => expect(els.errorMsg.textContent).toBe("shared.mp4 is not an MP4"));
+
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/shared.mp4");
   });
 });
 
