@@ -4,12 +4,18 @@ import { describeContainer } from "../../src/lib/containerKb";
 describe("describeContainer", () => {
   it("returns null for a missing format name", () => {
     expect(describeContainer(null)).toBeNull();
+    // @ts-expect-error: undefined is outside the type, but the falsy guard turns it away all the same.
     expect(describeContainer(undefined)).toBeNull();
     expect(describeContainer("")).toBeNull();
   });
 
   it("returns null for a format the knowledge base doesn't cover", () => {
     expect(describeContainer("Not A Container")).toBeNull();
+  });
+
+  // Names every object inherits are not containers the table describes.
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])("returns null for %s", (name) => {
+    expect(describeContainer(name)).toBeNull();
   });
 
   it("describes MP4, including which codecs it carries", () => {

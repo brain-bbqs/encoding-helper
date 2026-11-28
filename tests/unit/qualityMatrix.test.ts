@@ -133,15 +133,15 @@ describe("cliSettings", () => {
 
 describe("describeSettings", () => {
   it("names the quality, its CRF and the preset", () => {
-    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 1, scaler: "lanczos" })).toBe(
-      "high (CRF 18), veryfast",
-    );
+    expect(
+      describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 1, scaler: "lanczos", fps: null }),
+    ).toBe("high (CRF 18), veryfast");
   });
 
   it("adds the resolution and its kernel only when something was resampled", () => {
-    expect(describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 0.5, scaler: "bicubic" })).toBe(
-      "high (CRF 18), veryfast, 50% bicubic",
-    );
+    expect(
+      describeSettings({ quality: "high", crf: 18, preset: "veryfast", scale: 0.5, scaler: "bicubic", fps: null }),
+    ).toBe("high (CRF 18), veryfast, 50% bicubic");
   });
 });
 

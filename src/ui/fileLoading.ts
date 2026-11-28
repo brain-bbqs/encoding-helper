@@ -19,7 +19,8 @@ import {
   parseWithMp4Box,
 } from "../lib/mp4boxParser";
 import { isPickerDismissed } from "../lib/save";
-import { resetState, state } from "../lib/state";
+import { resetState, state, stateGeneration } from "../lib/state";
+import type { Input } from "mediabunny";
 import type { AppElements } from "./elements";
 
 interface FileLoadingCallbacks {
@@ -61,9 +62,22 @@ function estimateFpsFromSamples(): number | null {
 /** What a load was asked to open: a File the reader picked or dropped, or a URL to fetch. */
 type LoadRequest = { kind: "file"; file: File } | { kind: "url"; url: string; name?: string };
 
+/** Ends a load that a later load or a Reset has replaced. */
+class LoadSuperseded extends Error {}
+
 async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req: LoadRequest): Promise<void> {
   hideError(els);
   resetState();
+  // Taken after this load's own reset: a later load or a Reset resets again, and from then on the
+  // page and the state are theirs, so this load leaves both alone, failure message included.
+  const generation = stateGeneration();
+  const superseded = (): boolean => stateGeneration() !== generation;
+  const stillWanted = (): void => {
+    if (superseded()) throw new LoadSuperseded();
+  };
+  // The Input this load opened, until the state takes it over: until then nothing else would ever
+  // release it.
+  let unclaimed: Input | null = null;
   setLoadingUi(els, "Reading file…");
   try {
     let source: ChunkedSource;
@@ -75,18 +89,17 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
       media = { file: req.file };
     } else {
       source = await ChunkedSource.fromUrl(req.url, req.name);
+      stillWanted();
       media = source.kind === "file" && source.file instanceof File ? { file: source.file } : { url: req.url };
     }
-    state.source = source;
-    state.file = "file" in media ? media.file : null;
     showMiniLoaded(els, source.name, source.size);
 
     setLoadingUi(els, "Parsing MP4 structure (mp4box.js)…");
-    const { mp4boxFile, info } = await parseWithMp4Box(source, (p) =>
-      setLoadingUi(els, `Parsing MP4 structure… ${(p * 100).toFixed(0)}%`),
-    );
-    state.boxes = extractBoxTree(mp4boxFile);
-    state.faststart = detectFaststart(state.boxes);
+    const { mp4boxFile, info } = await parseWithMp4Box(source, (p) => {
+      if (!superseded()) setLoadingUi(els, `Parsing MP4 structure… ${(p * 100).toFixed(0)}%`);
+    });
+    stillWanted();
+    const boxes = extractBoxTree(mp4boxFile);
 
     if (info.videoTracks.length === 0) {
       throw new Error("No video track found in this file.");
@@ -94,18 +107,29 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     const videoTrackId = info.videoTracks[0].id;
     const timescale = info.videoTracks[0].timescale;
     const analysis = extractSampleAnalysis(mp4boxFile, videoTrackId, timescale);
+    const declaredVideoBitrate = extractDeclaredBitrate(mp4boxFile, videoTrackId);
+
+    setLoadingUi(els, "Reading metadata (mediabunny)…");
+    const mb = await ensureMediabunny();
+    stillWanted();
+    const mbSource = "file" in media ? new mb.BlobSource(media.file) : new mb.UrlSource(media.url);
+    unclaimed = new mb.Input({ source: mbSource, formats: mb.ALL_FORMATS });
+    const meta = await loadMediabunnyMetadata(unclaimed);
+    stillWanted();
+
+    // All in one go, after the last await: the state names a file only once that file has loaded,
+    // which is what the demos page reads to decide whether there are tabs to show.
+    state.source = source;
+    state.file = "file" in media ? media.file : null;
+    state.input = unclaimed;
+    unclaimed = null;
+    state.boxes = boxes;
+    state.faststart = detectFaststart(boxes);
     state.samples = analysis.samples;
     state.gopLengths = analysis.gopLengths;
     state.hasBFrames = analysis.hasBFrames;
     state.keyframeTimestampsSec = analysis.keyframeTimestampsSec;
-    state.declaredVideoBitrate = extractDeclaredBitrate(mp4boxFile, videoTrackId);
-
-    setLoadingUi(els, "Reading metadata (mediabunny)…");
-    const mb = await ensureMediabunny();
-    const mbSource = "file" in media ? new mb.BlobSource(media.file) : new mb.UrlSource(media.url);
-    const input = new mb.Input({ source: mbSource, formats: mb.ALL_FORMATS });
-    const meta = await loadMediabunnyMetadata(input);
-    state.input = input;
+    state.declaredVideoBitrate = declaredVideoBitrate;
     state.videoTrack = meta.videoTrack;
     state.format = meta.format;
     state.mimeType = meta.mimeType;
@@ -114,13 +138,25 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     state.tracks = meta.tracks;
     state.fps = meta.fps || estimateFpsFromSamples();
 
+    // Hidden again, not only at the start: the previous file's tabs stay up while this one loads,
+    // and a seeking run started there fails into this slot once it finds the state emptied.
+    hideError(els);
     els.app.style.display = "block";
     // Only a remote URL can be handed to someone else; a local file leaves the address bar clean.
     writeSrcToUrl(req.kind === "url" ? req.url : null);
     callbacks.onLoaded();
     showMiniLoaded(els, source.name, source.size);
   } catch (err) {
+    unclaimed?.dispose();
+    if (superseded()) return;
     console.error("[encoding-helper] load failed:", err);
+    // The file before this one went at the reset above, and whatever this one got as far as goes
+    // here, so the tabs come down too rather than showing either under the error. The address bar
+    // drops the file before this one; a URL that failed keeps its own link, since a reload may well
+    // open it (a dropped connection, a host that was down), where a local file has nothing to reload.
+    resetState();
+    els.app.style.display = "none";
+    writeSrcToUrl(req.kind === "url" ? req.url : null);
     showError(els, errorMessage(err));
     els.dropZone.classList.remove("collapsed");
   }
@@ -132,7 +168,9 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
  * The whole dropzone comes back rather than the file picker alone, so the demo browser and the URL
  * box are reachable again: this is the way back out of a loaded file, not a shortcut to loading
  * another one. The parsed file goes with it: what the tabs were showing is about a file that is no
- * longer open, and the mediabunny inputs behind it hold decoders worth releasing.
+ * longer open, and the mediabunny inputs behind it hold decoders worth releasing. So does a load
+ * still under way, which the reset supersedes: left to finish, it would open a file the reader has
+ * just backed out of.
  */
 function resetToDropZone(els: AppElements): void {
   hideError(els);
@@ -162,6 +200,9 @@ async function pickFile(els: AppElements): Promise<File | null> {
   }
   return new Promise((resolve) => {
     els.fileInput.onchange = () => resolve(els.fileInput.files?.[0] || null);
+    // Emptied first: browsers fire no change event for a pick that matches what the input already
+    // holds, so the file opened before a Reset could not be picked again.
+    els.fileInput.value = "";
     els.fileInput.click();
   });
 }

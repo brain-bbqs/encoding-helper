@@ -12,7 +12,7 @@ import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
-import { state } from "../lib/state";
+import { state, stateGeneration } from "../lib/state";
 import type { Badge, FactRow, SeekResult } from "../lib/types";
 import { appendAxes, AXIS_STEPS, CHART_WIDTH } from "./chartAxes";
 import { fieldNumber, progressBar } from "./formControls";
@@ -95,6 +95,9 @@ export function renderGopStructure(panel: HTMLElement): void {
   });
 }
 
+/** Bumped by every run, so one still awaiting a decode can tell a newer run has replaced it. */
+let latestSeekRun = 0;
+
 async function runSeekingTest(
   btn: HTMLButtonElement,
   progress: HTMLDivElement,
@@ -102,12 +105,23 @@ async function runSeekingTest(
   resultsWrap: HTMLDivElement,
   n: number,
 ): Promise<void> {
+  const run = ++latestSeekRun;
+  const generation = stateGeneration();
+  // A file load or Reset disposes the decoder this run reads from and hands the state to the next
+  // file, and a newer run owns the card; a run replaced by any of them writes nothing more, error
+  // included, since what it measured or failed at is no longer what is on the page.
+  const current = (): boolean => run === latestSeekRun && generation === stateGeneration();
+  const errorSlot = document.getElementById("errorMsg");
   btn.disabled = true;
   progress.style.display = "block";
   fill.style.width = "0%";
   resultsWrap.innerHTML = "";
+  // The slot is only ever this test's while the tabs are up (a load clears it as it starts), and a
+  // failure left standing would sit over this run's results as if they had failed too.
+  if (errorSlot) errorSlot.style.display = "none";
   try {
     const mb = await ensureMediabunny();
+    if (!current()) return;
     if (!state.videoTrack) throw new Error("No video track loaded");
     const sink = new mb.CanvasSink(state.videoTrack, { poolSize: 2 });
     const duration = state.duration ?? 0;
@@ -119,6 +133,7 @@ async function runSeekingTest(
       const start = performance.now();
       await sink.getCanvas(t);
       const decodeMs = performance.now() - start;
+      if (!current()) return;
       const distFrames = dist != null ? Math.round(dist * (state.fps || FALLBACK_FPS)) : null;
       results.push({ t, kf, dist, distFrames, decodeMs });
       fill.style.width = ((i + 1) / n) * 100 + "%";
@@ -126,15 +141,17 @@ async function runSeekingTest(
     state.seekResults = results;
     renderSeekResults(resultsWrap, results);
   } catch (err) {
+    if (!current()) return;
     console.error("[encoding-helper] seeking test failed:", err);
-    const el = document.getElementById("errorMsg");
-    if (el) {
-      el.textContent = "Seeking test failed: " + errorMessage(err);
-      el.style.display = "block";
+    if (errorSlot) {
+      errorSlot.textContent = "Seeking test failed: " + errorMessage(err);
+      errorSlot.style.display = "block";
     }
   } finally {
-    btn.disabled = false;
-    progress.style.display = "none";
+    if (current()) {
+      btn.disabled = false;
+      progress.style.display = "none";
+    }
   }
 }
 

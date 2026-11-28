@@ -6,9 +6,15 @@ import { infoIcon } from "../lib/dom";
 /**
  * A field's label, with an ⓘ explainer beside it when there is one. Same shape as the grid cards'
  * `item-head`, so a control and a figure explain themselves the same way.
+ *
+ * `controlId` ties the label to the one control it names: the control sits beside the label rather
+ * than inside it, so without the id it has no accessible name and a click on the label does not
+ * reach it. A heading over a group of controls (the matrix axes' checkboxes) has no one control to
+ * name and leaves it out.
  */
-export function fieldHead(label: string, info?: string | null): HTMLElement {
+export function fieldHead(label: string, info?: string | null, controlId?: string): HTMLElement {
   const labelEl = h("label", "field-label", label);
+  if (controlId) labelEl.htmlFor = controlId;
   if (!info) return labelEl;
   const head = h("div", "field-head");
   head.append(labelEl, infoIcon(info, `About ${label}`));
@@ -25,7 +31,7 @@ export function fieldSelect(
   info?: string | null,
 ): { field: HTMLDivElement; select: HTMLSelectElement } {
   const field = h("div", "field");
-  field.append(fieldHead(label, info));
+  field.append(fieldHead(label, info, id));
   const select = h("select");
   select.id = id;
   options.forEach((opt) => {
@@ -49,7 +55,7 @@ export function fieldNumber(
   step: number,
 ): { field: HTMLDivElement; input: HTMLInputElement } {
   const field = h("div", "field");
-  field.append(fieldHead(label));
+  field.append(fieldHead(label, null, id));
   const input = h("input");
   input.type = "number";
   input.id = id;

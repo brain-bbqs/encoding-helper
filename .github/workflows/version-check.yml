@@ -27,8 +27,21 @@ jobs:
           BASE_VERSION=$(git show origin/${{ github.base_ref }}:package.json | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).version))")
           echo "Base version: $BASE_VERSION"
           echo "PR version:   $PR_VERSION"
-          if [ "$PR_VERSION" = "$BASE_VERSION" ]; then
-            echo "::error::Version has not been bumped. Please update the version in package.json."
+          # Compared part by part as numbers, so 1.5.10 is above 1.5.9 and a lowered version fails
+          # as an unchanged one does. Exit 2 means a version that is not plain MAJOR.MINOR.PATCH.
+          node -e '
+            const parts = (v) => (/^\d+\.\d+\.\d+$/.test(v) ? v.split(".").map(Number) : null);
+            const [base, pr] = process.argv.slice(1).map(parts);
+            if (!base || !pr) process.exit(2);
+            const k = pr.findIndex((n, i) => n !== base[i]);
+            process.exit(k >= 0 && pr[k] > base[k] ? 0 : 1);
+          ' "$BASE_VERSION" "$PR_VERSION" && status=0 || status=$?
+          if [ "$status" = 2 ]; then
+            echo "::error::Expected MAJOR.MINOR.PATCH versions, got $BASE_VERSION and $PR_VERSION."
+            exit 1
+          fi
+          if [ "$status" != 0 ]; then
+            echo "::error::Version $PR_VERSION is not greater than $BASE_VERSION. Please bump the version in package.json."
             exit 1
           fi
           echo "Version bumped from $BASE_VERSION to $PR_VERSION ✓"

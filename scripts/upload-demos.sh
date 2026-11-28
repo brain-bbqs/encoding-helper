@@ -10,12 +10,15 @@
 # dandiset.yaml next to them naming the target. Only its identifier is read
 # and the file itself is never uploaded, so this script writes that one line
 # rather than fetching the full record, copies the demo tree beside it, and
-# uploads from there. Validation is skipped: these are plain videos, not
-# NWB/BIDS.
+# uploads from there. Validation is skipped: these are plain videos, not NWB
+# files, and their layout follows BEP047, a BIDS extension still at the
+# proposal stage that dandi's validator, built on the released specification,
+# does not know.
 #
-# Usage: scripts/upload-demos.sh [-o demo-dir] [-n]
+# Usage: scripts/upload-demos.sh [-o demo-dir] [-n] [-h]
 #   -o DIR  directory holding the generated demo tree (default: demo-out)
 #   -n      dry run: lay everything out and stop before uploading
+#   -h      print this help and exit
 #
 # Requires the dandi CLI (pip install dandi) and EMBER_DANDI_API_KEY in the
 # environment, holding an API key for the EMBER archive: the dandi CLI reads
@@ -33,7 +36,8 @@ while getopts "o:nh" opt; do
     o) DEMODIR=$OPTARG ;;
     n) DRY_RUN=1 ;;
     h)
-      sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      # The header up to its first non-comment line, so the help grows with it.
+      awk 'NR > 1 { if (!/^#/) exit; sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
       exit 0
       ;;
     *) exit 2 ;;

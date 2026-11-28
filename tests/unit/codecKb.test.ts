@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { describeCodec } from "../../src/lib/codecKb";
-import { CODEC_DESCRIPTIONS } from "../../src/lib/explainers";
+import { CODEC_DESCRIPTIONS, PCM_DESCRIPTION } from "../../src/lib/explainers";
 
 /** Each codec the knowledge base knows, with a phrase only its own description says. */
-const DESCRIBED_CODECS: [codec: string, phrase: string][] = [
+const DESCRIBED_CODECS: [codec: keyof typeof CODEC_DESCRIPTIONS, phrase: string][] = [
   ["avc", "most widely supported video codec"],
   ["hevc", "more efficient than H.264"],
   ["vp9", "free alternative to H.265"],
@@ -17,6 +17,27 @@ const DESCRIBED_CODECS: [codec: string, phrase: string][] = [
   ["flac", "Lossless compression"],
   ["ac3", "up to 5.1"],
   ["eac3", "extension of AC-3"],
+  ["ulaw", "North America and Japan"],
+  ["alaw", "outside North America"],
+];
+
+/** Each codec's long name and year, the two facts the codec card prints after the family. */
+const NAMED_CODECS: [codec: keyof typeof CODEC_DESCRIPTIONS, fullName: string, year: number][] = [
+  ["avc", "Advanced Video Coding", 2003],
+  ["hevc", "High Efficiency Video Coding", 2013],
+  ["vp9", "VP9", 2013],
+  ["av1", "AOMedia Video 1", 2018],
+  ["vp8", "VP8", 2008],
+  ["prores", "ProRes", 2007],
+  ["aac", "Advanced Audio Coding", 1997],
+  ["opus", "Opus", 2012],
+  ["mp3", "MPEG-1/2 Audio Layer III", 1993],
+  ["vorbis", "Ogg Vorbis", 2000],
+  ["flac", "Free Lossless Audio Codec", 2001],
+  ["ac3", "Dolby Digital", 1991],
+  ["eac3", "Enhanced AC-3", 2005],
+  ["ulaw", "μ-law companded PCM", 1972],
+  ["alaw", "A-law companded PCM", 1972],
 ];
 
 describe("describeCodec", () => {
@@ -27,6 +48,11 @@ describe("describeCodec", () => {
 
   it("returns null for an unknown codec id", () => {
     expect(describeCodec("not-a-real-codec", null)).toBeNull();
+  });
+
+  // Names every object inherits are not codecs the table describes.
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])("returns null for %s", (name) => {
+    expect(describeCodec(name, null)).toBeNull();
   });
 
   it("parses H.264/AVC profile and level from the RFC 6381 codec string", () => {
@@ -69,6 +95,14 @@ describe("describeCodec", () => {
     const info = describeCodec("pcm-s16", null);
     expect(info?.family).toBe("PCM (uncompressed)");
     expect(info?.details).toEqual([]);
+  });
+
+  // The PCM branch builds its answer apart from the table, so its own fields are pinned here.
+  it("names PCM in full, gives it no year and describes it in its own words", () => {
+    const info = describeCodec("pcm-s16", null);
+    expect(info?.fullName).toBe("Pulse-Code Modulation");
+    expect(info?.year).toBeNull();
+    expect(info?.description).toBe(PCM_DESCRIPTION);
   });
 
   it("returns codec family info even with no parseable details (e.g. VP8)", () => {
@@ -123,9 +157,18 @@ describe("describeCodec", () => {
     expect(describeCodec("aac", "mp4a.40.99")?.details).toEqual([{ label: "Profile", value: "Object type 99" }]);
   });
 
-  it("treats the telephony companding codecs as PCM too", () => {
-    expect(describeCodec("ulaw", null)?.family).toBe("PCM (uncompressed)");
-    expect(describeCodec("alaw", null)?.family).toBe("PCM (uncompressed)");
+  // G.711's 8-bit logarithmic companding rounds every sample, so it is neither uncompressed nor
+  // lossless, which is what the PCM entry says.
+  it.each([
+    ["ulaw", "G.711 μ-law"],
+    ["alaw", "G.711 A-law"],
+  ])("describes %s as lossy companding rather than as PCM", (codec, family) => {
+    const info = describeCodec(codec, null);
+    expect(info?.family).toBe(family);
+    expect(info?.description).not.toBe(PCM_DESCRIPTION);
+    expect(info?.description).toContain("lossy");
+    expect(info?.description).toContain("logarithmic");
+    expect(info?.description).not.toMatch(/lossless|uncompressed/i);
   });
 
   // The description is joined to the codec by hand, one line per codec, so a line naming the wrong
@@ -134,6 +177,16 @@ describe("describeCodec", () => {
     const description = describeCodec(codec, null)?.description;
     expect(description).toBe(CODEC_DESCRIPTIONS[codec]);
     expect(description).toContain(phrase);
+  });
+
+  it.each(NAMED_CODECS)("names %s %s, from %i", (codec, fullName, year) => {
+    const info = describeCodec(codec, null);
+    expect(info?.fullName).toBe(fullName);
+    expect(info?.year).toBe(year);
+  });
+
+  it("has a name test for every codec the description table holds", () => {
+    expect(Object.keys(CODEC_DESCRIPTIONS).sort()).toEqual(NAMED_CODECS.map(([codec]) => codec).sort());
   });
 
   it("has a description test for every codec the description table holds", () => {
