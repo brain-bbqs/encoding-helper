@@ -44,8 +44,14 @@ function renderBlock(block: AnalysisBlock): Element {
     }
     case "code":
       return h("pre", "cmd", block.content);
-    case "table":
-      return dataTable(block.headers, block.rows);
+    case "table": {
+      const table = dataTable(block.headers, block.rows);
+      if (!block.caption) return table;
+      // Captioned the way a chart is, so the legend reads as part of the table it explains.
+      const fig = h("figure", "fig");
+      fig.append(table, h("figcaption", null, block.caption));
+      return fig;
+    }
     case "figure": {
       const fig = h("figure", "fig");
       fig.append(block.element.cloneNode(true));
@@ -104,6 +110,7 @@ function markdownBlock(block: AnalysisBlock): string[] {
         "|" + block.headers.map(() => "---").join("|") + "|",
         ...block.rows.map((row) => "| " + row.map(escapeCell).join(" | ") + " |"),
         "",
+        ...(block.caption ? [`_${block.caption}_`, ""] : []),
       ];
     case "figure":
       // Markdown has nowhere to put an SVG that survives a paste into an issue, so it names the

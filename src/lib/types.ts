@@ -328,7 +328,13 @@ export type AnalysisBlock =
     }
   | ({ kind: "badge" } & Badge)
   | { kind: "code"; lang: string; content: string }
-  | { kind: "table"; headers: string[]; rows: string[][] }
+  | {
+      kind: "table";
+      headers: string[];
+      rows: string[][];
+      /** What the cells are read by, where the headers cannot say it: set under the table. */
+      caption?: string;
+    }
   /** A chart, built by whichever tab owns it. Renderers clone it, so a section can be drawn twice. */
   | { kind: "figure"; caption: string; element: Element };
 

@@ -67,6 +67,11 @@ function loadComparison(seconds: number, encodedSize: number | null): void {
   sampledEncode.encodedSize = encodedSize;
 }
 
+/** What the sweep's table is read by, under it in the HTML and after it in the Markdown. */
+const MATRIX_LEGEND =
+  "Each cell is the encoded segment size / the time the encode took; ★ marks the largest reduction " +
+  "once every combination has run.";
+
 function panel(): HTMLElement {
   const el = document.createElement("div");
   document.body.append(el);
@@ -363,7 +368,24 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("## Compare Quality Matrix");
     expect(md).toContain("| Quality | ultrafast | fast |");
     // ★ marks the largest reduction, which is the smallest of the four.
-    expect(md.match(/★/g)).toHaveLength(1);
+    expect(md.match(/^\|.*★.*$/gm)).toEqual(["| low (CRF 32) | 78.1 KB / 4.2s | 68.4 KB / 4.2s ★ |"]);
+  });
+
+  // Nothing else in the document says what the second figure in a cell is, or what the star means.
+  it("explains the figures in a sweep's cells and its star under the table", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+
+    expect(markdown(el)).toContain("| high (CRF 18) | 58.6 KB ★ |\n\n_" + MATRIX_LEGEND + "_\n");
+    const doc = new DOMParser().parseFromString(documentHtml(el), "text/html");
+    const figure = doc.querySelector("#compare-quality-matrix figure")!;
+    expect(figure.querySelector("table.data")).not.toBeNull();
+    expect(figure.querySelector("figcaption")!.textContent).toBe(MATRIX_LEGEND);
   });
 
   // At the source resolution every kernel is the same encode, so a sweep over two kernels and a
@@ -385,9 +407,9 @@ describe("renderAnalysisTab", () => {
     ]);
   });
 
-  // The table has no rate column (NV-10 in docs/code-reviews/2026-11-22-code-quality-review.md), so a
-  // reduced rate's squares would repeat each quality's row with nothing to tell the copies apart.
-  it("prints a sweep's source-rate squares alone, one row per quality, when it also covered a reduced rate", () => {
+  // Each rate is an output of its own, as on the page, so a winner at a reduced rate is in the
+  // table, starred, rather than left out of the grid it was picked from.
+  it("tables every rate a sweep covered, naming the reduced ones", () => {
     const el = panel();
     loadClip();
     const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [null, 15]));
@@ -397,8 +419,41 @@ describe("renderAnalysisTab", () => {
     });
     sampledEncode.matrix.cells = cells;
     renderAnalysisTab(el);
-    const table = markdown(el).split("## Compare Quality Matrix")[1];
-    expect(table.match(/^\| high.*$/gm)).toEqual(["| high (CRF 18) | 58.6 KB |"]);
+    const md = markdown(el);
+
+    expect(md).toContain("| Output | Quality | fast |");
+    expect(md.match(/^\| 100%.*$/gm)).toEqual([
+      "| 100% | high (CRF 18) | 58.6 KB |",
+      "| 100%, 15 fps | high (CRF 18) | 48.8 KB ★ |",
+    ]);
+  });
+
+  it("names the rate of a sweep run at a reduced rate alone", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [15]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+
+    expect(md).toContain("| Output | Quality | fast |");
+    expect(md.match(/^\| 100%.*$/gm)).toEqual(["| 100%, 15 fps | high (CRF 18) | 58.6 KB ★ |"]);
+  });
+
+  // A failed square has run as far as it is going to, so it does not hold the ranking up.
+  it("stars the winner once every square has run, failed ones included", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["ultrafast", "fast"]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    cells[1].status = "failed";
+    cells[1].error = "out of memory";
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| high (CRF 18) | 58.6 KB ★ | – |");
   });
 
   it("leaves a sweep out while none of its squares have finished", () => {
@@ -497,9 +552,11 @@ describe("renderAnalysisTab", () => {
       setEducationalEnabled(false);
       const off = write();
       expect(off).toEqual(on);
-      for (const mark of ['class="teach', 'class="info', "info-btn", "info-pop", "edu"]) {
+      for (const mark of ['class="teach', 'class="info', "info-btn", "info-pop"]) {
         expect(on.html).not.toContain(mark);
       }
+      // As a class: the word turns up inside others ("reduction").
+      expect(on.html).not.toMatch(/class="[^"]*\bedu\b/);
     } finally {
       setEducationalEnabled(true);
       vi.useRealTimers();
@@ -719,7 +776,9 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| 50% lanczos | high (CRF 18) | 87.9 KB ★ |");
   });
 
-  it("dashes the squares of a sweep that never finished, and drops the time of one not clocked", () => {
+  // Which square wins is a statement about the whole sweep, as the page has it: the smallest of
+  // the ones that happened to finish is not the answer the sweep was run for.
+  it("dashes the squares of a sweep that never finished, ranks none of them, and drops the time of one not clocked", () => {
     const el = panel();
     loadClip();
     const cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["ultrafast", "fast"]));
@@ -728,12 +787,28 @@ describe("renderAnalysisTab", () => {
       c.bytes = 100_000 - i * 10_000;
       c.elapsedMs = i === 0 ? null : 4200;
     });
+    cells[3].status = "skipped";
     sampledEncode.matrix.cells = cells;
     renderAnalysisTab(el);
     const md = markdown(el);
 
     expect(md).toContain("| high (CRF 18) | 97.7 KB | 87.9 KB / 4.2s |");
-    expect(md).toContain("| low (CRF 32) | 78.1 KB / 4.2s ★ | – |");
+    expect(md).toContain("| low (CRF 32) | 78.1 KB / 4.2s | – |");
+    expect(md.match(/^\|.*★.*$/gm)).toBeNull();
+  });
+
+  // As the page's own summary has it: fewer frames is a change the sizes alone do not show.
+  it("states the frame rate of a compared encode made at a rate of its own", () => {
+    const el = panel();
+    loadClip();
+    loadComparison(5, 100_000);
+    sampledEncode.activeCombo = { ...cliSettings(cli), fps: 10 };
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| Frame Rate | 20 fps → 10 fps |");
+
+    sampledEncode.activeCombo = { ...cliSettings(cli), fps: null };
+    renderAnalysisTab(el);
+    expect(documentRows(el, "Side-by-Side (A/B) Result").map(([label]) => label)).not.toContain("Frame Rate");
   });
 
   it("keeps the preview frame as tall as the document loaded into it", () => {

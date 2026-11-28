@@ -4,7 +4,7 @@ import { sampledEncode, resetState, state } from "../../src/lib/state";
 import { heldBytes } from "../../src/lib/qualityMatrix";
 import type { EncodeSettings, SampleWindow } from "../../src/lib/types";
 import { flush } from "./helpers/async";
-import { gridRows } from "./helpers/grid";
+import { gridRows, gridValue } from "./helpers/grid";
 
 /** The id of every Input the stub has seen disposed, so the test can check the old ones are let go
  * of. */
@@ -665,6 +665,31 @@ describe("a downscaled encode", () => {
     const again = hostSection();
     await loadEncodedIntoAB(encodedStretches(1), DOWNSCALED, VIDEO_TRACK, again, totalsFor(1));
     expect(again.querySelector<HTMLSelectElement>("#etUpscaleView")!.value).toBe("smooth");
+  });
+});
+
+// Fewer frames is a change the panes alone do not show, and the comparison is not like for like
+// without it, so the summary says so; at the source's own rate the row would say nothing.
+describe("an encode at a frame rate of its own", () => {
+  it("states the rate it was encoded at against the source's", async () => {
+    state.fps = 30;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, fps: 15 }, VIDEO_TRACK, host, totalsFor(1));
+    expect(gridValue(host, "Frame Rate")).toBe("30 fps → 15 fps");
+  });
+
+  it("states the rate alone when the source's is not known", async () => {
+    state.fps = null;
+    const host = hostSection();
+    await loadEncodedIntoAB(encodedStretches(1), { ...SETTINGS, fps: 12 }, VIDEO_TRACK, host, totalsFor(1));
+    expect(gridValue(host, "Frame Rate")).toBe("12 fps");
+  });
+
+  it("leaves the rate out of an encode made at the source's", async () => {
+    state.fps = 30;
+    const host = hostSection();
+    await load(host);
+    expect(gridRows(host).map((row) => row.label)).not.toContain("Frame Rate");
   });
 });
 

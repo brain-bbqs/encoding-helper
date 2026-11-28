@@ -42,9 +42,11 @@ import {
   comboCrf,
   comboKey,
   describeResolutionChange,
+  hasRun,
   isMeasured,
   matrixAxes,
   matrixOutputs,
+  type MatrixOutput,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
 import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
@@ -286,22 +288,41 @@ function compareSection(): AnalysisSection | null {
   return { title: "Side-by-Side (A/B) Result", blocks: [{ kind: "kv", items }] };
 }
 
-/** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */
+/** What a sweep's cells hold and when the star appears, which nothing else in the document says. */
+const MATRIX_LEGEND =
+  "Each cell is the encoded segment size / the time the encode took; ★ marks the largest reduction " +
+  "once every combination has run.";
+
+/** One output's name in the table's leading column, e.g. "50% lanczos, 15 fps". */
+function describeOutput({ fps, scale, scaler }: MatrixOutput): string {
+  const size = `${scalePercent(scale)}${isDownscale(scale) ? ` ${scaler}` : ""}`;
+  return fps != null ? `${size}, ${describeFrameRate(fps)}` : size;
+}
+
+/**
+ * The last matrix sweep as a table, so the document carries the grid the winner was picked out of:
+ * every square the page draws, in the page's order, ranked by the page's rule.
+ */
 function matrixSection(): AnalysisSection | null {
-  const cells = sampledEncode.matrix.cells.filter(isMeasured);
-  if (!cells.length) return null;
-  const best = bestReductionCell(sampledEncode.matrix.cells);
-  const { qualities, presets, scales, scalers } = matrixAxes(cells);
-  const byKey = new Map(cells.map((c) => [c.combo.key, c]));
-  // A document has no row groups to nest resolution into, so when the sweep covered more than one
-  // it becomes a leading column instead: the same information, in the shape a table can carry.
-  const swept = scales.length > 1 || scalers.length > 1;
+  const all = sampledEncode.matrix.cells;
+  const measured = all.filter(isMeasured);
+  if (!measured.length) return null;
+  // As on the page: the winner is a statement about the whole sweep, so a sweep that was stopped or
+  // is still running has none, rather than the smallest of whatever happened to finish.
+  const best = all.every(hasRun) ? bestReductionCell(all) : null;
+  const { qualities, presets, scales, scalers, fpsValues } = matrixAxes(all);
+  const outputs = matrixOutputs(fpsValues, scales, scalers);
+  const byKey = new Map(measured.map((c) => [c.combo.key, c]));
+  // A document has no row groups to nest the outputs into, so when there is more than one, or the
+  // one there is dropped frames, it becomes a leading column instead: the same information, in the
+  // shape a table can carry.
+  const named = outputs.length > 1 || outputs.some((o) => o.fps != null);
   const rows: string[][] = [];
-  // The source's own rate alone: the table has no column for a reduced one.
-  for (const { fps, scale, scaler } of matrixOutputs([null], scales, scalers)) {
+  for (const output of outputs) {
+    const { fps, scale, scaler } = output;
     for (const quality of qualities) {
       const head = [`${quality} (CRF ${comboCrf(quality)})`];
-      if (swept) head.unshift(`${scalePercent(scale)}${isDownscale(scale) ? ` ${scaler}` : ""}`);
+      if (named) head.unshift(describeOutput(output));
       rows.push([
         ...head,
         ...presets.map((preset) => {
@@ -316,7 +337,14 @@ function matrixSection(): AnalysisSection | null {
   }
   return {
     title: "Compare Quality Matrix",
-    blocks: [{ kind: "table", headers: [...(swept ? ["Output"] : []), "Quality", ...presets], rows }],
+    blocks: [
+      {
+        kind: "table",
+        headers: [...(named ? ["Output"] : []), "Quality", ...presets],
+        rows,
+        caption: MATRIX_LEGEND,
+      },
+    ],
   };
 }
 

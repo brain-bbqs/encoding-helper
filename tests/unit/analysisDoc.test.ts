@@ -81,6 +81,34 @@ describe("renderSectionsToHtml", () => {
     expect(holder.querySelector(".fig figcaption")?.textContent).toBe("GOP length per interval");
   });
 
+  it("sets a table's caption under it, the way a chart's is", () => {
+    const holder = document.createElement("div");
+    holder.append(
+      renderSectionsToHtml([
+        {
+          title: "Sweep",
+          blocks: [{ kind: "table", headers: ["Quality"], rows: [["high"]], caption: "★ is the best" }],
+        },
+      ]),
+    );
+    const figure = holder.querySelector("section > figure.fig")!;
+    expect(Array.from(figure.children, (child) => child.className || child.tagName)).toEqual([
+      "scroll-x",
+      "FIGCAPTION",
+    ]);
+    expect(figure.querySelector("figcaption")!.textContent).toBe("★ is the best");
+    const md = renderSectionsToMarkdown(
+      [
+        {
+          title: "Sweep",
+          blocks: [{ kind: "table", headers: ["Quality"], rows: [["high"]], caption: "★ is the best" }],
+        },
+      ],
+      META,
+    );
+    expect(md).toContain("| high |\n\n_★ is the best_\n");
+  });
+
   it("clones figures, so rendering the same sections twice draws the chart both times", () => {
     const first = document.createElement("div");
     first.append(renderSectionsToHtml(SECTIONS));

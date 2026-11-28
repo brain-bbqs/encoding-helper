@@ -18,7 +18,7 @@ import { button, h } from "@brain-bbqs/ui";
 import { factGrid, infoIcon } from "../lib/dom";
 import { isDownscale, scaledDimensions } from "../lib/cliCommand";
 import { UPSCALE_VIEW_INFO } from "../lib/explainers";
-import { FALLBACK_FPS } from "../lib/format";
+import { describeFrameRate, FALLBACK_FPS } from "../lib/format";
 import { describeQuality, describeResolutionChange } from "../lib/qualityMatrix";
 import { fmtClock, rulerEdgeClass } from "../lib/sampleTimeline";
 import { RunStopped, type EncoderRun } from "../lib/encoderRun";
@@ -152,7 +152,8 @@ export function describeSampledStretches(): string {
  * The facts above the panes, which the Full Analysis document states as well: which seconds were
  * encoded, at what settings, and what they came to. `resolution` is the resolution row's value, or
  * null for none; each caller decides when it has one, since a row reading "100%" over every
- * comparison would say nothing.
+ * comparison would say nothing. The frame rate is stated the same way, only where the encode was
+ * given one of its own: fewer frames is a change the panes alone do not show.
  */
 export function compareSummaryRows(settings: EncodeSettings, resolution: string | null): FactRow[] {
   const rows: FactRow[] = [
@@ -161,6 +162,10 @@ export function compareSummaryRows(settings: EncodeSettings, resolution: string 
     { label: "Preset", value: settings.preset },
   ];
   if (resolution !== null) rows.push({ label: "Resolution", value: resolution });
+  if (settings.fps != null) {
+    const encoded = describeFrameRate(settings.fps);
+    rows.push({ label: "Frame Rate", value: state.fps ? `${describeFrameRate(state.fps)} → ${encoded}` : encoded });
+  }
   rows.push({ label: "Encoded Segment Size", value: fmtBytes(sampledEncode.encodedSize) });
   return rows;
 }
