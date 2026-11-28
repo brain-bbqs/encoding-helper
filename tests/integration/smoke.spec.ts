@@ -222,6 +222,39 @@ test.describe("Encoding Helper shell", () => {
     expect(await frameHeight()).toBeGreaterThan(1000);
   });
 
+  // The view tabs borrow the main tabs' look, so they have to shrink with them on a phone too
+  // rather than come out larger than the bar above them.
+  test("sizes the Rendered and Markdown tabs like the main tabs, on a phone and on a desktop", async ({ page }) => {
+    await loadDemo(page);
+    await page.locator(".tab-action").click();
+    await expect(page.getByRole("tab", { name: "Markdown" })).toBeVisible();
+    const sizes = (): Promise<{ main: string[]; view: string[] }> =>
+      page.evaluate(() => {
+        const size = (tab: Element, list: Element): string[] => {
+          const t = getComputedStyle(tab);
+          return [
+            t.paddingTop,
+            t.paddingRight,
+            t.paddingBottom,
+            t.paddingLeft,
+            t.fontSize,
+            getComputedStyle(list).columnGap,
+          ];
+        };
+        const view = document.querySelector('[role="tablist"][aria-label="Document view"]')!;
+        return {
+          main: size(document.querySelector(".tabs .tab")!, document.querySelector(".tabs")!),
+          view: size(view.querySelector('[role="tab"]')!, view),
+        };
+      });
+
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      const { main, view } = await sizes();
+      expect(view, `at ${width}px`).toEqual(main);
+    }
+  });
+
   test("adds the seeking test to the document once it has been run", async ({ page }) => {
     // The seeking test is a section of Inspect; its old tab name still points at it.
     await loadDemo(page, "&tab=seek");

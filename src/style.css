@@ -740,10 +740,17 @@ label.field-label {
   gap: 12px;
   margin: 18px 0 12px;
 }
-.tabs {
+/* Also the Rendered / Markdown tab list over the Full Analysis document, a row like this one. It
+   is declared here, ahead of the max-width: 600px block, so that block's smaller gap wins on a
+   phone as it does for the main tabs. */
+.tabs,
+.doc-views {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+.doc-views {
+  margin-bottom: 12px;
 }
 /* Not a tab: it stands apart at the right edge of the content column, and carries an icon and the
    accent outline to read as the one thing on this row that produces something. */
@@ -2107,10 +2114,12 @@ table.data.matrix-table th.matrix-row-head {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .tabs {
+  .tabs,
+  .doc-views {
     gap: 4px;
   }
-  .tab {
+  .tab,
+  .doc-view-tab {
     padding: 7px 10px;
     font-size: 12px;
   }
@@ -2166,13 +2175,6 @@ table.data.matrix-table th.matrix-row-head {
      edge from showing as a light seam before the document paints. */
   background: #fff;
   box-shadow: 0 6px 20px var(--shadow);
-}
-/* The Rendered / Markdown tab list over the document, in a row like the main tabs'. */
-.doc-views {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
 }
 /* The Markdown view: the export as text, in the command block's type and colours. Lines are never
    wrapped, since a wrapped table row stops reading as a row; the long ones scroll inside the view
