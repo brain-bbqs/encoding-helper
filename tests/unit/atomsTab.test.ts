@@ -248,4 +248,30 @@ describe("renderStaticAtomMap", () => {
     expect(grouped[0].title).toContain("2 boxes in 200 B at offset 0, too many to draw one by one");
     expect(legendLabels(wrap)).toEqual(["moof", "N boxes"]);
   });
+
+  // Nothing in a saved document can be clicked, so a grouped block does not offer to zoom.
+  it("offers no zoom on a grouped block, in its title or its label", () => {
+    const wrap = renderStaticAtomMap(fragmentedFile(200), 800)!;
+    const grouped = Array.from(wrap.querySelectorAll<HTMLElement>(".atom-block.grouped"));
+    expect(grouped[0].title).toBe("2 boxes in 200 B at offset 0, too many to draw one by one");
+    for (const el of grouped) {
+      expect(el.title).not.toContain("zoom");
+      expect(el.getAttribute("aria-label")).toBe(el.title);
+    }
+  });
+
+  // The two attributes are what the page's label sizing reads on every resize; the document's labels
+  // are sized once as it is built, so they would be dead weight in every exported file.
+  it("leaves the page's label-sizing attributes off the document's blocks, drawing them the same", () => {
+    const wrap = renderStaticAtomMap(progressiveFile(), 800)!;
+    const els = Array.from(wrap.querySelectorAll<HTMLElement>(".atom-block"));
+    for (const el of els) {
+      expect(el.hasAttribute("data-frac")).toBe(false);
+      expect(el.hasAttribute("data-chars")).toBe(false);
+    }
+    const page = render(progressiveFile());
+    expect(els.map((el) => el.getAttribute("style"))).toEqual(blocks(page).map((el) => el.getAttribute("style")));
+    expect(els.map((el) => el.innerHTML)).toEqual(blocks(page).map((el) => el.innerHTML));
+    expect(blocks(page).every((el) => el.hasAttribute("data-frac") && el.hasAttribute("data-chars"))).toBe(true);
+  });
 });
