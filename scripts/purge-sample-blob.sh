@@ -118,7 +118,9 @@ if [ "$DO_PUSH" = 0 ]; then
   echo "  $MIRROR"
   # Not a re-run with -f: that deletes this mirror and rewrites a fresh clone, so what it pushed
   # would not be the history that was inspected.
-  echo "Inspect it, then push that same mirror with:"
+  echo "Pushing it makes the remote match it exactly, so anything pushed there since the clone above"
+  echo "is lost: a new branch or tag is deleted, and new commits on an existing one are dropped."
+  echo "Inspect it, then push that same mirror, before anything else lands, with:"
   printf '  git -C %q push --force --mirror %q\n' "$MIRROR" "$REMOTE"
   exit 0
 fi
