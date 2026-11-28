@@ -138,6 +138,9 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     state.tracks = meta.tracks;
     state.fps = meta.fps || estimateFpsFromSamples();
 
+    // Hidden again, not only at the start: the previous file's tabs stay up while this one loads,
+    // and a seeking run started there fails into this slot once it finds the state emptied.
+    hideError(els);
     els.app.style.display = "block";
     // Only a remote URL can be handed to someone else; a local file leaves the address bar clean.
     writeSrcToUrl(req.kind === "url" ? req.url : null);

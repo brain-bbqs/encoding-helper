@@ -534,6 +534,26 @@ describe("when loads overlap or are cut short", () => {
     expect(els.miniName.textContent).toBe("");
   });
 
+  // The previous file's tabs stay up while the next one loads, and a seeking run started there
+  // finds no track in the emptied state and says so in the slot the loader shares with it.
+  it("takes down a failure the previous file's tabs reported while the next file loaded", async () => {
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadFile(videoFile("a.mp4"));
+    const parse = deferred<ParseResult>();
+    parseWithMp4Box.mockReturnValueOnce(parse.promise);
+    const pending = loader.loadFile(videoFile("b.mp4"));
+    await vi.waitFor(() => expect(parseWithMp4Box).toHaveBeenCalledTimes(2));
+
+    const slot = document.getElementById("errorMsg")!;
+    slot.textContent = "Seeking test failed: No video track loaded";
+    slot.style.display = "block";
+    parse.resolve(PARSED);
+    await pending;
+
+    expect(state.source!.name).toBe("b.mp4");
+    expect(els.errorMsg.style.display).toBe("none");
+  });
+
   // What the demos page reads to decide whether to show the tabs when it closes.
   it("names no file in the state until the load has finished", async () => {
     const parse = deferred<ParseResult>();
