@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   clearLog,
@@ -57,6 +59,14 @@ describe("fieldSelect", () => {
     // The control itself is unchanged by the explainer.
     expect(select.value).toBe("superfast");
   });
+
+  // Tied by id, so the label names the control for assistive tech and a click on it focuses it.
+  it("ties its label to the select, with or without an explainer", () => {
+    const bare = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast");
+    expect(bare.field.querySelector("label")!.control).toBe(bare.select);
+    const explained = fieldSelect("etPreset", "x264 Preset", OPTIONS, "superfast", "<b>Preset</b>");
+    expect(explained.field.querySelector("label")!.control).toBe(explained.select);
+  });
 });
 
 describe("logConsole", () => {
@@ -104,6 +114,24 @@ describe("logConsole", () => {
     expect(log.children).toHaveLength(0);
   });
 
+  // "info" is also the class of the ⓘ icon's wrapper, whose inline-flex would otherwise run every
+  // run of info lines (all of ffmpeg's output) together on one row. This pins the declaration
+  // only: jsdom resolves the cascade by source order rather than specificity, so that the rule
+  // wins in a browser is checked by the integration suite instead.
+  it("declares every line a block of its own", () => {
+    const sheet = document.createElement("style");
+    sheet.textContent = readFileSync(resolve(process.cwd(), "src/style.css"), "utf-8");
+    document.head.append(sheet);
+    try {
+      const lineRules = Array.from(sheet.sheet!.cssRules).filter(
+        (rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".log-console .l",
+      );
+      expect(lineRules.map((rule) => rule.style.display)).toEqual(["block"]);
+    } finally {
+      sheet.remove();
+    }
+  });
+
   it("still shows and hides a fold that carries no line count", () => {
     const wrap = document.createElement("details");
     wrap.className = "log-details";
@@ -129,6 +157,11 @@ describe("fieldNumber", () => {
     expect(input.min).toBe("0");
     expect(input.max).toBe("51");
     expect(input.step).toBe("1");
+  });
+
+  it("ties its label to the input", () => {
+    const { field, input } = fieldNumber("etCrf", "CRF", 23, 0, 51, 1);
+    expect(field.querySelector("label")!.control).toBe(input);
   });
 });
 
