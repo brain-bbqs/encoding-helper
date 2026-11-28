@@ -169,7 +169,9 @@ describe("renderDemoBrowser", () => {
 
   // Only a dataset generated before the index carried descriptions leaves one to fetch.
   it("falls back to the sidecar for a file the index says nothing about, once per file", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ Description: "Read from the sidecar." })));
+    const fetchMock = vi.fn<(url: string) => Promise<Response>>(() =>
+      Promise.resolve(jsonResponse({ Description: "Read from the sidecar." })),
+    );
     vi.stubGlobal("fetch", fetchMock);
     renderDemoBrowser(container, OLDER, OPTS);
     const card = container.querySelector(".demo-card") as HTMLElement;

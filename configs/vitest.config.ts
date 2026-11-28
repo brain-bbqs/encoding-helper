@@ -5,5 +5,11 @@ export default defineConfig(
   createVitestConfig({
     rootDir: new URL("..", import.meta.url),
     environment: "jsdom",
+    // About a point under the suite's figures when these were set (99.95% of statements, 98.63% of
+    // branches, 100% of functions and lines), so `npm run test:coverage`, and CI with it, fails once
+    // coverage falls about a point below them. Smaller drops still pass.
+    thresholds: { statements: 99, branches: 97, functions: 99, lines: 99 },
+    // Pins the default locale to en-US in every worker (see the file for why it is not LC_ALL).
+    overrides: { test: { setupFiles: ["tests/fixtures/fixedLocale.ts"] } },
   }),
 );

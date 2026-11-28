@@ -88,6 +88,7 @@ describe("codecExplainer", () => {
 
   it("has nothing to say about a codec the knowledge base does not know", () => {
     expect(codecExplainer(null)).toBeNull();
+    // @ts-expect-error: undefined is outside the type, but the falsy guard turns it away all the same.
     expect(codecExplainer(undefined)).toBeNull();
   });
 

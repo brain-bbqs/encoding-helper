@@ -15,11 +15,12 @@
 # branch has to run it once, with the rest of the work merged or parked first, and everyone else
 # re-clones afterwards.
 #
-# Usage: scripts/purge-sample-blob.sh [-r remote] [-w workdir] [-f]
+# Usage: scripts/purge-sample-blob.sh [-r remote] [-w workdir] [-f] [-h]
 #   -r  repository to rewrite (default: this checkout's `origin` URL)
 #   -w  directory to make the mirror clone in (default: a fresh temporary one)
 #   -f  actually force-push the rewritten history; without it the script stops just before,
 #       leaving the rewritten mirror in place to inspect
+#   -h  print this help and exit
 #
 # Requires git-filter-repo (https://github.com/newren/git-filter-repo, `pip install git-filter-repo`
 # or `brew install git-filter-repo`), which is the tool git itself points at for this.
@@ -47,7 +48,8 @@ while getopts "r:w:fh" opt; do
     w) WORKDIR=$OPTARG ;;
     f) DO_PUSH=1 ;;
     h)
-      sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      # The header up to its first non-comment line, so the help grows with it.
+      awk 'NR > 1 { if (!/^#/) exit; sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
       exit 0
       ;;
     *) exit 2 ;;

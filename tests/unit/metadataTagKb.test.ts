@@ -4,6 +4,7 @@ import { describeMetadataTag, describeMetadataTagValue } from "../../src/lib/met
 
 describe("describeMetadataTag", () => {
   it("returns null for a missing or unknown key", () => {
+    // @ts-expect-error: null is outside the type, but the falsy guard turns it away all the same.
     expect(describeMetadataTag(null)).toBeNull();
     expect(describeMetadataTag("")).toBeNull();
     expect(describeMetadataTag("nope")).toBeNull();
@@ -87,6 +88,7 @@ describe("describeMetadataTag", () => {
 
 describe("describeMetadataTagValue", () => {
   it("returns null when nothing in the value is recognizable", () => {
+    // @ts-expect-error: null is outside the type, but the falsy guard turns it away all the same.
     expect(describeMetadataTagValue(null)).toBeNull();
     expect(describeMetadataTagValue("")).toBeNull();
     expect(describeMetadataTagValue("My Home Video")).toBeNull();

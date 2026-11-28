@@ -110,6 +110,7 @@ describe("declaresConstantBitrate", () => {
 
   it("is false without a declaration at all", () => {
     expect(declaresConstantBitrate(null)).toBe(false);
+    // @ts-expect-error: undefined is outside the type, but the loose null check turns it away all the same.
     expect(declaresConstantBitrate(undefined)).toBe(false);
   });
 

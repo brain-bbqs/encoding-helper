@@ -1,0 +1,11 @@
+// The tests and stories, checked as their own project so that the app's build keeps its browser-only
+// types. Node's types are for the tests, fixtures and helpers that read files off disk; vitest's
+// arrive through each file's own import, and its globals stay out because the runner does not turn
+// them on. The ambient declarations under src/ are listed because no test imports them.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
+  "include": ["../src/**/*.d.ts", "../tests", "../stories"]
+}
