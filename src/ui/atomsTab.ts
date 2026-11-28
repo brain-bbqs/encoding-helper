@@ -113,8 +113,13 @@ export function renderAtomMap(panel: HTMLElement): void {
   draw();
 }
 
-/** Whether `moov` precedes `mdat`, the one fact about box order that decides how the file streams. */
+/**
+ * Whether `moov` precedes `mdat`, the one fact about box order that decides how the file streams.
+ * Without both at the top level there is nothing to compare, which is said as such rather than as
+ * the warning.
+ */
 export function faststartBadge(): Badge {
+  if (state.faststart == null) return { tone: "info", text: "Fast start unknown" };
   return state.faststart ? { tone: "good", text: "✓ Fast start" } : { tone: "bad", text: "✗ Not fast start" };
 }
 

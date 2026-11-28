@@ -255,6 +255,34 @@ describe("the command builder's fields", () => {
     ]);
   });
 
+  // A number box shows its range but hands back whatever is typed, and these are the arguments the
+  // sample run and the whole-file encode execute, not only the ones displayed: each field holds what
+  // it stores to the range it advertises, as the sweep's segment count does.
+  it("holds each number typed into the builder to the field's own range", () => {
+    const panel = renderTab();
+    pick(panel, "cliQuality", "custom");
+    type(panel, "cliCrf", "99");
+    expect(cli.crf).toBe(51);
+    expect(command(panel)).toContain("-crf 51");
+    type(panel, "cliCrf", "-3");
+    expect(cli.crf).toBe(0);
+
+    type(panel, "cliKeyframeInterval", "1000");
+    expect(cli.keyframeInterval).toBe(10);
+    expect(command(panel)).toContain("-g 300");
+    type(panel, "cliKeyframeInterval", "0");
+    expect(cli.keyframeInterval).toBe(0.1);
+
+    type(panel, "cliFps", "-5");
+    expect(cli.fps).toBe(1);
+    expect(command(panel)).toContain("-r 1");
+    type(panel, "cliFps", "1000");
+    expect(cli.fps).toBe(240);
+    expect(command(panel)).toContain("-r 240");
+    // What was typed stays under the cursor; only what it is taken to mean is held.
+    expect(panel.querySelector<HTMLInputElement>("#cliFps")!.value).toBe("1000");
+  });
+
   // The command is what the fields come to, so it sits under every one of them.
   it("puts the command under the fields that build it", () => {
     const panel = renderTab();

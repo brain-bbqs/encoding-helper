@@ -25,7 +25,7 @@ import {
   scalerOptions,
   syncQualityControls,
 } from "./cliControls";
-import { fieldNumber, fieldSelect, finishFill } from "./formControls";
+import { clampToField, fieldNumber, fieldSelect, finishFill } from "./formControls";
 import { samplePicker } from "./samplePicker";
 import {
   acquireWorkers,
@@ -196,8 +196,10 @@ export function renderEncodeTab(panel: HTMLElement): void {
     cli.quality = qualitySelect.value as typeof cli.quality;
     sync();
   });
+  // The number fields hold what they store to the range they advertise (see clampToField): these
+  // are the arguments the sample run and the whole-file encode execute, not only the ones shown.
   crfInput.addEventListener("input", () => {
-    cli.crf = parseInt(crfInput.value, 10) || 0;
+    cli.crf = clampToField(crfInput, parseInt(crfInput.value, 10) || 0);
     sync();
   });
   presetSelect.addEventListener("change", () => {
@@ -210,7 +212,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
     sync();
   });
   bindNumber(kfInput, parseFloat, (parsed) => {
-    cli.keyframeInterval = parsed ?? cli.keyframeInterval;
+    cli.keyframeInterval = parsed == null ? cli.keyframeInterval : clampToField(kfInput, parsed);
   });
   audioSelect.addEventListener("change", () => {
     cli.audioMode = audioSelect.value as typeof cli.audioMode;
@@ -220,7 +222,7 @@ export function renderEncodeTab(panel: HTMLElement): void {
     fpsInput,
     (v) => parseInt(v, 10),
     (parsed) => {
-      cli.fps = parsed;
+      cli.fps = parsed == null ? null : clampToField(fpsInput, parsed);
     },
   );
   // The freshly built controls take the state the builder's settings put them in (the CRF field
@@ -273,7 +275,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
   ui.note.textContent = "Loading ffmpeg.wasm…";
   let inputs: RunInputs | null = null;
   try {
-    const workers = acquireWorkers(run, windows.length);
+    const workers = acquireWorkers(run, windows.length, ui);
     await workers[0].load();
     inputs = await prepareRun(run, windows, workers, ui);
     // Records where the encoded stretch starts. The A/B window draws the original from the windows

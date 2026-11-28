@@ -65,7 +65,8 @@ export async function loadMediabunnyMetadata(input: Input): Promise<MediabunnyMe
 
   for (const t of tracks) {
     const d = await describeTrack(t);
-    if (d.kind === "video") result.fps = d.packetRate;
+    // The rate of the track the tabs read, the first video track, rather than of whichever came last.
+    if (t === videoTrack) result.fps = d.packetRate;
     result.tracks.push(d);
   }
   return result;

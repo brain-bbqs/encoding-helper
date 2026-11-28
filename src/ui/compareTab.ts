@@ -7,7 +7,7 @@
 // command that setting comes to.
 
 import { errorMessage } from "@brain-bbqs/utils";
-import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
+import { buildFfmpegArgs, describeScale, encodedFileName, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { button, h } from "@brain-bbqs/ui";
 import { cmdBlock, section } from "../lib/dom";
 import {
@@ -84,13 +84,16 @@ let matrixSettingsOpen = false;
 
 /** What the ticked axes come to, as the settings bar says it: the factors, and the runs they multiply to. */
 function axisCountLabel(): string {
-  const { qualities, presets, scales, scalers, fpsFractions } = sampledEncode.matrix;
+  const { qualities, presets, scales, scalers } = sampledEncode.matrix;
   // The three outer axes are left out at one value each, where they multiply the sweep by one and
   // saying so would only make the bar longer.
   const counts = [qualities.length, presets.length];
   if (scales.length > 1) counts.push(scales.length);
   if (scalers.length > 1 && scales.some((s) => isDownscale(s))) counts.push(scalers.length);
-  if (fpsFractions.length > 1) counts.push(fpsFractions.length);
+  // The rates the ticks come to rather than the ticks, as the sweep runs them: with the source's rate
+  // unknown, every tick is the source's own.
+  const rates = new Set(matrixFps()).size;
+  if (rates > 1) counts.push(rates);
   // The product is what the run costs, which is the number the factors are read for; a single
   // axis is its own product, so it is left to stand alone.
   const squares = counts.reduce((product, n) => product * n, 1);
@@ -608,7 +611,7 @@ async function encodeCells(run: EncoderRun, queue: MatrixCell[], ui: MatrixUi, f
 
     if (pending.length) {
       ui.note.textContent = "Loading ffmpeg.wasm…";
-      const workers = acquireWorkers(run, pending.length);
+      const workers = acquireWorkers(run, pending.length, ui);
       await workers[0].load();
       const prepared = await prepareRun(run, matrixWindows(), workers, ui);
       inputs = prepared;
@@ -766,7 +769,7 @@ async function selectMatrixCell(run: EncoderRun, cell: MatrixCell, ui: MatrixUi)
       // Its outputs were dropped to stay inside the memory budget, so the square is encoded again,
       // over the same stretches the sweep measured, which are usually still cut and waiting. All of
       // them, not just one: the window plays every stretch the square was measured over.
-      const workers = acquireWorkers(run, matrixWindows().length);
+      const workers = acquireWorkers(run, matrixWindows().length, ui);
       const inputs = await prepareRun(run, matrixWindows(), workers, ui);
       let bytes: number;
       try {
@@ -932,5 +935,8 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Run This Setting with ffmpeg"));
-  sec.append(cmdBlock(formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info))).wrap);
+  // Named the way the Reencode tab's command and the saved file are. Only here, for display: the
+  // measurement cache keys on the default-named arguments (cellCacheKey), which renaming would orphan.
+  const args = buildFfmpegArgs(matrixCliState(cli, cell.combo), info, undefined, encodedFileName(state.format));
+  sec.append(cmdBlock(formatCliCommand(args)).wrap);
 }

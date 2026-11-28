@@ -183,7 +183,7 @@ describe("cutSnippets: the stretches cut out of the source (keyframe table prese
   // the one inside ensureInput.
   it("asks nothing more of any core when Stop lands while the cutter loads inside ensureInput", async () => {
     const release = holdFirst((kind) => kind === "load");
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     const done = outcome(prepareRun(run, WINDOWS, workers, ui));
     await until(() => seen("load"));
     expect(fetchFile).toHaveBeenCalledOnce();
@@ -196,7 +196,7 @@ describe("cutSnippets: the stretches cut out of the source (keyframe table prese
   });
 
   it("asks nothing more of any core when Stop lands while the cutter is written the source", async () => {
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const release = holdFirst((kind, _core, path) => kind === "writeFile" && path === "et_in.mp4");
     const done = outcome(prepareRun(run, WINDOWS, workers, ui));
@@ -210,7 +210,7 @@ describe("cutSnippets: the stretches cut out of the source (keyframe table prese
   });
 
   it("loads, writes and cuts nothing when Stop lands while the source is read", async () => {
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const reading = deferred<void>();
     fetchHold.promise = reading.promise;
@@ -225,7 +225,7 @@ describe("cutSnippets: the stretches cut out of the source (keyframe table prese
   });
 
   it("writes and cuts nothing more when Stop lands during the previous stretch's cut", async () => {
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const release = holdFirst((kind) => kind === "exec");
     const done = outcome(prepareRun(run, WINDOWS, workers, ui));
@@ -241,7 +241,7 @@ describe("cutSnippets: the stretches cut out of the source (keyframe table prese
   // The delete swallows the core's rejection, so cutSnippets returns normally: the check at the top
   // of ensureSnippets' read loop is what ends the run here.
   it("reads nothing back when Stop lands while the source is deleted after the cuts", async () => {
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const release = holdFirst((kind, _core, path) => kind === "deleteFile" && path === "et_in.mp4");
     const done = outcome(prepareRun(run, WINDOWS, workers, ui));
@@ -255,7 +255,7 @@ describe("cutSnippets: the stretches cut out of the source (keyframe table prese
   });
 
   it("reads nothing more when Stop lands while a cut is read back", async () => {
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const release = holdFirst((kind) => kind === "readFile");
     const done = outcome(prepareRun(run, WINDOWS, workers, ui));
@@ -272,7 +272,7 @@ describe("cutSnippets: the stretches cut out of the source (keyframe table prese
 describe("prepareRun without a keyframe table: the whole video written to the first core", () => {
   it("loads and writes nothing when Stop lands while the source is read", async () => {
     loadClip({ keyframes: false });
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const reading = deferred<void>();
     fetchHold.promise = reading.promise;
@@ -288,7 +288,7 @@ describe("prepareRun without a keyframe table: the whole video written to the fi
 
   it("asks nothing more of the core when Stop lands while it is written the whole video", async () => {
     loadClip({ keyframes: false });
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const release = holdFirst((kind) => kind === "writeFile");
     const done = outcome(prepareRun(run, WINDOWS, workers, ui));
@@ -304,7 +304,7 @@ describe("prepareRun without a keyframe table: the whole video written to the fi
   // The same, then the caller carrying on to encode as encodeTab's runSample does: nothing is encoded.
   it("encodes nothing when the caller goes on to encodeWindows after the write was stopped", async () => {
     loadClip({ keyframes: false });
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const release = holdFirst((kind) => kind === "writeFile");
     const done = outcome(
@@ -331,7 +331,7 @@ describe("encodeSegment: a second core handed its input when it takes its first 
     holdSecond: (first: number) => () => void,
   ): Promise<{ first: number; release: () => void; done: Promise<string> }> {
     loadClip({ keyframes });
-    const workers = acquireWorkers(run, 2);
+    const workers = acquireWorkers(run, 2, ui);
     await workers[0].load();
     const first = lastCore();
     const inputs = await prepareRun(run, WINDOWS, workers, ui);
@@ -391,7 +391,7 @@ describe("encodeSegment: a second core handed its input when it takes its first 
 
   it("starts no next stretch when Stop lands while the last one's length is measured", async () => {
     loadClip({ keyframes: false });
-    const workers = acquireWorkers(run, 1);
+    const workers = acquireWorkers(run, 1, ui);
     await workers[0].load();
     const inputs = await prepareRun(run, WINDOWS, workers, ui);
     const measuring = deferred<void>();
@@ -411,7 +411,7 @@ describe("encodeSegment: a second core handed its input when it takes its first 
 describe("a file load over a run: the next file's run encodes only the next file", () => {
   it("writes nothing of the old video into a second core still loading when the file changes", async () => {
     loadClip({ keyframes: false, byte: OLD });
-    const workersA = acquireWorkers(run, 2);
+    const workersA = acquireWorkers(run, 2, ui);
     await workersA[0].load();
     const first = lastCore();
     const inputsA = await prepareRun(run, WINDOWS, workersA, ui);
@@ -435,7 +435,7 @@ describe("a file load over a run: the next file's run encodes only the next file
     ctl.phase = "B";
     loadClip({ keyframes: false, byte: NEW });
     const runB = claim();
-    const workersB = acquireWorkers(runB, 2);
+    const workersB = acquireWorkers(runB, 2, ui);
     await workersB[0].load();
     const inputsB = await prepareRun(runB, WINDOWS, workersB, ui);
     const doneB = outcome(encodeWindows(runB, cli, inputsB, workersB, ui, () => {}));
@@ -451,7 +451,7 @@ describe("a file load over a run: the next file's run encodes only the next file
 
   it("writes nothing of the old video into a second core whose load comes back after the file changes", async () => {
     loadClip({ keyframes: false, byte: OLD });
-    const workersA = acquireWorkers(run, 2);
+    const workersA = acquireWorkers(run, 2, ui);
     await workersA[0].load();
     const first = lastCore();
     const inputsA = await prepareRun(run, WINDOWS, workersA, ui);
@@ -474,7 +474,7 @@ describe("a file load over a run: the next file's run encodes only the next file
     ctl.phase = "B";
     loadClip({ keyframes: false, byte: NEW });
     const runB = claim();
-    const workersB = acquireWorkers(runB, 2);
+    const workersB = acquireWorkers(runB, 2, ui);
     await workersB[0].load();
     const inputsB = await prepareRun(runB, WINDOWS, workersB, ui);
     expect(await outcome(encodeWindows(runB, cli, inputsB, workersB, ui, () => {}))).toBe("resolved");
@@ -485,7 +485,7 @@ describe("a file load over a run: the next file's run encodes only the next file
 
   it("cuts nothing from the old video still being written into the cutter when the file changes", async () => {
     loadClip({ keyframes: true, byte: OLD });
-    const workersA = acquireWorkers(run, 1);
+    const workersA = acquireWorkers(run, 1, ui);
     await workersA[0].load();
     const releaseWrite = holdFirst((kind, _core, path) => kind === "writeFile" && path === "et_in.mp4");
     const doneA = outcome(prepareRun(run, WINDOWS, workersA, ui));
@@ -496,7 +496,7 @@ describe("a file load over a run: the next file's run encodes only the next file
     ctl.phase = "B";
     loadClip({ keyframes: true, byte: NEW });
     const runB = claim();
-    const workersB = acquireWorkers(runB, 1);
+    const workersB = acquireWorkers(runB, 1, ui);
     await workersB[0].load();
     const inputsB = await prepareRun(runB, WINDOWS, workersB, ui);
     expect(await outcome(encodeWindows(runB, cli, inputsB, workersB, ui, () => {}))).toBe("resolved");

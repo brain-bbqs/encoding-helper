@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  clampToField,
   clearLog,
   engineBox,
   fieldNumber,
@@ -162,6 +163,13 @@ describe("fieldNumber", () => {
   it("ties its label to the input", () => {
     const { field, input } = fieldNumber("etCrf", "CRF", 23, 0, 51, 1);
     expect(field.querySelector("label")!.control).toBe(input);
+  });
+});
+
+describe("clampToField", () => {
+  it("holds a value to the range the field advertises, and leaves one inside it alone", () => {
+    const { input } = fieldNumber("etKf", "Keyframe Interval (s)", 1, 0.1, 10, 0.1);
+    expect([clampToField(input, 99), clampToField(input, -1), clampToField(input, 2.5)]).toEqual([10, 0.1, 2.5]);
   });
 });
 

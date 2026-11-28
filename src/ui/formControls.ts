@@ -67,6 +67,15 @@ export function fieldNumber(
   return { field, input };
 }
 
+/**
+ * `value` held to the range `input` advertises in its min and max. A number box shows that range
+ * and validates against it, but hands back whatever was typed, so a field that stores what it is
+ * given has to hold it there itself.
+ */
+export function clampToField(input: HTMLInputElement, value: number): number {
+  return Math.min(Number(input.max), Math.max(Number(input.min), value));
+}
+
 export interface EngineBox {
   el: HTMLDivElement;
   button: HTMLButtonElement;

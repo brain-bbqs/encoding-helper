@@ -76,10 +76,11 @@ vi.mock("@ffmpeg/ffmpeg", () => {
     writeFile(path: string): Promise<void> {
       return core.writeFile ? this.inFlight(core.writeFile(path)) : Promise.resolve();
     }
-    exec(args: string[]): Promise<void> {
+    /** Resolves ffmpeg's exit code, as the real core does: 0, for an encode that went through. */
+    exec(args: string[]): Promise<number> {
       core.execs.push(args);
       this.lastExec = args;
-      return this.inFlight(core.exec ? core.exec(args) : Promise.resolve());
+      return this.inFlight(core.exec ? core.exec(args) : Promise.resolve()).then(() => 0);
     }
     readFile(): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array(core.sizeOf(this.lastExec)));
@@ -478,6 +479,8 @@ describe("renderCompareTab", () => {
   });
 
   it("multiplies the sweep by every rate ticked beyond the source's", () => {
+    // A file whose rate is known, which the ticked fractions resolve against.
+    state.fps = 30;
     const panel = renderTab();
     tickAxis(panel, "Frame rates", "0.5", true);
     expect(sampledEncode.matrix.fpsFractions).toEqual([1, 0.5]);
@@ -588,6 +591,7 @@ describe("renderCompareTab", () => {
   });
 
   it("ticks every value on every axis from the one select-all button", () => {
+    state.fps = 30;
     const panel = renderTab();
     panel.querySelector<HTMLButtonElement>(".axis-select-all")!.click();
     expect(sampledEncode.matrix.qualities).toEqual(MATRIX_QUALITIES);
@@ -888,12 +892,50 @@ describe("the command for the selected square", () => {
     expect(command).toContain("-an");
     expect(command).toContain("+faststart");
   });
+
+  // The output is always an MP4, so a source in another container comes out transcoded, and the
+  // command names its output as the Reencode tab's command and the saved file do.
+  it("names the output the way the Reencode tab's command does", () => {
+    const format = state.format;
+    state.format = "QuickTime File Format";
+    try {
+      sweptWith("high", "fast");
+      const panel = renderTab();
+      expect(panel.querySelector("pre.cmd")!.textContent!.trimEnd().endsWith("video-transcoded.mp4")).toBe(true);
+    } finally {
+      state.format = format;
+    }
+  });
 });
 
 // The sweep itself: Run Matrix cuts the sampled stretch out of the file, encodes it once per ticked
 // combination on the faked cores, fills the grid in as it goes, and puts the winner in the A/B
 // window. Everything between the button and the core is the page's own code.
 describe("running the sweep", () => {
+  // With the source's rate unknown every tick resolves to the source's own, so a second tick adds no
+  // encode: counted, the bar promised twice the runs, and the sweep encoded each square twice.
+  it("encodes each square once when the source's rate is unknown, however many rates are ticked", async () => {
+    loadClip();
+    state.fps = null;
+    try {
+      sweepOf(["ultrafast", "superfast"]);
+      sampledEncode.matrix.fpsFractions = [1, 0.5];
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const panel = renderTab();
+      expect(panel.querySelector(".matrix-settings-count")!.textContent).toBe("1 × 2 = 2 runs");
+
+      await pressRun(panel);
+
+      const keys = sampledEncode.matrix.cells.map((c) => c.combo.key);
+      expect(keys).toHaveLength(2);
+      expect(new Set(keys).size).toBe(2);
+      expect(encodes()).toHaveLength(2);
+      await settleRun(panel);
+    } finally {
+      state.fps = 30;
+    }
+  });
+
   it("encodes every ticked combination over the sampled stretch and shows the best reduction", async () => {
     loadClip();
     sweepOf(["ultrafast", "superfast"]);

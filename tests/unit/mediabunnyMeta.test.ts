@@ -108,6 +108,17 @@ describe("loadMediabunnyMetadata", () => {
     expect(meta.tracks.map((t) => t.kind)).toEqual(["audio", "video"]);
   });
 
+  // The tabs read the first video track (its card, its sample table), so the rate the GOP seconds and
+  // the command's -g are worked out from is that track's too, not the last one's.
+  it("takes the frame rate from the first video track when there are several", async () => {
+    const first = track({ kind: "video", stats: { averagePacketRate: 30, averageBitrate: 500_000 } });
+    const second = track({ kind: "video", stats: { averagePacketRate: 60, averageBitrate: 900_000 } });
+    const meta = await loadMediabunnyMetadata(input([first, second]));
+    expect(meta.videoTrack).toBe(first);
+    expect(meta.fps).toBe(30);
+    expect(meta.tracks.map((t) => t.packetRate)).toEqual([30, 60]);
+  });
+
   it("has no frame rate and no video track for an audio-only file", async () => {
     const meta = await loadMediabunnyMetadata(input([track({ kind: "audio" })]));
     expect(meta.fps).toBeNull();

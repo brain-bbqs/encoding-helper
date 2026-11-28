@@ -3,6 +3,21 @@
 
 type ChunkedSourceKind = "file" | "url";
 
+/**
+ * The last segment of `url`'s path, read the way a person reads the link: decoded ("my clip.mp4",
+ * not "my%20clip.mp4"), and without the query or fragment, which say who may read the file and
+ * where to start it rather than what it is called. An escape that does not decode is left as written.
+ */
+function nameFromUrl(url: string): string | undefined {
+  const segment = url.split(/[?#]/)[0].split("/").filter(Boolean).pop();
+  if (!segment) return undefined;
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 export class ChunkedSource {
   kind: ChunkedSourceKind | null = null;
   file: File | null = null; // kind === 'file', or a downloaded url fallback
@@ -30,7 +45,7 @@ export class ChunkedSource {
     const s = new ChunkedSource();
     s.kind = "url";
     s.url = url;
-    const fromPath = url.split("?")[0].split("/").filter(Boolean).pop();
+    const fromPath = nameFromUrl(url);
     s.name = name || (fromPath && fromPath !== "download" ? fromPath : "video");
 
     // How big is it, and can it be read in pieces? A HEAD is the polite way to ask, but not a

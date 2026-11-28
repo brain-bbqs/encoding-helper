@@ -15,7 +15,7 @@ import { describeAvgGop, gopRange, gopStats, SEEK_TABLE_HEADERS, seekResultRow, 
 import { state, stateGeneration } from "../lib/state";
 import type { Badge, FactRow, SeekResult } from "../lib/types";
 import { appendAxes, AXIS_STEPS, CHART_WIDTH } from "./chartAxes";
-import { fieldNumber, progressBar } from "./formControls";
+import { clampToField, fieldNumber, progressBar } from "./formControls";
 
 /**
  * How many timestamps a run samples unless the reader says otherwise. Enough of the file to make the
@@ -28,14 +28,14 @@ const MIN_SEEK_SAMPLES = 5;
 const MAX_SEEK_SAMPLES = 200;
 
 /**
- * The count typed into the field, held to the range it offers: its min and max bound the spinner,
- * not what is typed. Read as a number, so "1e3" is a thousand (and then the maximum) rather than
- * parseInt's 1; an empty field is the default.
+ * The count typed into the field, held to the range it offers (see clampToField). Read as a number,
+ * so "1e3" is a thousand (and then the maximum) rather than parseInt's 1; an empty field is the
+ * default.
  */
 function sampleCount(input: HTMLInputElement): number {
   const typed = parseFloat(input.value);
   if (!Number.isFinite(typed)) return DEFAULT_SEEK_SAMPLES;
-  return Math.min(MAX_SEEK_SAMPLES, Math.max(MIN_SEEK_SAMPLES, Math.round(typed)));
+  return clampToField(input, Math.round(typed));
 }
 
 // The card's title and the seeking test's, which the Full Analysis document heads its matching

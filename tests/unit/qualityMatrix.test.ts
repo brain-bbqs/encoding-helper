@@ -89,6 +89,14 @@ describe("buildMatrixCombos", () => {
     expect(combos.map((c) => `${c.fps}@${c.scale}`)).toEqual(["null@1", "null@0.5", "15@1", "15@0.5"]);
   });
 
+  // With the source's rate unknown, every ticked fraction resolves to the source's own (null): entered
+  // once per tick, each square was encoded twice under one key.
+  it("enters each rate once, however many ticks resolve to it", () => {
+    const combos = buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [null, null, 15, 15]);
+    expect(combos.map((c) => c.fps)).toEqual([null, 15]);
+    expect(new Set(combos.map((c) => c.key)).size).toBe(combos.length);
+  });
+
   it("gives squares that differ only by resolution or kernel distinct keys", () => {
     const combos = buildMatrixCombos(["high"], ["fast"], [1, 0.5], ["lanczos", "bicubic"]);
     expect(new Set(combos.map((c) => c.key)).size).toBe(combos.length);

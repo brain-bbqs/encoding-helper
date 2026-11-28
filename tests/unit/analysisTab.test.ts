@@ -222,6 +222,18 @@ describe("renderAnalysisTab", () => {
     ]);
   });
 
+  // The output is always an MP4, so a source in another container comes out transcoded, and the
+  // command names its output as the Reencode tab's command and the saved file do.
+  it("names the command's output the way the Reencode tab does", () => {
+    const el = panel();
+    loadClip();
+    state.format = "QuickTime File Format";
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("video-transcoded.mp4");
+    expect(md).not.toContain("video-reencoded.mp4");
+  });
+
   it("leaves out the track sections a file has no track for", () => {
     const el = panel();
     loadClip({ tracks: [] });
@@ -269,6 +281,19 @@ describe("renderAnalysisTab", () => {
     state.faststart = false;
     renderAnalysisTab(el);
     expect(markdown(el)).toContain("✗ Not fast start");
+  });
+
+  // No top-level moov or mdat to compare leaves the question open, which is not the same as the
+  // answer being no.
+  it("says fast start is unknown, not that it is missing, when the box order could not tell", () => {
+    const el = panel();
+    loadClip();
+    state.faststart = null;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("Fast start unknown");
+    expect(md).not.toContain("Not fast start");
+    expect(documentHtml(el)).toContain('<span class="badge info">Fast start unknown</span>');
   });
 
   it("carries the file's metadata tags when it has any", () => {
