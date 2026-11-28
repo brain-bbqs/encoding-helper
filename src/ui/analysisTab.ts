@@ -26,7 +26,7 @@ import {
   GOP_HISTOGRAM_CAPTION,
   SEEK_SCATTER_CAPTION,
 } from "../lib/explainers";
-import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
+import { describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import {
   bestReductionCell,
@@ -57,11 +57,13 @@ import {
   bitrateTimelineRows,
   codecLabel,
   flattenMetadataTags,
+  hasCodedSize,
   METADATA_TAGS_TITLE,
   overviewRows,
   overviewTitle,
   trackAverageRow,
   VIDEO_TRACK_TITLE,
+  videoTrackRows,
 } from "./inspectTab";
 import {
   bFramesBadge,
@@ -114,22 +116,9 @@ function overviewSection(): AnalysisSection {
   return { title: overviewTitle(), blocks: [{ kind: "kv", items: kvItems(overviewRows()) }] };
 }
 
-function videoTrackSection(vt: TrackInfo): AnalysisSection {
-  // No Bitrate item: the track average heads the bitrate section below, with the plot the single
-  // number cannot draw, the same split the Inspect tab makes.
-  const items: [string, string | number][] = [
-    ["Codec", codecLabel(vt)],
-    ["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`],
-  ];
-  if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
-    items.push(["Display Size", `${vt.displayWidth ?? "?"}×${vt.displayHeight ?? "?"}`]);
-  }
-  items.push(["Frame Rate", describeFrameRate(vt.packetRate)], ["Frames", describeFrameCount(state.samples.length)]);
-  if (vt.rotation) items.push(["Rotation", vt.rotation + "°"]);
-  if (vt.codecInfo) vt.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
-  if (vt.colorSpace) items.push(["Color Space", describeColorSpace(vt.colorSpace)]);
-  if (vt.hdr) items.push(["HDR", "Yes"]);
-  return { title: VIDEO_TRACK_TITLE, blocks: [{ kind: "kv", items }] };
+function videoTrackSection(vt: TrackInfo): AnalysisSection | null {
+  if (!hasCodedSize(vt)) return null;
+  return { title: VIDEO_TRACK_TITLE, blocks: [{ kind: "kv", items: kvItems(videoTrackRows(vt)) }] };
 }
 
 /** Mirrors the Inspect tab's card, including the two cases where there is no plot to draw. */

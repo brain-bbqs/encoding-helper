@@ -11,6 +11,7 @@ import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/q
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
+import { renderInspectHead } from "../../src/ui/inspectTab";
 import { capArguments } from "./helpers/arguments";
 import { gridRows } from "./helpers/grid";
 
@@ -643,6 +644,65 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| Level | 3.2 |");
     expect(md).toContain("| Color Space | bt709 / bt709 / bt709 |");
     expect(md).toContain("| HDR | Yes |");
+  });
+
+  // The page's Video Track card and the document's section are one list of rows, so a figure the
+  // card states is never missing from the saved copy.
+  it("lists the video track's rows exactly as the Inspect card does, chroma included", () => {
+    const el = panel();
+    loadClip({
+      tracks: [
+        {
+          ...VIDEO_TRACK,
+          displayWidth: 853,
+          rotation: 90,
+          codecInfo: {
+            family: "H.264",
+            fullName: "Advanced Video Coding",
+            year: 2003,
+            description: "The most widely supported video codec.",
+            details: [{ label: "Profile", value: "High" }],
+          },
+          chroma: "4:2:2",
+          colorSpace: { primaries: "bt709", transfer: "bt709", matrix: "bt709" },
+          hdr: true,
+        },
+      ],
+    });
+    renderAnalysisTab(el);
+    const card = document.createElement("div");
+    renderInspectHead(card);
+    const videoCard = Array.from(card.querySelectorAll(".section")).find(
+      (s) => s.querySelector("h2")?.textContent === "Video Track",
+    )!;
+
+    expect(markdown(el)).toContain("| Chroma | 4:2:2 |");
+    expect(documentRows(el, "Video Track")).toEqual(gridRows(videoCard).map((row) => [row.label, row.value]));
+    expect(documentRows(el, "Video Track").map(([label]) => label)).toEqual([
+      "Codec",
+      "Resolution",
+      "Display Size",
+      "Frame Rate",
+      "Frames",
+      "Rotation",
+      "Profile",
+      "Chroma",
+      "Color Space",
+      "HDR",
+    ]);
+  });
+
+  // The Inspect tab has no card for a track whose coded size it cannot read, and the document no
+  // section of ?×? placeholders in its place.
+  it("leaves the video track section out when the track's coded size is unknown, as the page does", () => {
+    const el = panel();
+    loadClip({ tracks: [{ ...VIDEO_TRACK, codedWidth: undefined, codedHeight: undefined }, AUDIO_TRACK] });
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).not.toContain("## Video Track");
+    expect(md).not.toContain("| Resolution | ?×? |");
+    // The rest of what the track says still has its sections.
+    expect(md).toContain("## Video Bitrate Over Time");
   });
 
   // A track shown at the size it is coded at needs no second size; one stretched to another (non-square
