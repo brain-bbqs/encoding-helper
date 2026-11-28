@@ -28,7 +28,10 @@ export function fmtBits(bps: number | null | undefined): string {
   return (bps / 1e6).toFixed(2) + " Mbps";
 }
 
-/** A frame rate to three decimals, or whole where three decimals would print a whole number anyway. */
+/**
+ * A frame rate to three decimals, or whole when within 0.005 of a whole number, either side: a
+ * rate measured from packet times lands a hair off its nominal one, as likely under it as over.
+ */
 export function fmtRate(fps: number | null | undefined): string {
   if (fps == null) return NO_VALUE;
   const whole = Math.round(fps);

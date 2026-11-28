@@ -67,10 +67,13 @@ describe("fmtRate", () => {
     expect(fmtRate(undefined)).toBe("–");
   });
 
-  // Either side of the whole number alike, since three decimals of either would print it.
+  // Within 0.005 of a whole number, either side alike: a rate measured from packet times lands a
+  // hair off its nominal one, as likely under it as over.
   it("rounds near-integer rates to a whole number", () => {
     expect(fmtRate(30.002)).toBe("30");
     expect(fmtRate(29.9999)).toBe("30");
+    expect(fmtRate(29.996)).toBe("30");
+    expect(fmtRate(29.994)).toBe("29.994");
   });
 
   it("keeps fractional rates to three decimals", () => {
