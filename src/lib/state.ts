@@ -115,7 +115,9 @@ export function resetState(): void {
   // and a page that loads one file after another would otherwise keep every one of them. Nothing
   // still in use reads from it: the A/B window's sink over it goes with sampledEncode below (a frame
   // it was part-way through is cancelled, which its own error handling reports), encodes read the
-  // source's bytes rather than this Input, and a seeking run stops at the generation bumped above.
+  // source's bytes rather than this Input, a seeking run stops at the generation bumped above, and
+  // the sample picker's preview sink belongs to tabs the next load rebuilds (a preview it was
+  // part-way through only reports a missing frame until then).
   state.input?.dispose();
   for (const input of sampledEncode.encodedInputs) input.dispose();
   Object.assign(state, initialAppState());
