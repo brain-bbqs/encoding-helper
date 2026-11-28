@@ -889,6 +889,20 @@ describe("the command for the selected square", () => {
     expect(command).toContain("-an");
     expect(command).toContain("+faststart");
   });
+
+  // The output is always an MP4, so a source in another container comes out transcoded, and the
+  // command names its output as the Reencode tab's command and the saved file do.
+  it("names the output the way the Reencode tab's command does", () => {
+    const format = state.format;
+    state.format = "QuickTime File Format";
+    try {
+      sweptWith("high", "fast");
+      const panel = renderTab();
+      expect(panel.querySelector("pre.cmd")!.textContent!.trimEnd().endsWith("video-transcoded.mp4")).toBe(true);
+    } finally {
+      state.format = format;
+    }
+  });
 });
 
 // The sweep itself: Run Matrix cuts the sampled stretch out of the file, encodes it once per ticked

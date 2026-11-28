@@ -7,7 +7,7 @@
 // command that setting comes to.
 
 import { errorMessage } from "@brain-bbqs/utils";
-import { buildFfmpegArgs, describeScale, formatCliCommand, isDownscale } from "../lib/cliCommand";
+import { buildFfmpegArgs, describeScale, encodedFileName, formatCliCommand, isDownscale } from "../lib/cliCommand";
 import { button, h } from "@brain-bbqs/ui";
 import { cmdBlock, section } from "../lib/dom";
 import {
@@ -932,5 +932,8 @@ function renderSelectedCommand(sec: HTMLDivElement): void {
   }
   sec.style.display = "block";
   sec.append(h("h2", null, "Run This Setting with ffmpeg"));
-  sec.append(cmdBlock(formatCliCommand(buildFfmpegArgs(matrixCliState(cli, cell.combo), info))).wrap);
+  // Named the way the Reencode tab's command and the saved file are. Only here, for display: the
+  // measurement cache keys on the default-named arguments (cellCacheKey), which renaming would orphan.
+  const args = buildFfmpegArgs(matrixCliState(cli, cell.combo), info, undefined, encodedFileName(state.format));
+  sec.append(cmdBlock(formatCliCommand(args)).wrap);
 }

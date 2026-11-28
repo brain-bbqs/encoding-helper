@@ -17,7 +17,7 @@
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { buildAnalysisDocument, renderSectionsToMarkdown, type DocumentMeta } from "../lib/analysisDoc";
-import { buildFfmpegArgs, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
+import { buildFfmpegArgs, encodedFileName, formatCliCommand, isDownscale, scalePercent } from "../lib/cliCommand";
 import { button, copyToClipboard, h } from "@brain-bbqs/ui";
 import { section, teachBox } from "../lib/dom";
 import {
@@ -247,7 +247,14 @@ function cliCommandSection(): AnalysisSection | null {
   if (!info) return null;
   return {
     title: "Reencode CLI Command",
-    blocks: [{ kind: "code", lang: "bash", content: formatCliCommand(buildFfmpegArgs(cli, info)) }],
+    blocks: [
+      {
+        kind: "code",
+        lang: "bash",
+        // Named the way the Reencode tab's command and the saved file are.
+        content: formatCliCommand(buildFfmpegArgs(cli, info, undefined, encodedFileName(state.format))),
+      },
+    ],
   };
 }
 

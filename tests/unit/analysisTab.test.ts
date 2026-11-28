@@ -185,6 +185,18 @@ describe("renderAnalysisTab", () => {
     ]);
   });
 
+  // The output is always an MP4, so a source in another container comes out transcoded, and the
+  // command names its output as the Reencode tab's command and the saved file do.
+  it("names the command's output the way the Reencode tab does", () => {
+    const el = panel();
+    loadClip();
+    state.format = "QuickTime File Format";
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("video-transcoded.mp4");
+    expect(md).not.toContain("video-reencoded.mp4");
+  });
+
   it("leaves out the track sections a file has no track for", () => {
     const el = panel();
     loadClip({ tracks: [] });
