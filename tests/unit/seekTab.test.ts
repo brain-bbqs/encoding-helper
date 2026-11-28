@@ -20,6 +20,8 @@ let refuseAt: number | null = null;
 let loadError: Error | null = null;
 /** When set, the next decode waits for it before answering, standing in for a slow frame. */
 let holdNext: Promise<void> | null = null;
+/** When set, the next load of mediabunny waits for it, standing in for a slow download. */
+let holdLoad: Promise<void> | null = null;
 
 // The run decodes with mediabunny, which is not what is under test: what it does with the decode
 // times and the keyframe distances is, so the decoder is stubbed and its clock is under control.
@@ -40,6 +42,9 @@ vi.mock("../../src/lib/mediabunny", () => {
   }
   return {
     ensureMediabunny: async () => {
+      const hold = holdLoad;
+      holdLoad = null;
+      if (hold) await hold;
       if (loadError) throw loadError;
       return { CanvasSink: FakeCanvasSink };
     },
@@ -108,6 +113,7 @@ beforeEach(() => {
   refuseAt = null;
   loadError = null;
   holdNext = null;
+  holdLoad = null;
   vi.spyOn(performance, "now").mockImplementation(() => clock);
 });
 
@@ -315,6 +321,23 @@ describe("the seeking test run", () => {
     expect(state.seekResults).toBeNull();
     expect(panel.querySelector("#seekResultsWrap")!.children).toHaveLength(0);
     expect(document.getElementById("errorMsg")!.style.display).toBe("none");
+  });
+
+  it("opens no decoder for a run that a file load or Reset overtook while mediabunny was loading", async () => {
+    loadClip();
+    const panel = renderTab();
+    const loading = deferred<void>();
+    holdLoad = loading.promise;
+    start(panel, "5");
+
+    resetState();
+    loadClip();
+    loading.resolve();
+    await flush();
+
+    expect(sinksOpened).toEqual([]);
+    expect(decodeRequests).toEqual([]);
+    expect(state.seekResults).toBeNull();
   });
 
   // Disposing the file's decoder cancels the decode in flight, which then rejects.

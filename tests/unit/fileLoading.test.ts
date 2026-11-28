@@ -27,6 +27,8 @@ const { BlobSource, UrlSource } = vi.hoisted(() => ({
 }));
 /** Every mediabunny Input disposed since the test began, in order. */
 const disposedInputs = vi.hoisted((): unknown[] => []);
+/** When `hold` is set, the next load of mediabunny waits for it, standing in for a slow download. */
+const mediabunnyLoad = vi.hoisted((): { hold: Promise<void> | null } => ({ hold: null }));
 
 vi.mock("../../src/lib/mp4boxParser", () => ({
   parseWithMp4Box,
@@ -44,8 +46,11 @@ vi.mock("../../src/lib/mp4boxParser", () => ({
 vi.mock("../../src/lib/mediabunnyMeta", () => ({ loadMediabunnyMetadata }));
 
 vi.mock("../../src/lib/mediabunny", () => ({
-  ensureMediabunny: () =>
-    Promise.resolve({
+  ensureMediabunny: async () => {
+    const hold = mediabunnyLoad.hold;
+    mediabunnyLoad.hold = null;
+    if (hold) await hold;
+    return {
       ALL_FORMATS: [],
       BlobSource,
       UrlSource,
@@ -55,7 +60,8 @@ vi.mock("../../src/lib/mediabunny", () => ({
           disposedInputs.push(this);
         }
       },
-    }),
+    };
+  },
 }));
 
 /** The metadata a successful load comes back with. */
@@ -93,6 +99,7 @@ beforeEach(() => {
   setUrl("");
   resetState();
   disposedInputs.length = 0;
+  mediabunnyLoad.hold = null;
   vi.clearAllMocks();
   parseWithMp4Box.mockResolvedValue({ mp4boxFile: {}, info: { videoTracks: [{ id: 1, timescale: 600 }] } });
   loadMediabunnyMetadata.mockResolvedValue(metadata());
@@ -426,6 +433,38 @@ describe("when loads overlap or are cut short", () => {
     expect(els.app.style.display).toBe("block");
     expect(state.source!.name).toBe("b.mp4");
     expect(error).not.toHaveBeenCalled();
+  });
+
+  it("leaves the newer load's bar alone when a replaced load's parse then succeeds", async () => {
+    const first = deferred<ParseResult>();
+    parseWithMp4Box.mockReturnValueOnce(first.promise);
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const firstLoad = loader.loadFile(videoFile("a.mp4"));
+    await vi.waitFor(() => expect(parseWithMp4Box).toHaveBeenCalledOnce());
+
+    await loader.loadFile(videoFile("b.mp4"));
+    first.resolve(PARSED);
+    await firstLoad;
+
+    expect(els.miniName.textContent).toBe("b.mp4");
+    expect(loadMediabunnyMetadata).toHaveBeenCalledOnce();
+    expect(state.source!.name).toBe("b.mp4");
+  });
+
+  it("opens no mediabunny Input for a load replaced while mediabunny was still loading", async () => {
+    const loading = deferred<void>();
+    mediabunnyLoad.hold = loading.promise;
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const firstLoad = loader.loadFile(videoFile("a.mp4"));
+    await vi.waitFor(() => expect(els.miniName.textContent).toBe("Reading metadata (mediabunny)…"));
+
+    await loader.loadFile(videoFile("b.mp4"));
+    loading.resolve();
+    await firstLoad;
+
+    expect(loadMediabunnyMetadata).toHaveBeenCalledOnce();
+    expect(disposedInputs).toEqual([]);
+    expect(state.source!.name).toBe("b.mp4");
   });
 
   it("drops a download that Reset backed out of, rather than opening it when it arrives", async () => {
