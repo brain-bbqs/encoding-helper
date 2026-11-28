@@ -212,7 +212,7 @@ describe("estimateSizeSavings", () => {
     expect(est.projectedTotalBytes).toBe(1_200_000);
     expect(est.projectedSavedBytes).toBe(-200_000);
     expect(describeSavings(est)).toBe("20% larger");
-    expect(fmtSignedChange(est)).toBe("+20%");
+    expect(fmtSignedChange(est.ratio)).toBe("+20%");
   });
 });
 
@@ -220,7 +220,22 @@ describe("savings wording", () => {
   it("names the direction of the change", () => {
     const est = estimateSizeSavings(BASE)!;
     expect(describeSavings(est)).toBe("50% smaller");
-    expect(fmtSignedChange(est)).toBe("-50%");
+    expect(fmtSignedChange(est.ratio)).toBe("-50%");
+  });
+
+  // One form for every signed change the app prints: an ASCII minus, the readout's precision, and
+  // a plus for a change that rounds to nothing, which has no direction to show.
+  it("signs a change the one way everywhere, zero included", () => {
+    expect(fmtSignedChange(0.58)).toBe("-42%");
+    expect(fmtSignedChange(1.25)).toBe("+25%");
+    expect(fmtSignedChange(1)).toBe("+0.0%");
+    expect(fmtSignedChange(0.9996)).toBe("+0.0%");
+    expect(fmtSignedChange(0.9)).toBe("-10%");
+  });
+
+  it("has nothing to state for a ratio no encode could produce", () => {
+    expect(fmtSignedChange(Infinity)).toBe("–");
+    expect(fmtSignedChange(NaN)).toBe("–");
   });
 
   it("calls a change too small to matter what it is", () => {
@@ -233,6 +248,13 @@ describe("savings wording", () => {
     expect(fmtPct(0.62)).toBe("62%");
     expect(fmtPct(0.005)).toBe("0.5%");
     expect(fmtPct(1)).toBe("100%");
+  });
+
+  // The precision is chosen on the figure as it prints, so 9.96% does not read as "10.0%".
+  it("rounds before it decides on the decimal", () => {
+    expect(fmtPct(0.0996)).toBe("10%");
+    expect(fmtPct(0.1004)).toBe("10%");
+    expect(fmtPct(0.0994)).toBe("9.9%");
   });
 });
 
@@ -255,6 +277,12 @@ describe("fmtChangeFactor", () => {
   it("drops the decimal once the digits before it carry the number", () => {
     expect(fmtChangeFactor(0.09)).toBe("original 11× larger");
     expect(fmtChangeFactor(0.4)).toBe("original 2.5× larger");
+  });
+
+  it("rounds before it decides on the decimal", () => {
+    expect(fmtChangeFactor(1 / 9.96)).toBe("original 10× larger");
+    expect(fmtChangeFactor(9.96)).toBe("encoded 10× larger");
+    expect(fmtChangeFactor(1 / 9.94)).toBe("original 9.9× larger");
   });
 
   it("says so plainly when nothing changed", () => {

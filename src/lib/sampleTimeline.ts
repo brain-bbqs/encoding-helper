@@ -61,11 +61,19 @@ export function clampWindowStart(start: number, totalSeconds: number, windowSeco
   return Math.min(Math.max(0, start), last);
 }
 
+/**
+ * The shape fmtClock writes a recording's times in: `h:mm:ss` once it runs to an hour, as its
+ * length rounds (so one of 3599.7 s ends on "1:00:00" rather than "60:00"), and `m:ss` below.
+ */
+export function clockFormat(totalSeconds: number): "m:ss" | "h:mm:ss" {
+  return Math.round(totalSeconds) >= 3600 ? "h:mm:ss" : "m:ss";
+}
+
 /** A gradation's time as `m:ss`, or `h:mm:ss` once a recording is long enough to need the hours. */
 export function fmtClock(seconds: number, totalSeconds: number): string {
   const whole = Math.max(0, Math.round(seconds));
   const mm = Math.floor(whole / 60) % 60;
   const ss = whole % 60;
-  if (totalSeconds < 3600) return `${Math.floor(whole / 60)}:${String(ss).padStart(2, "0")}`;
+  if (clockFormat(totalSeconds) === "m:ss") return `${Math.floor(whole / 60)}:${String(ss).padStart(2, "0")}`;
   return `${Math.floor(whole / 3600)}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }

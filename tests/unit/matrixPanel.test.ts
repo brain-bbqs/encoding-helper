@@ -33,6 +33,15 @@ describe("fmtElapsed", () => {
     expect(fmtElapsed(42_000)).toBe("42s");
     expect(fmtElapsed(95_000)).toBe("1m 35s");
   });
+
+  // Rounded first, then put in a unit, so a second that rounds up to the next minute (or a tenth
+  // that rounds up to ten seconds) carries rather than printing sixty seconds, or a tenth too many.
+  it("carries a time that rounds up to the next unit into it", () => {
+    expect(fmtElapsed(9_940)).toBe("9.9s");
+    expect(fmtElapsed(9_960)).toBe("10s");
+    expect(fmtElapsed(59_600)).toBe("1m 0s");
+    expect(fmtElapsed(119_600)).toBe("2m 0s");
+  });
 });
 
 describe("renderMatrixTable", () => {
@@ -132,7 +141,7 @@ describe("renderMatrixTable", () => {
     const table = renderMatrixTable({ cells: cells(), estimate: estimateFor });
     const first = cellButtons(table)[0];
     // 60 KB against the 100 KB the same 10 s costs in the source.
-    expect(first.querySelector(".matrix-change")!.textContent).toBe("−40%");
+    expect(first.querySelector(".matrix-change")!.textContent).toBe("-40%");
     // The same change as a factor, on the square itself rather than only in its tooltip.
     expect(first.querySelector(".matrix-factor")!.textContent).toBe("original 1.7× larger");
     // 60% of the 1 MB source, i.e. 600,000 bytes.
@@ -264,6 +273,14 @@ describe("renderMatrixSummary", () => {
     const summary = renderMatrixSummary(cells()[1], estimateFor);
     expect(summary.querySelector(".matrix-summary-figure")!.textContent).toBe("60% smaller");
     expect(summary.querySelector(".matrix-summary-sub")).toBeNull();
+  });
+
+  // In the words every other savings readout uses, which treat half a percent either way as no change.
+  it("calls a winner within half a percent of the source about the same size", () => {
+    const level = cells();
+    level[1].bytes = 99_600;
+    const summary = renderMatrixSummary(level[1], estimateFor);
+    expect(summary.querySelector(".matrix-summary-figure")!.textContent).toBe("about the same size");
   });
 
   it("names the winner without a figure when the file cannot support a projection", () => {

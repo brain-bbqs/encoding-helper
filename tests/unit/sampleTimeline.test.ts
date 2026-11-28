@@ -62,4 +62,12 @@ describe("fmtClock", () => {
   it("adds the hours once the recording runs to one", () => {
     expect(fmtClock(3661, 7200)).toBe("1:01:01");
   });
+
+  // Rounded before the shape is chosen, so a recording that rounds to an hour ends on "1:00:00"
+  // rather than on "60:00", and a second that rounds up to the next minute carries into it.
+  it("carries into the next unit when a time rounds up to it", () => {
+    expect(fmtClock(3599.7, 3599.7)).toBe("1:00:00");
+    expect(fmtClock(0, 3599.7)).toBe("0:00:00");
+    expect(fmtClock(119.6, 300)).toBe("2:00");
+  });
 });

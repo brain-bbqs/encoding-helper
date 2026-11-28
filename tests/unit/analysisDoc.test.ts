@@ -81,6 +81,34 @@ describe("renderSectionsToHtml", () => {
     expect(holder.querySelector(".fig figcaption")?.textContent).toBe("GOP length per interval");
   });
 
+  it("sets a table's caption under it, the way a chart's is", () => {
+    const holder = document.createElement("div");
+    holder.append(
+      renderSectionsToHtml([
+        {
+          title: "Sweep",
+          blocks: [{ kind: "table", headers: ["Quality"], rows: [["high"]], caption: "★ is the best" }],
+        },
+      ]),
+    );
+    const figure = holder.querySelector("section > figure")!;
+    expect(Array.from(figure.children, (child) => child.className || child.tagName)).toEqual([
+      "scroll-x",
+      "FIGCAPTION",
+    ]);
+    expect(figure.querySelector("figcaption")!.textContent).toBe("★ is the best");
+    const md = renderSectionsToMarkdown(
+      [
+        {
+          title: "Sweep",
+          blocks: [{ kind: "table", headers: ["Quality"], rows: [["high"]], caption: "★ is the best" }],
+        },
+      ],
+      META,
+    );
+    expect(md).toContain("| high |\n\n_★ is the best_\n");
+  });
+
   it("clones figures, so rendering the same sections twice draws the chart both times", () => {
     const first = document.createElement("div");
     first.append(renderSectionsToHtml(SECTIONS));
@@ -111,6 +139,46 @@ describe("buildAnalysisDocument", () => {
   it("lists every section in the contents, linked to its anchor", () => {
     expect(html).toContain('<a href="#video-container-overview">Video Container Overview</a>');
     expect(html).toContain('<a href="#gop-keyframe-structure">GOP / Keyframe Structure</a>');
+  });
+
+  // The app's own preview shows the document in a frame, where a link with no target would load
+  // the app inside the document.
+  it("opens the app's address in a tab of its own, which is not handed this one", () => {
+    const link = new DOMParser().parseFromString(html, "text/html").querySelector<HTMLAnchorElement>(".doc-meta a")!;
+    expect(link.getAttribute("href")).toBe("https://encoding-helper.example");
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toBe("noopener");
+  });
+
+  // A chart's figure is kept whole on paper, but a long sweep table held that way is pushed onto a
+  // page of its own, leaving most of the page before it blank; its caption must not change that.
+  it("lets a captioned table break between printed pages, where a chart is kept whole", () => {
+    const page = new DOMParser().parseFromString(
+      buildAnalysisDocument(
+        [
+          {
+            title: "Sweep",
+            blocks: [
+              { kind: "table", headers: ["Quality"], rows: [["high"]], caption: "★ is the best" },
+              { kind: "figure", caption: "GOP length per interval", element: chart() },
+            ],
+          },
+        ],
+        META,
+      ),
+      "text/html",
+    );
+    const before = document.documentElement.innerHTML;
+    document.documentElement.innerHTML = page.documentElement.innerHTML;
+    try {
+      const table = document.querySelector("table.data")!.closest("figure")!;
+      expect(table.querySelector("figcaption")!.textContent).toBe("★ is the best");
+      expect(getComputedStyle(table).breakInside).not.toBe("avoid");
+      const chartFigure = document.querySelector("svg.bitrate-chart")!.closest("figure")!;
+      expect(getComputedStyle(chartFigure).breakInside).toBe("avoid");
+    } finally {
+      document.documentElement.innerHTML = before;
+    }
   });
 
   it("escapes a file name that would otherwise close a tag", () => {

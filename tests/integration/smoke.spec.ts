@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 import { FIXTURE_SECONDS } from "../fixtures/demoVideo";
 import { loadDemo, REFERENCE_FILE_NAME } from "./demoArchive";
 
+/** Where the app is published, which the Full Analysis document links to. */
+const APP_ADDRESS = "https://encoding-helper.brain-bbqs.org";
+
 test.describe("Encoding Helper shell", () => {
   test("renders the drop zone and hides the tabbed app until a file is loaded", async ({ page }) => {
     await page.goto("/");
@@ -171,12 +174,10 @@ test.describe("Encoding Helper shell", () => {
     const doc = page.frameLocator("#analysisDoc");
     const rendered = page.getByRole("tab", { name: "Rendered" });
     const markdown = page.getByRole("tab", { name: "Markdown" });
-    const frameHeight = async (): Promise<number> => (await frame.boundingBox())?.height ?? 0;
+    // Inside the frame's border, which is the room the document has.
+    const frameHeight = (): Promise<number> => frame.evaluate((f: HTMLIFrameElement) => f.clientHeight);
     const documentHeight = (): Promise<number> =>
-      frame.evaluate((f: HTMLIFrameElement) => {
-        const d = f.contentDocument!;
-        return Math.max(d.body.scrollHeight, d.documentElement.scrollHeight);
-      });
+      frame.evaluate((f: HTMLIFrameElement) => f.contentDocument!.body.scrollHeight);
 
     await expect(doc.locator(".doc-head h1")).toHaveText(REFERENCE_FILE_NAME);
     await expect(rendered).toHaveAttribute("aria-selected", "true");
@@ -220,6 +221,80 @@ test.describe("Encoding Helper shell", () => {
     // this width can move where the line under the title wraps.
     await expect.poll(frameHeight).toBe(await documentHeight());
     expect(await frameHeight()).toBeGreaterThan(1000);
+  });
+
+  // jsdom lays nothing out and loads no frame, so only a browser can say the frame gives the document
+  // exactly its height, follows it down as well as up without moving the page, and keeps both of
+  // the document's kinds of link from loading the app inside it.
+  test("fits the preview frame to its document, and keeps the document's links from navigating it", async ({
+    page,
+    context,
+  }) => {
+    // The document names the published app, which this run has no business fetching.
+    await context.route(`${APP_ADDRESS}/**`, (route) =>
+      route.fulfill({ status: 200, contentType: "text/html", body: "<title>Encoding Helper</title>" }),
+    );
+    await page.setViewportSize({ width: 375, height: 800 });
+    await loadDemo(page);
+    await page.locator(".tab-action").click();
+    const frame = page.locator("#analysisDoc");
+    const doc = page.frameLocator("#analysisDoc");
+    await expect(doc.locator(".doc-head h1")).toHaveText(REFERENCE_FILE_NAME);
+    const fit = (): Promise<{ room: number; needs: number; scrolls: boolean; address: string }> =>
+      frame.evaluate((f: HTMLIFrameElement) => {
+        const d = f.contentDocument!;
+        return {
+          room: f.clientHeight,
+          needs: d.body.scrollHeight,
+          scrolls: d.documentElement.scrollHeight > d.documentElement.clientHeight,
+          address: f.contentWindow!.location.href,
+        };
+      });
+    const fitted = async (): Promise<boolean> => {
+      const { room, needs, scrolls } = await fit();
+      return room === needs && !scrolls;
+    };
+
+    await expect.poll(fitted).toBe(true);
+    const narrow = (await fit()).room;
+    // Wider, the document reflows shorter, and the frame has to come down with it.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect.poll(fitted).toBe(true);
+    const wide = (await fit()).room;
+    expect(wide).toBeLessThan(narrow);
+
+    // A refit while the reader is part-way down leaves them where they were.
+    await page.evaluate(() => window.scrollTo(0, 1500));
+    await frame.evaluate((f: HTMLIFrameElement) => {
+      const more = f.contentDocument!.createElement("div");
+      more.style.height = "40px";
+      f.contentDocument!.body.append(more);
+    });
+    await expect.poll(async () => (await fit()).room).toBe(wide + 40);
+    expect(await page.evaluate(() => window.scrollY)).toBe(1500);
+
+    // A Contents entry brings its section into view, with the document still in the frame.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await doc.locator('.doc-toc a[href="#mp4-atom-map"]').click();
+    await expect
+      .poll(() =>
+        frame.evaluate(
+          (f: HTMLIFrameElement) =>
+            f.getBoundingClientRect().top +
+            f.contentDocument!.querySelector("#mp4-atom-map h2")!.getBoundingClientRect().top,
+        ),
+      )
+      .toBeLessThan(100);
+    expect((await fit()).address).toBe("about:srcdoc");
+    await expect(doc.locator(".doc-head h1")).toHaveText(REFERENCE_FILE_NAME);
+
+    // The app link opens a tab of its own.
+    const [opened] = await Promise.all([context.waitForEvent("page"), doc.locator(".doc-meta a").click()]);
+    await opened.waitForLoadState();
+    expect(opened.url()).toBe(`${APP_ADDRESS}/`);
+    expect(await opened.evaluate(() => window.opener)).toBeNull();
+    await opened.close();
+    expect((await fit()).address).toBe("about:srcdoc");
   });
 
   // The view tabs borrow the main tabs' look, so they have to shrink with them on a phone too

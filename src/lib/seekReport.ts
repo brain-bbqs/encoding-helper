@@ -19,11 +19,17 @@ export function seekResultRow(r: SeekResult): string[] {
   ];
 }
 
-/** The three figures a run is summarised by. */
-export function seekSummary(results: SeekResult[]): { avgDist: number; avgDecode: number; maxDecode: number } {
+/** The three figures a run is summarised by, none of them for a run with nothing in it. */
+export function seekSummary(results: SeekResult[]): {
+  avgDist: number | null;
+  avgDecode: number | null;
+  maxDecode: number | null;
+} {
+  if (!results.length) return { avgDist: null, avgDecode: null, maxDecode: null };
   return {
     avgDist: results.reduce((a, r) => a + (r.dist ?? 0), 0) / results.length,
     avgDecode: results.reduce((a, r) => a + r.decodeMs, 0) / results.length,
+    // A spread is safe here: the field holds a run to two hundred timestamps.
     maxDecode: Math.max(...results.map((r) => r.decodeMs)),
   };
 }
@@ -33,6 +39,22 @@ export function gopStats(): { gop: number[]; avgGop: number; fps: number } {
   const gop = state.gopLengths;
   const avgGop = gop.length ? gop.reduce((a, b) => a + b, 0) / gop.length : 0;
   return { gop, avgGop, fps: state.fps || FALLBACK_FPS };
+}
+
+/**
+ * The shortest and longest of a file's GOP lengths, or null for a file with none. A loop rather
+ * than a spread into Math.min and Math.max: the list has an entry per keyframe, and a spread makes
+ * each an argument, which an all-intra recording of an hour or so takes past the engine's limit.
+ */
+export function gopRange(gop: readonly number[]): { min: number; max: number } | null {
+  if (!gop.length) return null;
+  let min = gop[0];
+  let max = gop[0];
+  for (const len of gop) {
+    if (len < min) min = len;
+    if (len > max) max = len;
+  }
+  return { min, max };
 }
 
 /** The mean GOP as frames and seconds, e.g. "30.0 frames (1.00 s)". */

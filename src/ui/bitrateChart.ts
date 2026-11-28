@@ -9,6 +9,7 @@
 import { svgEl, svgText } from "@brain-bbqs/ui";
 import type { BitrateTimeline } from "../lib/bitrateTimeline";
 import { fmtBits } from "../lib/format";
+import { clockFormat, fmtClock } from "../lib/sampleTimeline";
 import { appendAxes, AXIS_STEPS, CHART_WIDTH, type ChartGeometry } from "./chartAxes";
 
 const W = CHART_WIDTH;
@@ -56,18 +57,20 @@ function tickDecimals(step: number): number {
 }
 
 /**
- * m:ss past a minute, where plain seconds stop being readable at a glance; below that, seconds with
- * a decimal only where the ticks would otherwise round to uneven numbers (7.5s reading as "8s").
+ * How many decimals a clip's time axis writes its seconds with, or null past a minute, where plain
+ * seconds stop being readable at a glance and the sample picker's clock takes over (m:ss, and
+ * h:mm:ss from an hour). A decimal only where the ticks would otherwise round to uneven numbers
+ * (7.5s reading as "8s"). Decided on the length as its last tick would print it, so a clip of
+ * 59.96 s reads as the minute it rounds to rather than ending on "60.0s".
  */
+function secondsDecimals(durationSec: number): number | null {
+  const decimals = Number.isInteger(durationSec / AXIS_STEPS) ? 0 : 1;
+  return Number(durationSec.toFixed(decimals)) < 60 ? decimals : null;
+}
+
 function fmtTime(sec: number, durationSec: number): string {
-  if (durationSec < 60) {
-    const decimals = Number.isInteger(durationSec / AXIS_STEPS) ? 0 : 1;
-    return sec.toFixed(decimals) + "s";
-  }
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec - m * 60);
-  // Rounding 59.7s up must roll the minute over rather than print "0:60".
-  return s === 60 ? `${m + 1}:00` : `${m}:${String(s).padStart(2, "0")}`;
+  const decimals = secondsDecimals(durationSec);
+  return decimals != null ? sec.toFixed(decimals) + "s" : fmtClock(sec, durationSec);
 }
 
 export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
@@ -92,7 +95,7 @@ export function renderBitrateChart(timeline: BitrateTimeline): SVGSVGElement {
   appendAxes(svg, GEOMETRY, {
     xTick: (i) => fmtTime((durationSec * i) / AXIS_STEPS, durationSec),
     yTick: (i) => ((maxY * i) / AXIS_STEPS / unit.divisor).toFixed(decimals),
-    xTitle: durationSec < 60 ? "Playback time" : "Playback time (m:ss)",
+    xTitle: secondsDecimals(durationSec) != null ? "Playback time" : `Playback time (${clockFormat(durationSec)})`,
     yTitle: `Bitrate (${unit.label})`,
   });
 
