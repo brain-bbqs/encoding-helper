@@ -246,6 +246,19 @@ describe("renderAnalysisTab", () => {
     expect(markdown(el)).toContain("✗ Not fast start");
   });
 
+  // No top-level moov or mdat to compare leaves the question open, which is not the same as the
+  // answer being no.
+  it("says fast start is unknown, not that it is missing, when the box order could not tell", () => {
+    const el = panel();
+    loadClip();
+    state.faststart = null;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("Fast start unknown");
+    expect(md).not.toContain("Not fast start");
+    expect(documentHtml(el)).toContain('<span class="badge info">Fast start unknown</span>');
+  });
+
   it("carries the file's metadata tags when it has any", () => {
     const el = panel();
     loadClip();

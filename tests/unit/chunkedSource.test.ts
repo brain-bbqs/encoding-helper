@@ -105,6 +105,19 @@ describe("ChunkedSource.fromUrl", () => {
     expect((await ChunkedSource.fromUrl(URL_UNDER_TEST)).name).toBe("video");
   });
 
+  // The link is written for a browser, so the name is read off it the way a person reads it: a space
+  // rather than "%20", and without a fragment or query, which say where to start and who may read.
+  it("names the file from the URL decoded, with no fragment or query", async () => {
+    stubFetch(() => ({ ok: true, status: 200, headers: headers({ "Content-Length": "1", "Accept-Ranges": "bytes" }) }));
+    const named = async (url: string): Promise<string> => (await ChunkedSource.fromUrl(url)).name;
+    expect(await named("https://example.com/a/my%20clip.mp4")).toBe("my clip.mp4");
+    expect(await named("https://example.com/a/clip.mp4#t=10")).toBe("clip.mp4");
+    expect(await named("https://example.com/a/clip%281%29.mp4?sig=abc#t=10")).toBe("clip(1).mp4");
+    expect(await named("https://archive.test/api/assets/abc/download/#t=10")).toBe("video");
+    // An escape that does not decode is shown as written rather than failing the load.
+    expect(await named("https://example.com/a/50%.mp4")).toBe("50%.mp4");
+  });
+
   // A HEAD that says nothing about the size has promised nothing about ranges either, and a download
   // the server did not type is still a video as far as the app is concerned.
   it("downloads a file whose HEAD carried no size, and types an untyped download as video", async () => {

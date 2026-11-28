@@ -62,6 +62,26 @@ describe("renderAtomMap", () => {
     expect(panel.querySelector(".atom-map")).toBeNull();
   });
 
+  // Faststart is a comparison of where two top-level boxes sit, so without both there is no answer to
+  // give: neither the warning nor the all-clear.
+  it("badges the box order as fast start, not fast start, or unknown", () => {
+    const badge = (): [string, string | null] => {
+      const el = document.querySelector(".atom-faststart .badge")!;
+      return [el.className, el.textContent];
+    };
+    state.faststart = true;
+    render(progressiveFile());
+    expect(badge()).toEqual(["badge good", "✓ Fast start"]);
+    document.body.innerHTML = "";
+    state.faststart = false;
+    render(progressiveFile());
+    expect(badge()).toEqual(["badge bad", "✗ Not fast start"]);
+    document.body.innerHTML = "";
+    state.faststart = null;
+    render(progressiveFile());
+    expect(badge()).toEqual(["badge info", "Fast start unknown"]);
+  });
+
   it("zooms into a block and walks back out along the breadcrumb", () => {
     const panel = render(progressiveFile());
     // Lane by lane: the top level first, then each level of nesting below it.
