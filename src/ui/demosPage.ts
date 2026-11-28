@@ -309,6 +309,9 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
   };
 
   const open = (push: boolean): void => {
+    // A history step that keeps the flag (What's New moving to its fragment, say) lands here with
+    // the page already up, and scrolling it back to the top would lose the reader's place.
+    if (page.style.display === "block") return;
     writeDemosToUrl(true, push);
     build();
     els.dropZone.style.display = "none";

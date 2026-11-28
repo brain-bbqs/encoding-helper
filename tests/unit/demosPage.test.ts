@@ -531,6 +531,24 @@ describe("initDemosPage", () => {
     expect(els.demosPage.style.display).toBe("none");
   });
 
+  // What's New moves to its own fragment, which is a history step that keeps the flag: the page is
+  // already up, so it stays where the reader had scrolled it to.
+  it("does nothing when a history step asks for the page it is already showing", async () => {
+    init();
+    els.browseDemosBtn.click();
+    await flush();
+    vi.mocked(window.scrollTo).mockClear();
+    const replaceState = vi.spyOn(window.history, "replaceState");
+
+    window.location.hash = "changelog";
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    expect(vi.mocked(window.scrollTo).mock.calls.length).toBe(0);
+    expect(replaceState.mock.calls.length).toBe(0);
+    expect(els.demosPage.style.display).toBe("block");
+    expect(window.location.search).toBe("?demos");
+  });
+
   // Opened twice in a row (a link restored over a page already up), it still brings a loaded file's
   // tabs back rather than the "none" it set itself.
   it("brings a loaded file's tabs back after being opened twice in a row", async () => {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.19
+
+#### 🐛 Bug Fix
+
+- The address bar keeps a bare `?demos`, and What's New and the browser's Back button no longer scroll the demos page up or rebuild Full Analysis ([#93](https://github.com/brain-bbqs/encoding-helper/pull/93))
+
 ## 1.5.18
 
 #### 🐛 Bug Fix

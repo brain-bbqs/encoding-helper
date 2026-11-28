@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { FIXTURE_SECONDS } from "../fixtures/demoVideo";
-import { loadDemo, REFERENCE_FILE_NAME } from "./demoArchive";
+import { gotoDemos, loadDemo, openReferenceDemo, REFERENCE_FILE_NAME } from "./demoArchive";
 
 /** Where the app is published, which the Full Analysis document links to. */
 const APP_ADDRESS = "https://encoding-helper.brain-bbqs.org";
@@ -87,8 +87,11 @@ test.describe("Encoding Helper shell", () => {
 
   test("draws every box in the file, in the tab and in the document, none summarised away", async ({ page }) => {
     // ?tab=atoms is the map's old address, from when it was a tab of its own; it lands on Inspect,
-    // where the map is now a section.
-    await loadDemo(page, "&tab=atoms");
+    // where the map is now a section. The rewrite happens with the demos page up, and leaves the
+    // flag as it was typed.
+    await gotoDemos(page, "&tab=atoms");
+    expect(new URL(page.url()).search).toBe("?demos&tab=inspect");
+    await openReferenceDemo(page);
     await expect(page).toHaveURL(/tab=inspect/);
     const panel = page.locator("#panel-inspect");
     await expect(panel.locator(".atom-map")).toBeVisible();

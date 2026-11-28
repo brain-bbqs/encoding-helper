@@ -127,6 +127,14 @@ describe("the page's dark theme", () => {
   });
 });
 
+describe("the header's Educational switch", () => {
+  // The generic `input, select` rule pads every input by 10px, and under border-box that padding and the border would
+  // floor the switch at 22px rather than the 20px it declares.
+  it("carries no padding of its own, so it keeps the height it declares", () => {
+    expect(PAGE.get('input[type="checkbox"].switch')?.get("padding")).toBe("0");
+  });
+});
+
 describe("the page stylesheet and the Full Analysis document's stylesheet", () => {
   it("are each read to their last style rule", () => {
     // A parser that stopped early, at an at-rule or a brace it miscounted, would miss these.

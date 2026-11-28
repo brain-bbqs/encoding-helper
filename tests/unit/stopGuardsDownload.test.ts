@@ -5,7 +5,7 @@
 // engine) and Stop or load a file during it.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { deferred } from "./helpers/async";
+import { deferred, settle, until } from "./helpers/async";
 import type { CoreControl, CoreEvent } from "./helpers/realisticCore";
 
 const ctl = vi.hoisted(
@@ -40,7 +40,6 @@ const WINDOWS = [
   { startSeconds: 0, seconds: 2 },
   { startSeconds: 6, seconds: 2 },
 ];
-const WAIT = { interval: 2, timeout: 3000 };
 
 type Modules = {
   encoderRun: typeof import("../../src/lib/encoderRun");
@@ -78,14 +77,6 @@ function outcome(p: Promise<unknown>): Promise<string> {
     () => "resolved",
     (err: unknown) => (err instanceof Error ? err.message : String(err)),
   );
-}
-
-async function until(pred: () => boolean): Promise<void> {
-  await vi.waitFor(() => expect(pred()).toBe(true), WAIT);
-}
-
-async function settle(): Promise<void> {
-  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
 }
 
 /** What the stopped run asked of the cores after its stop, or a core built for it: terminating is all

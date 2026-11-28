@@ -10,7 +10,11 @@ export function initTabs(onShowAnalysis: () => void): void {
   const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-tab]"));
   const panels = Array.from(document.querySelectorAll<HTMLElement>(".tab-panel"));
 
+  // The markup opens on the default tab, so that is what is up until something else is shown.
+  let shown: TabId = DEFAULT_TAB;
+
   const show = (tab: TabId): void => {
+    shown = tab;
     buttons.forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
     panels.forEach((p) => p.classList.remove("on"));
     document.getElementById("panel-" + tab)?.classList.add("on");
@@ -28,8 +32,13 @@ export function initTabs(onShowAnalysis: () => void): void {
     });
   });
 
-  // Back/forward then walks the tabs the user visited, which is what a per-tab URL implies.
-  window.addEventListener("popstate", () => show(readTabFromUrl() ?? DEFAULT_TAB));
+  // Back/forward then walks the tabs the user visited, which is what a per-tab URL implies. Not every
+  // history step is a tab's: What's New moves to its own fragment and the demos page adds entries of
+  // its own, and re-showing the same tab for those would rebuild the analysis document behind them.
+  window.addEventListener("popstate", () => {
+    const tab = readTabFromUrl() ?? DEFAULT_TAB;
+    if (tab !== shown) show(tab);
+  });
 
   const initial = readTabFromUrl();
   if (initial) {
