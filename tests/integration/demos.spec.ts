@@ -140,4 +140,23 @@ test.describe("Demo files page", () => {
     await expect(page.locator(".demos-error-hint")).toContainText("EMBER dandiset 000527");
     await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   });
+
+  // What's New moves to its own fragment, a history step that keeps the flag; the page is already
+  // up, so the reader stays where they had scrolled to.
+  test("keeps its scroll position when What's New is opened over it", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 600 });
+    await gotoDemos(page);
+    const link = page.locator("#whats-new-button");
+    await link.scrollIntoViewIfNeeded();
+    const before = await page.evaluate(() => window.scrollY);
+    expect(before).toBeGreaterThan(0);
+
+    await link.click();
+    await expect(page.locator("#whats-new-modal")).toBeVisible();
+    await expect(page).toHaveURL(/#changelog$/);
+    // Lets the popstate and hashchange the fragment step queued run before the position is read.
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+    expect(new URL(page.url()).search).toBe("?demos");
+  });
 });

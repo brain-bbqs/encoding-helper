@@ -19,9 +19,10 @@ jobs:
     # A branch of this repository is already built on push, so only a fork's pull request is built
     # as one.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
-    # Pinned rather than ubuntu-latest: a runner image bump (system fonts, antialiasing,
-    # rasterizer) shifts screenshot pixels on its own, with no code change to explain it.
-    runs-on: ubuntu-24.04
+    # Not pinned, unlike chromatic-playwright.yml: this job only builds Storybook, and Chromatic
+    # draws the stories in its own browsers, so the runner's fonts and rasterizer never reach a
+    # snapshot.
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -31,14 +32,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # The whole history, for the behind-main report below.
           fetch-depth: 0
-
-      - name: Report the runner image
-        # The ubuntu-24.04 label is not a fixed machine: the image behind it is rebuilt roughly
-        # weekly, and a new one brings new fonts and rasterizer libraries, which move text pixels
-        # on their own. Printed so a snapshot diff with no code change behind it can be checked
-        # against the image its baseline was drawn on.
-        run: |
-          echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
 
       - name: Report how far the branch is behind main
         # Chromatic takes the branch's own last build as the baseline, so a branch that has not

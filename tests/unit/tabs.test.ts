@@ -104,6 +104,31 @@ describe("initTabs", () => {
     expect(shownPanel()).toBe("panel-compare");
   });
 
+  // What's New moves to its own fragment, and the demos page adds entries of its own: neither
+  // changes the tab, so the analysis document is not rebuilt behind them.
+  it("leaves the tab alone when a history step does not change it", () => {
+    const onShowAnalysis = vi.fn();
+    initTabs(onShowAnalysis);
+    click("analysis");
+    setUrl("?tab=analysis#changelog");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    setUrl("?demos&tab=analysis");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(onShowAnalysis).toHaveBeenCalledOnce();
+    expect(shownPanel()).toBe("panel-analysis");
+  });
+
+  it("still rebuilds the analysis document when a history step returns to it", () => {
+    const onShowAnalysis = vi.fn();
+    initTabs(onShowAnalysis);
+    click("analysis");
+    click("encode");
+    setUrl("?tab=analysis");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(onShowAnalysis).toHaveBeenCalledTimes(2);
+    expect(shownPanel()).toBe("panel-analysis");
+  });
+
   it("falls back to the default tab when the history entry names none", () => {
     initTabs(() => {});
     click("encode");

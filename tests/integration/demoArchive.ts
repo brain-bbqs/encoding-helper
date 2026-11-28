@@ -166,11 +166,17 @@ export async function gotoDemos(page: Page, query = ""): Promise<void> {
   await expect(page.locator(".demo-tile").first()).toBeVisible();
 }
 
-/** Opens the reference demo's card from its tile and loads it, leaving the app showing that file.
- * `query` is appended to `?demos`, as for gotoDemos. */
-export async function loadDemo(page: Page, query = ""): Promise<void> {
-  await gotoDemos(page, query);
+/** From the demos page, opens the reference demo's card from its tile and loads it, leaving the
+ * app showing that file. */
+export async function openReferenceDemo(page: Page): Promise<void> {
   await page.locator(`.demo-tile[data-session="${REFERENCE_SESSION}"]`).click();
   await page.locator(`.demo-card[data-session="${REFERENCE_SESSION}"] .demo-open`).click();
   await expect(page.locator("#app")).toBeVisible();
+}
+
+/** The demos page, then the reference demo loaded from it. `query` is appended to `?demos`, as for
+ * gotoDemos. */
+export async function loadDemo(page: Page, query = ""): Promise<void> {
+  await gotoDemos(page, query);
+  await openReferenceDemo(page);
 }
