@@ -4,7 +4,7 @@
 
 #### 🐛 Bug Fix
 
-- Fixed sample progress stopping short, long encodes skipping the save dialog, a missing download notice, and out-of-range numbers, file names, frame rates and fast-start badges ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Fixed sample progress stopping short, a late save dialog, a missing download notice, unclamped fields, URL file names, command output names and unknown fast-start badges ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
 
 ## 1.5.17
 
