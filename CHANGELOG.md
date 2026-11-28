@@ -4,7 +4,7 @@
 
 #### 🐛 Bug Fix
 
-- Fixed sample progress stopping short, a late save dialog, a missing download notice, unclamped fields, URL file names, command output names and unknown fast-start badges ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Fixed sample progress stopping short, a late save dialog, a missing download notice, unclamped fields, URL file names, command output names and unknown fast-start badges ([#92](https://github.com/brain-bbqs/encoding-helper/pull/92))
 
 ## 1.5.17
 
