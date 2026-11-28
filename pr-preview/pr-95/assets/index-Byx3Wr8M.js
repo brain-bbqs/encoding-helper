@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{n as t,r as n,t as r}f
 
 #### 🐛 Bug Fix
 
-- The Full Analysis document now uses the page's rows and section titles, and the bitrate card keeps a constant rate visible with Educational off ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- The Full Analysis document now uses the page's rows and section titles, and the bitrate card keeps a constant rate visible with Educational off ([#95](https://github.com/brain-bbqs/encoding-helper/pull/95))
 
 ## 1.5.20
 
