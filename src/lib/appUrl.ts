@@ -83,11 +83,25 @@ function commit(next: string, push: boolean): void {
   else window.history.replaceState({}, "", next);
 }
 
+/**
+ * The query string for `params`, the demos flag written bare.
+ *
+ * URLSearchParams serialises every entry as name=value, so on its own it would turn the `?demos`
+ * someone typed into `?demos=` the first time anything else was written beside it. That still reads
+ * as on, but it is not the address the reader typed or the one writeDemosToUrl writes.
+ */
+function searchOf(params: URLSearchParams): string {
+  const parts = [...params].map(([name, value]) =>
+    name === DEMOS_PARAM && value === "" ? DEMOS_PARAM : new URLSearchParams([[name, value]]).toString(),
+  );
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
 function writeParam(name: string, value: string | null, push: boolean): void {
   const url = new URL(window.location.href);
   if (value === null) url.searchParams.delete(name);
   else url.searchParams.set(name, value);
-  commit(url.pathname + url.search + url.hash, push);
+  commit(url.pathname + searchOf(url.searchParams) + url.hash, push);
 }
 
 /** Records the active tab. `push` adds a history entry (use it for a click, not for a restore).
@@ -128,9 +142,8 @@ export function readDemosFromUrl(): boolean {
 export function writeDemosToUrl(on: boolean, push: boolean): void {
   const url = new URL(window.location.href);
   url.searchParams.delete(DEMOS_PARAM);
-  const rest = url.searchParams.toString();
-  const search = on ? (rest ? `?${DEMOS_PARAM}&${rest}` : `?${DEMOS_PARAM}`) : rest ? `?${rest}` : "";
-  const next = url.pathname + search + url.hash;
+  const params = new URLSearchParams(on ? [[DEMOS_PARAM, ""], ...url.searchParams] : url.searchParams);
+  const next = url.pathname + searchOf(params) + url.hash;
   if (next === window.location.pathname + window.location.search + window.location.hash) return;
   commit(next, push);
 }

@@ -150,6 +150,27 @@ describe("appUrl", () => {
     expect(window.history.length).toBeGreaterThan(before);
   });
 
+  // The other writers run with the demos page up too (the Educational switch, a retired tab name
+  // rewritten at boot, a load finishing under the page), and none of them should leave "?demos=".
+  it("keeps the demos flag bare when another parameter is written beside it", () => {
+    setUrl("?demos");
+    writeEducationalToUrl(false);
+    expect(window.location.search).toBe("?demos&edu=0");
+    setUrl("?demos&tab=atoms");
+    writeTabToUrl("inspect", false);
+    expect(window.location.search).toBe("?demos&tab=inspect");
+    setUrl("?demos#changelog");
+    writeSrcToUrl("https://example.com/a.mp4");
+    expect(window.location.search).toBe("?demos&src=https%3A%2F%2Fexample.com%2Fa.mp4");
+    expect(window.location.hash).toBe("#changelog");
+  });
+
+  it("leaves a demos flag that carries a value as it was written", () => {
+    setUrl("?demos=0");
+    writeEducationalToUrl(true);
+    expect(window.location.search).toBe("?demos=0&edu=1");
+  });
+
   it("skips the write when the address already says what it would say", () => {
     setUrl("?demos");
     const before = window.history.length;
