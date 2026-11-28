@@ -36,6 +36,8 @@ const NAMED_CODECS: [codec: keyof typeof CODEC_DESCRIPTIONS, fullName: string, y
   ["flac", "Free Lossless Audio Codec", 2001],
   ["ac3", "Dolby Digital", 1991],
   ["eac3", "Enhanced AC-3", 2005],
+  ["ulaw", "μ-law companded PCM", 1972],
+  ["alaw", "A-law companded PCM", 1972],
 ];
 
 describe("describeCodec", () => {
