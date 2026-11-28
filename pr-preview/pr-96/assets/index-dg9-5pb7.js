@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🐛 Bug Fix
 
-- Links dropped on the URL box now fill it, stray file drops no longer open in the browser, and the A/B controls say segment instead of stretch ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Links dropped on the URL box now fill it, stray file drops no longer open in the browser, and the A/B controls say segment instead of stretch ([#96](https://github.com/brain-bbqs/encoding-helper/pull/96))
 
 ## 1.5.20
 
