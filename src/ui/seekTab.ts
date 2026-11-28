@@ -66,8 +66,8 @@ export function gopRows(): FactRow[] {
   return [
     { label: "Total Frames", value: state.samples.length.toLocaleString() },
     { label: "Keyframes", value: state.gopLengths.length.toLocaleString() },
-    { label: "Avg GOP", value: describeAvgGop(avgGop, fps) },
-    // A file with no GOPs has no shortest or longest one, rather than one of zero frames.
+    // A file with no GOPs has no average, shortest or longest one, rather than one of zero frames.
+    { label: "Avg GOP", value: range ? describeAvgGop(avgGop, fps) : NO_VALUE },
     { label: "Min / Max GOP", value: range ? `${range.min} / ${range.max} frames` : NO_VALUE },
   ];
 }

@@ -1123,6 +1123,7 @@ describe("renderAnalysisTab", () => {
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("**Uses B-frames (cts ≠ dts)**");
+    expect(md).toContain("| Avg GOP | – |");
     expect(md).toContain("| Min / Max GOP | – |");
     expect(md).not.toContain("_Chart: GOP length per keyframe interval");
   });
