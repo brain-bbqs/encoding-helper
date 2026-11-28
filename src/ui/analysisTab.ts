@@ -42,15 +42,16 @@ import {
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
 import { SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
-import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
+import { currentSizeEstimate, describeSavings } from "../lib/sizeEstimate";
 import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/types";
 import { ATOM_MAP_TITLE, faststartBadge, renderStaticAtomMap } from "./atomsTab";
 import { compareSummaryRows } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
 import { COMMAND_BUILDER_TITLE } from "./encodeTab";
-import { wholeFileResultTitle } from "./inBrowserEncode";
+import { wholeFileResultRows, wholeFileResultTitle } from "./inBrowserEncode";
 import { fmtElapsed } from "./matrixPanel";
+import { savingsDetailRows } from "./savingsPanel";
 import {
   AUDIO_TRACK_TITLE,
   audioTrackRows,
@@ -251,15 +252,10 @@ function compareSection(): AnalysisSection | null {
 
   const est = currentSizeEstimate();
   if (est) {
-    items.push(
-      ["Original Segment Size", fmtBytes(est.originalSegmentBytes)],
-      ["Segment Change", `${fmtSignedChange(est.ratio)} (${fmtChangeFactor(est.ratio)})`],
-      ["Original File Size", fmtBytes(est.originalTotalBytes)],
-      ["Projected Full File", fmtBytes(est.projectedTotalBytes)],
-    );
-    if (est.projectedRange) {
-      items.push(["Projected Range", `${fmtBytes(est.projectedRange.low)} – ${fmtBytes(est.projectedRange.high)}`]);
-    }
+    const { measured, projected } = savingsDetailRows(est);
+    items.push(...kvItems([...measured, ...projected]));
+    // The page gives the saving as the headline over its panes; a document has no headline strip,
+    // so it is the last row instead.
     items.push([
       "Projected Saving",
       `${describeSavings(est)} (≈ ${fmtBytes(Math.abs(est.projectedSavedBytes))} ` +
@@ -335,16 +331,7 @@ function reencodeSection(): AnalysisSection | null {
   if (!result) return null;
   return {
     title: wholeFileResultTitle(),
-    blocks: [
-      {
-        kind: "kv",
-        items: [
-          ["Original Size", fmtBytes(result.originalSize)],
-          ["Encoded Size", fmtBytes(result.encodedSize)],
-          ["Change", fmtSignedChange(result.encodedSize / result.originalSize)],
-        ],
-      },
-    ],
+    blocks: [{ kind: "kv", items: kvItems(wholeFileResultRows(result)) }],
   };
 }
 

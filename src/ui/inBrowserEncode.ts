@@ -8,14 +8,13 @@
 import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
 import { fetchFile } from "@ffmpeg/util";
 import { buildFfmpegArgs, encodedFileName } from "../lib/cliCommand";
-import { h } from "@brain-bbqs/ui";
-import { gridItem, section } from "../lib/dom";
+import { factGrid, section } from "../lib/dom";
 import { claimEncoder, releaseEncoder, RunStopped, throwIfStopped } from "../lib/encoderRun";
 import { defaultFfmpegWorker, ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { baseNameOf, downloadBlob, extOf, pickSaveTarget, type SaveTarget } from "../lib/save";
 import { fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
 import { cli, state } from "../lib/state";
-import type { VideoInfo } from "../lib/types";
+import type { FactRow, ReencodeResult, VideoInfo } from "../lib/types";
 import { clearLog, engineBox, type EngineBox, finishFill, logLine, resetProgressFill } from "./formControls";
 
 /** The section that encodes the whole file, for the tab that built the command it runs. */
@@ -135,15 +134,19 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
  * last completed encode, and this is where a finished one passes through.
  */
 export function showReencodeResult(box: EngineBox, origSize: number, outSize: number): void {
-  state.reencodeResult = { originalSize: origSize, encodedSize: outSize };
+  const result = { originalSize: origSize, encodedSize: outSize };
+  state.reencodeResult = result;
   box.result.innerHTML = "";
-  const ratio = outSize / origSize;
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Original Size", fmtBytes(origSize)),
-    gridItem("Encoded Size", fmtBytes(outSize)),
-    gridItem("Change", fmtSignedChange(ratio) + (origSize > 0 ? ` (${fmtChangeFactor(ratio)})` : "")),
-  );
-  box.result.append(g);
+  box.result.append(factGrid(wholeFileResultRows(result)));
   box.note.textContent = "";
+}
+
+/** A whole-file encode's figures, under the button that ran it and in the Full Analysis document. */
+export function wholeFileResultRows({ originalSize, encodedSize }: ReencodeResult): FactRow[] {
+  const ratio = encodedSize / originalSize;
+  return [
+    { label: "Original Size", value: fmtBytes(originalSize) },
+    { label: "Encoded Size", value: fmtBytes(encodedSize) },
+    { label: "Change", value: fmtSignedChange(ratio) + (originalSize > 0 ? ` (${fmtChangeFactor(ratio)})` : "") },
+  ];
 }

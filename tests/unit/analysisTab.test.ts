@@ -8,10 +8,14 @@ import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { setEducationalEnabled } from "../../src/lib/educational";
 import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/qualityMatrix";
+import { currentSizeEstimate } from "../../src/lib/sizeEstimate";
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
 import { renderBitrateTimelineSection, renderInspectHead } from "../../src/ui/inspectTab";
+import { showReencodeResult } from "../../src/ui/inBrowserEncode";
+import type { EngineBox } from "../../src/ui/formControls";
+import { renderSavingsDetail } from "../../src/ui/savingsPanel";
 import { renderGopStructure } from "../../src/ui/seekTab";
 import { capArguments } from "./helpers/arguments";
 import { gridRows } from "./helpers/grid";
@@ -371,6 +375,23 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| Projected Saving | 70% smaller (≈ 1.3 MB saved) |");
   });
 
+  // The A/B window's detail block and the document's rows are one list, the document's own
+  // Projected Saving after them in place of the page's headline.
+  it("states the estimate behind an A/B result as the A/B window's detail does", () => {
+    const el = panel();
+    loadClip();
+    loadComparison(5, 100_000);
+    renderAnalysisTab(el);
+    const detail = document.createElement("div");
+    detail.append(...renderSavingsDetail(currentSizeEstimate()!));
+    const pageRows = gridRows(detail).map((row) => [row.label, row.value]);
+    const rows = documentRows(el, "Side-by-Side (A/B) Result");
+    const from = rows.findIndex(([label]) => label === "Sampled");
+
+    expect(markdown(el)).toContain("| Sampled | 5.000 s of 30.000 s (17%) |");
+    expect(rows.slice(from)).toEqual([...pageRows, ["Projected Saving", "70% smaller (≈ 1.3 MB saved)"]]);
+  });
+
   it("names the winning square's settings, not the builder's, after a sweep", () => {
     const el = panel();
     loadClip();
@@ -514,7 +535,27 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("## In-Browser Reencode Result");
     expect(md).toContain("| Original Size | 1.9 MB |");
     expect(md).toContain("| Encoded Size | 976.6 KB |");
-    expect(md).toContain("| Change | -50% |");
+    expect(md).toContain("| Change | -50% (original 2.0× larger) |");
+  });
+
+  // The rows the Reencode tab shows under its whole-file run, the factor included.
+  it("reports an in-browser reencode's result exactly as the Reencode tab does", () => {
+    for (const [originalSize, encodedSize] of [
+      [2_000_000, 500_000],
+      [0, 500],
+    ]) {
+      const el = panel();
+      loadClip();
+      renderAnalysisTab(el);
+      const box = {
+        note: document.createElement("div"),
+        result: document.createElement("div"),
+      } as unknown as EngineBox;
+      showReencodeResult(box, originalSize, encodedSize);
+      renderAnalysisTab(el);
+      const pageRows = gridRows(box.result).map((row) => [row.label, row.value]);
+      expect(documentRows(el, "In-Browser Reencode Result")).toEqual(pageRows);
+    }
   });
 
   // Named as the tab names the run: an MP4 comes back an MP4, reencoded, and any other source comes
