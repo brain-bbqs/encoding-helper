@@ -88,6 +88,37 @@ function documentRows(el: HTMLElement, title: string): [string | null, string | 
   return gridRows(sec).map((row) => [row.label, row.value]);
 }
 
+/** The frame's own 1px border, top and bottom, which its border-box height includes. */
+const FRAME_BORDER_PX = 2;
+
+/**
+ * Loads the panel's preview frame with the document it was built from, laid out the way a browser
+ * would report it: the document is `layout.content` px tall however tall the frame is, and its root
+ * scrolls at least the frame's inner height, as a root element does. An unset height is the
+ * iframe's default of 150px. jsdom loads no srcdoc and lays nothing out, hence the stand-in.
+ */
+function loadPreview(
+  el: HTMLElement,
+  content: number,
+): { frame: HTMLIFrameElement; doc: Document; layout: { content: number } } {
+  const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
+  const doc = new DOMParser().parseFromString(frame.srcdoc, "text/html");
+  const layout = { content };
+  const outer = (): number => parseFloat(frame.style.height) || 150;
+  Object.defineProperties(frame, {
+    contentDocument: { value: doc, configurable: true },
+    offsetHeight: { get: outer, configurable: true },
+    clientHeight: { get: () => outer() - FRAME_BORDER_PX, configurable: true },
+  });
+  Object.defineProperty(doc.body, "scrollHeight", { get: () => layout.content, configurable: true });
+  Object.defineProperty(doc.documentElement, "scrollHeight", {
+    get: () => Math.max(layout.content, frame.clientHeight),
+    configurable: true,
+  });
+  frame.dispatchEvent(new Event("load"));
+  return { frame, doc, layout };
+}
+
 function clickButton(el: HTMLElement, label: string): void {
   const btn = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === label);
   if (!btn) throw new Error(`No "${label}" button in the panel`);
@@ -711,21 +742,82 @@ describe("renderAnalysisTab", () => {
     const el = panel();
     loadClip();
     renderAnalysisTab(el);
-    const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
-    const documentElement = { scrollHeight: 900 };
-    Object.defineProperty(frame, "contentDocument", {
-      value: { body: { scrollHeight: 1200 }, documentElement },
-      configurable: true,
-    });
+    const { frame, doc } = loadPreview(el, 1200);
 
-    frame.dispatchEvent(new Event("load"));
-    expect(frame.style.height).toBe("1200px");
+    expect(frame.clientHeight).toBe(1200);
     const [observer] = observers.instances;
-    expect(observer.observed).toEqual([documentElement]);
+    expect(observer.observed).toEqual([doc.documentElement]);
 
     // The next visit rebuilds the panel, and the observer watching the old frame goes with it.
     renderAnalysisTab(el);
     expect(observer.disconnected).toBe(true);
+  });
+
+  // The frame is border-box with a 1px border, so a height of exactly the document's leaves the
+  // document 2px short of room, and a scrollbar inside the frame.
+  it("makes the frame tall enough for the whole document inside its border", () => {
+    restoreObserver = installObserverStub("ResizeObserver").restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { frame } = loadPreview(el, 3000);
+    expect(frame.style.height).toBe("3002px");
+    expect(frame.clientHeight).toBe(3000);
+  });
+
+  // A root element's scrollHeight never drops below the frame's own height, so a frame measured at
+  // its old height could only ever grow, leaving blank page under a document that reflowed shorter.
+  it("shrinks the frame with a document that reflows shorter", () => {
+    const observers = installObserverStub("ResizeObserver");
+    restoreObserver = observers.restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { frame, layout } = loadPreview(el, 3000);
+
+    layout.content = 2000;
+    observers.instances[0].fire();
+    expect(frame.style.height).toBe("2002px");
+  });
+
+  // Loading again is what a navigation inside the frame does; the observer of the document it left
+  // has nothing left to watch.
+  it("drops the observer of the document the frame left when it loads another", () => {
+    const observers = installObserverStub("ResizeObserver");
+    restoreObserver = observers.restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { frame } = loadPreview(el, 3000);
+    frame.dispatchEvent(new Event("load"));
+
+    expect(observers.instances).toHaveLength(2);
+    expect(observers.instances[0].disconnected).toBe(true);
+    expect(observers.instances[1].disconnected).toBe(false);
+  });
+
+  // A srcdoc document resolves "#section" against the app's own address, so left to itself a
+  // Contents entry loads the app inside the frame instead of moving to the section.
+  it("moves to a section from the Contents without the frame leaving the document", () => {
+    restoreObserver = installObserverStub("ResizeObserver").restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { doc } = loadPreview(el, 3000);
+    const target = doc.getElementById("gop-keyframe-structure")!;
+    const scrolled = vi.fn();
+    target.scrollIntoView = scrolled;
+
+    const entry = doc.querySelector<HTMLAnchorElement>('.doc-toc a[href="#gop-keyframe-structure"]')!;
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    entry.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(scrolled).toHaveBeenCalledOnce();
+
+    // The app link opens a tab of its own, which is the browser's to do.
+    const away = new MouseEvent("click", { bubbles: true, cancelable: true });
+    doc.querySelector(".doc-meta a")!.dispatchEvent(away);
+    expect(away.defaultPrevented).toBe(false);
   });
 
   it("leaves the frame's height alone when it has no document to measure", () => {

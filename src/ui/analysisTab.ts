@@ -369,10 +369,19 @@ let previewObserver: ResizeObserver | null = null;
 
 function mountPreview(frame: HTMLIFrameElement, html: string): void {
   frame.addEventListener("load", () => {
+    // Whatever the frame held before this load is gone, so its observer has nothing left to watch.
+    previewObserver?.disconnect();
+    previewObserver = null;
     const doc = frame.contentDocument;
     if (!doc) return;
     const fit = (): void => {
-      frame.style.height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight) + "px";
+      // Measured off the body (which the document's stylesheet gives no margin), not the root: a
+      // root element never scrolls less than its frame is tall, so a frame sized by its root could
+      // grow and never shrink. Nor by clearing the height and measuring again, which leaves the
+      // page too short for where it is scrolled to for a moment, and the browser scrolls it back.
+      // The height is border-box, so the frame's own border goes on top of the document's.
+      const border = frame.offsetHeight - frame.clientHeight;
+      frame.style.height = doc.body.scrollHeight + border + "px";
     };
     fit();
     // Catches the reflow when the window (and so the iframe) changes width, which changes how tall
@@ -380,6 +389,16 @@ function mountPreview(frame: HTMLIFrameElement, html: string): void {
     // which measured 0 while hidden: its document grows from nothing when it is shown.
     previewObserver = new ResizeObserver(fit);
     previewObserver.observe(doc.documentElement);
+    // A srcdoc document resolves "#section" against the app's address, so a Contents entry left to
+    // the browser loads the app into the frame. The section is brought into view instead, which
+    // scrolls the page, the frame being as tall as the document. Only here: a saved copy has an
+    // address of its own, and its links work as written.
+    doc.addEventListener("click", (e) => {
+      const link = (e.target as Element).closest('a[href^="#"]');
+      if (!link) return;
+      e.preventDefault();
+      doc.getElementById(link.getAttribute("href")!.slice(1))?.scrollIntoView();
+    });
   });
   frame.srcdoc = html;
 }

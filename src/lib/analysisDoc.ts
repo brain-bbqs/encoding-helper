@@ -143,6 +143,9 @@ export function renderSectionsToMarkdown(sections: AnalysisSection[], meta: Docu
 /**
  * The whole document as one self-contained HTML string: no external stylesheet, no script, no
  * fetched asset, so it opens the same from a downloads folder as it does in the preview.
+ *
+ * The app link opens a tab of its own: in the app's preview the document sits in a frame, which a
+ * link with no target would load the app into.
  */
 export function buildAnalysisDocument(sections: AnalysisSection[], meta: DocumentMeta): string {
   const holder = document.createElement("div");
@@ -174,7 +177,7 @@ ${ANALYSIS_DOC_CSS}
 <p class="doc-eyebrow">Encoding Helper &middot; Full Analysis</p>
 <h1>${escapeHtml(meta.fileName)}</h1>
 <p class="doc-meta">Generated ${escapeHtml(meta.generated)} &middot; v${escapeHtml(meta.version)} &middot;
-<a href="${escapeHtml(meta.appUrl)}">${escapeHtml(meta.appUrl)}</a></p>
+<a href="${escapeHtml(meta.appUrl)}" target="_blank" rel="noopener">${escapeHtml(meta.appUrl)}</a></p>
 <div class="doc-facts">${facts}</div>
 </header>
 <nav class="doc-toc" aria-label="Contents">

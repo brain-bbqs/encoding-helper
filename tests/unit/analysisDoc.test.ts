@@ -113,6 +113,15 @@ describe("buildAnalysisDocument", () => {
     expect(html).toContain('<a href="#gop-keyframe-structure">GOP / Keyframe Structure</a>');
   });
 
+  // The app's own preview shows the document in a frame, where a link with no target would load
+  // the app inside the document.
+  it("opens the app's address in a tab of its own, which is not handed this one", () => {
+    const link = new DOMParser().parseFromString(html, "text/html").querySelector<HTMLAnchorElement>(".doc-meta a")!;
+    expect(link.getAttribute("href")).toBe("https://encoding-helper.example");
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toBe("noopener");
+  });
+
   it("escapes a file name that would otherwise close a tag", () => {
     const nasty = buildAnalysisDocument([], { ...META, fileName: '<img src=x onerror="alert(1)">.mp4' });
     expect(nasty).not.toContain("<img src=x");
