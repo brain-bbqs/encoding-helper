@@ -5,6 +5,7 @@
 import { mountHtml, pickFiles, readIndexHtml } from "@brain-bbqs/test-utils/vitest";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
+import { infoIcon } from "../../src/lib/dom";
 import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initFileLoadingUi } from "../../src/ui/fileLoading";
@@ -773,6 +774,20 @@ describe("the drop zone's controls", () => {
     expect(els.urlInput.value).toBe("");
     expect(els.urlRow.style.display).toBe("none");
     expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
+  });
+
+  // Reset is a click like any other, so it dismisses an explainer left open in the tabs it takes down.
+  it("closes an open info popover when Reset is clicked", () => {
+    initFileLoadingUi(els, { onLoaded });
+    const icon = infoIcon("Explainer");
+    els.app.append(icon);
+    icon.querySelector<HTMLButtonElement>(".info-btn")!.click();
+    expect(icon.classList.contains("open")).toBe(true);
+
+    els.resetBtn.click();
+
+    expect(icon.classList.contains("open")).toBe(false);
+    expect(icon.querySelector(".info-btn")!.getAttribute("aria-expanded")).toBe("false");
   });
 });
 
