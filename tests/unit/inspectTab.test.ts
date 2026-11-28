@@ -103,12 +103,27 @@ describe("renderBitrateTimelineSection", () => {
     });
     const section = renderBitrateTimelineSection();
     expect(chartOf(section)).toBeNull();
-    expect(section!.querySelector(".grid")).toBeNull();
-    expect(section!.textContent).toContain("constant bitrate");
-    expect(section!.textContent).toContain("160 kbps");
+    expect(gridRows(section!)).toEqual([{ label: "Declared Bitrate", value: "160 kbps", info: false, sm: false }]);
+    expect(section!.querySelector(".teach")!.textContent).toContain("constant bitrate");
   });
 
-  it("takes a constant declaration at its word when there are too few frames to test it", () => {
+  // The explanation is teaching material the Educational switch hides; the declared rate is the
+  // card's finding, so it stands outside it and the card is not left as a bare heading.
+  it("keeps a confirmed constant rate on the card with the explanation switched off", () => {
+    loadFile({
+      durationSec: 30,
+      samples: samples(600, 30, () => 1000),
+      declared: { avgBitrate: 160_000, maxBitrate: 160_000 },
+    });
+    const section = renderBitrateTimelineSection()!;
+    const shown = Array.from(section.children).filter((el) => el.tagName !== "H2" && !el.classList.contains("edu"));
+    expect(shown.map((el) => el.className)).toEqual(["grid"]);
+    expect(gridRows(shown[0]).map((row) => row.value)).toEqual(["160 kbps"]);
+  });
+
+  // A declaration is only taken over the plot where the samples bear it out, and too few frames
+  // to window cannot: the card says so, as it does for a file that declares nothing.
+  it("shows the too-few-frames card, not the constant one, when there are too few frames to test a declaration", () => {
     loadFile({
       durationSec: 1,
       samples: samples(3, 1, () => 1000),
@@ -116,9 +131,22 @@ describe("renderBitrateTimelineSection", () => {
     });
     const section = renderBitrateTimelineSection();
     expect(chartOf(section)).toBeNull();
-    expect(section!.querySelector(".grid")).toBeNull();
-    expect(section!.textContent).toContain("constant bitrate");
-    expect(section!.textContent).not.toContain("too few frames");
+    expect(gridRows(section!)).toEqual([{ label: "Average", value: "500 kbps", info: true, sm: false }]);
+    expect(section!.textContent).toContain("too few frames");
+    expect(section!.textContent).not.toContain("constant bitrate");
+  });
+
+  it("shows the too-few-frames card, not the constant one, for a declaring file with no known duration", () => {
+    loadFile({
+      durationSec: 30,
+      samples: samples(600, 30, () => 1000),
+      declared: { avgBitrate: 160_000, maxBitrate: 160_000 },
+    });
+    state.duration = null;
+    const section = renderBitrateTimelineSection();
+    expect(gridRows(section!).map((row) => row.label)).toEqual(["Average"]);
+    expect(section!.textContent).toContain("too few frames");
+    expect(section!.textContent).not.toContain("constant bitrate");
   });
 
   // A btrt whose maximum is above its average declares a variable rate, so neither the flat frames

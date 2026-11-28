@@ -11,7 +11,7 @@ import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/q
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
-import { renderInspectHead } from "../../src/ui/inspectTab";
+import { renderBitrateTimelineSection, renderInspectHead } from "../../src/ui/inspectTab";
 import { renderGopStructure } from "../../src/ui/seekTab";
 import { capArguments } from "./helpers/arguments";
 import { gridRows } from "./helpers/grid";
@@ -765,13 +765,23 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("| Declared Bitrate |");
   });
 
-  it("states a constant declaration under the bitrate heading when there are too few frames to test it", () => {
+  it("states the confirmed constant declaration exactly as the Inspect card does", () => {
+    const el = panel();
+    loadClip();
+    state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
+    renderAnalysisTab(el);
+    const pageRows = gridRows(renderBitrateTimelineSection()!).map((row) => [row.label, row.value]);
+    expect(documentRows(el, "Video Bitrate Over Time")).toEqual(pageRows);
+  });
+
+  // Too few frames to window cannot bear a declaration out, so it is not taken over the average.
+  it("falls back to the track average over a constant declaration when there are too few frames to test it", () => {
     const el = panel();
     loadClip();
     state.samples = evenSamples(3, 30, 1000, (i) => i === 0);
     state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
     renderAnalysisTab(el);
-    expect(documentRows(el, "Video Bitrate Over Time")).toEqual([["Declared Bitrate", "160 kbps"]]);
+    expect(documentRows(el, "Video Bitrate Over Time")).toEqual([["Average", "500 kbps"]]);
   });
 
   it("falls back to the track average when there are too few frames to bin", () => {

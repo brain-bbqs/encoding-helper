@@ -196,10 +196,10 @@ function renderVideoTrackSection(): HTMLDivElement | null {
 }
 
 /**
- * Which of its three shapes the bitrate card takes, for the page and the document alike: the rate the
- * container declares constant, where the samples bear it out or are too few to say otherwise; the
- * track's average alone, where there are too few frames to bin; or the measured windows and their
- * plot.
+ * Which of its three shapes the bitrate card takes, for the page and the document alike: the track's
+ * average alone, where there are too few frames to bin (whatever the container declares, since
+ * nothing was measured to bear a declaration out); the rate the container declares constant, where
+ * the measured windows bear it out; or those windows and their plot.
  */
 export type BitrateShape =
   | { kind: "declared"; declared: DeclaredBitrate }
@@ -207,18 +207,23 @@ export type BitrateShape =
   | { kind: "timeline"; timeline: BitrateTimeline };
 
 export function bitrateShape(): BitrateShape {
-  const declared = state.declaredVideoBitrate;
   const timeline = computeBitrateTimeline(state.samples, state.duration ?? 0);
-  if (declaresConstantBitrate(declared) && declared && (!timeline || isEffectivelyConstant(timeline))) {
+  if (!timeline) return { kind: "average" };
+  const declared = state.declaredVideoBitrate;
+  if (declaresConstantBitrate(declared) && declared && isEffectivelyConstant(timeline)) {
     return { kind: "declared", declared };
   }
-  if (!timeline) return { kind: "average" };
   return { kind: "timeline", timeline };
 }
 
 /** The one figure the card has when there are too few frames to bin: the track's own average. */
 export function trackAverageRow(vt: TrackInfo): FactRow {
   return { label: "Average", value: fmtBits(vt.bitrate), info: VIDEO_AVERAGE_INFO };
+}
+
+/** The one figure the card has where the samples bear out a declared constant rate: that rate. */
+export function declaredBitrateRow(declared: DeclaredBitrate): FactRow {
+  return { label: "Declared Bitrate", value: fmtBits(declared.avgBitrate) };
 }
 
 /** The figures over the plot: the average, the busiest and quietest windows, and how far apart. */
@@ -246,6 +251,9 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
 
   const sec = section(BITRATE_TITLE);
   if (shape.kind === "declared") {
+    // The rate outside the teach box, which the Educational switch hides: with only the box, the
+    // card would be a bare heading while the switch is off.
+    sec.append(factGrid([declaredBitrateRow(shape.declared)]));
     sec.append(teachBox(constantBitrateNote(shape.declared.avgBitrate), "📈"));
     return sec;
   }

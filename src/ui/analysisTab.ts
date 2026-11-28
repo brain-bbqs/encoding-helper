@@ -26,7 +26,7 @@ import {
   GOP_HISTOGRAM_CAPTION,
   SEEK_SCATTER_CAPTION,
 } from "../lib/explainers";
-import { describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
+import { describeFrameRate, fmtDur, NO_VALUE } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import {
   bestReductionCell,
@@ -56,6 +56,7 @@ import {
   bitrateShape,
   bitrateTimelineRows,
   codecLabel,
+  declaredBitrateRow,
   flattenMetadataTags,
   hasCodedSize,
   METADATA_TAGS_TITLE,
@@ -126,10 +127,7 @@ function videoTrackSection(vt: TrackInfo): AnalysisSection | null {
 function bitrateSection(vt: TrackInfo): AnalysisSection {
   const shape = bitrateShape();
   if (shape.kind === "declared") {
-    return {
-      title: BITRATE_TITLE,
-      blocks: [{ kind: "kv", items: [["Declared Bitrate", fmtBits(shape.declared.avgBitrate)]] }],
-    };
+    return { title: BITRATE_TITLE, blocks: [{ kind: "kv", items: kvItems([declaredBitrateRow(shape.declared)]) }] };
   }
   if (shape.kind === "average") {
     return { title: BITRATE_TITLE, blocks: [{ kind: "kv", items: kvItems([trackAverageRow(vt)]) }] };
