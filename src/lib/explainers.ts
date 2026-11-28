@@ -688,7 +688,7 @@ export const FRAME_RATE_INFO =
 
 // --- Full Analysis ---
 
-/** What the Full Analysis tab gathers, and what two of the four buttons under it write. */
+/** What the Full Analysis tab gathers, what the buttons under it write, and what its two views show. */
 export const ANALYSIS_PANEL_INTRO =
   "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
   "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +
@@ -697,4 +697,5 @@ export const ANALYSIS_PANEL_INTRO =
   "first if you want them in the document. " +
   "<p>Below is the document itself, not a preview of one: <b>Download HTML</b> writes exactly this, in a " +
   "single self-contained file with no external assets, and <b>Save as PDF</b> hands the same thing to the " +
-  "browser's print dialog.</p>";
+  "browser's print dialog. The <b>Markdown</b> tab over it shows, in its place, the text " +
+  "<b>Download Markdown</b> writes and <b>Copy Markdown</b> copies.</p>";
