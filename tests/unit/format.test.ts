@@ -7,7 +7,6 @@ import {
   fmtDur,
   fmtMs,
   fmtRate,
-  fmtSizeChangePct,
 } from "../../src/lib/format";
 
 describe("fmtDur", () => {
@@ -26,6 +25,14 @@ describe("fmtDur", () => {
 
   it("formats hour-plus durations as hours + minutes + seconds", () => {
     expect(fmtDur(3725)).toBe("1h 2m 5s");
+  });
+
+  // A field that rounds up to the next unit's worth carries into it rather than printing sixty.
+  it("carries a field that rounds up to a whole unit into the next one", () => {
+    expect(fmtDur(59.9996)).toBe("1m 0.0s");
+    expect(fmtDur(119.97)).toBe("2m 0.0s");
+    expect(fmtDur(3599.97)).toBe("1h 0m 0s");
+    expect(fmtDur(3659.6)).toBe("1h 1m 0s");
   });
 });
 
@@ -47,6 +54,11 @@ describe("fmtBits", () => {
   it("formats Mbps+ rates with two decimals", () => {
     expect(fmtBits(5_500_000)).toBe("5.50 Mbps");
   });
+
+  it("moves up a unit when the rounded figure would read a thousand", () => {
+    expect(fmtBits(999.6)).toBe("1 kbps");
+    expect(fmtBits(999_600)).toBe("1.00 Mbps");
+  });
 });
 
 describe("fmtRate", () => {
@@ -55,8 +67,13 @@ describe("fmtRate", () => {
     expect(fmtRate(undefined)).toBe("–");
   });
 
+  // Within 0.005 of a whole number, either side alike: a rate measured from packet times lands a
+  // hair off its nominal one, as likely under it as over.
   it("rounds near-integer rates to a whole number", () => {
     expect(fmtRate(30.002)).toBe("30");
+    expect(fmtRate(29.9999)).toBe("30");
+    expect(fmtRate(29.996)).toBe("30");
+    expect(fmtRate(29.994)).toBe("29.994");
   });
 
   it("keeps fractional rates to three decimals", () => {
@@ -72,14 +89,6 @@ describe("fmtMs", () => {
 
   it("formats milliseconds with one decimal", () => {
     expect(fmtMs(12.34)).toBe("12.3 ms");
-  });
-});
-
-describe("fmtSizeChangePct", () => {
-  it("reads a saving as a minus and growth as a plus, to one decimal", () => {
-    expect(fmtSizeChangePct(1000, 580)).toBe("-42.0%");
-    expect(fmtSizeChangePct(1000, 1250)).toBe("+25.0%");
-    expect(fmtSizeChangePct(1000, 1000)).toBe("-0.0%");
   });
 });
 

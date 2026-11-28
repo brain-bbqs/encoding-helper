@@ -44,8 +44,16 @@ function renderBlock(block: AnalysisBlock): Element {
     }
     case "code":
       return h("pre", "cmd", block.content);
-    case "table":
-      return dataTable(block.headers, block.rows);
+    case "table": {
+      const table = dataTable(block.headers, block.rows);
+      if (!block.caption) return table;
+      // Captioned the way a chart is, so the legend reads as part of the table it explains, but
+      // not with the chart's class: that keeps a figure whole on paper, and a long table held that
+      // way is pushed onto a page of its own.
+      const fig = h("figure", "table-fig");
+      fig.append(table, h("figcaption", null, block.caption));
+      return fig;
+    }
     case "figure": {
       const fig = h("figure", "fig");
       fig.append(block.element.cloneNode(true));
@@ -104,6 +112,7 @@ function markdownBlock(block: AnalysisBlock): string[] {
         "|" + block.headers.map(() => "---").join("|") + "|",
         ...block.rows.map((row) => "| " + row.map(escapeCell).join(" | ") + " |"),
         "",
+        ...(block.caption ? [`_${block.caption}_`, ""] : []),
       ];
     case "figure":
       // Markdown has nowhere to put an SVG that survives a paste into an issue, so it names the
@@ -143,6 +152,9 @@ export function renderSectionsToMarkdown(sections: AnalysisSection[], meta: Docu
 /**
  * The whole document as one self-contained HTML string: no external stylesheet, no script, no
  * fetched asset, so it opens the same from a downloads folder as it does in the preview.
+ *
+ * The app link opens a tab of its own: in the app's preview the document sits in a frame, which a
+ * link with no target would load the app into.
  */
 export function buildAnalysisDocument(sections: AnalysisSection[], meta: DocumentMeta): string {
   const holder = document.createElement("div");
@@ -174,7 +186,7 @@ ${ANALYSIS_DOC_CSS}
 <p class="doc-eyebrow">Encoding Helper &middot; Full Analysis</p>
 <h1>${escapeHtml(meta.fileName)}</h1>
 <p class="doc-meta">Generated ${escapeHtml(meta.generated)} &middot; v${escapeHtml(meta.version)} &middot;
-<a href="${escapeHtml(meta.appUrl)}">${escapeHtml(meta.appUrl)}</a></p>
+<a href="${escapeHtml(meta.appUrl)}" target="_blank" rel="noopener">${escapeHtml(meta.appUrl)}</a></p>
 <div class="doc-facts">${facts}</div>
 </header>
 <nav class="doc-toc" aria-label="Contents">
@@ -342,8 +354,9 @@ table.data th {
   text-transform: uppercase;
   color: var(--muted);
 }
-.fig { margin: 14px 0; padding: 0; break-inside: avoid; }
-.fig figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.fig, .table-fig { margin: 14px 0; padding: 0; }
+.fig { break-inside: avoid; }
+.fig figcaption, .table-fig figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
 /* Atom map. The palette is the app's light-theme one (style.css), checked as a set for colorblind
    separation and for contrast against the surface it sits on; re-step it there and here together.
    Which labels are drawn was decided when the map was built, since nothing runs here to measure it. */

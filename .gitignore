@@ -15,3 +15,6 @@ tests/fixtures/.generated/
 
 # The demo set scripts/generate-demos.sh writes, and scripts/upload-demos.sh reads, by default
 demo-out/
+
+# Local Claude Code settings and worktrees
+.claude/

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sample } from "../fixtures/samples";
 import { seekResult } from "../fixtures/seekResult";
 import { resetState, state } from "../../src/lib/state";
+import { capArguments } from "./helpers/arguments";
 import { deferred, flush } from "./helpers/async";
 import { gridRows, gridValue } from "./helpers/grid";
 
@@ -51,7 +52,8 @@ vi.mock("../../src/lib/mediabunny", () => {
   };
 });
 
-const { renderGopHistogram, renderSeekScatter, renderGopStructure } = await import("../../src/ui/seekTab");
+const { renderGopHistogram, renderSeekScatter, renderGopStructure, seekSummaryRows } =
+  await import("../../src/ui/seekTab");
 
 /** Stands in for the loaded file's decodable track; the stub never reads it. */
 const VIDEO_TRACK = { id: "video" } as unknown as InputVideoTrack;
@@ -173,7 +175,7 @@ describe("the seeking test run", () => {
     const progress = panel.querySelector<HTMLDivElement>("#seekProgress")!;
     expect(progress.style.display).toBe("none");
 
-    panel.querySelector<HTMLInputElement>("#seekN")!.value = "4";
+    panel.querySelector<HTMLInputElement>("#seekN")!.value = "5";
     btn.click();
     expect(btn.disabled).toBe(true);
     expect(progress.style.display).toBe("block");
@@ -194,32 +196,59 @@ describe("the seeking test run", () => {
     expect(decodeRequests[99]).toBe(9.95);
   });
 
+  // The field's min and max bound its spinner, not what is typed: -5 would run nothing and print
+  // NaN, and a hundred thousand would decode for minutes with no way to stop it. The field is
+  // left showing the count that ran.
+  it("holds a typed count to the five to two hundred the field offers", async () => {
+    loadClip();
+    const panel = renderTab();
+    const count = panel.querySelector<HTMLInputElement>("#seekN")!;
+    const cases: [typed: string, ran: number][] = [
+      ["-5", 5],
+      ["2", 5],
+      ["100000", 200],
+      // A number, which parseInt would have read as 1.
+      ["1e3", 200],
+      ["7.6", 8],
+    ];
+    for (const [typed, ran] of cases) {
+      decodeRequests.length = 0;
+      await run(panel, typed);
+      expect(decodeRequests, typed).toHaveLength(ran);
+      expect(state.seekResults, typed).toHaveLength(ran);
+      expect(count.value, typed).toBe(String(ran));
+    }
+  });
+
   // A file whose duration could not be read has nothing to spread the samples over, so every one
   // lands at the start rather than at NaN.
   it("samples the start of a file with no known duration", async () => {
     loadClip();
     state.duration = null;
     const panel = renderTab();
-    await run(panel, "2");
-    expect(decodeRequests).toEqual([0, 0]);
-    expect(state.seekResults!.map((r) => r.dist)).toEqual([0, 0]);
+    await run(panel, "5");
+    expect(decodeRequests).toEqual([0, 0, 0, 0, 0]);
+    expect(state.seekResults!.map((r) => r.dist)).toEqual([0, 0, 0, 0, 0]);
   });
 
   // Before the first keyframe there is nothing to seek from, so those columns have no answer; and
   // an unmeasured frame rate reads as 30 for the frame count, as it does everywhere else.
   it("leaves a timestamp before the first keyframe without a distance", async () => {
     loadClip();
-    state.keyframeTimestampsSec = [5];
+    state.keyframeTimestampsSec = [8];
     state.fps = null;
     const panel = renderTab();
-    await run(panel, "2");
+    await run(panel, "5");
 
     expect(state.seekResults).toEqual([
-      { t: 2.5, kf: null, dist: null, distFrames: null, decodeMs: 2.5 },
-      { t: 7.5, kf: 5, dist: 2.5, distFrames: 75, decodeMs: 2.5 },
+      { t: 1, kf: null, dist: null, distFrames: null, decodeMs: 2.5 },
+      { t: 3, kf: null, dist: null, distFrames: null, decodeMs: 2.5 },
+      { t: 5, kf: null, dist: null, distFrames: null, decodeMs: 2.5 },
+      { t: 7, kf: null, dist: null, distFrames: null, decodeMs: 2.5 },
+      { t: 9, kf: 8, dist: 1, distFrames: 30, decodeMs: 2.5 },
     ]);
     const wrap = panel.querySelector("#seekResultsWrap")!;
-    expect(tableRows(wrap)[0]).toEqual(["2.500s", "–", "–", "–", "2.5 ms"]);
+    expect(tableRows(wrap)[0]).toEqual(["1.000s", "–", "–", "–", "2.5 ms"]);
     // One point is not a distribution, so there is no scatter to draw.
     expect(wrap.querySelector("svg.seek-scatter")).toBeNull();
   });
@@ -230,9 +259,9 @@ describe("the seeking test run", () => {
     await run(panel, "5");
     const wrap = panel.querySelector("#seekResultsWrap")!;
     expect(wrap.querySelectorAll(".grid")).toHaveLength(1);
-    await run(panel, "3");
+    await run(panel, "6");
     expect(wrap.querySelectorAll(".grid")).toHaveLength(1);
-    expect(tableRows(wrap)).toHaveLength(3);
+    expect(tableRows(wrap)).toHaveLength(6);
   });
 
   // A run that fails never draws results of its own, so only the clear at its start takes the last
@@ -366,12 +395,12 @@ describe("the seeking test run", () => {
     document.body.append(newer);
     renderGopStructure(newer);
 
-    await run(newer, "3");
+    await run(newer, "6");
     release();
     await flush();
 
-    expect(state.seekResults).toHaveLength(3);
-    expect(tableRows(newer.querySelector("#seekResultsWrap")!)).toHaveLength(3);
+    expect(state.seekResults).toHaveLength(6);
+    expect(tableRows(newer.querySelector("#seekResultsWrap")!)).toHaveLength(6);
     expect(older.querySelector("#seekResultsWrap")!.children).toHaveLength(0);
   });
 
@@ -389,13 +418,13 @@ describe("the seeking test run", () => {
 });
 
 describe("the sampled-timestamps export", () => {
-  /** Runs a three-sample test and hands back the export button and the fold that holds it. */
+  /** Runs a five-sample test and hands back the export button and the fold that holds it. */
   async function runAndFindExport(): Promise<{ exportBtn: HTMLButtonElement; fold: HTMLDetailsElement }> {
     loadClip();
     state.keyframeTimestampsSec = [4];
     decodeCost = (seconds) => seconds;
     const panel = renderTab();
-    await run(panel, "3");
+    await run(panel, "5");
     const fold = panel.querySelector<HTMLDetailsElement>("#seekResultsWrap details.fold")!;
     return { exportBtn: fold.querySelector<HTMLButtonElement>("summary .fold-note button")!, fold };
   }
@@ -469,9 +498,11 @@ describe("the sampled-timestamps export", () => {
     expect(await blobText(download.blobs[0])).toBe(
       [
         "Timestamp (s)\tNearest keyframe <= t (s)\tDistance (s)\tDistance (frames)\tDecode time (ms)",
-        "1.667\t\t\t\t1.667",
+        "1.000\t\t\t\t1.000",
+        "3.000\t\t\t\t3.000",
         "5.000\t4.000\t1.000\t30\t5.000",
-        "8.333\t4.000\t4.333\t130\t8.333",
+        "7.000\t4.000\t3.000\t90\t7.000",
+        "9.000\t4.000\t5.000\t150\t9.000",
         "",
       ].join("\n"),
     );
@@ -573,6 +604,16 @@ describe("renderSeekScatter", () => {
   });
 });
 
+describe("seekSummaryRows", () => {
+  it("dashes the figures of a run with nothing in it", () => {
+    expect(seekSummaryRows([]).map((row) => [row.label, row.value])).toEqual([
+      ["Avg Keyframe Distance", "–"],
+      ["Avg Decode Time", "–"],
+      ["Max Decode Time", "–"],
+    ]);
+  });
+});
+
 describe("renderGopHistogram", () => {
   it("scales each interval against the longest and calls out the ones well over the average", () => {
     const hist = renderGopHistogram([30, 30, 90]);
@@ -580,6 +621,10 @@ describe("renderGopHistogram", () => {
     expect(bars.map((b) => b.style.height)).toEqual(["30px", "30px", "90px"]);
     expect(bars.map((b) => b.classList.contains("tall"))).toEqual([false, false, true]);
     expect(bars[2].title).toBe("90 frames");
+  });
+
+  it("draws no bars for a file with no intervals", () => {
+    expect(renderGopHistogram([]).children).toHaveLength(0);
   });
 
   it("keeps a bar too short to see at the floor height", () => {
@@ -603,6 +648,19 @@ describe("renderGopStructure", () => {
     expect(panel.querySelector(".badge")!.className).toBe("badge info");
     expect(panel.querySelector(".hist")).not.toBeNull();
     expect(panel.querySelector("h3")!.textContent).toBe("Empirical Seeking Test");
+  });
+
+  // An all-intra recording of an hour or so has a keyframe for every frame, more than Math.min or
+  // Math.max can take as the arguments a spread makes of them. The cap stands in for the engine's,
+  // at a size a test can afford to reach.
+  it("reads the keyframe structure of a file with more GOPs than a call can take arguments", () => {
+    capArguments(1_000);
+    state.gopLengths = Array.from({ length: 5_000 }, (_, i) => (i % 7) + 1);
+    state.fps = 30;
+    const panel = renderTab();
+    expect(gridValue(panel, "Min / Max GOP")).toBe("1 / 7 frames");
+    expect(panel.querySelectorAll(".hist .bar")).toHaveLength(5_000);
+    expect(panel.querySelectorAll<HTMLDivElement>(".hist .bar")[6].style.height).toBe("90px");
   });
 
   it("reads an empty file as no GOPs, no histogram and no B-frames", () => {

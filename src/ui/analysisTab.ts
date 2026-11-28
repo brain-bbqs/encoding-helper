@@ -26,15 +26,7 @@ import {
   GOP_HISTOGRAM_CAPTION,
   SEEK_SCATTER_CAPTION,
 } from "../lib/explainers";
-import {
-  describeColorSpace,
-  describeFrameCount,
-  describeFrameRate,
-  fmtBits,
-  fmtDur,
-  fmtSizeChangePct,
-  NO_VALUE,
-} from "../lib/format";
+import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import {
   bestReductionCell,
@@ -42,18 +34,21 @@ import {
   comboCrf,
   comboKey,
   describeResolutionChange,
+  hasRun,
   isMeasured,
   matrixAxes,
   matrixOutputs,
+  type MatrixOutput,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
-import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
+import { describeAvgGop, gopRange, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
 import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/types";
 import { faststartBadge, renderStaticAtomMap } from "./atomsTab";
 import { compareSummaryRows } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
+import { fmtElapsed } from "./matrixPanel";
 import {
   AUDIO_TRACK_TITLE,
   audioTrackRows,
@@ -205,6 +200,7 @@ function atomMapSection(): AnalysisSection | null {
 function gopSection(): AnalysisSection | null {
   if (!state.samples.length) return null;
   const { gop, avgGop, fps } = gopStats();
+  const range = gopRange(gop);
   const blocks: AnalysisBlock[] = [
     {
       kind: "kv",
@@ -212,7 +208,7 @@ function gopSection(): AnalysisSection | null {
         ["Total Frames", state.samples.length.toLocaleString()],
         ["Keyframes", state.gopLengths.length.toLocaleString()],
         ["Avg GOP", describeAvgGop(avgGop, fps)],
-        ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : NO_VALUE],
+        ["Min / Max GOP", range ? `${range.min} / ${range.max} frames` : NO_VALUE],
       ],
     },
     { kind: "badge", ...bFramesBadge() },
@@ -269,7 +265,7 @@ function compareSection(): AnalysisSection | null {
   if (est) {
     items.push(
       ["Original Segment Size", fmtBytes(est.originalSegmentBytes)],
-      ["Segment Change", `${fmtSignedChange(est)} (${fmtChangeFactor(est.ratio)})`],
+      ["Segment Change", `${fmtSignedChange(est.ratio)} (${fmtChangeFactor(est.ratio)})`],
       ["Original File Size", fmtBytes(est.originalTotalBytes)],
       ["Projected Full File", fmtBytes(est.projectedTotalBytes)],
     );
@@ -286,29 +282,48 @@ function compareSection(): AnalysisSection | null {
   return { title: "Side-by-Side (A/B) Result", blocks: [{ kind: "kv", items }] };
 }
 
-/** The last matrix sweep as a table, so the document carries the grid the winner was picked out of. */
+/** What a sweep's cells hold and when the star appears, which nothing else in the document says. */
+const MATRIX_LEGEND =
+  "Each cell is the encoded segment size / the time the encode took; ★ marks the largest reduction " +
+  "once every combination has run.";
+
+/** One output's name in the table's leading column, e.g. "50% lanczos, 15 fps". */
+function describeOutput({ fps, scale, scaler }: MatrixOutput): string {
+  const size = `${scalePercent(scale)}${isDownscale(scale) ? ` ${scaler}` : ""}`;
+  return fps != null ? `${size}, ${describeFrameRate(fps)}` : size;
+}
+
+/**
+ * The last matrix sweep as a table, so the document carries the grid the winner was picked out of:
+ * every square the page draws, in the page's order, ranked by the page's rule.
+ */
 function matrixSection(): AnalysisSection | null {
-  const cells = sampledEncode.matrix.cells.filter(isMeasured);
-  if (!cells.length) return null;
-  const best = bestReductionCell(sampledEncode.matrix.cells);
-  const { qualities, presets, scales, scalers } = matrixAxes(cells);
-  const byKey = new Map(cells.map((c) => [c.combo.key, c]));
-  // A document has no row groups to nest resolution into, so when the sweep covered more than one
-  // it becomes a leading column instead: the same information, in the shape a table can carry.
-  const swept = scales.length > 1 || scalers.length > 1;
+  const all = sampledEncode.matrix.cells;
+  const measured = all.filter(isMeasured);
+  if (!measured.length) return null;
+  // As on the page: the winner is a statement about the whole sweep, so a sweep that was stopped or
+  // is still running has none, rather than the smallest of whatever happened to finish.
+  const best = all.every(hasRun) ? bestReductionCell(all) : null;
+  const { qualities, presets, scales, scalers, fpsValues } = matrixAxes(all);
+  const outputs = matrixOutputs(fpsValues, scales, scalers);
+  const byKey = new Map(measured.map((c) => [c.combo.key, c]));
+  // A document has no row groups to nest the outputs into, so when there is more than one, or the
+  // one there is dropped frames, it becomes a leading column instead: the same information, in the
+  // shape a table can carry.
+  const named = outputs.length > 1 || outputs.some((o) => o.fps != null);
   const rows: string[][] = [];
-  // The source's own rate alone: the table has no column for a reduced one.
-  for (const { fps, scale, scaler } of matrixOutputs([null], scales, scalers)) {
+  for (const output of outputs) {
+    const { fps, scale, scaler } = output;
     for (const quality of qualities) {
       const head = [`${quality} (CRF ${comboCrf(quality)})`];
-      if (swept) head.unshift(`${scalePercent(scale)}${isDownscale(scale) ? ` ${scaler}` : ""}`);
+      if (named) head.unshift(describeOutput(output));
       rows.push([
         ...head,
         ...presets.map((preset) => {
           const cell = byKey.get(comboKey(quality, preset, scale, scaler, fps));
           if (!cell) return NO_VALUE;
           const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
-          const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
+          const took = cell.elapsedMs != null ? ` / ${fmtElapsed(cell.elapsedMs)}` : "";
           return `${fmtBytes(cell.bytes)}${took}${mark}`;
         }),
       ]);
@@ -316,7 +331,14 @@ function matrixSection(): AnalysisSection | null {
   }
   return {
     title: "Compare Quality Matrix",
-    blocks: [{ kind: "table", headers: [...(swept ? ["Output"] : []), "Quality", ...presets], rows }],
+    blocks: [
+      {
+        kind: "table",
+        headers: [...(named ? ["Output"] : []), "Quality", ...presets],
+        rows,
+        caption: MATRIX_LEGEND,
+      },
+    ],
   };
 }
 
@@ -331,7 +353,7 @@ function reencodeSection(): AnalysisSection | null {
         items: [
           ["Original Size", fmtBytes(result.originalSize)],
           ["Encoded Size", fmtBytes(result.encodedSize)],
-          ["Change", fmtSizeChangePct(result.originalSize, result.encodedSize)],
+          ["Change", fmtSignedChange(result.encodedSize / result.originalSize)],
         ],
       },
     ],
@@ -369,10 +391,19 @@ let previewObserver: ResizeObserver | null = null;
 
 function mountPreview(frame: HTMLIFrameElement, html: string): void {
   frame.addEventListener("load", () => {
+    // Whatever the frame held before this load is gone, so its observer has nothing left to watch.
+    previewObserver?.disconnect();
+    previewObserver = null;
     const doc = frame.contentDocument;
     if (!doc) return;
     const fit = (): void => {
-      frame.style.height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight) + "px";
+      // Measured off the body (which the document's stylesheet gives no margin), not the root: a
+      // root element never scrolls less than its frame is tall, so a frame sized by its root could
+      // grow and never shrink. Nor by clearing the height and measuring again, which leaves the
+      // page too short for where it is scrolled to for a moment, and the browser scrolls it back.
+      // The height is border-box, so the frame's own border goes on top of the document's.
+      const border = frame.offsetHeight - frame.clientHeight;
+      frame.style.height = doc.body.scrollHeight + border + "px";
     };
     fit();
     // Catches the reflow when the window (and so the iframe) changes width, which changes how tall
@@ -380,6 +411,16 @@ function mountPreview(frame: HTMLIFrameElement, html: string): void {
     // which measured 0 while hidden: its document grows from nothing when it is shown.
     previewObserver = new ResizeObserver(fit);
     previewObserver.observe(doc.documentElement);
+    // A srcdoc document resolves "#section" against the app's address, so a Contents entry left to
+    // the browser loads the app into the frame. The section is brought into view instead, which
+    // scrolls the page, the frame being as tall as the document. Only here: a saved copy has an
+    // address of its own, and its links work as written.
+    doc.addEventListener("click", (e) => {
+      const link = (e.target as Element).closest('a[href^="#"]');
+      if (!link) return;
+      e.preventDefault();
+      doc.getElementById(link.getAttribute("href")!.slice(1))?.scrollIntoView();
+    });
   });
   frame.srcdoc = html;
 }

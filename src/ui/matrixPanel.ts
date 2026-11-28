@@ -22,7 +22,7 @@ import {
   matrixOutputs,
   type MatrixOutput,
 } from "../lib/qualityMatrix";
-import { fmtChangeFactor, fmtPct, type SizeEstimate } from "../lib/sizeEstimate";
+import { describeSavings, fmtChangeFactor, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
 import type { MatrixCell } from "../lib/types";
 
 interface MatrixTableOptions {
@@ -42,11 +42,16 @@ interface MatrixTableOptions {
   scaleLabel?: (scale: number) => string;
 }
 
-/** An encode's wall-clock cost, at the precision a table column can carry. */
+/**
+ * An encode's wall-clock cost, at the precision a table column can carry. Rounded before the unit
+ * is picked, so 9.96 s reads "10s" and 59.6 s "1m 0s", not "10.0s" and "60s".
+ */
 export function fmtElapsed(ms: number): string {
-  if (ms < 10_000) return (ms / 1000).toFixed(1) + "s";
-  if (ms < 60_000) return Math.round(ms / 1000) + "s";
-  return Math.floor(ms / 60_000) + "m " + Math.round((ms % 60_000) / 1000) + "s";
+  const tenths = Math.round(ms / 100);
+  if (tenths < 100) return (tenths / 10).toFixed(1) + "s";
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return seconds + "s";
+  return Math.floor(seconds / 60) + "m " + (seconds % 60) + "s";
 }
 
 /** What a square says: the headline, the lines under it, its tooltip and its accessible name. */
@@ -71,7 +76,7 @@ interface CellFace {
 
 /** A finished square: the change it came to, what that projects to, and what it cost to find out. */
 function doneFace(cell: MatrixCell, bytes: number, est: SizeEstimate | null): CellFace {
-  const change = est ? (est.ratio - 1 >= 0 ? "+" : "−") + fmtPct(Math.abs(est.ratio - 1)) : fmtBytes(bytes);
+  const change = est ? fmtSignedChange(est.ratio) : fmtBytes(bytes);
   const sub = [est ? fmtBytes(est.projectedTotalBytes) : fmtBytes(bytes)];
   // ↺ against the time, since the time is the figure the mark is about: the bytes are the same
   // bytes this encode produces whenever it is run, and the seconds are of a run that already
@@ -270,13 +275,7 @@ export function renderMatrixSummary(
   }
   const est = estimate?.(best) ?? null;
   const head = h("div", "matrix-summary-head");
-  head.append(
-    h(
-      "span",
-      "matrix-summary-figure",
-      est ? `${fmtPct(Math.abs(est.savedFraction))} ${est.savedFraction < 0 ? "larger" : "smaller"}` : "Best reduction",
-    ),
-  );
+  head.append(h("span", "matrix-summary-figure", est ? describeSavings(est) : "Best reduction"));
   // The percentage and the factor say the same thing, and which one lands depends on how deep the
   // reduction is, so the winner carries both.
   if (est) head.append(h("span", "matrix-summary-factor", fmtChangeFactor(est.ratio)));

@@ -48,8 +48,9 @@ const INTENDED_DIFFERENCES: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
- * The selectors only the document styles: its header, contents list, badge rows and figures, which only the document
- * draws. A shared selector renamed or dropped in one sheet would otherwise leave the comparison without a word.
+ * The selectors only the document styles: its header, contents list, badge rows, figures and captioned tables, which
+ * only the document draws. A shared selector renamed or dropped in one sheet would otherwise leave the comparison
+ * without a word.
  */
 const DOCUMENT_ONLY: readonly string[] = [
   ".doc",
@@ -67,7 +68,9 @@ const DOCUMENT_ONLY: readonly string[] = [
   ".doc-toc li",
   ".badge-row",
   ".fig",
+  ".table-fig",
   ".fig figcaption",
+  ".table-fig figcaption",
 ];
 
 /** The dark theme for the OS preference sits in this media query; the header toggle's copy is at the top level. */
