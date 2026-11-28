@@ -168,7 +168,7 @@ describe("describeCodec", () => {
   });
 
   it("has a name test for every codec the description table holds", () => {
-    expect(NAMED_CODECS.map(([codec]) => codec).sort()).toEqual(Object.keys(CODEC_DESCRIPTIONS).sort());
+    expect(Object.keys(CODEC_DESCRIPTIONS).sort()).toEqual(NAMED_CODECS.map(([codec]) => codec).sort());
   });
 
   it("has a description test for every codec the description table holds", () => {
