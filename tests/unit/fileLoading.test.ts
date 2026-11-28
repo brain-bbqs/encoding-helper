@@ -352,6 +352,33 @@ describe("when a load fails", () => {
     expect(state.input).toBeNull();
     expect(disposedInputs).toHaveLength(1);
   });
+
+  // Nothing is loaded after a failure, as after Reset, so a reload or a shared copy of the address
+  // should not open the file before it.
+  it("takes the previous file's link out of the address bar", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadUrl("https://example.org/good.mp4");
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/good.mp4");
+    parseWithMp4Box.mockRejectedValueOnce(new Error("bad.mp4 is not an MP4"));
+
+    await loader.loadFile(videoFile("bad.mp4"));
+
+    expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
+  });
+
+  it("leaves no link in the address bar to a URL whose tabs failed to draw", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    onLoaded.mockImplementationOnce(() => {
+      throw new RangeError("Maximum call stack size exceeded");
+    });
+    const loader = initFileLoadingUi(els, { onLoaded });
+
+    await loader.loadUrl("https://example.org/remote.mp4");
+
+    expect(state.source).toBeNull();
+    expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
+  });
 });
 
 type ParseResult = { mp4boxFile: object; info: { videoTracks: { id: number; timescale: number }[] } };

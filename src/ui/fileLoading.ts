@@ -148,9 +148,11 @@ async function loadSource(els: AppElements, callbacks: FileLoadingCallbacks, req
     if (superseded()) return;
     console.error("[encoding-helper] load failed:", err);
     // The file before this one went at the reset above, and whatever this one got as far as goes
-    // here, so the tabs come down too rather than showing either under the error.
+    // here, so the tabs come down too rather than showing either under the error. Nothing is loaded
+    // now, so the address bar offers no file either, as after Reset.
     resetState();
     els.app.style.display = "none";
+    writeSrcToUrl(null);
     showError(els, errorMessage(err));
     els.dropZone.classList.remove("collapsed");
   }
