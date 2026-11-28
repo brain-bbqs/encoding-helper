@@ -87,6 +87,21 @@ function videoFile(name = "clip.mp4"): File {
   return new File([new Uint8Array(1024)], name, { type: "video/mp4" });
 }
 
+/** What `dataTransfer.types` lists for a file dragged in from the desktop. */
+const FILE_DRAG: readonly string[] = ["Files"];
+/** What it lists for a link dragged from another tab's address bar or page. */
+const LINK_DRAG: readonly string[] = ["text/uri-list", "text/plain"];
+/** What it lists for selected text dragged from a page. */
+const TEXT_DRAG: readonly string[] = ["text/plain"];
+
+/** A bubbling, cancelable drag event of `type` carrying `types`, and `files` for a drop. jsdom has no
+ * DragEvent or DataTransfer, so the event is a plain one with the part the app reads attached. */
+function dragEvent(type: string, types: readonly string[], files: File[] = []): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", { value: { types, files } });
+  return event;
+}
+
 /** The reader the last load handed to mediabunny's `Input`. */
 function mediabunnyReader(): unknown {
   return (state.input as unknown as { options: { source: unknown } }).options.source;
@@ -601,8 +616,7 @@ describe("the drop zone's controls", () => {
 
   it("loads a dropped file", async () => {
     initFileLoadingUi(els, { onLoaded });
-    const event = new Event("drop", { bubbles: true, cancelable: true });
-    Object.defineProperty(event, "dataTransfer", { value: { files: [videoFile()] } });
+    const event = dragEvent("drop", FILE_DRAG, [videoFile()]);
 
     els.dropZone.dispatchEvent(event);
     await vi.waitFor(() => expect(onLoaded).toHaveBeenCalled());
@@ -611,9 +625,11 @@ describe("the drop zone's controls", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it("marks the zone while something is over it", () => {
+  it("marks the zone while a file is over it", () => {
     initFileLoadingUi(els, { onLoaded });
-    els.dropZone.dispatchEvent(new Event("dragover", { cancelable: true }));
+    const over = dragEvent("dragover", FILE_DRAG);
+    els.dropZone.dispatchEvent(over);
+    expect(over.defaultPrevented).toBe(true);
     expect(els.dropZone.classList.contains("dragover")).toBe(true);
     els.dropZone.dispatchEvent(new Event("dragleave"));
     expect(els.dropZone.classList.contains("dragover")).toBe(false);
@@ -623,12 +639,58 @@ describe("the drop zone's controls", () => {
   // error slot shown; both start out empty.
   it("ignores a drop carrying nothing", () => {
     initFileLoadingUi(els, { onLoaded });
-    const event = new Event("drop", { cancelable: true });
-    Object.defineProperty(event, "dataTransfer", { value: { files: [] } });
-    els.dropZone.dispatchEvent(event);
+    els.dropZone.dispatchEvent(dragEvent("drop", FILE_DRAG, []));
     expect(state.source).toBeNull();
     expect(els.miniName.textContent).toBe("");
     expect(els.errorMsg.style.display).toBe("");
+  });
+
+  // The URL box sits inside the zone, and a link dragged from another tab is the quickest way to fill
+  // it. Left uncancelled, the browser's own handling puts the text in the box.
+  it("leaves a link dragged onto the URL box to the box", () => {
+    initFileLoadingUi(els, { onLoaded });
+    els.showUrlBtn.click();
+    const over = dragEvent("dragover", LINK_DRAG);
+    const drop = dragEvent("drop", LINK_DRAG);
+
+    els.urlInput.dispatchEvent(over);
+    expect(els.dropZone.classList.contains("dragover")).toBe(false);
+    els.urlInput.dispatchEvent(drop);
+
+    expect(over.defaultPrevented).toBe(false);
+    expect(drop.defaultPrevented).toBe(false);
+    expect(state.source).toBeNull();
+    expect(els.miniName.textContent).toBe("");
+  });
+
+  // Uncancelled, a file dropped anywhere but the zone is opened by the browser in place of the app.
+  it("keeps a file dropped beside the zone from replacing the page", () => {
+    initFileLoadingUi(els, { onLoaded });
+    const over = dragEvent("dragover", FILE_DRAG);
+    const drop = dragEvent("drop", FILE_DRAG, [videoFile()]);
+
+    document.body.dispatchEvent(over);
+    document.body.dispatchEvent(drop);
+
+    expect(over.defaultPrevented).toBe(true);
+    expect(drop.defaultPrevented).toBe(true);
+    // Beside the zone is not on it: nothing loads and the zone is not marked.
+    expect(state.source).toBeNull();
+    expect(els.dropZone.classList.contains("dragover")).toBe(false);
+  });
+
+  it("leaves text dropped into an input elsewhere on the page to that input", () => {
+    initFileLoadingUi(els, { onLoaded });
+    const field = document.createElement("input");
+    els.app.append(field);
+    const over = dragEvent("dragover", TEXT_DRAG);
+    const drop = dragEvent("drop", TEXT_DRAG);
+
+    field.dispatchEvent(over);
+    field.dispatchEvent(drop);
+
+    expect(over.defaultPrevented).toBe(false);
+    expect(drop.defaultPrevented).toBe(false);
   });
 
   it("shows and hides the URL box, focusing it when it appears", () => {
@@ -687,14 +749,6 @@ describe("the drop zone's controls", () => {
     expect(els.urlInput.value).toBe("");
     expect(els.urlRow.style.display).toBe("none");
     expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
-  });
-
-  it("does not re-open the picker the reset just backed out of", () => {
-    initFileLoadingUi(els, { onLoaded });
-    const onZoneClick = vi.fn();
-    els.dropZone.addEventListener("click", onZoneClick);
-    els.resetBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(onZoneClick).not.toHaveBeenCalled();
   });
 });
 

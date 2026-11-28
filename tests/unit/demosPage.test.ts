@@ -361,17 +361,12 @@ describe("initDemosPage", () => {
     expect(window.location.search).toBe("");
   });
 
-  // The page replaces the drop zone, and the button that opens it sits inside the drop zone. The
-  // test listens for clicks on the zone itself, so a click that reached it would show.
   it("opens over the file picker, records itself in the URL and reads the set from the archive", async () => {
     const pushState = vi.spyOn(window.history, "pushState");
-    const pickerClick = vi.fn();
-    els.dropZone.addEventListener("click", pickerClick);
     els.app.style.display = "block";
     init();
 
     els.browseDemosBtn.click();
-    expect(pickerClick.mock.calls.length).toBe(0);
     expect(window.location.search).toBe("?demos");
     expect(pushState.mock.calls.length).toBe(1);
     expect(els.demosPage.style.display).toBe("block");

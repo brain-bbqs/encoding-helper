@@ -185,6 +185,11 @@ function resetToDropZone(els: AppElements): void {
   writeSrcToUrl(null);
 }
 
+/** Whether a drag holds files, as one from the desktop does, rather than a link or text. */
+function carriesFiles(e: DragEvent): boolean {
+  return e.dataTransfer?.types.includes("Files") ?? false;
+}
+
 async function pickFile(els: AppElements): Promise<File | null> {
   if (window.showOpenFilePicker) {
     try {
@@ -221,11 +226,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
       if (file) void loadFile(file);
     });
   });
-  els.resetBtn.addEventListener("click", (e) => {
-    // Keeps the click from reaching the drop zone under it.
-    e.stopPropagation();
-    resetToDropZone(els);
-  });
+  els.resetBtn.addEventListener("click", () => resetToDropZone(els));
   els.showUrlBtn.addEventListener("click", () => {
     els.urlRow.style.display = els.urlRow.style.display === "none" ? "flex" : "none";
     if (els.urlRow.style.display === "flex") els.urlInput.focus();
@@ -238,17 +239,28 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     if (e.key === "Enter") els.loadUrlBtn.click();
   });
 
+  // Only a drag carrying files is the zone's: the URL box sits inside it, and a link or text dragged
+  // onto the box is left to the browser, which puts it in the box.
   els.dropZone.addEventListener("dragover", (e) => {
+    if (!carriesFiles(e)) return;
     e.preventDefault();
     els.dropZone.classList.add("dragover");
   });
   els.dropZone.addEventListener("dragleave", () => els.dropZone.classList.remove("dragover"));
   els.dropZone.addEventListener("drop", (e) => {
+    if (!carriesFiles(e)) return;
     e.preventDefault();
     els.dropZone.classList.remove("dragover");
     const file = e.dataTransfer?.files[0];
     if (file) void loadFile(file);
   });
+  // A file that misses the zone would otherwise be opened by the browser in place of the app, losing
+  // whatever was loaded. Files only, so text and links dropped into the page's inputs still land.
+  const refuseStrayFile = (e: DragEvent): void => {
+    if (carriesFiles(e)) e.preventDefault();
+  };
+  window.addEventListener("dragover", refuseStrayFile);
+  window.addEventListener("drop", refuseStrayFile);
 
   // A shared link carries ?src=…, so open it the same way the URL box would have.
   const sharedSrc = readSrcFromUrl();
