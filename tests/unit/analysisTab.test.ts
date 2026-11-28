@@ -3,7 +3,7 @@
 // against the rendered frame (jsdom runs no layout and loads no srcdoc).
 
 import { installObserverStub, stubClipboard } from "@brain-bbqs/test-utils/vitest";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { setEducationalEnabled } from "../../src/lib/educational";
@@ -868,6 +868,27 @@ function press(target: HTMLElement, key: string): KeyboardEvent {
   return event;
 }
 
+/**
+ * Gives the panel's frame a stand-in window that behaves as a browser's does: focusing it takes the
+ * focus into the frame, and printing fires afterprint on it as the dialog closes. Notes what had
+ * the focus at the moment of printing.
+ */
+function stubFrameWindow(el: HTMLElement): {
+  print: Mock<() => void>;
+  focusedAtPrint: (Element | null)[];
+} {
+  const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
+  const focusedAtPrint: (Element | null)[] = [];
+  const win = new EventTarget();
+  const print = vi.fn(() => {
+    focusedAtPrint.push(document.activeElement);
+    win.dispatchEvent(new Event("afterprint"));
+  });
+  Object.assign(win, { print, focus: () => frame.focus() });
+  Object.defineProperty(frame, "contentWindow", { value: win, configurable: true });
+  return { print, focusedAtPrint };
+}
+
 describe("the document's Rendered and Markdown views", () => {
   // The choice outlives the panel for the rest of the session, so each test hands the default back.
   afterEach(() => {
@@ -984,13 +1005,28 @@ describe("the document's Rendered and Markdown views", () => {
       loadClip();
       renderAnalysisTab(el);
       viewTab(el, name).click();
-      const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
-      const print = vi.fn();
-      Object.defineProperty(frame, "contentWindow", { value: { print, focus: vi.fn() }, configurable: true });
+      const { print } = stubFrameWindow(el);
 
       clickButton(el, "Save as PDF");
 
       expect(print).toHaveBeenCalledOnce();
     }
+  });
+
+  it("hands focus back to Save as PDF once the print from the Markdown view is done", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    viewTab(el, "Markdown").click();
+    const { print, focusedAtPrint } = stubFrameWindow(el);
+    const pdfBtn = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Save as PDF")!;
+
+    pdfBtn.focus();
+    pdfBtn.click();
+
+    expect(print).toHaveBeenCalledOnce();
+    // Still in the frame while it prints, which is what the frame's focus() is there for.
+    expect(focusedAtPrint).toEqual([el.querySelector("iframe.doc-preview")]);
+    expect(document.activeElement).toBe(pdfBtn);
   });
 });

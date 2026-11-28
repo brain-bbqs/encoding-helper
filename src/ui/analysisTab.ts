@@ -502,6 +502,10 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   pdfBtn.addEventListener("click", () => {
     const win = frame.contentWindow;
     if (!win) return;
+    // Focusing the frame takes the focus off the page. Behind the Markdown view that frame is
+    // hidden, which would leave nothing visible focused, so the focus comes back to this button once
+    // printing is done: on afterprint, since not every browser holds print() until the dialog closes.
+    if (renderedPane.hidden) win.addEventListener("afterprint", () => pdfBtn.focus(), { once: true });
     win.focus();
     win.print();
   });
