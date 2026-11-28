@@ -4,7 +4,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { buildFixtureVideo } from "../fixtures/demoVideo";
-import { gotoDemos } from "./demoArchive";
+import { gotoDemos, loadDemo, REFERENCE_FILE_NAME } from "./demoArchive";
 
 /** What CDP's Input.dispatchDragEvent carries: the drag's data and the operations its source allows. */
 interface DragData {
@@ -123,6 +123,24 @@ test.describe("dropping onto the page", () => {
       .toEqual(["cancelled: true"]);
     expect(await settledNewPages(page, opened)).toEqual([]);
     await expect(page.locator("#app")).toBeHidden();
+  });
+
+  // The preview is a document of its own, so a drop on it never reaches the page's window, and it
+  // takes up most of the tab.
+  test("refuses a file dropped on the Full Analysis preview", async ({ page }) => {
+    const opened = collectNewPages(page);
+    await loadDemo(page);
+    await page.locator(".tab-action").click();
+    await expect(page.frameLocator("#analysisDoc").locator(".doc-head h1")).toHaveText(REFERENCE_FILE_NAME);
+    const frame = page.locator("#analysisDoc");
+    await frame.scrollIntoViewIfNeeded();
+    // Into the middle of the part of the frame on screen: it is taller than the viewport.
+    const box = (await frame.boundingBox())!;
+    const top = Math.max(box.y, 0);
+    const bottom = Math.min(box.y + box.height, page.viewportSize()!.height);
+    await dropAt(page, box.x + box.width / 2, (top + bottom) / 2, fileDrag());
+    expect(await settledNewPages(page, opened)).toEqual([]);
+    await expect(page.locator("#miniName")).toHaveText(REFERENCE_FILE_NAME);
   });
 
   test("leaves text dropped into the demo filter to the filter", async ({ page }) => {

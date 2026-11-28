@@ -9,6 +9,7 @@ import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
 import { resetIcon } from "@brain-bbqs/ui";
 import { ChunkedSource } from "../lib/chunkedSource";
+import { carriesFiles, refuseStrayFileDrops } from "../lib/fileDrags";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { loadMediabunnyMetadata } from "../lib/mediabunnyMeta";
 import {
@@ -185,11 +186,6 @@ function resetToDropZone(els: AppElements): void {
   writeSrcToUrl(null);
 }
 
-/** Whether a drag holds files, as one from the desktop does, rather than a link or text. */
-function carriesFiles(e: DragEvent): boolean {
-  return e.dataTransfer?.types.includes("Files") ?? false;
-}
-
 async function pickFile(els: AppElements): Promise<File | null> {
   if (window.showOpenFilePicker) {
     try {
@@ -261,13 +257,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     const file = e.dataTransfer?.files[0];
     if (file) void loadFile(file);
   });
-  // A file that misses the zone would otherwise be opened by the browser itself, in a new tab or in
-  // place of the app. Files only, so text and links dropped into the page's inputs still land.
-  const refuseStrayFile = (e: DragEvent): void => {
-    if (carriesFiles(e)) e.preventDefault();
-  };
-  window.addEventListener("dragover", refuseStrayFile);
-  window.addEventListener("drop", refuseStrayFile);
+  refuseStrayFileDrops(window);
 
   // A shared link carries ?src=…, so open it the same way the URL box would have.
   const sharedSrc = readSrcFromUrl();

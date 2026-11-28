@@ -26,6 +26,7 @@ import {
   GOP_HISTOGRAM_CAPTION,
   SEEK_SCATTER_CAPTION,
 } from "../lib/explainers";
+import { refuseStrayFileDrops } from "../lib/fileDrags";
 import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import {
@@ -428,6 +429,10 @@ function mountPreview(frame: HTMLIFrameElement, html: string): void {
       e.preventDefault();
       doc.getElementById(link.getAttribute("href")!.slice(1))?.scrollIntoView();
     });
+    // A drag over the frame happens in its document and never reaches the app's window, so the
+    // guard there misses a file dropped on the preview. Added from here rather than written into the
+    // document, which is the same script-free file the Download button saves.
+    refuseStrayFileDrops(doc);
   });
   frame.srcdoc = html;
 }
