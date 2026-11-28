@@ -233,7 +233,7 @@ function rectDetail(rect: AtomRect, zoomable = true): string {
   if (rect.box !== null) {
     const role = BOX_ROLES[rect.box.type];
     const size = fmtSize(rect.box.size);
-    return `${rect.box.type}${role ? " — " + role : ""} · offset ${rect.box.start.toLocaleString()} · ${size}`;
+    return `${rect.box.type}${role ? ` (${role})` : ""} · offset ${rect.box.start.toLocaleString()} · ${size}`;
   }
   return (
     `${boxCount(rect.count)} in ${fmtSize(rect.byteEnd - rect.byteStart)} at offset ` +

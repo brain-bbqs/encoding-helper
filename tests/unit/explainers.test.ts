@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BitrateTimeline } from "../../src/lib/bitrateTimeline";
 import {
+  ANALYSIS_PANEL_INTRO,
   chromaSubsamplingExplainer,
   codecExplainer,
   constantBitrateNote,
@@ -111,7 +112,10 @@ describe("chromaSubsamplingExplainer", () => {
   it("spells out the likely format when the file states none", () => {
     const text = chromaSubsamplingExplainer(640, 480, null);
     expect(text.startsWith(intro)).toBe(true);
-    expect(text).toContain("This file does not state which it uses");
+    expect(text).toContain(
+      "This file does not state which it uses (the codec configuration carries no chroma field, and its " +
+        "profile allows more than one), but 4:2:0 is what nearly every delivery file is",
+    );
     expect(text).toContain("this file is already even in both");
   });
 
@@ -143,5 +147,15 @@ describe("chromaSubsamplingExplainer", () => {
     const text = chromaSubsamplingExplainer(641, 481, "4:4:4");
     expect(text.startsWith(intro)).toBe(true);
     expect(text).not.toContain("<p>");
+  });
+});
+
+describe("ANALYSIS_PANEL_INTRO", () => {
+  it("says what the document holds and which runs join it once they are run", () => {
+    expect(ANALYSIS_PANEL_INTRO).toContain(
+      "the <code>ffmpeg</code> command these settings produce. It holds results and plots only, with the " +
+        "teaching explainers left out. Runs that have to be started by hand (the seeking test, Compare " +
+        "Quality, an in-browser reencode) are added to it once you have run them",
+    );
   });
 });

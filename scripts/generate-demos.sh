@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Generate the demo set: a family of short videos derived from one
-# source recording, each varying exactly one thing the app surfaces —
+# source recording, each varying exactly one thing the app surfaces:
 # container and atom layout (faststart, fragmentation), codec and profile,
 # GOP/keyframe structure, B-frames, bitrate behaviour, track properties
 # (rotation, VFR, resolution, audio) and metadata tags. The non-MP4 containers
@@ -14,7 +14,7 @@
 #
 # The output is a BEP047 dataset (bids-standard/bids-specification#2231, the
 # convention clip-extractor writes): one subject, each variant its own session,
-# media under the beh/ datatype directory with the `_video` suffix —
+# media under the beh/ datatype directory with the `_video` suffix:
 #   dataset_description.json
 #   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.<ext>
 #   sub-01/ses-<label>/beh/sub-01_ses-<label>_video.json
@@ -25,11 +25,11 @@
 # Each video's sidecar carries BEP047's technical keys as ffprobe extracts
 # them (duration, frame rate/count, dimensions, pixel format, bit depth,
 # codec, RFC 6381 codec string where one can be determined) and the
-# Description of what the file demonstrates. The per-session demo detail — the
-# group, whether the app can currently load it (mp4box.js parses MP4/MOV
-# only), that same Description, and the ffmpeg arguments that made it — lives
+# Description of what the file demonstrates. The per-session demo detail lives
 # in dataset_description.json, namespaced under an "encoding-helper" key, so
-# one fetch of that file says what every demo in the set is.
+# one fetch of that file says what every demo in the set is: its group, whether
+# the app can currently load it (mp4box.js parses MP4/MOV only), that same
+# Description, and the ffmpeg arguments that made it.
 #
 # Usage: scripts/generate-demos.sh [-s source-video] [-o output-dir] [-h]
 #   -s  source video (default: scripts/data/Video_S1.m4v, fetched from the

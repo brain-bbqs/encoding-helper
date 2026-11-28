@@ -506,8 +506,8 @@ export function chromaSubsamplingExplainer(width: number, height: number, chroma
     `color sample, and this file is ${evenW && evenH ? "already even in both" : `${oddIn}, which an encoder must pad or crop before it can write yuv420p`}.</p>`;
   if (chroma === null) {
     return (
-      `${intro} <p>This file does not state which it uses — the codec configuration carries no chroma ` +
-      `field, and its profile allows more than one — but 4:2:0 is what nearly every delivery file is, ` +
+      `${intro} <p>This file does not state which it uses (the codec configuration carries no chroma ` +
+      `field, and its profile allows more than one), but 4:2:0 is what nearly every delivery file is, ` +
       `and what this app's own encodes write.</p>${even420}`
     );
   }
@@ -691,9 +691,9 @@ export const FRAME_RATE_INFO =
 /** What the Full Analysis tab gathers, what the buttons under it write, and what its two views show. */
 export const ANALYSIS_PANEL_INTRO =
   "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
-  "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +
-  "and plots only, with the teaching explainers left out. Runs that have to be started by hand — the seeking " +
-  "test, Compare Quality, an in-browser reencode — are added to it once you have run them, so run those " +
+  "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce. It holds " +
+  "results and plots only, with the teaching explainers left out. Runs that have to be started by hand (the " +
+  "seeking test, Compare Quality, an in-browser reencode) are added to it once you have run them, so run those " +
   "first if you want them in the document. " +
   "<p>Below is the document itself, not a preview of one: <b>Download HTML</b> writes exactly this, in a " +
   "single self-contained file with no external assets, and <b>Save as PDF</b> hands the same thing to the " +

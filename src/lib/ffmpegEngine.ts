@@ -328,7 +328,7 @@ function describeFfmpegFailure(err: unknown): string {
     return (
       `ffmpeg.wasm ran out of memory (${raw}). The core gets a fixed slice of the tab's memory, and ` +
       `x264 asks for more of it the larger the frame, the longer the segment and the slower the ` +
-      `preset — a smaller resolution, fewer or shorter segments, or a quicker preset usually gets ` +
+      `preset. A smaller resolution, fewer or shorter segments, or a quicker preset usually gets ` +
       `through. The command itself is sound: run it outside the browser for the exact result. The ` +
       `encoder has been reset, so the next run starts from a fresh core.`
     );
@@ -337,7 +337,7 @@ function describeFfmpegFailure(err: unknown): string {
   return (
     `ffmpeg.wasm crashed part-way through (${raw}). The in-browser core is a single-threaded build, ` +
     `and the slowest x264 presets ask far more of it than the faster ones; a quicker preset or a ` +
-    `shorter segment usually gets through. The command itself is sound — run it outside the browser ` +
+    `shorter segment usually gets through. The command itself is sound: run it outside the browser ` +
     `for the exact result. The encoder has been reset, so the next run starts from a fresh core.`
   );
 }

@@ -11,7 +11,7 @@
 #
 # THIS REWRITES EVERY COMMIT FROM THE ONE THAT ADDED THE FILE ONWARDS. New commit hashes mean every
 # existing clone, every unmerged branch and every open pull request is invalidated. So it is
-# deliberately not something a pull request can do — someone with force-push rights on the default
+# deliberately not something a pull request can do: someone with force-push rights on the default
 # branch has to run it once, with the rest of the work merged or parked first, and everyone else
 # re-clones afterwards.
 #

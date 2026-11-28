@@ -166,7 +166,7 @@ describe("renderMatrixTable", () => {
     const table = renderMatrixTable({ cells: held });
     const [button] = cellButtons(table);
     expect(button.title).toBe("");
-    expect(button.getAttribute("aria-label")).toBe("high (CRF 18), ultrafast — segment 58.6 KB");
+    expect(button.getAttribute("aria-label")).toBe("high (CRF 18), ultrafast: segment 58.6 KB");
     expect(button.querySelector(".matrix-sub")!.textContent).toBe("58.6 KB");
   });
 
@@ -195,6 +195,7 @@ describe("renderMatrixTable", () => {
     const table = renderMatrixTable({ cells: pending, onSelect: () => {} });
     const running = cellButtons(table)[2];
     expect(running.querySelector(".matrix-sub")!.textContent).toBe("encoding");
+    expect(running.getAttribute("aria-label")).toBe("low (CRF 32), ultrafast: encoding now");
     expect(running.disabled).toBe(true);
   });
 
@@ -206,6 +207,7 @@ describe("renderMatrixTable", () => {
     const table = renderMatrixTable({ cells: pending, onRetry: (c) => ran.push(c.combo.key) });
     const skipped = cellButtons(table)[3];
     expect(skipped.querySelector(".matrix-sub")!.textContent).toBe("run it");
+    expect(skipped.getAttribute("aria-label")).toBe("low (CRF 32), fast: not run. Click to encode it.");
     expect(skipped.disabled).toBe(false);
     skipped.click();
     expect(ran).toEqual([comboKey("low", "fast")]);
@@ -218,7 +220,7 @@ describe("renderMatrixTable", () => {
     const table = renderMatrixTable({ cells: failed });
     const button = cellButtons(table)[2];
     expect(button.classList.contains("failed")).toBe(true);
-    expect(button.title).toContain("ffmpeg.wasm crashed part-way through");
+    expect(button.title).toBe("low (CRF 32), ultrafast: ffmpeg.wasm crashed part-way through. Click to try it again.");
   });
 
   it("offers a failed square as a retry, and hands it back when clicked", () => {
