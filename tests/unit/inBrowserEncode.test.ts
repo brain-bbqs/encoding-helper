@@ -5,7 +5,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetCliDefaults } from "../fixtures/state";
 import { encoderBusy } from "../../src/lib/encoderRun";
-import { fmtSizeChangePct } from "../../src/lib/format";
 import { cli, resetState, state } from "../../src/lib/state";
 import type { VideoInfo } from "../../src/lib/types";
 import type { EngineBox } from "../../src/ui/formControls";
@@ -411,16 +410,16 @@ describe("showReencodeResult", () => {
     const b = box();
     showReencodeResult(b, 2_000_000, 500_000);
     const vals = Array.from(b.result.querySelectorAll(".val")).map((v) => v.textContent);
-    expect(vals).toEqual(["1.9 MB", "488.3 KB", "-75.0% (original 4.0× larger)"]);
+    expect(vals).toEqual(["1.9 MB", "488.3 KB", "-75% (original 4.0× larger)"]);
     expect(b.note.textContent).toBe("");
     expect(state.reencodeResult).toEqual({ originalSize: 2_000_000, encodedSize: 500_000 });
   });
 
-  it("leaves the factor off when there was no original size to divide by", () => {
+  // The change is a share of the original, so with nothing to take a share of there is no figure.
+  it("states no change when there was no original size to divide by", () => {
     const b = box();
     showReencodeResult(b, 0, 500);
     const change = Array.from(b.result.querySelectorAll(".val")).map((v) => v.textContent)[2];
-    expect(change).toBe(fmtSizeChangePct(0, 500));
-    expect(change).not.toContain("(");
+    expect(change).toBe("–");
   });
 });

@@ -1,10 +1,16 @@
 # Changelog
 
-## 1.5.18
+## 1.5.19
 
 #### 🐛 Bug Fix
 
 - Fixed sample progress stopping short, a late save dialog, a missing download notice, unclamped fields, URL file names, command output names and unknown fast-start badges ([#92](https://github.com/brain-bbqs/encoding-helper/pull/92))
+
+## 1.5.18
+
+#### 🐛 Bug Fix
+
+- Fixed the Full Analysis preview's sizing and links, its sweep table's missing frame rates, uneven number formats, unchecked seek counts, and keyframe-heavy files failing to load ([#91](https://github.com/brain-bbqs/encoding-helper/pull/91))
 
 ## 1.5.17
 

@@ -11,6 +11,7 @@ import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/q
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
+import { capArguments } from "./helpers/arguments";
 import { gridRows } from "./helpers/grid";
 
 const downloads: { name: string; text: string }[] = [];
@@ -67,6 +68,11 @@ function loadComparison(seconds: number, encodedSize: number | null): void {
   sampledEncode.encodedSize = encodedSize;
 }
 
+/** What the sweep's table is read by, under it in the HTML and after it in the Markdown. */
+const MATRIX_LEGEND =
+  "Each cell is the encoded segment size / the time the encode took; ★ marks the largest reduction " +
+  "once every combination has run.";
+
 function panel(): HTMLElement {
   const el = document.createElement("div");
   document.body.append(el);
@@ -86,6 +92,37 @@ function documentRows(el: HTMLElement, title: string): [string | null, string | 
   );
   if (!sec) throw new Error(`No "${title}" section in the document`);
   return gridRows(sec).map((row) => [row.label, row.value]);
+}
+
+/** The frame's own 1px border, top and bottom, which its border-box height includes. */
+const FRAME_BORDER_PX = 2;
+
+/**
+ * Loads the panel's preview frame with the document it was built from, laid out the way a browser
+ * would report it: the document is `layout.content` px tall however tall the frame is, and its root
+ * scrolls at least the frame's inner height, as a root element does. An unset height is the
+ * iframe's default of 150px. jsdom loads no srcdoc and lays nothing out, hence the stand-in.
+ */
+function loadPreview(
+  el: HTMLElement,
+  content: number,
+): { frame: HTMLIFrameElement; doc: Document; layout: { content: number } } {
+  const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
+  const doc = new DOMParser().parseFromString(frame.srcdoc, "text/html");
+  const layout = { content };
+  const outer = (): number => parseFloat(frame.style.height) || 150;
+  Object.defineProperties(frame, {
+    contentDocument: { value: doc, configurable: true },
+    offsetHeight: { get: outer, configurable: true },
+    clientHeight: { get: () => outer() - FRAME_BORDER_PX, configurable: true },
+  });
+  Object.defineProperty(doc.body, "scrollHeight", { get: () => layout.content, configurable: true });
+  Object.defineProperty(doc.documentElement, "scrollHeight", {
+    get: () => Math.max(layout.content, frame.clientHeight),
+    configurable: true,
+  });
+  frame.dispatchEvent(new Event("load"));
+  return { frame, doc, layout };
 }
 
 function clickButton(el: HTMLElement, label: string): void {
@@ -357,7 +394,24 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("## Compare Quality Matrix");
     expect(md).toContain("| Quality | ultrafast | fast |");
     // ★ marks the largest reduction, which is the smallest of the four.
-    expect(md.match(/★/g)).toHaveLength(1);
+    expect(md.match(/^\|.*★.*$/gm)).toEqual(["| low (CRF 32) | 78.1 KB / 4.2s | 68.4 KB / 4.2s ★ |"]);
+  });
+
+  // Nothing else in the document says what the second figure in a cell is, or what the star means.
+  it("explains the figures in a sweep's cells and its star under the table", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+
+    expect(markdown(el)).toContain("| high (CRF 18) | 58.6 KB ★ |\n\n_" + MATRIX_LEGEND + "_\n");
+    const doc = new DOMParser().parseFromString(documentHtml(el), "text/html");
+    const figure = doc.querySelector("#compare-quality-matrix figure")!;
+    expect(figure.querySelector("table.data")).not.toBeNull();
+    expect(figure.querySelector("figcaption")!.textContent).toBe(MATRIX_LEGEND);
   });
 
   // At the source resolution every kernel is the same encode, so a sweep over two kernels and a
@@ -379,9 +433,9 @@ describe("renderAnalysisTab", () => {
     ]);
   });
 
-  // The table has no rate column (NV-10 in docs/code-reviews/2026-11-22-code-quality-review.md), so a
-  // reduced rate's squares would repeat each quality's row with nothing to tell the copies apart.
-  it("prints a sweep's source-rate squares alone, one row per quality, when it also covered a reduced rate", () => {
+  // Each rate is an output of its own, as on the page, so a winner at a reduced rate is in the
+  // table, starred, rather than left out of the grid it was picked from.
+  it("tables every rate a sweep covered, naming the reduced ones", () => {
     const el = panel();
     loadClip();
     const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [null, 15]));
@@ -391,8 +445,54 @@ describe("renderAnalysisTab", () => {
     });
     sampledEncode.matrix.cells = cells;
     renderAnalysisTab(el);
-    const table = markdown(el).split("## Compare Quality Matrix")[1];
-    expect(table.match(/^\| high.*$/gm)).toEqual(["| high (CRF 18) | 58.6 KB |"]);
+    const md = markdown(el);
+
+    expect(md).toContain("| Output | Quality | fast |");
+    expect(md.match(/^\| 100%.*$/gm)).toEqual([
+      "| 100% | high (CRF 18) | 58.6 KB |",
+      "| 100%, 15 fps | high (CRF 18) | 48.8 KB ★ |",
+    ]);
+  });
+
+  it("names the rate of a sweep run at a reduced rate alone", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"], [1], ["lanczos"], [15]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    const md = markdown(el);
+
+    expect(md).toContain("| Output | Quality | fast |");
+    expect(md.match(/^\| 100%.*$/gm)).toEqual(["| 100%, 15 fps | high (CRF 18) | 58.6 KB ★ |"]);
+  });
+
+  // The page's figure for the same time, rather than seconds to a tenth however long it ran.
+  it("times a sweep's squares the way the page does", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    cells[0].elapsedMs = 95_000;
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| high (CRF 18) | 58.6 KB / 1m 35s ★ |");
+  });
+
+  // A failed square has run as far as it is going to, so it does not hold the ranking up.
+  it("stars the winner once every square has run, failed ones included", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["ultrafast", "fast"]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    cells[1].status = "failed";
+    cells[1].error = "out of memory";
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| high (CRF 18) | 58.6 KB ★ | – |");
   });
 
   it("leaves a sweep out while none of its squares have finished", () => {
@@ -412,7 +512,7 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("## In-Browser Reencode Result");
     expect(md).toContain("| Original Size | 1.9 MB |");
     expect(md).toContain("| Encoded Size | 976.6 KB |");
-    expect(md).toContain("| Change | -50.0% |");
+    expect(md).toContain("| Change | -50% |");
   });
 
   it("names the downloads after the file they describe", () => {
@@ -491,9 +591,11 @@ describe("renderAnalysisTab", () => {
       setEducationalEnabled(false);
       const off = write();
       expect(off).toEqual(on);
-      for (const mark of ['class="teach', 'class="info', "info-btn", "info-pop", "edu"]) {
+      for (const mark of ['class="teach', 'class="info', "info-btn", "info-pop"]) {
         expect(on.html).not.toContain(mark);
       }
+      // As a class: the word turns up inside others ("reduction").
+      expect(on.html).not.toMatch(/class="[^"]*\bedu\b/);
     } finally {
       setEducationalEnabled(true);
       vi.useRealTimers();
@@ -713,7 +815,9 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| 50% lanczos | high (CRF 18) | 87.9 KB ★ |");
   });
 
-  it("dashes the squares of a sweep that never finished, and drops the time of one not clocked", () => {
+  // Which square wins is a statement about the whole sweep, as the page has it: the smallest of
+  // the ones that happened to finish is not the answer the sweep was run for.
+  it("dashes the squares of a sweep that never finished, ranks none of them, and drops the time of one not clocked", () => {
     const el = panel();
     loadClip();
     const cells = makeMatrixCells(buildMatrixCombos(["high", "low"], ["ultrafast", "fast"]));
@@ -722,12 +826,28 @@ describe("renderAnalysisTab", () => {
       c.bytes = 100_000 - i * 10_000;
       c.elapsedMs = i === 0 ? null : 4200;
     });
+    cells[3].status = "skipped";
     sampledEncode.matrix.cells = cells;
     renderAnalysisTab(el);
     const md = markdown(el);
 
     expect(md).toContain("| high (CRF 18) | 97.7 KB | 87.9 KB / 4.2s |");
-    expect(md).toContain("| low (CRF 32) | 78.1 KB / 4.2s ★ | – |");
+    expect(md).toContain("| low (CRF 32) | 78.1 KB / 4.2s | – |");
+    expect(md.match(/^\|.*★.*$/gm)).toBeNull();
+  });
+
+  // As the page's own summary has it: fewer frames is a change the sizes alone do not show.
+  it("states the frame rate of a compared encode made at a rate of its own", () => {
+    const el = panel();
+    loadClip();
+    loadComparison(5, 100_000);
+    sampledEncode.activeCombo = { ...cliSettings(cli), fps: 10 };
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| Frame Rate | 20 fps → 10 fps |");
+
+    sampledEncode.activeCombo = { ...cliSettings(cli), fps: null };
+    renderAnalysisTab(el);
+    expect(documentRows(el, "Side-by-Side (A/B) Result").map(([label]) => label)).not.toContain("Frame Rate");
   });
 
   it("keeps the preview frame as tall as the document loaded into it", () => {
@@ -736,21 +856,82 @@ describe("renderAnalysisTab", () => {
     const el = panel();
     loadClip();
     renderAnalysisTab(el);
-    const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
-    const documentElement = { scrollHeight: 900 };
-    Object.defineProperty(frame, "contentDocument", {
-      value: { body: { scrollHeight: 1200 }, documentElement },
-      configurable: true,
-    });
+    const { frame, doc } = loadPreview(el, 1200);
 
-    frame.dispatchEvent(new Event("load"));
-    expect(frame.style.height).toBe("1200px");
+    expect(frame.clientHeight).toBe(1200);
     const [observer] = observers.instances;
-    expect(observer.observed).toEqual([documentElement]);
+    expect(observer.observed).toEqual([doc.documentElement]);
 
     // The next visit rebuilds the panel, and the observer watching the old frame goes with it.
     renderAnalysisTab(el);
     expect(observer.disconnected).toBe(true);
+  });
+
+  // The frame is border-box with a 1px border, so a height of exactly the document's leaves the
+  // document 2px short of room, and a scrollbar inside the frame.
+  it("makes the frame tall enough for the whole document inside its border", () => {
+    restoreObserver = installObserverStub("ResizeObserver").restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { frame } = loadPreview(el, 3000);
+    expect(frame.style.height).toBe("3002px");
+    expect(frame.clientHeight).toBe(3000);
+  });
+
+  // A root element's scrollHeight never drops below the frame's own height, so a frame measured at
+  // its old height could only ever grow, leaving blank page under a document that reflowed shorter.
+  it("shrinks the frame with a document that reflows shorter", () => {
+    const observers = installObserverStub("ResizeObserver");
+    restoreObserver = observers.restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { frame, layout } = loadPreview(el, 3000);
+
+    layout.content = 2000;
+    observers.instances[0].fire();
+    expect(frame.style.height).toBe("2002px");
+  });
+
+  // Loading again is what a navigation inside the frame does; the observer of the document it left
+  // has nothing left to watch.
+  it("drops the observer of the document the frame left when it loads another", () => {
+    const observers = installObserverStub("ResizeObserver");
+    restoreObserver = observers.restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { frame } = loadPreview(el, 3000);
+    frame.dispatchEvent(new Event("load"));
+
+    expect(observers.instances).toHaveLength(2);
+    expect(observers.instances[0].disconnected).toBe(true);
+    expect(observers.instances[1].disconnected).toBe(false);
+  });
+
+  // A srcdoc document resolves "#section" against the app's own address, so left to itself a
+  // Contents entry loads the app inside the frame instead of moving to the section.
+  it("moves to a section from the Contents without the frame leaving the document", () => {
+    restoreObserver = installObserverStub("ResizeObserver").restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { doc } = loadPreview(el, 3000);
+    const target = doc.getElementById("gop-keyframe-structure")!;
+    const scrolled = vi.fn();
+    target.scrollIntoView = scrolled;
+
+    const entry = doc.querySelector<HTMLAnchorElement>('.doc-toc a[href="#gop-keyframe-structure"]')!;
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    entry.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(scrolled).toHaveBeenCalledOnce();
+
+    // The app link opens a tab of its own, which is the browser's to do.
+    const away = new MouseEvent("click", { bubbles: true, cancelable: true });
+    doc.querySelector(".doc-meta a")!.dispatchEvent(away);
+    expect(away.defaultPrevented).toBe(false);
   });
 
   it("leaves the frame's height alone when it has no document to measure", () => {
@@ -819,6 +1000,21 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("**Uses B-frames (cts ≠ dts)**");
     expect(md).toContain("| Min / Max GOP | – |");
     expect(md).not.toContain("_Chart: GOP length per keyframe interval");
+  });
+
+  // An all-intra recording of an hour or so has more GOPs than Math.min or Math.max can take as the
+  // arguments a spread makes of them; the cap stands in for the engine's at a size a test can reach.
+  it("states the keyframe structure of a file with more GOPs than a call can take arguments", () => {
+    const restore = capArguments(1_000);
+    try {
+      const el = panel();
+      loadClip();
+      state.gopLengths = Array.from({ length: 5_000 }, (_, i) => (i % 7) + 1);
+      renderAnalysisTab(el);
+      expect(markdown(el)).toContain("| Min / Max GOP | 1 / 7 frames |");
+    } finally {
+      restore();
+    }
   });
 
   it("tables a single seek without the scatter plot two would make", () => {

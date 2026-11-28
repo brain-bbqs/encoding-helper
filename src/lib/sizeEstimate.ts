@@ -285,10 +285,14 @@ export function currentSizeEstimate(): SizeEstimate | null {
   return estimateForWindows(sampledEncode.windows, sampledEncode.encodedSize);
 }
 
-/** A percentage at a readable precision: tighter below 10%, where a whole point is a big relative move. */
+/**
+ * A percentage at a readable precision: tighter below 10%, where a whole point is a big relative
+ * move. Which side of 10% is decided on the figure as it prints, so 9.96% is "10%", not "10.0%".
+ */
 export function fmtPct(fraction: number): string {
   const pct = fraction * 100;
-  return (Math.abs(pct) < 10 ? pct.toFixed(1) : pct.toFixed(0)) + "%";
+  const tenths = pct.toFixed(1);
+  return (Math.abs(Number(tenths)) < 10 ? tenths : pct.toFixed(0)) + "%";
 }
 
 /** Under this the two sizes are the same number as far as anyone reading it is concerned. */
@@ -301,10 +305,16 @@ export function describeSavings(estimate: SizeEstimate): string {
   return saved > 0 ? `${fmtPct(saved)} smaller` : `${fmtPct(-saved)} larger`;
 }
 
-/** The change as a signed percentage, e.g. "-62%" or "+8.4%", for a numeric readout. */
-export function fmtSignedChange(estimate: SizeEstimate): string {
-  const change = estimate.ratio - 1;
-  return (change >= 0 ? "+" : "-") + fmtPct(Math.abs(change));
+/**
+ * An encoded-to-original size ratio as a signed percentage change, e.g. "-62%" or "+8.4%": the one
+ * form every signed size change in the app takes. A change that rounds to nothing reads "+0.0%",
+ * having no direction to show.
+ */
+export function fmtSignedChange(ratio: number): string {
+  if (!Number.isFinite(ratio)) return NO_VALUE;
+  const change = ratio - 1;
+  const magnitude = fmtPct(Math.abs(change));
+  return (change < 0 && parseFloat(magnitude) > 0 ? "-" : "+") + magnitude;
 }
 
 /**
@@ -325,7 +335,8 @@ export function fmtChangeFactor(ratio: number): string {
   if (Math.abs(ratio - 1) < NEGLIGIBLE) return "no size change";
   const inflating = ratio > 1;
   const factor = inflating ? ratio : 1 / ratio;
-  // A tenth is meaningful at 2.4× and noise at 24×, where the digits before the point carry it.
-  const digits = factor < 10 ? 1 : 0;
-  return `${inflating ? "encoded" : "original"} ${factor.toFixed(digits)}× larger`;
+  // A tenth is meaningful at 2.4× and noise at 24×, where the digits before the point carry it;
+  // decided on the figure as it prints, so 9.96× is "10×".
+  const tenths = factor.toFixed(1);
+  return `${inflating ? "encoded" : "original"} ${Number(tenths) < 10 ? tenths : factor.toFixed(0)}× larger`;
 }

@@ -7,11 +7,11 @@ import { errorMessage } from "@brain-bbqs/utils";
 import { button, h, svgEl } from "@brain-bbqs/ui";
 import { badgeEl, dataTable, factGrid, fold, gridItem, section, teachBox } from "../lib/dom";
 import { GOP_TEACH, SEEK_TEST_INTRO } from "../lib/explainers";
-import { FALLBACK_FPS, fmtMs } from "../lib/format";
+import { FALLBACK_FPS, fmtMs, NO_VALUE } from "../lib/format";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { nearestKeyframeAtOrBefore } from "../lib/mp4boxParser";
 import { downloadBlob } from "../lib/save";
-import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
+import { describeAvgGop, gopRange, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../lib/seekReport";
 import { state, stateGeneration } from "../lib/state";
 import type { Badge, FactRow, SeekResult } from "../lib/types";
 import { appendAxes, AXIS_STEPS, CHART_WIDTH } from "./chartAxes";
@@ -22,6 +22,21 @@ import { fieldNumber, progressBar } from "./formControls";
  * scatter a distribution rather than a handful of points, and still a run of a few seconds.
  */
 const DEFAULT_SEEK_SAMPLES = 100;
+
+/** The range the Sample Count field offers: enough points for a distribution, few enough to wait for. */
+const MIN_SEEK_SAMPLES = 5;
+const MAX_SEEK_SAMPLES = 200;
+
+/**
+ * The count typed into the field, held to the range it offers: its min and max bound the spinner,
+ * not what is typed. Read as a number, so "1e3" is a thousand (and then the maximum) rather than
+ * parseInt's 1; an empty field is the default.
+ */
+function sampleCount(input: HTMLInputElement): number {
+  const typed = parseFloat(input.value);
+  if (!Number.isFinite(typed)) return DEFAULT_SEEK_SAMPLES;
+  return Math.min(MAX_SEEK_SAMPLES, Math.max(MIN_SEEK_SAMPLES, Math.round(typed)));
+}
 
 // The card's title and the seeking test's, which the Full Analysis document heads its matching
 // sections with. They live here, with the card, rather than in analysisTab.ts, which imports this
@@ -38,7 +53,7 @@ export function bFramesBadge(): Badge {
 export function seekSummaryRows(results: SeekResult[]): FactRow[] {
   const { avgDist, avgDecode, maxDecode } = seekSummary(results);
   return [
-    { label: "Avg Keyframe Distance", value: avgDist.toFixed(3) + " s" },
+    { label: "Avg Keyframe Distance", value: avgDist != null ? avgDist.toFixed(3) + " s" : NO_VALUE },
     { label: "Avg Decode Time", value: fmtMs(avgDecode) },
     { label: "Max Decode Time", value: fmtMs(maxDecode) },
   ];
@@ -46,8 +61,7 @@ export function seekSummaryRows(results: SeekResult[]): FactRow[] {
 
 export function renderGopStructure(panel: HTMLElement): void {
   const { gop, avgGop, fps } = gopStats();
-  const minGop = gop.length ? Math.min(...gop) : 0;
-  const maxGop = gop.length ? Math.max(...gop) : 0;
+  const range = gopRange(gop);
 
   const sec = section(GOP_TITLE);
   const g = h("div", "grid");
@@ -55,7 +69,7 @@ export function renderGopStructure(panel: HTMLElement): void {
     gridItem("Total Frames", state.samples.length.toLocaleString()),
     gridItem("Keyframes", state.gopLengths.length.toLocaleString()),
     gridItem("Avg GOP", describeAvgGop(avgGop, fps)),
-    gridItem("Min / Max GOP", `${minGop} / ${maxGop} frames`),
+    gridItem("Min / Max GOP", `${range?.min ?? 0} / ${range?.max ?? 0} frames`),
   );
   sec.append(g);
   const bWrap = h("div");
@@ -75,7 +89,14 @@ export function renderGopStructure(panel: HTMLElement): void {
   sec.append(teachBox(SEEK_TEST_INTRO, "⏱️"));
   const controls = h("div", "row");
   controls.style.marginTop = "10px";
-  const { field: nField, input: nInput } = fieldNumber("seekN", "Sample Count", DEFAULT_SEEK_SAMPLES, 5, 200, 1);
+  const { field: nField, input: nInput } = fieldNumber(
+    "seekN",
+    "Sample Count",
+    DEFAULT_SEEK_SAMPLES,
+    MIN_SEEK_SAMPLES,
+    MAX_SEEK_SAMPLES,
+    1,
+  );
   controls.append(nField);
   sec.append(controls);
   const runBtn = button("btn", "Run Seeking Test");
@@ -90,7 +111,9 @@ export function renderGopStructure(panel: HTMLElement): void {
   panel.append(sec);
 
   runBtn.addEventListener("click", () => {
-    const n = parseInt(nInput.value, 10) || DEFAULT_SEEK_SAMPLES;
+    const n = sampleCount(nInput);
+    // Shows the count that runs, which is not what was typed when that was out of range.
+    nInput.value = String(n);
     void runSeekingTest(runBtn, seekProgress, seekFill, seekResultsWrap, n);
   });
 }
@@ -167,7 +190,7 @@ export const HIST_MIN_BAR_PX = 2;
  */
 export function renderGopHistogram(gopLengths: number[]): HTMLDivElement {
   const avgGop = gopLengths.reduce((a, b) => a + b, 0) / gopLengths.length;
-  const maxLen = Math.max(...gopLengths);
+  const maxLen = gopRange(gopLengths)?.max ?? 0;
   const hist = h("div", "hist");
   gopLengths.forEach((len) => {
     const bar = h("div", "bar" + (len > avgGop * 1.5 ? " tall" : ""));

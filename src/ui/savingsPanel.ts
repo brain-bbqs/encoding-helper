@@ -85,7 +85,7 @@ export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
       { sm: true },
     ),
     gridItem("Original Segment Size", fmtBytes(est.originalSegmentBytes)),
-    gridItem("Segment Change", `${fmtSignedChange(est)} (${fmtChangeFactor(est.ratio)})`),
+    gridItem("Segment Change", `${fmtSignedChange(est.ratio)} (${fmtChangeFactor(est.ratio)})`),
     h("div", "grid-break"),
     gridItem("Original File Size", fmtBytes(est.originalTotalBytes)),
     gridItem("Projected Full File", fmtBytes(est.projectedTotalBytes)),

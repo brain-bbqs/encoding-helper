@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { seekResult } from "../fixtures/seekResult";
-import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow, seekSummary } from "../../src/lib/seekReport";
+import {
+  describeAvgGop,
+  gopRange,
+  gopStats,
+  SEEK_TABLE_HEADERS,
+  seekResultRow,
+  seekSummary,
+} from "../../src/lib/seekReport";
 import { resetState, state } from "../../src/lib/state";
 
 describe("seekResultRow", () => {
@@ -33,6 +40,28 @@ describe("seekSummary", () => {
   it("counts a timestamp with no keyframe before it as no distance rather than skipping it", () => {
     const summary = seekSummary([seekResult({ dist: null, decodeMs: 10 }), seekResult({ dist: 1, decodeMs: 10 })]);
     expect(summary.avgDist).toBe(0.5);
+  });
+
+  // Nothing to average and no worst decode to name, rather than NaN and -Infinity.
+  it("has no figures for a run with no timestamps in it", () => {
+    expect(seekSummary([])).toEqual({ avgDist: null, avgDecode: null, maxDecode: null });
+  });
+});
+
+describe("gopRange", () => {
+  it("finds the shortest and the longest GOP", () => {
+    expect(gopRange([30, 12, 90, 30])).toEqual({ min: 12, max: 90 });
+  });
+
+  it("has no range for a file with no GOPs", () => {
+    expect(gopRange([])).toBeNull();
+  });
+
+  // One entry per keyframe: an all-intra recording of an hour or so has more than a call can take
+  // as arguments, which is what a spread into Math.min and Math.max would make of them.
+  it("takes a file with a million keyframes", () => {
+    const gop = Array.from({ length: 1_000_000 }, (_, i) => (i % 7) + 1);
+    expect(gopRange(gop)).toEqual({ min: 1, max: 7 });
   });
 });
 

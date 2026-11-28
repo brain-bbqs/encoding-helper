@@ -1,5 +1,0 @@
-{
-  "permissions": {
-    "deny": ["mcp__github__issue_write"]
-  }
-}
