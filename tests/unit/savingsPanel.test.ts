@@ -116,6 +116,35 @@ describe("renderSavingsDetail", () => {
     expect(detail(est).textContent).toContain("Projected Range");
   });
 
+  // What was measured on one line, what it projects to on the next, in the order the estimate is
+  // arrived at.
+  it("breaks the figures into what was measured and what it projects to", () => {
+    const samples = evenSamples(300, 10, (_, ctsSec) => (ctsSec < 1 ? 2000 : 1000));
+    const est = estimateSizeSavings({
+      originalTotalBytes: 330_000,
+      totalSeconds: 10,
+      segmentStartSeconds: 0,
+      segmentSeconds: 1,
+      encodedSegmentBytes: 30_000,
+      samples,
+    })!;
+    const grid = detail(est).querySelector(".grid")!;
+    const cells = Array.from(grid.children).map((el) =>
+      el.classList.contains("grid-break")
+        ? "break"
+        : `${el.querySelector("label")!.textContent}:${el.querySelector(".val")!.className}`,
+    );
+    expect(cells).toEqual([
+      "Sampled:val sm",
+      "Original Segment Size:val",
+      "Segment Change:val",
+      "break",
+      "Original File Size:val",
+      "Projected Full File:val",
+      "Projected Range:val sm",
+    ]);
+  });
+
   // The figures are the card: no prose under them, and no ⓘ on them either.
   it("states the numbers and nothing else", () => {
     const block = detail(estimate(50_000));

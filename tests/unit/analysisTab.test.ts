@@ -8,9 +8,15 @@ import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { setEducationalEnabled } from "../../src/lib/educational";
 import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/qualityMatrix";
+import { currentSizeEstimate } from "../../src/lib/sizeEstimate";
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
+import { renderBitrateTimelineSection, renderInspectHead } from "../../src/ui/inspectTab";
+import { showReencodeResult } from "../../src/ui/inBrowserEncode";
+import type { EngineBox } from "../../src/ui/formControls";
+import { renderSavingsDetail } from "../../src/ui/savingsPanel";
+import { renderGopStructure } from "../../src/ui/seekTab";
 import { capArguments } from "./helpers/arguments";
 import { gridRows } from "./helpers/grid";
 
@@ -214,11 +220,11 @@ describe("renderAnalysisTab", () => {
     expect(titles).toEqual([
       "## Video Container Overview: MP4",
       "## Video Track",
-      "## MP4 Atom Map",
+      "## MP4 Box / Atom Structure",
       "## GOP / Keyframe Structure",
       "## Video Bitrate Over Time",
       "## Audio Track",
-      "## Reencode CLI Command",
+      "## FFmpeg Command Builder",
     ]);
   });
 
@@ -242,7 +248,7 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("## Video Track");
     expect(md).not.toContain("## Audio Track");
     // Nor the command, which has no resolution to build one from.
-    expect(md).not.toContain("## Reencode CLI Command");
+    expect(md).not.toContain("## FFmpeg Command Builder");
   });
 
   it("states the results the tabs worked out", () => {
@@ -367,6 +373,23 @@ describe("renderAnalysisTab", () => {
     // Every 5 s window of the clip costs the same, so the band is the narrowest allowed: 3% either side.
     expect(md).toContain("| Projected Range | 568.4 KB – 603.5 KB |");
     expect(md).toContain("| Projected Saving | 70% smaller (≈ 1.3 MB saved) |");
+  });
+
+  // The A/B window's detail block and the document's rows are one list, the document's own
+  // Projected Saving after them in place of the page's headline.
+  it("states the estimate behind an A/B result as the A/B window's detail does", () => {
+    const el = panel();
+    loadClip();
+    loadComparison(5, 100_000);
+    renderAnalysisTab(el);
+    const detail = document.createElement("div");
+    detail.append(...renderSavingsDetail(currentSizeEstimate()!));
+    const pageRows = gridRows(detail).map((row) => [row.label, row.value]);
+    const rows = documentRows(el, "Side-by-Side (A/B) Result");
+    const from = rows.findIndex(([label]) => label === "Sampled");
+
+    expect(markdown(el)).toContain("| Sampled | 5.000 s of 30.000 s (17%) |");
+    expect(rows.slice(from)).toEqual([...pageRows, ["Projected Saving", "70% smaller (≈ 1.3 MB saved)"]]);
   });
 
   it("names the winning square's settings, not the builder's, after a sweep", () => {
@@ -512,7 +535,40 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("## In-Browser Reencode Result");
     expect(md).toContain("| Original Size | 1.9 MB |");
     expect(md).toContain("| Encoded Size | 976.6 KB |");
-    expect(md).toContain("| Change | -50% |");
+    expect(md).toContain("| Change | -50% (original 2.0× larger) |");
+  });
+
+  // The rows the Reencode tab shows under its whole-file run, the factor included.
+  it("reports an in-browser reencode's result exactly as the Reencode tab does", () => {
+    for (const [originalSize, encodedSize] of [
+      [2_000_000, 500_000],
+      [0, 500],
+    ]) {
+      const el = panel();
+      loadClip();
+      renderAnalysisTab(el);
+      const box = {
+        note: document.createElement("div"),
+        result: document.createElement("div"),
+      } as unknown as EngineBox;
+      showReencodeResult(box, originalSize, encodedSize);
+      renderAnalysisTab(el);
+      const pageRows = gridRows(box.result).map((row) => [row.label, row.value]);
+      expect(documentRows(el, "In-Browser Reencode Result")).toEqual(pageRows);
+    }
+  });
+
+  // Named as the tab names the run: an MP4 comes back an MP4, reencoded, and any other source comes
+  // back in another container, transcoded.
+  it("calls a whole-file encode of a non-MP4 source a transcode, as the Reencode tab does", () => {
+    const el = panel();
+    loadClip();
+    state.format = "QuickTime File Format";
+    state.reencodeResult = { originalSize: 2_000_000, encodedSize: 1_000_000 };
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("## In-Browser Transcode Result");
+    expect(md).not.toContain("Reencode Result");
   });
 
   it("names the downloads after the file they describe", () => {
@@ -645,6 +701,65 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| HDR | Yes |");
   });
 
+  // The page's Video Track card and the document's section are one list of rows, so a figure the
+  // card states is never missing from the saved copy.
+  it("lists the video track's rows exactly as the Inspect card does, chroma included", () => {
+    const el = panel();
+    loadClip({
+      tracks: [
+        {
+          ...VIDEO_TRACK,
+          displayWidth: 853,
+          rotation: 90,
+          codecInfo: {
+            family: "H.264",
+            fullName: "Advanced Video Coding",
+            year: 2003,
+            description: "The most widely supported video codec.",
+            details: [{ label: "Profile", value: "High" }],
+          },
+          chroma: "4:2:2",
+          colorSpace: { primaries: "bt709", transfer: "bt709", matrix: "bt709" },
+          hdr: true,
+        },
+      ],
+    });
+    renderAnalysisTab(el);
+    const card = document.createElement("div");
+    renderInspectHead(card);
+    const videoCard = Array.from(card.querySelectorAll(".section")).find(
+      (s) => s.querySelector("h2")?.textContent === "Video Track",
+    )!;
+
+    expect(markdown(el)).toContain("| Chroma | 4:2:2 |");
+    expect(documentRows(el, "Video Track")).toEqual(gridRows(videoCard).map((row) => [row.label, row.value]));
+    expect(documentRows(el, "Video Track").map(([label]) => label)).toEqual([
+      "Codec",
+      "Resolution",
+      "Display Size",
+      "Frame Rate",
+      "Frames",
+      "Rotation",
+      "Profile",
+      "Chroma",
+      "Color Space",
+      "HDR",
+    ]);
+  });
+
+  // The Inspect tab has no card for a track whose coded size it cannot read, and the document no
+  // section of ?×? placeholders in its place.
+  it("leaves the video track section out when the track's coded size is unknown, as the page does", () => {
+    const el = panel();
+    loadClip({ tracks: [{ ...VIDEO_TRACK, codedWidth: undefined, codedHeight: undefined }, AUDIO_TRACK] });
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).not.toContain("## Video Track");
+    expect(md).not.toContain("| Resolution | ?×? |");
+    // The rest of what the track says still has its sections.
+    expect(md).toContain("## Video Bitrate Over Time");
+  });
+
   // A track shown at the size it is coded at needs no second size; one stretched to another (non-square
   // pixels) gets a row saying what it is shown at.
   it("states the display size only when it differs from the coded one", () => {
@@ -704,13 +819,23 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("| Declared Bitrate |");
   });
 
-  it("states a constant declaration under the bitrate heading when there are too few frames to test it", () => {
+  it("states the confirmed constant declaration exactly as the Inspect card does", () => {
+    const el = panel();
+    loadClip();
+    state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
+    renderAnalysisTab(el);
+    const pageRows = gridRows(renderBitrateTimelineSection()!).map((row) => [row.label, row.value]);
+    expect(documentRows(el, "Video Bitrate Over Time")).toEqual(pageRows);
+  });
+
+  // Too few frames to window cannot bear a declaration out, so it is not taken over the average.
+  it("falls back to the track average over a constant declaration when there are too few frames to test it", () => {
     const el = panel();
     loadClip();
     state.samples = evenSamples(3, 30, 1000, (i) => i === 0);
     state.declaredVideoBitrate = { avgBitrate: 160_000, maxBitrate: 160_000 };
     renderAnalysisTab(el);
-    expect(documentRows(el, "Video Bitrate Over Time")).toEqual([["Declared Bitrate", "160 kbps"]]);
+    expect(documentRows(el, "Video Bitrate Over Time")).toEqual([["Average", "500 kbps"]]);
   });
 
   it("falls back to the track average when there are too few frames to bin", () => {
@@ -731,7 +856,7 @@ describe("renderAnalysisTab", () => {
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).not.toContain("## GOP / Keyframe Structure");
-    expect(md).not.toContain("## MP4 Atom Map");
+    expect(md).not.toContain("## MP4 Box / Atom Structure");
     expect(md).toContain("## Video Bitrate Over Time");
   });
 
@@ -998,8 +1123,23 @@ describe("renderAnalysisTab", () => {
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).toContain("**Uses B-frames (cts ≠ dts)**");
+    expect(md).toContain("| Avg GOP | – |");
     expect(md).toContain("| Min / Max GOP | – |");
     expect(md).not.toContain("_Chart: GOP length per keyframe interval");
+  });
+
+  // One list of rows for the GOP card and the document's section, with GOPs measured and without.
+  it("states the keyframe structure exactly as the Inspect card does", () => {
+    for (const gopLengths of [[20, 40, 30], []]) {
+      const el = panel();
+      loadClip();
+      state.gopLengths = gopLengths;
+      renderAnalysisTab(el);
+      const card = document.createElement("div");
+      renderGopStructure(card);
+      const pageRows = gridRows(card.querySelector(".section > .grid")!).map((row) => [row.label, row.value]);
+      expect(documentRows(el, "GOP / Keyframe Structure")).toEqual(pageRows);
+    }
   });
 
   // An all-intra recording of an hour or so has more GOPs than Math.min or Math.max can take as the

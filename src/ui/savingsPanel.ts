@@ -9,9 +9,10 @@
 
 import { fmtBytes } from "@brain-bbqs/utils";
 import { h } from "@brain-bbqs/ui";
-import { gridItem } from "../lib/dom";
+import { factItem } from "../lib/dom";
 import { fmtDur } from "../lib/format";
 import { describeSavings, fmtChangeFactor, fmtPct, fmtSignedChange, type SizeEstimate } from "../lib/sizeEstimate";
+import type { FactRow } from "../lib/types";
 
 /** One bar on the shared scale, optionally carrying the band its value could land anywhere in. */
 export function savingsBar(
@@ -69,34 +70,46 @@ export function renderSavingsStrip(est: SizeEstimate): HTMLDivElement {
 }
 
 /**
+ * The numbers behind the headline, which the Full Analysis document states as well, in the order the
+ * estimate is arrived at: what was measured, then what it projects to.
+ */
+export function savingsDetailRows(est: SizeEstimate): { measured: FactRow[]; projected: FactRow[] } {
+  const projected: FactRow[] = [
+    { label: "Original File Size", value: fmtBytes(est.originalTotalBytes) },
+    { label: "Projected Full File", value: fmtBytes(est.projectedTotalBytes) },
+  ];
+  if (est.projectedRange) {
+    projected.push({
+      label: "Projected Range",
+      value: `${fmtBytes(est.projectedRange.low)} – ${fmtBytes(est.projectedRange.high)}`,
+      sm: true,
+    });
+  }
+  return {
+    measured: [
+      {
+        label: "Sampled",
+        value:
+          `${fmtDur(est.segmentSeconds)} of ${fmtDur(est.totalSeconds)} (${fmtPct(est.sampledFraction)})` +
+          (est.windowCount > 1 ? `, in ${est.windowCount} places` : ""),
+        sm: true,
+      },
+      { label: "Original Segment Size", value: fmtBytes(est.originalSegmentBytes) },
+      { label: "Segment Change", value: `${fmtSignedChange(est.ratio)} (${fmtChangeFactor(est.ratio)})` },
+    ],
+    projected,
+  };
+}
+
+/**
  * The numbers behind the headline, as figures alone: how the estimate is arrived at, and where it
  * can be wrong, is not spelled out in prose under them.
  */
 export function renderSavingsDetail(est: SizeEstimate): HTMLElement[] {
+  const { measured, projected } = savingsDetailRows(est);
   const g = h("div", "grid");
-  // Two lines, in the order the estimate is arrived at: what was measured, then what it projects to.
-  // Six figures never fit one line anyway, so the break is put where it means something rather than
-  // wherever the last card stopped fitting.
-  g.append(
-    gridItem(
-      "Sampled",
-      `${fmtDur(est.segmentSeconds)} of ${fmtDur(est.totalSeconds)} (${fmtPct(est.sampledFraction)})` +
-        (est.windowCount > 1 ? `, in ${est.windowCount} places` : ""),
-      { sm: true },
-    ),
-    gridItem("Original Segment Size", fmtBytes(est.originalSegmentBytes)),
-    gridItem("Segment Change", `${fmtSignedChange(est.ratio)} (${fmtChangeFactor(est.ratio)})`),
-    h("div", "grid-break"),
-    gridItem("Original File Size", fmtBytes(est.originalTotalBytes)),
-    gridItem("Projected Full File", fmtBytes(est.projectedTotalBytes)),
-  );
-  if (est.projectedRange) {
-    g.append(
-      gridItem("Projected Range", `${fmtBytes(est.projectedRange.low)} – ${fmtBytes(est.projectedRange.high)}`, {
-        sm: true,
-      }),
-    );
-  }
-
+  // Two lines, one per group. Six figures never fit one line anyway, so the break is put where it
+  // means something rather than wherever the last card stopped fitting.
+  g.append(...measured.map(factItem), h("div", "grid-break"), ...projected.map(factItem));
   return [h("h3", null, "Estimate Detail"), g];
 }

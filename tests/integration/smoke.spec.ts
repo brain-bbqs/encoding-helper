@@ -107,13 +107,13 @@ test.describe("Encoding Helper shell", () => {
     // tree, so a box missing there is a box the reader never sees.
     await page.locator(".tab-action").click();
     const doc = page.frameLocator("#analysisDoc");
-    await expect(doc.locator("#mp4-atom-map .atom-block")).toHaveCount(drawn);
-    await expect(doc.locator("#mp4-atom-map .atom-legend")).toBeVisible();
-    await expect(doc.locator("#mp4-atom-map .atom-block", { hasText: "mdat" })).toHaveCount(1);
+    await expect(doc.locator("#mp4-box-atom-structure .atom-block")).toHaveCount(drawn);
+    await expect(doc.locator("#mp4-box-atom-structure .atom-legend")).toBeVisible();
+    await expect(doc.locator("#mp4-box-atom-structure .atom-block", { hasText: "mdat" })).toHaveCount(1);
     // Labels were sized when it was built, since the document runs no script to measure itself.
-    await expect(doc.locator("#mp4-atom-map .atom-block.wide").first()).toBeVisible();
+    await expect(doc.locator("#mp4-box-atom-structure .atom-block.wide").first()).toBeVisible();
     // Offsets and sizes travel on the blocks themselves now that no text listing repeats them.
-    await expect(doc.locator("#mp4-atom-map .atom-block").first()).toHaveAttribute("title", /offset 0/);
+    await expect(doc.locator("#mp4-box-atom-structure .atom-block").first()).toHaveAttribute("title", /offset 0/);
   });
 
   test("bundles the whole analysis into one document behind the Full Analysis button", async ({ page }) => {
@@ -144,9 +144,9 @@ test.describe("Encoding Helper shell", () => {
       "Video Container Overview",
       "Video Track",
       "Video Bitrate Over Time",
-      "MP4 Atom Map",
+      "MP4 Box / Atom Structure",
       "GOP / Keyframe Structure",
-      "Reencode CLI Command",
+      "FFmpeg Command Builder",
     ]) {
       await expect(doc.locator(".section h2", { hasText: title })).toBeVisible();
     }
@@ -278,13 +278,13 @@ test.describe("Encoding Helper shell", () => {
 
     // A Contents entry brings its section into view, with the document still in the frame.
     await page.evaluate(() => window.scrollTo(0, 0));
-    await doc.locator('.doc-toc a[href="#mp4-atom-map"]').click();
+    await doc.locator('.doc-toc a[href="#mp4-box-atom-structure"]').click();
     await expect
       .poll(() =>
         frame.evaluate(
           (f: HTMLIFrameElement) =>
             f.getBoundingClientRect().top +
-            f.contentDocument!.querySelector("#mp4-atom-map h2")!.getBoundingClientRect().top,
+            f.contentDocument!.querySelector("#mp4-box-atom-structure h2")!.getBoundingClientRect().top,
         ),
       )
       .toBeLessThan(100);

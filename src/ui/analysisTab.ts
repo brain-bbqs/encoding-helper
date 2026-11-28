@@ -26,7 +26,7 @@ import {
   GOP_HISTOGRAM_CAPTION,
   SEEK_SCATTER_CAPTION,
 } from "../lib/explainers";
-import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
+import { describeFrameRate, fmtDur, NO_VALUE } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import {
   bestReductionCell,
@@ -41,14 +41,17 @@ import {
   type MatrixOutput,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
-import { describeAvgGop, gopRange, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
-import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
+import { SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
+import { currentSizeEstimate, describeSavings } from "../lib/sizeEstimate";
 import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/types";
-import { faststartBadge, renderStaticAtomMap } from "./atomsTab";
+import { ATOM_MAP_TITLE, faststartBadge, renderStaticAtomMap } from "./atomsTab";
 import { compareSummaryRows } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
+import { COMMAND_BUILDER_TITLE } from "./encodeTab";
+import { wholeFileResultRows, wholeFileResultTitle } from "./inBrowserEncode";
 import { fmtElapsed } from "./matrixPanel";
+import { savingsDetailRows } from "./savingsPanel";
 import {
   AUDIO_TRACK_TITLE,
   audioTrackRows,
@@ -56,15 +59,19 @@ import {
   bitrateShape,
   bitrateTimelineRows,
   codecLabel,
+  declaredBitrateRow,
   flattenMetadataTags,
+  hasCodedSize,
   METADATA_TAGS_TITLE,
   overviewRows,
   overviewTitle,
   trackAverageRow,
   VIDEO_TRACK_TITLE,
+  videoTrackRows,
 } from "./inspectTab";
 import {
   bFramesBadge,
+  gopRows,
   GOP_TITLE,
   renderGopHistogram,
   renderSeekScatter,
@@ -114,32 +121,16 @@ function overviewSection(): AnalysisSection {
   return { title: overviewTitle(), blocks: [{ kind: "kv", items: kvItems(overviewRows()) }] };
 }
 
-function videoTrackSection(vt: TrackInfo): AnalysisSection {
-  // No Bitrate item: the track average heads the bitrate section below, with the plot the single
-  // number cannot draw, the same split the Inspect tab makes.
-  const items: [string, string | number][] = [
-    ["Codec", codecLabel(vt)],
-    ["Resolution", `${vt.codedWidth ?? "?"}×${vt.codedHeight ?? "?"}`],
-  ];
-  if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
-    items.push(["Display Size", `${vt.displayWidth ?? "?"}×${vt.displayHeight ?? "?"}`]);
-  }
-  items.push(["Frame Rate", describeFrameRate(vt.packetRate)], ["Frames", describeFrameCount(state.samples.length)]);
-  if (vt.rotation) items.push(["Rotation", vt.rotation + "°"]);
-  if (vt.codecInfo) vt.codecInfo.details.forEach((d) => items.push([d.label, d.value]));
-  if (vt.colorSpace) items.push(["Color Space", describeColorSpace(vt.colorSpace)]);
-  if (vt.hdr) items.push(["HDR", "Yes"]);
-  return { title: VIDEO_TRACK_TITLE, blocks: [{ kind: "kv", items }] };
+function videoTrackSection(vt: TrackInfo): AnalysisSection | null {
+  if (!hasCodedSize(vt)) return null;
+  return { title: VIDEO_TRACK_TITLE, blocks: [{ kind: "kv", items: kvItems(videoTrackRows(vt)) }] };
 }
 
 /** Mirrors the Inspect tab's card, including the two cases where there is no plot to draw. */
 function bitrateSection(vt: TrackInfo): AnalysisSection {
   const shape = bitrateShape();
   if (shape.kind === "declared") {
-    return {
-      title: BITRATE_TITLE,
-      blocks: [{ kind: "kv", items: [["Declared Bitrate", fmtBits(shape.declared.avgBitrate)]] }],
-    };
+    return { title: BITRATE_TITLE, blocks: [{ kind: "kv", items: kvItems([declaredBitrateRow(shape.declared)]) }] };
   }
   if (shape.kind === "average") {
     return { title: BITRATE_TITLE, blocks: [{ kind: "kv", items: kvItems([trackAverageRow(vt)]) }] };
@@ -189,7 +180,7 @@ function atomMapSection(): AnalysisSection | null {
   const map = renderStaticAtomMap(state.boxes, DOCUMENT_WIDTH_PX);
   if (!map) return null;
   return {
-    title: "MP4 Atom Map",
+    title: ATOM_MAP_TITLE,
     blocks: [
       { kind: "badge", ...faststartBadge() },
       { kind: "figure", caption: ATOM_MAP_DOC_CAPTION, element: map },
@@ -199,18 +190,9 @@ function atomMapSection(): AnalysisSection | null {
 
 function gopSection(): AnalysisSection | null {
   if (!state.samples.length) return null;
-  const { gop, avgGop, fps } = gopStats();
-  const range = gopRange(gop);
+  const gop = state.gopLengths;
   const blocks: AnalysisBlock[] = [
-    {
-      kind: "kv",
-      items: [
-        ["Total Frames", state.samples.length.toLocaleString()],
-        ["Keyframes", state.gopLengths.length.toLocaleString()],
-        ["Avg GOP", describeAvgGop(avgGop, fps)],
-        ["Min / Max GOP", range ? `${range.min} / ${range.max} frames` : NO_VALUE],
-      ],
-    },
+    { kind: "kv", items: kvItems(gopRows()) },
     { kind: "badge", ...bFramesBadge() },
   ];
   if (gop.length > 1) {
@@ -242,7 +224,7 @@ function cliCommandSection(): AnalysisSection | null {
   const info = currentVideoInfo();
   if (!info) return null;
   return {
-    title: "Reencode CLI Command",
+    title: COMMAND_BUILDER_TITLE,
     blocks: [
       {
         kind: "code",
@@ -270,15 +252,10 @@ function compareSection(): AnalysisSection | null {
 
   const est = currentSizeEstimate();
   if (est) {
-    items.push(
-      ["Original Segment Size", fmtBytes(est.originalSegmentBytes)],
-      ["Segment Change", `${fmtSignedChange(est.ratio)} (${fmtChangeFactor(est.ratio)})`],
-      ["Original File Size", fmtBytes(est.originalTotalBytes)],
-      ["Projected Full File", fmtBytes(est.projectedTotalBytes)],
-    );
-    if (est.projectedRange) {
-      items.push(["Projected Range", `${fmtBytes(est.projectedRange.low)} – ${fmtBytes(est.projectedRange.high)}`]);
-    }
+    const { measured, projected } = savingsDetailRows(est);
+    items.push(...kvItems([...measured, ...projected]));
+    // The page gives the saving as the headline over its panes; a document has no headline strip,
+    // so it is the last row instead.
     items.push([
       "Projected Saving",
       `${describeSavings(est)} (≈ ${fmtBytes(Math.abs(est.projectedSavedBytes))} ` +
@@ -353,17 +330,8 @@ function reencodeSection(): AnalysisSection | null {
   const result = state.reencodeResult;
   if (!result) return null;
   return {
-    title: "In-Browser Reencode Result",
-    blocks: [
-      {
-        kind: "kv",
-        items: [
-          ["Original Size", fmtBytes(result.originalSize)],
-          ["Encoded Size", fmtBytes(result.encodedSize)],
-          ["Change", fmtSignedChange(result.encodedSize / result.originalSize)],
-        ],
-      },
-    ],
+    title: wholeFileResultTitle(),
+    blocks: [{ kind: "kv", items: kvItems(wholeFileResultRows(result)) }],
   };
 }
 

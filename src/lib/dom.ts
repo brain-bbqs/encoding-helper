@@ -36,10 +36,15 @@ export function gridItem(label: string, value: string | number, opts: GridItemOp
   return d;
 }
 
-/** A card's shared rows as its grid, each with the hints the card gave it. */
+/** One of a card's shared rows as a grid item, with the hints the card gave it. */
+export function factItem(row: FactRow): HTMLDivElement {
+  return gridItem(row.label, row.value, { sm: row.sm, info: row.info });
+}
+
+/** A card's shared rows as its grid. */
 export function factGrid(rows: FactRow[]): HTMLDivElement {
   const grid = h("div", "grid");
-  grid.append(...rows.map((row) => gridItem(row.label, row.value, { sm: row.sm, info: row.info })));
+  grid.append(...rows.map(factItem));
   return grid;
 }
 

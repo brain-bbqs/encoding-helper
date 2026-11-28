@@ -147,35 +147,48 @@ function renderOverviewSection(): HTMLDivElement {
   return overview;
 }
 
+/** A track whose coded size the file states. */
+type SizedTrack = TrackInfo & { codedWidth: number; codedHeight: number };
+
+/**
+ * Whether the track gets a Video Track card, on the page and in the document alike: not for one
+ * whose coded size is unknown, which would be a card of ?×? placeholders.
+ */
+export function hasCodedSize(vt: TrackInfo): vt is SizedTrack {
+  return vt.codedWidth != null && vt.codedHeight != null;
+}
+
+/** The Video Track card's figures, which the Full Analysis document states as well. */
+export function videoTrackRows(vt: SizedTrack): FactRow[] {
+  const rows: FactRow[] = [
+    { label: "Codec", value: codecLabel(vt), sm: true },
+    { label: "Resolution", value: `${vt.codedWidth}×${vt.codedHeight}` },
+  ];
+  if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
+    rows.push({ label: "Display Size", value: `${vt.displayWidth ?? "?"}×${vt.displayHeight ?? "?"}` });
+  }
+  // No Bitrate row: the track's average heads the Video Bitrate Over Time card below, alongside
+  // the peak and the spread the single number cannot show.
+  rows.push(
+    { label: "Frame Rate", value: describeFrameRate(vt.packetRate) },
+    { label: "Frames", value: describeFrameCount(state.samples.length) },
+  );
+  if (vt.rotation) rows.push({ label: "Rotation", value: vt.rotation + "°" });
+  if (vt.codecInfo) vt.codecInfo.details.forEach((d) => rows.push({ label: d.label, value: d.value }));
+  // Read out of the file rather than assumed, so it sits with the other figures; the page's teach
+  // box explains what it means (and says nothing about this file when it states nothing).
+  if (vt.chroma) rows.push({ label: "Chroma", value: vt.chroma, sm: true });
+  if (vt.colorSpace) rows.push({ label: "Color Space", value: describeColorSpace(vt.colorSpace), sm: true });
+  if (vt.hdr) rows.push({ label: "HDR", value: "Yes" });
+  return rows;
+}
+
 function renderVideoTrackSection(): HTMLDivElement | null {
   const vt = videoTrackInfo();
-  if (!vt || vt.codedWidth == null || vt.codedHeight == null) return null;
+  if (!vt || !hasCodedSize(vt)) return null;
 
   const sec = section(VIDEO_TRACK_TITLE);
-  const g = h("div", "grid");
-  g.append(
-    gridItem("Codec", codecLabel(vt), { sm: true }),
-    gridItem("Resolution", `${vt.codedWidth}×${vt.codedHeight}`),
-  );
-  if (vt.displayWidth !== vt.codedWidth || vt.displayHeight !== vt.codedHeight) {
-    g.append(gridItem("Display Size", `${vt.displayWidth}×${vt.displayHeight}`));
-  }
-  // No Bitrate item: the track's average heads the Video Bitrate Over Time card below, alongside
-  // the peak and the spread the single number cannot show.
-  g.append(
-    gridItem("Frame Rate", describeFrameRate(vt.packetRate)),
-    gridItem("Frames", describeFrameCount(state.samples.length)),
-  );
-  if (vt.rotation) g.append(gridItem("Rotation", vt.rotation + "°"));
-  if (vt.codecInfo) vt.codecInfo.details.forEach((d) => g.append(gridItem(d.label, d.value)));
-  // Read out of the file rather than assumed, so it sits with the other figures; the teach box
-  // below explains what it means (and says nothing about this file when it states nothing).
-  if (vt.chroma) g.append(gridItem("Chroma", vt.chroma, { sm: true }));
-  if (vt.colorSpace) {
-    g.append(gridItem("Color Space", describeColorSpace(vt.colorSpace), { sm: true }));
-  }
-  if (vt.hdr) g.append(gridItem("HDR", "Yes"));
-  sec.append(g);
+  sec.append(factGrid(videoTrackRows(vt)));
   const vtCodecBox = codecTeachBox(vt.codecInfo, "🎞️");
   if (vtCodecBox) sec.append(vtCodecBox);
   sec.append(teachBox(chromaSubsamplingExplainer(vt.codedWidth, vt.codedHeight, vt.chroma ?? null), "🎨"));
@@ -183,10 +196,10 @@ function renderVideoTrackSection(): HTMLDivElement | null {
 }
 
 /**
- * Which of its three shapes the bitrate card takes, for the page and the document alike: the rate the
- * container declares constant, where the samples bear it out or are too few to say otherwise; the
- * track's average alone, where there are too few frames to bin; or the measured windows and their
- * plot.
+ * Which of its three shapes the bitrate card takes, for the page and the document alike: the track's
+ * average alone, where there are too few frames to bin (whatever the container declares, since
+ * nothing was measured to bear a declaration out); the rate the container declares constant, where
+ * the measured windows bear it out; or those windows and their plot.
  */
 export type BitrateShape =
   | { kind: "declared"; declared: DeclaredBitrate }
@@ -194,18 +207,23 @@ export type BitrateShape =
   | { kind: "timeline"; timeline: BitrateTimeline };
 
 export function bitrateShape(): BitrateShape {
-  const declared = state.declaredVideoBitrate;
   const timeline = computeBitrateTimeline(state.samples, state.duration ?? 0);
-  if (declaresConstantBitrate(declared) && declared && (!timeline || isEffectivelyConstant(timeline))) {
+  if (!timeline) return { kind: "average" };
+  const declared = state.declaredVideoBitrate;
+  if (declaresConstantBitrate(declared) && declared && isEffectivelyConstant(timeline)) {
     return { kind: "declared", declared };
   }
-  if (!timeline) return { kind: "average" };
   return { kind: "timeline", timeline };
 }
 
 /** The one figure the card has when there are too few frames to bin: the track's own average. */
 export function trackAverageRow(vt: TrackInfo): FactRow {
   return { label: "Average", value: fmtBits(vt.bitrate), info: VIDEO_AVERAGE_INFO };
+}
+
+/** The one figure the card has where the samples bear out a declared constant rate: that rate. */
+export function declaredBitrateRow(declared: DeclaredBitrate): FactRow {
+  return { label: "Declared Bitrate", value: fmtBits(declared.avgBitrate) };
 }
 
 /** The figures over the plot: the average, the busiest and quietest windows, and how far apart. */
@@ -233,6 +251,9 @@ export function renderBitrateTimelineSection(): HTMLDivElement | null {
 
   const sec = section(BITRATE_TITLE);
   if (shape.kind === "declared") {
+    // The rate outside the teach box, which the Educational switch hides: with only the box, the
+    // card would be a bare heading while the switch is off.
+    sec.append(factGrid([declaredBitrateRow(shape.declared)]));
     sec.append(teachBox(constantBitrateNote(shape.declared.avgBitrate), "📈"));
     return sec;
   }

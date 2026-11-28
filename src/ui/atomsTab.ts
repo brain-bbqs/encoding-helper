@@ -161,12 +161,11 @@ function mapLanes(laneCount: number): { map: HTMLDivElement; lanes: HTMLDivEleme
   return { map, lanes };
 }
 
-function positionBlock(el: HTMLElement, rect: AtomRect, label: string): void {
+/** Where a block sits and what it is called, on the page and in the document alike. */
+function positionBlock(el: HTMLElement, rect: AtomRect, label: string, detail: string): void {
   el.style.left = rect.x * 100 + "%";
   el.style.width = rect.w * 100 + "%";
-  el.dataset.frac = String(rect.w);
-  el.dataset.chars = String(label.length);
-  el.setAttribute("aria-label", rectDetail(rect));
+  el.setAttribute("aria-label", detail);
   el.append(h("span", "lbl", label));
 }
 
@@ -188,8 +187,10 @@ export function renderStaticAtomMap(boxes: BoxNode[], widthPx: number): HTMLDivE
     const label = rectLabel(rect);
     const fit = labelFit(rect.w, label.length, widthPx);
     const el = h("div", `${atomBlockClass(rect)}${fit ? " " + fit : ""}`);
-    el.title = rectDetail(rect);
-    positionBlock(el, rect, label);
+    // Not zoomable: nothing in a saved document can be clicked.
+    const detail = rectDetail(rect, false);
+    el.title = detail;
+    positionBlock(el, rect, label, detail);
     lanes[rect.depth].append(el);
   });
   wrap.append(map, renderLegend(layout.rects));
@@ -268,7 +269,11 @@ function blockEl(
   const zoomable = narrowsView(rect, view);
   const detail = rectDetail(rect, zoomable);
   const el = button(`${atomBlockClass(rect)}${zoomable ? "" : " filling"}`);
-  positionBlock(el, rect, label);
+  positionBlock(el, rect, label, rectDetail(rect));
+  // What bindLabelSizing reads on every resize. Page only: the document sizes its labels once, as
+  // it is built, and carries nothing that reads these.
+  el.dataset.frac = String(rect.w);
+  el.dataset.chars = String(label.length);
 
   const show = (): void => {
     readout.textContent = detail;

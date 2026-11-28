@@ -265,7 +265,7 @@ export interface ZoomPanState {
 }
 
 /** Result of a completed in-browser reencode, kept so the Full Analysis document can report it. */
-interface ReencodeResult {
+export interface ReencodeResult {
   originalSize: number;
   encodedSize: number;
 }
