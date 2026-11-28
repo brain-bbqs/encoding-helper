@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.21
+
+#### 🐛 Bug Fix
+
+- The Full Analysis document now uses the page's rows and section titles, and the bitrate card keeps a constant rate visible with Educational off ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.20
 
 #### 🐛 Bug Fix
