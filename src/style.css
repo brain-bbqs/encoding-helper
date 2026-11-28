@@ -766,11 +766,15 @@ label.field-label {
   background: var(--accent-tint);
   color: var(--accent-hover);
 }
-.tab-action:focus-visible {
+.tab-action:focus-visible,
+.doc-view-tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.tab {
+/* The Full Analysis document's Rendered / Markdown switch shares the look of the tabs above, so it
+   reads as the same kind of control one level down. */
+.tab,
+.doc-view-tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -788,12 +792,14 @@ label.field-label {
 .tab-icon {
   font-size: 13px;
 }
-.tab:hover {
+.tab:hover,
+.doc-view-tab:hover {
   border-color: var(--accent);
   color: var(--text-strong);
 }
 .tab.on,
-.tab-action.on {
+.tab-action.on,
+.doc-view-tab[aria-selected="true"] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
@@ -2160,6 +2166,33 @@ table.data.matrix-table th.matrix-row-head {
      edge from showing as a light seam before the document paints. */
   background: #fff;
   box-shadow: 0 6px 20px var(--shadow);
+}
+/* The Rendered / Markdown tab list over the document, in a row like the main tabs'. */
+.doc-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+/* The Markdown view: the export as text, in the command block's type and colours. Lines are never
+   wrapped, since a wrapped table row stops reading as a row; the long ones scroll inside the view
+   instead of widening the page. No display here: the hidden attribute is what hides it. */
+.doc-markdown {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--sunken);
+  color: var(--code-text);
+  font-family: Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+}
+.doc-markdown:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* The demos page (?demos): the drop zone's alternative rather than a panel beside it, so it owns
