@@ -22,7 +22,7 @@ export const DEFAULT_TAB: TabId = "inspect";
  * back to the default tab: the atom map and the seeking test are sections of Inspect now, and the
  * in-browser encode is a section of the command builder's tab.
  */
-const LEGACY_TAB_IDS: Record<string, TabId> = {
+const LEGACY_TAB_IDS: Partial<Record<string, TabId>> = {
   atoms: "inspect",
   seek: "inspect",
   reencode: "encode",
@@ -42,7 +42,9 @@ export function isTabId(value: string | null | undefined): value is TabId {
 export function readTabFromUrl(): TabId | null {
   const value = currentParams().get(TAB_PARAM);
   if (isTabId(value)) return value;
-  return (value ? LEGACY_TAB_IDS[value] : null) ?? null;
+  // Own entries only: the value is whatever a link says, and plain indexing would also answer to
+  // names every object inherits (constructor, __proto__, ...) with something that is not a tab.
+  return (value && Object.hasOwn(LEGACY_TAB_IDS, value) ? LEGACY_TAB_IDS[value] : null) ?? null;
 }
 
 /**

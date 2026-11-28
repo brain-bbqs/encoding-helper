@@ -108,10 +108,25 @@ describe("chromaFromCodecString", () => {
     expect(chromaFromCodecString("avc", "avc1.640028")).toBeNull();
   });
 
-  it("takes AV1's format from its profile", () => {
-    expect(chromaFromCodecString("av1", "av01.0.08M.08")).toBe("4:2:0");
+  // Only profile 1 pins the format down. A short form implies 4:2:0 by default, but mediabunny
+  // writes the same short form as a guess when it cannot read the sequence header, so for profiles
+  // 0 and 2 (either of which may also be monochrome) it says nothing without the long form.
+  it("takes AV1's format from its profile only where the profile fixes it", () => {
     expect(chromaFromCodecString("av1", "av01.1.08M.08")).toBe("4:4:4");
-    expect(chromaFromCodecString("av1", "av01.2.08M.10")).toBe("4:2:2");
+    expect(chromaFromCodecString("av1", "av01.0.08M.08")).toBeNull();
+    expect(chromaFromCodecString("av1", "av01.2.08M.10")).toBeNull();
+    expect(chromaFromCodecString("av1", "av01.2.08M.12")).toBeNull();
+  });
+
+  // av01.P.LLT.DD.M.CCC...: M is the monochrome flag, and CCC's first two digits are subsampling_x
+  // and subsampling_y (the third is the chroma sample position).
+  it("takes AV1's format from the monochrome flag and subsampling its long form states", () => {
+    expect(chromaFromCodecString("av1", "av01.0.04M.10.0.112.09.16.09.0")).toBe("4:2:0");
+    expect(chromaFromCodecString("av1", "av01.0.04M.08.1.110.01.01.01.0")).toBe("monochrome");
+    expect(chromaFromCodecString("av1", "av01.2.08M.10.0.100.01.01.01.0")).toBe("4:2:2");
+    expect(chromaFromCodecString("av1", "av01.2.12H.12.0.000.01.13.00.1")).toBe("4:4:4");
+    expect(chromaFromCodecString("av1", "av01.2.12M.12.1.110.01.01.01.0")).toBe("monochrome");
+    expect(chromaFromCodecString("av1", "av01.1.08M.10.0.000.01.01.01.0")).toBe("4:4:4");
   });
 
   it("takes VP9's from the field its long form carries, and says nothing without it", () => {
@@ -126,6 +141,7 @@ describe("chromaFromCodecString", () => {
   it("says nothing for a reserved VP9 subsampling code or an AV1 profile that does not exist", () => {
     expect(chromaFromCodecString("vp9", "vp09.00.10.08.04")).toBeNull();
     expect(chromaFromCodecString("av1", "av01.3.08M.08")).toBeNull();
+    expect(chromaFromCodecString("av1", "av01.3.08M.08.0.110.01.01.01.0")).toBeNull();
   });
 
   it("says nothing without a codec string, or for a string it has no rule for", () => {

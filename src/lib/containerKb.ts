@@ -7,5 +7,7 @@ import type { ContainerInfo } from "./types";
 
 export function describeContainer(formatName: string | null): ContainerInfo | null {
   if (!formatName) return null;
-  return CONTAINER_KB[formatName] ?? null;
+  // Own entries only, so a name every object inherits (constructor, __proto__, ...) is not taken
+  // for a record.
+  return (Object.hasOwn(CONTAINER_KB, formatName) ? CONTAINER_KB[formatName] : null) ?? null;
 }

@@ -154,6 +154,107 @@ test.describe("Encoding Helper shell", () => {
     expect(frameHeight).toBeGreaterThan(1000);
   });
 
+  // jsdom loads no frame and lays nothing out, so only a browser can say the frame comes back at
+  // the document's height: after a switch, and after a visit that built the panel, and so loaded
+  // the frame, while the Markdown view hid it. At phone width, where the Markdown's longer lines
+  // have to scroll inside the view rather than widen the page.
+  test("swaps the document for its Markdown and back, the frame keeping the document's height", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.setViewportSize({ width: 375, height: 800 });
+    await loadDemo(page);
+    await page.locator(".tab-action").click();
+
+    const frame = page.locator("#analysisDoc");
+    const doc = page.frameLocator("#analysisDoc");
+    const rendered = page.getByRole("tab", { name: "Rendered" });
+    const markdown = page.getByRole("tab", { name: "Markdown" });
+    const frameHeight = async (): Promise<number> => (await frame.boundingBox())?.height ?? 0;
+    const documentHeight = (): Promise<number> =>
+      frame.evaluate((f: HTMLIFrameElement) => {
+        const d = f.contentDocument!;
+        return Math.max(d.body.scrollHeight, d.documentElement.scrollHeight);
+      });
+
+    await expect(doc.locator(".doc-head h1")).toHaveText(REFERENCE_FILE_NAME);
+    await expect(rendered).toHaveAttribute("aria-selected", "true");
+    await expect.poll(frameHeight).toBeGreaterThan(1000);
+    const fitted = await frameHeight();
+    expect(fitted).toBe(await documentHeight());
+
+    await markdown.click();
+    await expect(markdown).toHaveAttribute("aria-selected", "true");
+    await expect(frame).toBeHidden();
+    const raw = page.getByRole("tabpanel", { name: "Markdown" });
+    await expect(raw).toBeVisible();
+    await page.getByRole("button", { name: "Copy Markdown" }).click();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied.startsWith(`# Encoding Helper analysis: ${REFERENCE_FILE_NAME}\n`)).toBe(true);
+    expect(copied).toContain("\n## Video Track\n");
+    // innerText is the text as laid out, so it only matches line for line if whitespace is kept.
+    expect(await raw.innerText()).toBe(copied);
+    const widths = await raw.evaluate((el) => ({
+      view: el.clientWidth,
+      content: el.scrollWidth,
+      page: document.documentElement.scrollWidth,
+      viewport: document.documentElement.clientWidth,
+    }));
+    expect(widths.content).toBeGreaterThan(widths.view);
+    expect(widths.page).toBe(widths.viewport);
+
+    await rendered.click();
+    await expect(frame).toBeVisible();
+    await expect.poll(frameHeight).toBe(fitted);
+
+    await markdown.click();
+    await page.locator('.tab[data-tab="inspect"]').click();
+    await page.locator(".tab-action").click();
+    await expect(markdown).toHaveAttribute("aria-selected", "true");
+    await expect(frame).toBeHidden();
+    await expect(doc.locator(".doc-head h1")).toHaveText(REFERENCE_FILE_NAME);
+    await rendered.click();
+    await expect(frame).toBeVisible();
+    // Against the new document rather than the first: its timestamp is a different width, which at
+    // this width can move where the line under the title wraps.
+    await expect.poll(frameHeight).toBe(await documentHeight());
+    expect(await frameHeight()).toBeGreaterThan(1000);
+  });
+
+  // The view tabs borrow the main tabs' look, so they have to shrink with them on a phone too
+  // rather than come out larger than the bar above them.
+  test("sizes the Rendered and Markdown tabs like the main tabs, on a phone and on a desktop", async ({ page }) => {
+    await loadDemo(page);
+    await page.locator(".tab-action").click();
+    await expect(page.getByRole("tab", { name: "Markdown" })).toBeVisible();
+    const sizes = (): Promise<{ main: string[]; view: string[] }> =>
+      page.evaluate(() => {
+        const size = (tab: Element, list: Element): string[] => {
+          const t = getComputedStyle(tab);
+          return [
+            t.paddingTop,
+            t.paddingRight,
+            t.paddingBottom,
+            t.paddingLeft,
+            t.fontSize,
+            getComputedStyle(list).columnGap,
+          ];
+        };
+        const view = document.querySelector('[role="tablist"][aria-label="Document view"]')!;
+        return {
+          main: size(document.querySelector(".tabs .tab")!, document.querySelector(".tabs")!),
+          view: size(view.querySelector('[role="tab"]')!, view),
+        };
+      });
+
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      const { main, view } = await sizes();
+      expect(view, `at ${width}px`).toEqual(main);
+    }
+  });
+
   test("adds the seeking test to the document once it has been run", async ({ page }) => {
     // The seeking test is a section of Inspect; its old tab name still points at it.
     await loadDemo(page, "&tab=seek");
@@ -205,6 +306,30 @@ test.describe("Encoding Helper shell", () => {
     await toggle.check();
     await expect(teach).toBeVisible();
     await expect(info).toBeVisible();
+  });
+
+  // ffmpeg's output is logged at the "info" level, which is also the class the ⓘ wrapper's
+  // inline-flex rule names. Specificity decides which rule a line takes, and jsdom goes by source
+  // order alone, so only a real browser can check it. ffmpeg itself is not run: the lines are
+  // written the way logLine writes them.
+  test("puts each ffmpeg console line on a row of its own", async ({ page }) => {
+    await loadDemo(page, "&tab=encode");
+    const tops = await page
+      .locator("#panel-encode .log-details")
+      .first()
+      .evaluate((wrap: HTMLDetailsElement) => {
+        wrap.style.display = "";
+        wrap.open = true;
+        const log = wrap.querySelector(".log-console")!;
+        for (const level of ["info", "info", "info", "success", "warn", "error"]) {
+          const line = document.createElement("div");
+          line.className = `l ${level}`;
+          line.textContent = `ffmpeg says ${level}`;
+          log.append(line);
+        }
+        return Array.from(log.children, (line) => Math.round(line.getBoundingClientRect().top));
+      });
+    expect(new Set(tops).size).toBe(6);
   });
 
   test("zooms into a box on click and walks back out with the breadcrumb", async ({ page }) => {
