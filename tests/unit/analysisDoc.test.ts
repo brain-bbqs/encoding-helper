@@ -91,7 +91,7 @@ describe("renderSectionsToHtml", () => {
         },
       ]),
     );
-    const figure = holder.querySelector("section > figure.fig")!;
+    const figure = holder.querySelector("section > figure")!;
     expect(Array.from(figure.children, (child) => child.className || child.tagName)).toEqual([
       "scroll-x",
       "FIGCAPTION",
@@ -148,6 +148,37 @@ describe("buildAnalysisDocument", () => {
     expect(link.getAttribute("href")).toBe("https://encoding-helper.example");
     expect(link.target).toBe("_blank");
     expect(link.rel).toBe("noopener");
+  });
+
+  // A chart's figure is kept whole on paper, but a long sweep table held that way is pushed onto a
+  // page of its own, leaving most of the page before it blank; its caption must not change that.
+  it("lets a captioned table break between printed pages, where a chart is kept whole", () => {
+    const page = new DOMParser().parseFromString(
+      buildAnalysisDocument(
+        [
+          {
+            title: "Sweep",
+            blocks: [
+              { kind: "table", headers: ["Quality"], rows: [["high"]], caption: "★ is the best" },
+              { kind: "figure", caption: "GOP length per interval", element: chart() },
+            ],
+          },
+        ],
+        META,
+      ),
+      "text/html",
+    );
+    const before = document.documentElement.innerHTML;
+    document.documentElement.innerHTML = page.documentElement.innerHTML;
+    try {
+      const table = document.querySelector("table.data")!.closest("figure")!;
+      expect(table.querySelector("figcaption")!.textContent).toBe("★ is the best");
+      expect(getComputedStyle(table).breakInside).not.toBe("avoid");
+      const chartFigure = document.querySelector("svg.bitrate-chart")!.closest("figure")!;
+      expect(getComputedStyle(chartFigure).breakInside).toBe("avoid");
+    } finally {
+      document.documentElement.innerHTML = before;
+    }
   });
 
   it("escapes a file name that would otherwise close a tag", () => {

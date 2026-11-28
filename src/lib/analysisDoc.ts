@@ -47,8 +47,10 @@ function renderBlock(block: AnalysisBlock): Element {
     case "table": {
       const table = dataTable(block.headers, block.rows);
       if (!block.caption) return table;
-      // Captioned the way a chart is, so the legend reads as part of the table it explains.
-      const fig = h("figure", "fig");
+      // Captioned the way a chart is, so the legend reads as part of the table it explains, but
+      // not with the chart's class: that keeps a figure whole on paper, and a long table held that
+      // way is pushed onto a page of its own.
+      const fig = h("figure", "table-fig");
       fig.append(table, h("figcaption", null, block.caption));
       return fig;
     }
@@ -352,8 +354,9 @@ table.data th {
   text-transform: uppercase;
   color: var(--muted);
 }
-.fig { margin: 14px 0; padding: 0; break-inside: avoid; }
-.fig figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.fig, .table-fig { margin: 14px 0; padding: 0; }
+.fig { break-inside: avoid; }
+.fig figcaption, .table-fig figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
 /* Atom map. The palette is the app's light-theme one (style.css), checked as a set for colorblind
    separation and for contrast against the surface it sits on; re-step it there and here together.
    Which labels are drawn was decided when the map was built, since nothing runs here to measure it. */
