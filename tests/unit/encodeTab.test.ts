@@ -464,12 +464,13 @@ describe("running the command on a sample", () => {
     expect(sampledEncode.startTime).toBe(10);
     expect(encoderBusy()).toBe(true);
     expect(ui.stopButton.style.display).toBe("");
-    expect(ui.note.textContent).toBe("Encoding test segment…");
+    expect(ui.note.textContent).toBe("Encoding…");
     expect(run.encodeWindows.mock.calls[0].slice(1, 3)).toEqual([cli, cutInputs(windows)]);
 
+    // The bar is the progress, as in the whole-file run: the note does not spell the same number out.
     onProgress!(0.5);
     expect(ui.fill.style.width).toBe("50%");
-    expect(ui.note.textContent).toBe("Encoding test segment… 50%");
+    expect(ui.note.textContent).toBe("Encoding…");
 
     const blobs = [new Blob(["encoded"])];
     const measured = [{ startSeconds: 10, seconds: 2.9 }];
@@ -572,7 +573,7 @@ describe("running the command on a sample", () => {
     await flush();
     expect(run.prepareRun).toHaveBeenCalledTimes(2);
     expect(run.prepareRun.mock.calls[1][0].stopped).toBe(false);
-    expect(ui.note.textContent).toBe("Encoding test segment…");
+    expect(ui.note.textContent).toBe("Encoding…");
   });
 
   // Stop pressed while the result is being opened for the A/B window, which the window does with the

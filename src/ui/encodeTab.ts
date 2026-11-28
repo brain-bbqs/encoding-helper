@@ -54,13 +54,16 @@ function checkField(id: string, label: string, checked: boolean): { field: HTMLD
   return { field, input };
 }
 
+/** The builder card's title, which the Full Analysis document heads the command with as well. */
+export const COMMAND_BUILDER_TITLE = "FFmpeg Command Builder";
+
 export function renderEncodeTab(panel: HTMLElement): void {
   panel.innerHTML = "";
   const vt = videoTrackInfo();
   const info = currentVideoInfo();
   if (!vt || !info) return;
 
-  const builderSec = section("FFmpeg Command Builder");
+  const builderSec = section(COMMAND_BUILDER_TITLE);
   builderSec.append(teachBox(REENCODE_INTRO, "🔁"));
   // Made ahead of the fields that rewrite it, and placed under them.
   const { wrap: cmdWrap, pre: cmdPre } = cmdBlock();
@@ -281,11 +284,11 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
     // Records where the encoded stretch starts. The A/B window draws the original from the windows
     // passed to it below, not from this.
     sampledEncode.startTime = windows[0].startSeconds;
-    ui.note.textContent = "Encoding test segment…";
+    ui.note.textContent = "Encoding…";
+    // The bar is the progress, as in the whole-file run; a percentage spelled out beside it is the
+    // same number twice.
     const { blobs, bytes, measured } = await encodeWindows(run, cli, inputs, workers, ui, (fraction) => {
-      const pct = fraction * 100;
-      fill.style.width = pct.toFixed(0) + "%";
-      ui.note.textContent = `Encoding test segment… ${pct.toFixed(0)}%`;
+      fill.style.width = (fraction * 100).toFixed(0) + "%";
     });
 
     ui.note.textContent = "Decoding frames…";

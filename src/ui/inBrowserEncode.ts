@@ -37,6 +37,11 @@ function encodeVerb(): "Reencode" | "Transcode" {
   return state.format === "MP4" ? "Reencode" : "Transcode";
 }
 
+/** What the Full Analysis document heads a whole-file encode's result with, named as the section is. */
+export function wholeFileResultTitle(): string {
+  return `In-Browser ${encodeVerb()} Result`;
+}
+
 /**
  * Encodes the whole file with the command built above it, and saves the result.
  *

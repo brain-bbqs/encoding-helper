@@ -216,11 +216,11 @@ describe("renderAnalysisTab", () => {
     expect(titles).toEqual([
       "## Video Container Overview: MP4",
       "## Video Track",
-      "## MP4 Atom Map",
+      "## MP4 Box / Atom Structure",
       "## GOP / Keyframe Structure",
       "## Video Bitrate Over Time",
       "## Audio Track",
-      "## Reencode CLI Command",
+      "## FFmpeg Command Builder",
     ]);
   });
 
@@ -244,7 +244,7 @@ describe("renderAnalysisTab", () => {
     expect(md).not.toContain("## Video Track");
     expect(md).not.toContain("## Audio Track");
     // Nor the command, which has no resolution to build one from.
-    expect(md).not.toContain("## Reencode CLI Command");
+    expect(md).not.toContain("## FFmpeg Command Builder");
   });
 
   it("states the results the tabs worked out", () => {
@@ -515,6 +515,19 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| Original Size | 1.9 MB |");
     expect(md).toContain("| Encoded Size | 976.6 KB |");
     expect(md).toContain("| Change | -50% |");
+  });
+
+  // Named as the tab names the run: an MP4 comes back an MP4, reencoded, and any other source comes
+  // back in another container, transcoded.
+  it("calls a whole-file encode of a non-MP4 source a transcode, as the Reencode tab does", () => {
+    const el = panel();
+    loadClip();
+    state.format = "QuickTime File Format";
+    state.reencodeResult = { originalSize: 2_000_000, encodedSize: 1_000_000 };
+    renderAnalysisTab(el);
+    const md = markdown(el);
+    expect(md).toContain("## In-Browser Transcode Result");
+    expect(md).not.toContain("Reencode Result");
   });
 
   it("names the downloads after the file they describe", () => {
@@ -802,7 +815,7 @@ describe("renderAnalysisTab", () => {
     renderAnalysisTab(el);
     const md = markdown(el);
     expect(md).not.toContain("## GOP / Keyframe Structure");
-    expect(md).not.toContain("## MP4 Atom Map");
+    expect(md).not.toContain("## MP4 Box / Atom Structure");
     expect(md).toContain("## Video Bitrate Over Time");
   });
 

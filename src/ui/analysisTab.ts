@@ -45,9 +45,11 @@ import { SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
 import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/types";
-import { faststartBadge, renderStaticAtomMap } from "./atomsTab";
+import { ATOM_MAP_TITLE, faststartBadge, renderStaticAtomMap } from "./atomsTab";
 import { compareSummaryRows } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
+import { COMMAND_BUILDER_TITLE } from "./encodeTab";
+import { wholeFileResultTitle } from "./inBrowserEncode";
 import { fmtElapsed } from "./matrixPanel";
 import {
   AUDIO_TRACK_TITLE,
@@ -177,7 +179,7 @@ function atomMapSection(): AnalysisSection | null {
   const map = renderStaticAtomMap(state.boxes, DOCUMENT_WIDTH_PX);
   if (!map) return null;
   return {
-    title: "MP4 Atom Map",
+    title: ATOM_MAP_TITLE,
     blocks: [
       { kind: "badge", ...faststartBadge() },
       { kind: "figure", caption: ATOM_MAP_DOC_CAPTION, element: map },
@@ -221,7 +223,7 @@ function cliCommandSection(): AnalysisSection | null {
   const info = currentVideoInfo();
   if (!info) return null;
   return {
-    title: "Reencode CLI Command",
+    title: COMMAND_BUILDER_TITLE,
     blocks: [
       {
         kind: "code",
@@ -332,7 +334,7 @@ function reencodeSection(): AnalysisSection | null {
   const result = state.reencodeResult;
   if (!result) return null;
   return {
-    title: "In-Browser Reencode Result",
+    title: wholeFileResultTitle(),
     blocks: [
       {
         kind: "kv",
