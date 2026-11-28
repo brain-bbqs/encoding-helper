@@ -167,11 +167,23 @@ const CODEC_KB: Partial<Record<string, CodecKbEntry>> = {
     year: 2005,
     description: CODEC_DESCRIPTIONS.eac3,
   },
+  ulaw: {
+    family: "G.711 μ-law",
+    fullName: "μ-law companded PCM",
+    year: 1972,
+    description: CODEC_DESCRIPTIONS.ulaw,
+  },
+  alaw: {
+    family: "G.711 A-law",
+    fullName: "A-law companded PCM",
+    year: 1972,
+    description: CODEC_DESCRIPTIONS.alaw,
+  },
 };
 
 export function describeCodec(shortCodec: string | null | undefined, codecString: string | null): CodecInfo | null {
   if (!shortCodec) return null;
-  if (shortCodec.startsWith("pcm-") || shortCodec === "ulaw" || shortCodec === "alaw") {
+  if (shortCodec.startsWith("pcm-")) {
     return {
       family: "PCM (uncompressed)",
       fullName: "Pulse-Code Modulation",
@@ -180,7 +192,9 @@ export function describeCodec(shortCodec: string | null | undefined, codecString
       details: [],
     };
   }
-  const info = CODEC_KB[shortCodec];
+  // Own entries only, so a name every object inherits (constructor, __proto__, ...) is not taken
+  // for a codec.
+  const info = Object.hasOwn(CODEC_KB, shortCodec) ? CODEC_KB[shortCodec] : undefined;
   if (!info) return null;
   return {
     family: info.family,

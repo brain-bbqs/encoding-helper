@@ -3,7 +3,7 @@
 // against the rendered frame (jsdom runs no layout and loads no srcdoc).
 
 import { installObserverStub, stubClipboard } from "@brain-bbqs/test-utils/vitest";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { evenSamples } from "../fixtures/samples";
 import { resetCliDefaults, VIDEO_TRACK } from "../fixtures/state";
 import { setEducationalEnabled } from "../../src/lib/educational";
@@ -827,5 +827,206 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("| Projected Full File | 2.9 MB |");
     expect(md).toContain("| Projected Saving | 50% larger (≈ 976.6 KB added) |");
     expect(md).not.toContain("| Projected Range |");
+  });
+});
+
+/** The view tabs over the document, in order. */
+function viewTabs(el: HTMLElement): HTMLButtonElement[] {
+  return Array.from(el.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]'));
+}
+
+function viewTab(el: HTMLElement, name: "Rendered" | "Markdown"): HTMLButtonElement {
+  const tab = viewTabs(el).find((t) => t.textContent === name);
+  if (!tab) throw new Error(`No "${name}" tab in the panel`);
+  return tab;
+}
+
+/** The tab panel a tab names in aria-controls. */
+function controlledPanel(tab: HTMLElement): HTMLElement {
+  const id = tab.getAttribute("aria-controls");
+  const controlled = id ? document.getElementById(id) : null;
+  if (!controlled) throw new Error(`The "${tab.textContent}" tab controls nothing on the page`);
+  return controlled;
+}
+
+/** Which tab reads as chosen, which one Tab lands on, and which panel is hidden, in tab order. */
+function viewState(el: HTMLElement): { selected: (string | null)[]; tabIndex: number[]; hidden: boolean[] } {
+  const tabs = viewTabs(el);
+  return {
+    selected: tabs.map((t) => t.getAttribute("aria-selected")),
+    tabIndex: tabs.map((t) => t.tabIndex),
+    hidden: tabs.map((t) => controlledPanel(t).hidden),
+  };
+}
+
+const RENDERED_CHOSEN = { selected: ["true", "false"], tabIndex: [0, -1], hidden: [false, true] };
+const MARKDOWN_CHOSEN = { selected: ["false", "true"], tabIndex: [-1, 0], hidden: [true, false] };
+
+function press(target: HTMLElement, key: string): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+  target.dispatchEvent(event);
+  return event;
+}
+
+/**
+ * Gives the panel's frame a stand-in window that behaves as a browser's does: focusing it takes the
+ * focus into the frame, and printing fires afterprint on it as the dialog closes. Notes what had
+ * the focus at the moment of printing.
+ */
+function stubFrameWindow(el: HTMLElement): {
+  print: Mock<() => void>;
+  focusedAtPrint: (Element | null)[];
+} {
+  const frame = el.querySelector<HTMLIFrameElement>("iframe.doc-preview")!;
+  const focusedAtPrint: (Element | null)[] = [];
+  const win = new EventTarget();
+  const print = vi.fn(() => {
+    focusedAtPrint.push(document.activeElement);
+    win.dispatchEvent(new Event("afterprint"));
+  });
+  Object.assign(win, { print, focus: () => frame.focus() });
+  Object.defineProperty(frame, "contentWindow", { value: win, configurable: true });
+  return { print, focusedAtPrint };
+}
+
+describe("the document's Rendered and Markdown views", () => {
+  // The choice outlives the panel for the rest of the session, so each test hands the default back.
+  afterEach(() => {
+    // Drops the frames a test gave a stand-in window, which jsdom would try to close at teardown.
+    document.body.innerHTML = "";
+    loadClip();
+    const el = panel();
+    renderAnalysisTab(el);
+    viewTab(el, "Rendered").click();
+  });
+
+  it("puts a Rendered and a Markdown tab between the actions and the document", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+
+    const list = el.querySelector('[role="tablist"]');
+    expect(list?.getAttribute("aria-label")).toBe("Document view");
+    expect(viewTabs(el).map((t) => t.textContent)).toEqual(["Rendered", "Markdown"]);
+    const actions = el.querySelector(".load-actions")!;
+    const frame = el.querySelector("iframe.doc-preview")!;
+    expect(actions.compareDocumentPosition(list!) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(list!.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("opens on the rendered document, each tab naming the panel it shows", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+
+    expect(viewState(el)).toEqual(RENDERED_CHOSEN);
+    for (const tab of viewTabs(el)) {
+      const controlled = controlledPanel(tab);
+      expect(controlled.getAttribute("role")).toBe("tabpanel");
+      expect(controlled.getAttribute("aria-labelledby")).toBe(tab.id);
+    }
+    const frame = el.querySelector("iframe.doc-preview")!;
+    expect(controlledPanel(viewTab(el, "Rendered")).contains(frame)).toBe(true);
+  });
+
+  it("shows exactly the Markdown that Copy Markdown copies, as plain text", () => {
+    const el = panel();
+    loadClip();
+    // Markup in a value the file supplies: the raw view must show it as written, not render it.
+    state.tags = { title: "<b>Session</b> *1*" } as never;
+    renderAnalysisTab(el);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    restoreClipboard = stubClipboard(writeText).restore;
+    clickButton(el, "Copy Markdown");
+    const copied: string = writeText.mock.calls[0][0];
+
+    viewTab(el, "Markdown").click();
+
+    expect(viewState(el)).toEqual(MARKDOWN_CHOSEN);
+    const raw = controlledPanel(viewTab(el, "Markdown"));
+    expect(raw.textContent).toBe(copied);
+    expect(raw.textContent).toBe(markdown(el));
+    expect(raw.children).toHaveLength(0);
+    expect(raw.textContent).toContain("<b>Session</b>");
+  });
+
+  it("moves between the tabs with the arrow keys, Home and End, choosing the one it lands on", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const rendered = viewTab(el, "Rendered");
+    const markdownTab = viewTab(el, "Markdown");
+    rendered.focus();
+
+    const steps: [from: HTMLElement, key: string, to: HTMLElement, state: typeof RENDERED_CHOSEN][] = [
+      [rendered, "ArrowRight", markdownTab, MARKDOWN_CHOSEN],
+      // Both arrows wrap around the ends.
+      [markdownTab, "ArrowRight", rendered, RENDERED_CHOSEN],
+      [rendered, "ArrowLeft", markdownTab, MARKDOWN_CHOSEN],
+      [markdownTab, "ArrowLeft", rendered, RENDERED_CHOSEN],
+      [rendered, "End", markdownTab, MARKDOWN_CHOSEN],
+      [markdownTab, "Home", rendered, RENDERED_CHOSEN],
+    ];
+    for (const [from, key, to, expected] of steps) {
+      const event = press(from, key);
+      expect(viewState(el)).toEqual(expected);
+      expect(document.activeElement).toBe(to);
+      // Home and End would otherwise scroll the page as well.
+      expect(event.defaultPrevented).toBe(true);
+    }
+
+    const other = press(rendered, "ArrowDown");
+    expect(viewState(el)).toEqual(RENDERED_CHOSEN);
+    expect(other.defaultPrevented).toBe(false);
+  });
+
+  it("keeps the chosen view when the panel is rebuilt on the next visit", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+
+    viewTab(el, "Markdown").click();
+    renderAnalysisTab(el);
+    expect(el.querySelectorAll('[role="tablist"]')).toHaveLength(1);
+    expect(viewState(el)).toEqual(MARKDOWN_CHOSEN);
+
+    viewTab(el, "Rendered").click();
+    renderAnalysisTab(el);
+    expect(viewState(el)).toEqual(RENDERED_CHOSEN);
+  });
+
+  it("prints the rendered document whichever view is showing", () => {
+    for (const name of ["Markdown", "Rendered"] as const) {
+      const el = panel();
+      loadClip();
+      renderAnalysisTab(el);
+      viewTab(el, name).click();
+      const { print } = stubFrameWindow(el);
+
+      clickButton(el, "Save as PDF");
+
+      expect(print).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("hands focus back to Save as PDF once the print from the Markdown view is done", () => {
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    viewTab(el, "Markdown").click();
+    const { print, focusedAtPrint } = stubFrameWindow(el);
+    const pdfBtn = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Save as PDF")!;
+
+    pdfBtn.focus();
+    pdfBtn.click();
+
+    expect(print).toHaveBeenCalledOnce();
+    // Still in the frame while it prints, which is what the frame's focus() is there for.
+    expect(focusedAtPrint).toEqual([el.querySelector("iframe.doc-preview")]);
+    expect(document.activeElement).toBe(pdfBtn);
   });
 });

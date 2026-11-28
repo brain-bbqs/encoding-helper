@@ -32,6 +32,13 @@ describe("appUrl", () => {
     expect(readTabFromUrl()).toBeNull();
   });
 
+  // Every object answers to these names through its prototype, so a lookup that is not limited to
+  // the table's own entries would hand back a function (or Object.prototype itself) as a tab.
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])("reads ?tab=%s as no tab", (name) => {
+    setUrl(`?tab=${name}`);
+    expect(readTabFromUrl()).toBeNull();
+  });
+
   // The atom map, the seeking test and the in-browser encode are sections of other tabs now, so a
   // link someone was sent still opens where that content went.
   it("sends a link naming a retired tab to the tab its content moved to", () => {

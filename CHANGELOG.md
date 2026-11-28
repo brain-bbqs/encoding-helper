@@ -1,10 +1,20 @@
 # Changelog
 
-## 1.5.15
+## 1.5.16
 
 #### 🐛 Bug Fix
 
 - Overlapping, cancelled or failed loads and interrupted seeking tests no longer leave stale tabs, results or errors, and the same file can be picked again ([#89](https://github.com/brain-bbqs/encoding-helper/pull/89))
+
+## 1.5.15
+
+#### 🚀 Enhancement
+
+- Full Analysis now has Rendered and Markdown tabs above the document, the latter showing the raw Markdown its buttons download and copy ([#88](https://github.com/brain-bbqs/encoding-helper/pull/88))
+
+#### 🐛 Bug Fix
+
+- Fixed console lines running together, line breaks in Markdown exports, wrong u-law/A-law and AV1 chroma details, unlinked form labels, and odd tab names in links ([#88](https://github.com/brain-bbqs/encoding-helper/pull/88))
 
 ## 1.5.14
 

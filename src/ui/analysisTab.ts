@@ -7,7 +7,8 @@
 // to be saved, printed or handed on states what the file is without re-teaching how to read it).
 // What the panel shows is the document itself, rendered in an iframe from the same HTML the
 // Download button writes and the print dialog prints, so there is no "preview" that can disagree
-// with the file.
+// with the file. Its other view is the Markdown export as text, the very string the two Markdown
+// buttons write and copy, for the same reason.
 //
 // Which sections the document has, and in what order, is decided here, along with the rows only the
 // document states. The rows a section shares with a card come from the module that draws that card,
@@ -375,11 +376,86 @@ function mountPreview(frame: HTMLIFrameElement, html: string): void {
     };
     fit();
     // Catches the reflow when the window (and so the iframe) changes width, which changes how tall
-    // the document is.
+    // the document is. Also the first real layout of a frame that loaded behind the Markdown view,
+    // which measured 0 while hidden: its document grows from nothing when it is shown.
     previewObserver = new ResizeObserver(fit);
     previewObserver.observe(doc.documentElement);
   });
   frame.srcdoc = html;
+}
+
+type DocumentView = "rendered" | "markdown";
+
+const DOCUMENT_VIEWS: readonly { view: DocumentView; label: string }[] = [
+  { view: "rendered", label: "Rendered" },
+  { view: "markdown", label: "Markdown" },
+];
+
+/**
+ * The view the reader last picked. At module scope for the same reason as the observer above: the
+ * panel is rebuilt on every visit, and someone reading the Markdown should not be put back on the
+ * rendered document each time they return.
+ */
+let documentView: DocumentView = "rendered";
+
+/**
+ * The tab list that switches between the document's views, in the ARIA tabs pattern: one tab in
+ * the Tab order at a time, and the arrow keys, Home and End moving the choice along with the focus.
+ * Hiding a view leaves its frame or text in place, so the frame Save as PDF prints is always there.
+ */
+function documentViewTabs(panes: Record<DocumentView, HTMLElement>): HTMLDivElement {
+  const list = h("div", "doc-views");
+  list.setAttribute("role", "tablist");
+  list.setAttribute("aria-label", "Document view");
+  const tabs = DOCUMENT_VIEWS.map(({ view, label }) => {
+    const tab = button("doc-view-tab", label);
+    tab.id = `analysisView-${view}-tab`;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-controls", panes[view].id);
+    panes[view].setAttribute("role", "tabpanel");
+    panes[view].setAttribute("aria-labelledby", tab.id);
+    return tab;
+  });
+
+  const select = (index: number): void => {
+    documentView = DOCUMENT_VIEWS[index].view;
+    tabs.forEach((tab, i) => {
+      const chosen = i === index;
+      tab.setAttribute("aria-selected", String(chosen));
+      tab.tabIndex = chosen ? 0 : -1;
+      panes[DOCUMENT_VIEWS[i].view].hidden = !chosen;
+    });
+  };
+
+  tabs.forEach((tab, i) => tab.addEventListener("click", () => select(i)));
+  list.addEventListener("keydown", (e) => {
+    const at = tabs.indexOf(e.target as HTMLButtonElement);
+    if (at < 0) return;
+    let to: number;
+    switch (e.key) {
+      case "ArrowRight":
+        to = (at + 1) % tabs.length;
+        break;
+      case "ArrowLeft":
+        to = (at - 1 + tabs.length) % tabs.length;
+        break;
+      case "Home":
+        to = 0;
+        break;
+      case "End":
+        to = tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    select(to);
+    tabs[to].focus();
+  });
+
+  list.append(...tabs);
+  select(DOCUMENT_VIEWS.findIndex(({ view }) => view === documentView));
+  return list;
 }
 
 export function renderAnalysisTab(panel: HTMLElement): void {
@@ -391,6 +467,7 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   const sections = buildAnalysisSections();
   const meta = documentMeta();
   const documentHtml = buildAnalysisDocument(sections, meta);
+  const documentMarkdown = renderSectionsToMarkdown(sections, meta);
   const baseName = baseNameOf(state.source.name);
 
   const sec = section("Full Analysis");
@@ -408,7 +485,16 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   const frame = h("iframe", "doc-preview");
   frame.id = "analysisDoc";
   frame.title = `Full analysis of ${state.source.name}`;
-  panel.append(frame);
+  const renderedPane = h("div");
+  renderedPane.id = "analysisView-rendered";
+  renderedPane.append(frame);
+  // Text, never markup: the point of this view is the export exactly as written.
+  const markdownPane = h("pre", "doc-markdown", documentMarkdown);
+  markdownPane.id = "analysisView-markdown";
+  // Focusable so a keyboard can scroll its long lines sideways, as the APG asks of a tab panel
+  // with nothing focusable inside it.
+  markdownPane.tabIndex = 0;
+  panel.append(documentViewTabs({ rendered: renderedPane, markdown: markdownPane }), renderedPane, markdownPane);
   mountPreview(frame, documentHtml);
 
   // Printing the frame rather than the page: the document in it is already paginated for paper,
@@ -416,6 +502,10 @@ export function renderAnalysisTab(panel: HTMLElement): void {
   pdfBtn.addEventListener("click", () => {
     const win = frame.contentWindow;
     if (!win) return;
+    // Focusing the frame takes the focus off the page. Behind the Markdown view that frame is
+    // hidden, which would leave nothing visible focused, so the focus comes back to this button once
+    // printing is done: on afterprint, since not every browser holds print() until the dialog closes.
+    if (renderedPane.hidden) win.addEventListener("afterprint", () => pdfBtn.focus(), { once: true });
     win.focus();
     win.print();
   });
@@ -423,10 +513,9 @@ export function renderAnalysisTab(panel: HTMLElement): void {
     downloadBlob(new Blob([documentHtml], { type: "text/html" }), baseName + ".analysis.html");
   });
   mdBtn.addEventListener("click", () => {
-    const md = renderSectionsToMarkdown(sections, meta);
-    downloadBlob(new Blob([md], { type: "text/markdown" }), baseName + ".analysis.md");
+    downloadBlob(new Blob([documentMarkdown], { type: "text/markdown" }), baseName + ".analysis.md");
   });
   copyBtn.addEventListener("click", () => {
-    copyToClipboard(renderSectionsToMarkdown(sections, meta), copyBtn);
+    copyToClipboard(documentMarkdown, copyBtn);
   });
 }

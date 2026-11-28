@@ -147,4 +147,40 @@ describe("renderSectionsToMarkdown", () => {
     );
     expect(piped).toContain("| ©too | Lavf\\|61 |");
   });
+
+  // A tag value read from the file (a comment, a description, lyrics) can hold line breaks of any
+  // flavour; left raw, one splits the row in two and an empty line ends the table.
+  it("keeps a multi-line value on its row as break tags", () => {
+    const multiline = renderSectionsToMarkdown(
+      [{ title: "Tags", blocks: [{ kind: "kv", items: [["comment", "one\ntwo\r\nthree\rfour\n\nfive"]] }] }],
+      META,
+    );
+    expect(multiline).toContain("| comment | one<br>two<br>three<br>four<br><br>five |");
+  });
+
+  it("escapes a header the way it escapes a cell", () => {
+    const headed = renderSectionsToMarkdown(
+      [
+        {
+          title: "Seeks",
+          blocks: [{ kind: "table", headers: ["t | s", "a\\b", "two\nlines"], rows: [["1", "2", "3"]] }],
+        },
+      ],
+      META,
+    );
+    expect(headed).toContain("| t \\| s | a\\\\b | two<br>lines |\n|---|---|---|\n| 1 | 2 | 3 |");
+  });
+
+  // A heading is one line in Markdown: a break inside it would leave the rest as body text.
+  it("keeps the title, the facts and each section heading on one line", () => {
+    const md = renderSectionsToMarkdown([{ title: "Video\r\nTrack", blocks: [] }], {
+      ...META,
+      fileName: "take one\n\ntake two.mp4",
+      facts: [["Codec", "H.264\nHigh"]],
+    });
+    const lines = md.split("\n");
+    expect(lines[0]).toBe("# Encoding Helper analysis: take one take two.mp4");
+    expect(lines).toContain("**Codec:** H.264 High");
+    expect(lines).toContain("## Video Track");
+  });
 });

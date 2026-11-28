@@ -68,8 +68,21 @@ export function renderSectionsToHtml(sections: AnalysisSection[]): DocumentFragm
   return frag;
 }
 
+/**
+ * A value made safe for a table cell. A row has to stay on one line, so a line break (a tag value
+ * such as a comment or lyrics can carry any kind) becomes the break tag GitHub-flavoured Markdown
+ * renders inside a cell, which keeps the value's own line structure, blank lines included.
+ */
 function escapeCell(value: string | number): string {
-  return String(value).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
+  return String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/\r\n|\r|\n/g, "<br>");
+}
+
+/** Text written into a heading or the facts line, which a line break would cut short. */
+function oneLine(text: string): string {
+  return text.replace(/\s*[\r\n]+\s*/g, " ");
 }
 
 function markdownBlock(block: AnalysisBlock): string[] {
@@ -87,7 +100,7 @@ function markdownBlock(block: AnalysisBlock): string[] {
       return ["```" + block.lang, block.content, "```", ""];
     case "table":
       return [
-        "| " + block.headers.join(" | ") + " |",
+        "| " + block.headers.map(escapeCell).join(" | ") + " |",
         "|" + block.headers.map(() => "---").join("|") + "|",
         ...block.rows.map((row) => "| " + row.map(escapeCell).join(" | ") + " |"),
         "",
@@ -114,14 +127,14 @@ export interface DocumentMeta {
 
 export function renderSectionsToMarkdown(sections: AnalysisSection[], meta: DocumentMeta): string {
   const lines = [
-    `# Encoding Helper analysis: ${meta.fileName}`,
+    `# Encoding Helper analysis: ${oneLine(meta.fileName)}`,
     "",
     `_Generated ${meta.generated} with Encoding Helper v${meta.version} · ${meta.appUrl}_`,
     "",
   ];
-  lines.push(meta.facts.map(([k, v]) => `**${k}:** ${v}`).join(" · "), "");
+  lines.push(meta.facts.map(([k, v]) => `**${oneLine(k)}:** ${oneLine(v)}`).join(" · "), "");
   sections.forEach((sec) => {
-    lines.push(`## ${sec.title}`, "");
+    lines.push(`## ${oneLine(sec.title)}`, "");
     sec.blocks.forEach((block) => lines.push(...markdownBlock(block)));
   });
   return lines.join("\n");

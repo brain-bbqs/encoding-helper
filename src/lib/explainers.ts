@@ -476,6 +476,8 @@ export const CODEC_DESCRIPTIONS = {
   flac: "Lossless compression, meaning bit-exact reconstruction of the original samples, at roughly 50&ndash;60% the size of raw PCM. Not used for lossy delivery, but common for archival audio.",
   ac3: "A perceptual multichannel (up to 5.1) audio codec common in broadcast, DVD, and streaming.",
   eac3: "An extension of AC-3 with higher efficiency and up to 7.1 channels; common in modern streaming and broadcast.",
+  ulaw: "The telephone audio standard of North America and Japan. Each sample is stored in 8 bits on a logarithmic (companding) scale that keeps quiet sounds fine-grained and loud ones coarse. That rounding is lossy, trading some fidelity for half the size of 16-bit PCM.",
+  alaw: "The telephone audio standard of Europe and most of the world outside North America. Like &mu;-law it stores each sample in 8 bits on a logarithmic (companding) scale, with a slightly different curve; the rounding is lossy, trading some fidelity for half the size of 16-bit PCM.",
 } satisfies Record<string, string>;
 
 /** Shown for uncompressed audio, which has no knowledge-base entry of its own. */
@@ -686,7 +688,7 @@ export const FRAME_RATE_INFO =
 
 // --- Full Analysis ---
 
-/** What the Full Analysis tab gathers, and what two of the four buttons under it write. */
+/** What the Full Analysis tab gathers, what the buttons under it write, and what its two views show. */
 export const ANALYSIS_PANEL_INTRO =
   "Everything on the other tabs, gathered into one document: the container and track metadata, the bitrate " +
   "plot, the atom map, the GOP structure, and the <code>ffmpeg</code> command these settings produce — results " +
@@ -695,4 +697,5 @@ export const ANALYSIS_PANEL_INTRO =
   "first if you want them in the document. " +
   "<p>Below is the document itself, not a preview of one: <b>Download HTML</b> writes exactly this, in a " +
   "single self-contained file with no external assets, and <b>Save as PDF</b> hands the same thing to the " +
-  "browser's print dialog.</p>";
+  "browser's print dialog. The <b>Markdown</b> tab over it shows, in its place, the text " +
+  "<b>Download Markdown</b> writes and <b>Copy Markdown</b> copies.</p>";
