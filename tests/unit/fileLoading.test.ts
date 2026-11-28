@@ -663,8 +663,23 @@ describe("the drop zone's controls", () => {
     expect(els.miniName.textContent).toBe("");
   });
 
-  // Uncancelled, a file dropped anywhere but the zone is opened by the browser in place of the app.
-  it("keeps a file dropped beside the zone from replacing the page", () => {
+  // Anywhere else on the zone a link has nowhere to go, and left uncancelled the browser would open
+  // it, in a new tab or in place of the app. Refused with no drop effect, so there is no drop either.
+  it("refuses a link dragged onto the zone beside the URL box", () => {
+    initFileLoadingUi(els, { onLoaded });
+    els.showUrlBtn.click();
+    const over = dragEvent("dragover", LINK_DRAG);
+
+    els.dropZone.querySelector(".drop-full > div")!.dispatchEvent(over);
+
+    expect(over.defaultPrevented).toBe(true);
+    expect((over as DragEvent).dataTransfer!.dropEffect).toBe("none");
+    expect(els.dropZone.classList.contains("dragover")).toBe(false);
+  });
+
+  // Uncancelled, a file dropped anywhere but the zone is opened by the browser itself, in a new tab
+  // or in place of the app.
+  it("keeps a file dropped beside the zone from being opened by the browser", () => {
     initFileLoadingUi(els, { onLoaded });
     const over = dragEvent("dragover", FILE_DRAG);
     const drop = dragEvent("drop", FILE_DRAG, [videoFile()]);

@@ -239,10 +239,17 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     if (e.key === "Enter") els.loadUrlBtn.click();
   });
 
-  // Only a drag carrying files is the zone's: the URL box sits inside it, and a link or text dragged
-  // onto the box is left to the browser, which puts it in the box.
+  // Only a drag carrying files is the zone's to take. A link or text dragged onto the URL box inside
+  // it is left to the browser, which puts it in the box. Anywhere else on the zone it has nowhere to
+  // go, and the browser would open it instead, so it is refused: with no drop effect, there is no drop.
   els.dropZone.addEventListener("dragover", (e) => {
-    if (!carriesFiles(e)) return;
+    if (!carriesFiles(e)) {
+      if (e.target !== els.urlInput && e.dataTransfer) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "none";
+      }
+      return;
+    }
     e.preventDefault();
     els.dropZone.classList.add("dragover");
   });
@@ -254,8 +261,8 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     const file = e.dataTransfer?.files[0];
     if (file) void loadFile(file);
   });
-  // A file that misses the zone would otherwise be opened by the browser in place of the app, losing
-  // whatever was loaded. Files only, so text and links dropped into the page's inputs still land.
+  // A file that misses the zone would otherwise be opened by the browser itself, in a new tab or in
+  // place of the app. Files only, so text and links dropped into the page's inputs still land.
   const refuseStrayFile = (e: DragEvent): void => {
     if (carriesFiles(e)) e.preventDefault();
   };
