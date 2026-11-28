@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🏠 Internal
 
-- Tests are now type-checked and locale-independent, CI fails on a coverage drop or a lowered version, and each script's help shows its full header ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- Tests are now type-checked and locale-independent, CI fails on a coverage drop or a lowered version, and each script's help shows its full header ([#90](https://github.com/brain-bbqs/encoding-helper/pull/90))
 
 ## 1.5.14
 
