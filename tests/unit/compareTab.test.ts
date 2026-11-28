@@ -76,10 +76,11 @@ vi.mock("@ffmpeg/ffmpeg", () => {
     writeFile(path: string): Promise<void> {
       return core.writeFile ? this.inFlight(core.writeFile(path)) : Promise.resolve();
     }
-    exec(args: string[]): Promise<void> {
+    /** Resolves ffmpeg's exit code, as the real core does: 0, for an encode that went through. */
+    exec(args: string[]): Promise<number> {
       core.execs.push(args);
       this.lastExec = args;
-      return this.inFlight(core.exec ? core.exec(args) : Promise.resolve());
+      return this.inFlight(core.exec ? core.exec(args) : Promise.resolve()).then(() => 0);
     }
     readFile(): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array(core.sizeOf(this.lastExec)));

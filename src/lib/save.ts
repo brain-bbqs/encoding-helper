@@ -15,7 +15,7 @@ export function isPickerDismissed(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
 }
 
-type SaveTarget = { kind: "stream"; writable: FileSystemWritableFileStream } | { kind: "buffer" };
+export type SaveTarget = { kind: "stream"; writable: FileSystemWritableFileStream } | { kind: "buffer" };
 
 export async function pickSaveTarget(suggestedName: string): Promise<SaveTarget | null> {
   if (window.showSaveFilePicker) {

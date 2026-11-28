@@ -608,7 +608,7 @@ async function encodeCells(run: EncoderRun, queue: MatrixCell[], ui: MatrixUi, f
 
     if (pending.length) {
       ui.note.textContent = "Loading ffmpeg.wasm…";
-      const workers = acquireWorkers(run, pending.length);
+      const workers = acquireWorkers(run, pending.length, ui);
       await workers[0].load();
       const prepared = await prepareRun(run, matrixWindows(), workers, ui);
       inputs = prepared;
@@ -766,7 +766,7 @@ async function selectMatrixCell(run: EncoderRun, cell: MatrixCell, ui: MatrixUi)
       // Its outputs were dropped to stay inside the memory budget, so the square is encoded again,
       // over the same stretches the sweep measured, which are usually still cut and waiting. All of
       // them, not just one: the window plays every stretch the square was measured over.
-      const workers = acquireWorkers(run, matrixWindows().length);
+      const workers = acquireWorkers(run, matrixWindows().length, ui);
       const inputs = await prepareRun(run, matrixWindows(), workers, ui);
       let bytes: number;
       try {

@@ -273,7 +273,7 @@ async function runSample(windows: SampleWindow[], vt: TrackInfo, ui: RunUi, resu
   ui.note.textContent = "Loading ffmpeg.wasm…";
   let inputs: RunInputs | null = null;
   try {
-    const workers = acquireWorkers(run, windows.length);
+    const workers = acquireWorkers(run, windows.length, ui);
     await workers[0].load();
     inputs = await prepareRun(run, windows, workers, ui);
     // Records where the encoded stretch starts. The A/B window draws the original from the windows

@@ -111,7 +111,8 @@ export interface FfmpegWorker {
   ensureInput(name: string, data: Uint8Array): Promise<void>;
   has(name: string): boolean;
   run(args: string[], outputName: string): Promise<FfmpegRunResult>;
-  /** Runs `args` and leaves the output in this core's filesystem for a later run to read. */
+  /** Runs `args` and leaves the output in this core's filesystem for a later run to read. Fails,
+   * keeping none of the output, when ffmpeg exits non-zero. */
   runToFile(args: string[], outputName: string): Promise<void>;
   readFile(name: string): Promise<Uint8Array<ArrayBuffer>>;
   /** Removes `name` from this core's filesystem. Resolves whatever the core makes of it, a reset
@@ -263,7 +264,14 @@ export function createFfmpegWorker(id: number): FfmpegWorker {
     },
     async runToFile(args, outputName) {
       const ffmpeg = await ensureLoaded();
-      await guarded(() => ffmpeg.exec(args));
+      const code = await guarded(() => ffmpeg.exec(args));
+      // ffmpeg refusing a command exits non-zero rather than rejecting, and can leave part of an
+      // output behind. Kept, it would be read as the finished file and later runs would skip writing
+      // it again; the core itself is sound, so it stays.
+      if (code !== 0) {
+        await deleteFile(outputName);
+        throw new Error(`ffmpeg exited with code ${code}`);
+      }
       files.add(outputName);
     },
     async readFile(name) {

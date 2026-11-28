@@ -302,12 +302,12 @@ async function sourceForWindows(names: string[], cutter: FfmpegWorker): Promise<
  * Encodes one already-cut stretch at `cliState` and hands back the result.
  *
  * Shared by both tabs, so a matrix square and a single run are the same encode over the same
- * seconds. `input` is a stretch cut out beforehand where the container allowed it, and the whole
- * video otherwise, in which case the trim is done here as it always was.
+ * seconds. `input` is the stretch `window` cut out beforehand where the container allowed it
+ * (`preCut`), and the whole video otherwise, in which case the trim is done here as it always was.
  */
 async function encodeSegment(
   cliState: CliState,
-  input: { name: string; data: Uint8Array; trim: SampleWindow | null },
+  input: { name: string; data: Uint8Array; window: SampleWindow; preCut: boolean },
   worker: FfmpegWorker,
   ui: RunUi,
   onFraction: (fraction: number) => void,
@@ -324,13 +324,16 @@ async function encodeSegment(
   // also what the log shows, and a shared one would read as the same encode running twice.
   const outputName = `et_out_${worker.id}.mp4`;
   const args = buildFfmpegArgs(cliState, info, input.name, outputName);
-  const length = input.trim?.seconds ?? sampledEncode.duration;
-  if (input.trim) {
+  // The stretch's own seconds, cut or trimmed, rather than the Compare tab's Duration field: the
+  // Reencode tab's stretch is a fixed length whatever the field says, and a bar measured against
+  // the field stopped part-way and then jumped to full.
+  const length = input.window.seconds;
+  if (!input.preCut) {
     // Trim after -i (not before) so the cut is frame-accurate rather than snapped to the nearest
     // preceding keyframe: the two sides need to show the same content, not just start "close
     // enough". Only reached when the stretch could not be cut out beforehand.
     const iIdx = args.indexOf("-i");
-    args.splice(iIdx + 2, 0, "-ss", String(input.trim.startSeconds), "-t", String(input.trim.seconds));
+    args.splice(iIdx + 2, 0, "-ss", String(input.window.startSeconds), "-t", String(input.window.seconds));
   }
   worker.setHandlers((msg) => {
     logLine(ui.log, prefixed(worker, msg), "info");
@@ -436,7 +439,7 @@ export async function encodeWindows(
     async ({ window, index }, worker) => {
       const blob = await encodeSegment(
         cliState,
-        { name: inputs.names[index], data: inputs.data[index], trim: inputs.preCut ? null : window },
+        { name: inputs.names[index], data: inputs.data[index], window, preCut: inputs.preCut },
         worker,
         ui,
         (fraction) => {
@@ -506,10 +509,20 @@ export async function dropWholeFileInput(inputs: RunInputs | null): Promise<void
   await Promise.all((inputs.wholeFileOn ?? []).filter((w) => w.has(name)).map((w) => w.deleteFile(name)));
 }
 
-/** The pool `run` will encode on, every core of which a Stop of it terminates. */
-export function acquireWorkers(run: EncoderRun, taskCount: number): FfmpegWorker[] {
+/**
+ * The pool `run` will encode on, every core of which a Stop of it terminates.
+ *
+ * Each core logs to `ui`'s console from here on, before any of them loads: the first core's load is
+ * what downloads the core on a fresh page, and the notice saying so goes out through that core's
+ * handler as the download starts, which unbound (or still bound to an earlier run) left this run's
+ * console empty through a download of tens of megabytes.
+ */
+export function acquireWorkers(run: EncoderRun, taskCount: number, ui: RunUi): FfmpegWorker[] {
   const workers = ffmpegPool(poolSizeFor(taskCount));
-  for (const worker of workers) run.workers.add(worker);
+  for (const worker of workers) {
+    run.workers.add(worker);
+    worker.setHandlers((msg) => logLine(ui.log, prefixed(worker, msg), "info"), null);
+  }
   return workers;
 }
 

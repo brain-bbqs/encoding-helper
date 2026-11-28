@@ -35,6 +35,8 @@ const core = vi.hoisted(() => ({
   blobError: null as unknown,
   loadError: null as unknown,
   execError: null as unknown,
+  /** What an exec that runs to the end resolves with, as the real core does: ffmpeg's exit code. */
+  exitCode: 0,
   deleteError: null as unknown,
 }));
 
@@ -79,12 +81,13 @@ vi.mock("@ffmpeg/ffmpeg", () => {
       core.files.add(path);
       return Promise.resolve();
     }
-    exec(args: string[]): Promise<void> {
+    exec(args: string[]): Promise<number> {
       core.execs.push(args);
       if (core.execError) return Promise.reject(core.execError);
-      // A finished run leaves its output, the last argument, in the filesystem, as the real core does.
+      // A finished run leaves its output, the last argument, in the filesystem, as the real core does,
+      // and so does one that gave up part-way: what it wrote before stopping is still there.
       core.files.add(args[args.length - 1]);
-      return Promise.resolve();
+      return Promise.resolve(core.exitCode);
     }
     readFile(): Promise<Uint8Array> {
       // A view into a larger buffer, as the real client may hand back: only a copy owns exactly its bytes.
@@ -192,6 +195,7 @@ function resetCore(): void {
   core.blobError = null;
   core.loadError = null;
   core.execError = null;
+  core.exitCode = 0;
   core.deleteError = null;
 }
 
@@ -357,6 +361,20 @@ describe("a pooled core", () => {
     const out = await worker.readFile("out.mp4");
     expect(Array.from(out)).toEqual([1, 2, 3]);
     expect(worker.has("out.mp4")).toBe(true);
+  });
+
+  // ffmpeg reports what it refused by its exit code rather than by rejecting, and a cut it gave up on
+  // part-way leaves an output behind: recorded as held, a later run would skip the cut and read that.
+  it("fails a run-to-file ffmpeg exits non-zero from, keeping nothing of its output", async () => {
+    const worker = createFfmpegWorker(1);
+    await worker.ensureInput("in.mp4", INPUT);
+    core.exitCode = 1;
+    await expect(worker.runToFile(ARGS, "out.mp4")).rejects.toThrow(/^ffmpeg exited with code 1$/);
+    expect(worker.has("out.mp4")).toBe(false);
+    expect(core.files.has("out.mp4")).toBe(false);
+    // ffmpeg exiting is not the core crashing, so the core and what it holds are kept.
+    expect(core.terminated).toBe(0);
+    expect(worker.has("in.mp4")).toBe(true);
   });
 
   // Blob wants a plain ArrayBuffer-backed view; a view sharing the core's buffer would drag the rest of it along.

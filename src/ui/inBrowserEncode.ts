@@ -13,7 +13,7 @@ import { gridItem, section } from "../lib/dom";
 import { claimEncoder, releaseEncoder, RunStopped, throwIfStopped } from "../lib/encoderRun";
 import { defaultFfmpegWorker, ensureFfmpegLoaded, runFfmpegEncode, setFfmpegHandlers } from "../lib/ffmpegEngine";
 import { fmtSizeChangePct } from "../lib/format";
-import { baseNameOf, downloadBlob, extOf, pickSaveTarget } from "../lib/save";
+import { baseNameOf, downloadBlob, extOf, pickSaveTarget, type SaveTarget } from "../lib/save";
 import { fmtChangeFactor } from "../lib/sizeEstimate";
 import { cli, state } from "../lib/state";
 import type { VideoInfo } from "../lib/types";
@@ -44,6 +44,10 @@ function encodeVerb(): "Reencode" | "Transcode" {
  * Takes the encoder like every other run (see lib/encoderRun): its core is the pool's first, which
  * a sweep or a sample run would otherwise encode on beside it. It has no Stop of its own; a file
  * load or Reset stops it.
+ *
+ * Where to save is asked first, before anything here awaits: the browser opens its save picker only
+ * while the press that asks for it is still the reader's own doing, which an encode of any length
+ * outlasts, and asked afterwards it refused and the output fell back to a download.
  */
 async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
   const run = claimEncoder("Reencode with FFmpeg", false, box.note);
@@ -51,7 +55,7 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
   run.workers.add(defaultFfmpegWorker);
   box.button.disabled = true;
   resetProgressFill(box.progress, box.fill);
-  box.note.textContent = "Loading ffmpeg.wasm…";
+  box.note.textContent = "";
   box.result.innerHTML = "";
   clearLog(box.log);
   setFfmpegHandlers(
@@ -64,8 +68,17 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
   // The file as it was when the button was pressed: what the output is named, and measured
   // against, is read from these rather than from the state once the encode is done.
   const { source, file, format } = state;
+  let target: SaveTarget | null = null;
+  /** Whether the output has been written out in full to the file the reader picked. */
+  let saved = false;
   try {
     if (!source) throw new Error("No video loaded");
+    const saveName = encodedFileName(format, baseNameOf(source.name));
+    target = await pickSaveTarget(saveName);
+    // Dismissed: the reader decided against saving, so there is nothing to encode for.
+    if (!target) return;
+    throwIfStopped(run);
+    box.note.textContent = "Loading ffmpeg.wasm…";
     await ensureFfmpegLoaded();
     // Checked before the file is read, which for a URL is a full download. A stop during the load
     // fails the load, so this is the backstop that keeps a stopped encode from reading any of it.
@@ -81,11 +94,10 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
     const { data } = await runFfmpegEncode(args, inputName, inputData, outputName);
     throwIfStopped(run);
     const blob = new Blob([data], { type: "video/mp4" });
-    const saveName = encodedFileName(format, baseNameOf(source.name));
-    const target = await pickSaveTarget(saveName);
-    if (target && target.kind === "stream") {
+    if (target.kind === "stream") {
       await target.writable.write(blob);
       await target.writable.close();
+      saved = true;
     } else {
       downloadBlob(blob, saveName);
     }
@@ -95,6 +107,10 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
     throwIfStopped(run);
     showReencodeResult(box, source.size, blob.size);
   } catch (err) {
+    // The file picked before the encode is open for writing; one that never got its output is let
+    // go of rather than left held open. A stream the browser has already errored refuses, which
+    // leaves it no less let go of.
+    if (target?.kind === "stream" && !saved) void target.writable.abort().catch(() => {});
     if (err instanceof RunStopped || run.stopped) {
       box.note.textContent = "Stopped.";
     } else {

@@ -144,11 +144,64 @@ describe("inBrowserEncodeSection", () => {
     expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), "clip-reencoded.mp4");
   });
 
-  it("downloads the output when the reader dismissed the picker", async () => {
-    pickSaveTarget.mockResolvedValue(null);
+  // The picker is refused once the press that opened it is no longer the reader's own doing, which
+  // an encode of any length outlasts, so it is asked for on the press, before anything is encoded.
+  it("asks where to save on the press itself, before anything is loaded or encoded", async () => {
     const { button } = section();
+    button.click();
+    expect(pickSaveTarget).toHaveBeenCalledWith("clip-reencoded.mp4");
+    expect(ensureFfmpegLoaded).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+    expect(pickSaveTarget).toHaveBeenCalledOnce();
+    expect(runFfmpegEncode).toHaveBeenCalledOnce();
+    expect(pickSaveTarget.mock.invocationCallOrder[0]).toBeLessThan(ensureFfmpegLoaded.mock.invocationCallOrder[0]);
+  });
+
+  it("encodes nothing when the reader dismisses the picker", async () => {
+    pickSaveTarget.mockResolvedValue(null);
+    const { button, note } = section();
     await run(button);
-    expect(downloadBlob).toHaveBeenCalledOnce();
+    expect(ensureFfmpegLoaded).not.toHaveBeenCalled();
+    expect(runFfmpegEncode).not.toHaveBeenCalled();
+    expect(downloadBlob).not.toHaveBeenCalled();
+    expect(note.textContent).toBe("");
+    expect(encoderBusy()).toBe(false);
+  });
+
+  // Chosen before the encode, the file is open for writing while it runs; an encode that fails
+  // writes nothing to it and lets it go rather than leaving it held open.
+  it("lets go of the picked file without writing to it when the encode fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const writable = { write: vi.fn(), close: vi.fn(), abort: vi.fn().mockResolvedValue(undefined) };
+    pickSaveTarget.mockResolvedValue({ kind: "stream", writable });
+    runFfmpegEncode.mockRejectedValue(new Error("ffmpeg exited 1"));
+    const { button, note } = section();
+
+    await run(button);
+
+    expect(writable.write).not.toHaveBeenCalled();
+    expect(writable.close).not.toHaveBeenCalled();
+    expect(writable.abort).toHaveBeenCalledOnce();
+    expect(note.textContent).toBe("Failed: ffmpeg exited 1");
+  });
+
+  it("loads nothing when the file is closed while the picker is open", async () => {
+    const picking = deferred<{ kind: "stream"; writable: object }>();
+    pickSaveTarget.mockReturnValue(picking.promise);
+    const writable = { write: vi.fn(), close: vi.fn(), abort: vi.fn().mockRejectedValue(new Error("closed")) };
+    const { button, note } = section();
+    button.click();
+
+    resetState();
+    picking.resolve({ kind: "stream", writable });
+    await vi.waitFor(() => expect(button.disabled).toBe(false));
+
+    expect(ensureFfmpegLoaded).not.toHaveBeenCalled();
+    expect(writable.write).not.toHaveBeenCalled();
+    // Let go of whether or not the browser still had it open.
+    expect(writable.abort).toHaveBeenCalledOnce();
+    expect(note.textContent).toBe("Stopped.");
+    expect(encoderBusy()).toBe(false);
   });
 
   it("advances the bar with the engine's progress, and logs what it says", async () => {
@@ -207,6 +260,7 @@ describe("inBrowserEncodeSection", () => {
     await run(button);
 
     expect(note.textContent).toBe("Failed: No video loaded");
+    expect(pickSaveTarget).not.toHaveBeenCalled();
     expect(ensureFfmpegLoaded).not.toHaveBeenCalled();
   });
 
@@ -281,7 +335,6 @@ describe("inBrowserEncodeSection", () => {
     await vi.waitFor(() => expect(button.disabled).toBe(false));
 
     expect(defaultFfmpegWorker.reset).toHaveBeenCalledOnce();
-    expect(pickSaveTarget).not.toHaveBeenCalled();
     expect(downloadBlob).not.toHaveBeenCalled();
     expect(state.reencodeResult).toBeNull();
     expect(note.textContent).toBe("Stopped.");
@@ -292,7 +345,11 @@ describe("inBrowserEncodeSection", () => {
   // recorded for Full Analysis, whose state is the next file's by then.
   it("records nothing for the next file when the file is closed while the output is saved", async () => {
     const writing = deferred<void>();
-    const writable = { write: vi.fn().mockReturnValue(writing.promise), close: vi.fn().mockResolvedValue(undefined) };
+    const writable = {
+      write: vi.fn().mockReturnValue(writing.promise),
+      close: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn(),
+    };
     pickSaveTarget.mockResolvedValue({ kind: "stream", writable });
     const { button, note } = section();
     button.click();
@@ -302,6 +359,9 @@ describe("inBrowserEncodeSection", () => {
     writing.resolve();
     await vi.waitFor(() => expect(button.disabled).toBe(false));
 
+    // The output was written out in full, so the reader keeps it.
+    expect(writable.close).toHaveBeenCalledOnce();
+    expect(writable.abort).not.toHaveBeenCalled();
     expect(state.reencodeResult).toBeNull();
     expect(note.textContent).toBe("Stopped.");
     expect(encoderBusy()).toBe(false);

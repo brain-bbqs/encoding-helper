@@ -47,8 +47,9 @@ vi.mock("@ffmpeg/ffmpeg", () => {
     writeFile(): Promise<void> {
       return Promise.resolve();
     }
-    exec(args: string[]): Promise<void> {
-      return (args.includes("-crf") && core.held) || Promise.resolve();
+    /** Resolves ffmpeg's exit code, as the real core does. */
+    exec(args: string[]): Promise<number> {
+      return ((args.includes("-crf") && core.held) || Promise.resolve()).then(() => 0);
     }
     readFile(): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array(3));

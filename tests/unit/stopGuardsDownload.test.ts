@@ -121,7 +121,7 @@ describe("Stop or a file load during the core download", () => {
     const run = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
     const downloading = deferred<void>();
     ctl.download = downloading.promise;
-    const workers = m.segmentRun.acquireWorkers(run, 1);
+    const workers = m.segmentRun.acquireWorkers(run, 1, ui);
     // As selectMatrixCell does: no load before prepareRun, so the cutter's ensureInput is what loads.
     const done = outcome(m.segmentRun.prepareRun(run, WINDOWS, workers, ui));
     await until(() => ctl.events.some((e) => e.kind === "new"));
@@ -150,7 +150,7 @@ describe("Stop or a file load during the core download", () => {
     const runA = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
     const downloading = deferred<void>();
     ctl.download = downloading.promise;
-    const workersA = m.segmentRun.acquireWorkers(runA, 2);
+    const workersA = m.segmentRun.acquireWorkers(runA, 2, ui);
     const doneA = outcome(
       (async () => {
         await workersA[0].load();
@@ -166,7 +166,7 @@ describe("Stop or a file load during the core download", () => {
     ctl.phase = "B";
     loadClip(m, NEW, false);
     const runB = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
-    const workersB = m.segmentRun.acquireWorkers(runB, 2);
+    const workersB = m.segmentRun.acquireWorkers(runB, 2, ui);
     const doneB = outcome(
       (async () => {
         await workersB[0].load();
@@ -196,7 +196,7 @@ describe("Stop or a file load during the core download", () => {
     const runA = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
     const downloading = deferred<void>();
     ctl.download = downloading.promise;
-    const workersA = m.segmentRun.acquireWorkers(runA, 1);
+    const workersA = m.segmentRun.acquireWorkers(runA, 1, ui);
     const doneA = outcome(m.segmentRun.prepareRun(runA, WINDOWS, workersA, ui));
     await until(() => ctl.events.some((e) => e.kind === "new"));
 
@@ -206,7 +206,7 @@ describe("Stop or a file load during the core download", () => {
     ctl.phase = "B";
     loadClip(m, NEW, true);
     const runB = m.encoderRun.claimEncoder("Compare Quality", true, document.createElement("div"))!;
-    const workersB = m.segmentRun.acquireWorkers(runB, 1);
+    const workersB = m.segmentRun.acquireWorkers(runB, 1, ui);
     const doneB = outcome(
       (async () => {
         await workersB[0].load();
