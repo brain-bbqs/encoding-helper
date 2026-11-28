@@ -679,6 +679,15 @@ describe("the drop zone's controls", () => {
     expect(els.dropZone.classList.contains("dragover")).toBe(false);
   });
 
+  // A drag event a script makes has no DataTransfer behind it, so there is nothing to tell it by.
+  it("leaves a drag that carries no data alone", () => {
+    initFileLoadingUi(els, { onLoaded });
+    const over = new Event("dragover", { bubbles: true, cancelable: true });
+    els.dropZone.dispatchEvent(over);
+    expect(over.defaultPrevented).toBe(false);
+    expect(els.dropZone.classList.contains("dragover")).toBe(false);
+  });
+
   it("leaves text dropped into an input elsewhere on the page to that input", () => {
     initFileLoadingUi(els, { onLoaded });
     const field = document.createElement("input");
