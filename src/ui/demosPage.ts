@@ -28,6 +28,7 @@ import {
 import { button, h } from "@brain-bbqs/ui";
 import { readDemosFromUrl, writeDemosToUrl } from "../lib/appUrl";
 import { section } from "../lib/dom";
+import { state } from "../lib/state";
 import type { AppElements } from "./elements";
 
 /** Why a demo that is not an MP4 or MOV is marked as one the app cannot open. */
@@ -245,9 +246,6 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
   let set: DemoSet | null = null;
   let browser: HTMLElement | null = null;
   let search = "";
-  // #app is shown by the file loader once a file has been parsed; the demos page hides it while it
-  // is up and puts back whatever it found rather than deciding for itself.
-  let appDisplay: string | null = null;
 
   const close = (push: boolean): void => {
     if (page.style.display === "none") return;
@@ -255,8 +253,9 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     page.style.display = "none";
     els.dropZone.style.display = "";
     els.introCard.style.display = "";
-    if (appDisplay !== null) els.app.style.display = appDisplay;
-    appDisplay = null;
+    // Taken from whether a file is loaded now rather than from how #app looked when the page opened:
+    // a load can finish, fail or be replaced while the page is up.
+    els.app.style.display = state.source ? "block" : "none";
   };
 
   const onOpen = (demo: DemoFile): void => {
@@ -314,7 +313,6 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     build();
     els.dropZone.style.display = "none";
     els.introCard.style.display = "none";
-    if (appDisplay === null) appDisplay = els.app.style.display;
     els.app.style.display = "none";
     page.style.display = "block";
     window.scrollTo({ top: 0 });

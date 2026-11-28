@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sample } from "../fixtures/samples";
 import { seekResult } from "../fixtures/seekResult";
 import { resetState, state } from "../../src/lib/state";
-import { flush } from "./helpers/async";
+import { deferred, flush } from "./helpers/async";
 import { gridRows, gridValue } from "./helpers/grid";
 
 /** Every timestamp the run asked the sink to decode, in order. */
@@ -18,6 +18,10 @@ let decodeCost: (seconds: number) => number = () => 2.5;
 let refuseAt: number | null = null;
 /** When set, mediabunny itself will not load. */
 let loadError: Error | null = null;
+/** When set, the next decode waits for it before answering, standing in for a slow frame. */
+let holdNext: Promise<void> | null = null;
+/** When set, the next load of mediabunny waits for it, standing in for a slow download. */
+let holdLoad: Promise<void> | null = null;
 
 // The run decodes with mediabunny, which is not what is under test: what it does with the decode
 // times and the keyframe distances is, so the decoder is stubbed and its clock is under control.
@@ -28,6 +32,9 @@ vi.mock("../../src/lib/mediabunny", () => {
     }
     async getCanvas(seconds: number): Promise<{ canvas: HTMLCanvasElement } | null> {
       decodeRequests.push(seconds);
+      const hold = holdNext;
+      holdNext = null;
+      if (hold) await hold;
       if (refuseAt === seconds) throw new Error("no frame at " + seconds);
       clock += decodeCost(seconds);
       return { canvas: document.createElement("canvas") };
@@ -35,6 +42,9 @@ vi.mock("../../src/lib/mediabunny", () => {
   }
   return {
     ensureMediabunny: async () => {
+      const hold = holdLoad;
+      holdLoad = null;
+      if (hold) await hold;
       if (loadError) throw loadError;
       return { CanvasSink: FakeCanvasSink };
     },
@@ -66,11 +76,25 @@ function renderTab(): HTMLElement {
   return panel;
 }
 
-/** Sets the sample count and presses Run, then waits for the run to finish. */
-async function run(panel: HTMLElement, samples: string): Promise<void> {
+/** Sets the sample count and presses Run. */
+function start(panel: HTMLElement, samples: string): void {
   panel.querySelector<HTMLInputElement>("#seekN")!.value = samples;
   panel.querySelector<HTMLButtonElement>("#runSeekBtn")!.click();
+}
+
+/** Sets the sample count and presses Run, then waits for the run to finish. */
+async function run(panel: HTMLElement, samples: string): Promise<void> {
+  start(panel, samples);
   await flush();
+}
+
+/** Starts a run whose first decode does not answer until the returned function is called. */
+async function startHeld(panel: HTMLElement, samples: string): Promise<() => void> {
+  const held = deferred<void>();
+  holdNext = held.promise;
+  start(panel, samples);
+  await vi.waitFor(() => expect(decodeRequests).toHaveLength(1));
+  return () => held.resolve();
 }
 
 function tableRows(wrap: Element): string[][] {
@@ -88,6 +112,8 @@ beforeEach(() => {
   decodeCost = () => 2.5;
   refuseAt = null;
   loadError = null;
+  holdNext = null;
+  holdLoad = null;
   vi.spyOn(performance, "now").mockImplementation(() => clock);
 });
 
@@ -259,6 +285,94 @@ describe("the seeking test run", () => {
     expect(state.seekResults).toBeNull();
     expect(panel.querySelector("#seekResultsWrap")!.children).toHaveLength(0);
     expect(document.getElementById("errorMsg")!.textContent).toBe("Seeking test failed: no frame at 5");
+  });
+
+  it("takes the last run's failure down when the next run starts", async () => {
+    loadClip();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const panel = renderTab();
+    refuseAt = 5;
+    await run(panel, "5");
+    const errorMsg = document.getElementById("errorMsg")!;
+    expect(errorMsg.style.display).toBe("block");
+    refuseAt = null;
+
+    start(panel, "5");
+
+    expect(errorMsg.style.display).toBe("none");
+    await flush();
+    expect(errorMsg.style.display).toBe("none");
+    expect(state.seekResults).toHaveLength(5);
+  });
+
+  // resetState is what a file load and Reset both begin with. The run would otherwise write the
+  // old file's timings into the next file's state, or its card.
+  it("writes nothing from a run that a file load or Reset overtook", async () => {
+    loadClip();
+    const panel = renderTab();
+    const release = await startHeld(panel, "5");
+
+    resetState();
+    loadClip();
+    release();
+    await flush();
+
+    expect(decodeRequests).toHaveLength(1);
+    expect(state.seekResults).toBeNull();
+    expect(panel.querySelector("#seekResultsWrap")!.children).toHaveLength(0);
+    expect(document.getElementById("errorMsg")!.style.display).toBe("none");
+  });
+
+  it("opens no decoder for a run that a file load or Reset overtook while mediabunny was loading", async () => {
+    loadClip();
+    const panel = renderTab();
+    const loading = deferred<void>();
+    holdLoad = loading.promise;
+    start(panel, "5");
+
+    resetState();
+    loadClip();
+    loading.resolve();
+    await flush();
+
+    expect(sinksOpened).toEqual([]);
+    expect(decodeRequests).toEqual([]);
+    expect(state.seekResults).toBeNull();
+  });
+
+  // Disposing the file's decoder cancels the decode in flight, which then rejects.
+  it("reports nothing when a run that a file load or Reset overtook then fails", async () => {
+    loadClip();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const panel = renderTab();
+    refuseAt = 1;
+    const release = await startHeld(panel, "5");
+
+    resetState();
+    release();
+    await flush();
+
+    const errorMsg = document.getElementById("errorMsg")!;
+    expect(errorMsg.style.display).toBe("none");
+    expect(errorMsg.textContent).toBe("");
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("leaves the state to a newer run when an older one finishes after it", async () => {
+    loadClip();
+    const older = renderTab();
+    const release = await startHeld(older, "5");
+    const newer = document.createElement("div");
+    document.body.append(newer);
+    renderGopStructure(newer);
+
+    await run(newer, "3");
+    release();
+    await flush();
+
+    expect(state.seekResults).toHaveLength(3);
+    expect(tableRows(newer.querySelector("#seekResultsWrap")!)).toHaveLength(3);
+    expect(older.querySelector("#seekResultsWrap")!.children).toHaveLength(0);
   });
 
   // Not every host puts the error slot in the page; a run failing without one still ends cleanly.

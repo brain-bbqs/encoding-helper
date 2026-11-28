@@ -1,10 +1,16 @@
 # Changelog
 
-## 1.5.16
+## 1.5.17
 
 #### 🏠 Internal
 
 - Tests are now type-checked and locale-independent, CI fails on a coverage drop or a lowered version, and each script's help shows its full header ([#90](https://github.com/brain-bbqs/encoding-helper/pull/90))
+
+## 1.5.16
+
+#### 🐛 Bug Fix
+
+- Overlapping, cancelled or failed loads and interrupted seeking tests no longer leave stale tabs, results or errors, and the same file can be picked again ([#89](https://github.com/brain-bbqs/encoding-helper/pull/89))
 
 ## 1.5.15
 

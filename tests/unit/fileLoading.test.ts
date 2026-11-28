@@ -8,7 +8,7 @@ import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initFileLoadingUi } from "../../src/ui/fileLoading";
-import { flush } from "./helpers/async";
+import { deferred, flush } from "./helpers/async";
 import { setUrl } from "./helpers/url";
 
 const INDEX_HTML = readIndexHtml();
@@ -25,6 +25,10 @@ const { BlobSource, UrlSource } = vi.hoisted(() => ({
     constructor(public url: string) {}
   },
 }));
+/** Every mediabunny Input disposed since the test began, in order. */
+const disposedInputs = vi.hoisted((): unknown[] => []);
+/** When `hold` is set, the next load of mediabunny waits for it, standing in for a slow download. */
+const mediabunnyLoad = vi.hoisted((): { hold: Promise<void> | null } => ({ hold: null }));
 
 vi.mock("../../src/lib/mp4boxParser", () => ({
   parseWithMp4Box,
@@ -42,16 +46,22 @@ vi.mock("../../src/lib/mp4boxParser", () => ({
 vi.mock("../../src/lib/mediabunnyMeta", () => ({ loadMediabunnyMetadata }));
 
 vi.mock("../../src/lib/mediabunny", () => ({
-  ensureMediabunny: () =>
-    Promise.resolve({
+  ensureMediabunny: async () => {
+    const hold = mediabunnyLoad.hold;
+    mediabunnyLoad.hold = null;
+    if (hold) await hold;
+    return {
       ALL_FORMATS: [],
       BlobSource,
       UrlSource,
       Input: class {
         constructor(public options: unknown) {}
-        dispose(): void {}
+        dispose(): void {
+          disposedInputs.push(this);
+        }
       },
-    }),
+    };
+  },
 }));
 
 /** The metadata a successful load comes back with. */
@@ -88,12 +98,14 @@ let onLoaded: Mock<() => void>;
 beforeEach(() => {
   setUrl("");
   resetState();
+  disposedInputs.length = 0;
+  mediabunnyLoad.hold = null;
   vi.clearAllMocks();
   parseWithMp4Box.mockResolvedValue({ mp4boxFile: {}, info: { videoTracks: [{ id: 1, timescale: 600 }] } });
   loadMediabunnyMetadata.mockResolvedValue(metadata());
   vi.spyOn(ChunkedSource, "fromUrl").mockImplementation(fromUrl);
   els = mountApp();
-  onLoaded = vi.fn();
+  onLoaded = vi.fn<() => void>();
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -289,6 +301,296 @@ describe("when a load fails", () => {
 
     expect(els.errorMsg.style.display).toBe("none");
   });
+
+  // The load let go of the file before it at its start, so the tabs still on screen would be
+  // showing a file that is no longer open, under an error about another.
+  it("takes the previous file's tabs down, and keeps nothing of the file that failed", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadFile(videoFile("good.mp4"));
+    expect(els.app.style.display).toBe("block");
+    parseWithMp4Box.mockRejectedValueOnce(new Error("bad.mp4 is not an MP4"));
+
+    await loader.loadFile(videoFile("bad.mp4"));
+
+    expect(els.app.style.display).toBe("none");
+    expect(els.errorMsg.textContent).toBe("bad.mp4 is not an MP4");
+    expect(els.errorMsg.style.display).toBe("block");
+    expect(els.dropZone.classList.contains("collapsed")).toBe(false);
+    expect(state.source).toBeNull();
+    expect(state.boxes).toEqual([]);
+    expect(onLoaded).toHaveBeenCalledOnce();
+  });
+
+  it("releases the mediabunny Input it opened when reading the metadata fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    loadMediabunnyMetadata.mockRejectedValueOnce(new Error("mediabunny could not read it"));
+    const loader = initFileLoadingUi(els, { onLoaded });
+
+    await loader.loadFile(videoFile());
+
+    expect(disposedInputs).toHaveLength(1);
+    expect(disposedInputs[0]).toBe(loadMediabunnyMetadata.mock.calls[0][0]);
+    expect(state.input).toBeNull();
+    expect(els.errorMsg.textContent).toBe("mediabunny could not read it");
+  });
+
+  // Drawing the tabs is the last step and can throw too (a file too long for one of them, say), by
+  // which point the state holds the whole file.
+  it("leaves nothing loaded when drawing the tabs fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    onLoaded.mockImplementationOnce(() => {
+      throw new RangeError("Maximum call stack size exceeded");
+    });
+    const loader = initFileLoadingUi(els, { onLoaded });
+
+    await loader.loadFile(videoFile());
+
+    expect(els.app.style.display).toBe("none");
+    expect(els.errorMsg.textContent).toBe("Maximum call stack size exceeded");
+    expect(state.source).toBeNull();
+    expect(state.input).toBeNull();
+    expect(disposedInputs).toHaveLength(1);
+  });
+
+  // Nothing is loaded after a failure, as after Reset, so a reload or a shared copy of the address
+  // should not open the file before it.
+  it("takes the previous file's link out of the address bar", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadUrl("https://example.org/good.mp4");
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/good.mp4");
+    parseWithMp4Box.mockRejectedValueOnce(new Error("bad.mp4 is not an MP4"));
+
+    await loader.loadFile(videoFile("bad.mp4"));
+
+    expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
+  });
+
+  // A URL that failed may open on a second try (a dropped connection, a host that was down), so its
+  // own link stays for a reload to retry, where a failed local file leaves nothing to reload.
+  it("keeps a failed URL's own link in the address bar, so a reload tries it again", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    onLoaded.mockImplementationOnce(() => {
+      throw new RangeError("Maximum call stack size exceeded");
+    });
+    const loader = initFileLoadingUi(els, { onLoaded });
+
+    await loader.loadUrl("https://example.org/remote.mp4");
+
+    expect(state.source).toBeNull();
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/remote.mp4");
+  });
+
+  it("puts a failed URL's link in place of the file before it", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadUrl("https://example.org/good.mp4");
+    parseWithMp4Box.mockRejectedValueOnce(new Error("bad.mp4 is not an MP4"));
+
+    await loader.loadUrl("https://example.org/bad.mp4");
+
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/bad.mp4");
+  });
+
+  it("keeps a shared link that failed to open", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    parseWithMp4Box.mockRejectedValueOnce(new Error("shared.mp4 is not an MP4"));
+    setUrl("?src=" + encodeURIComponent("https://example.org/shared.mp4"));
+    initFileLoadingUi(els, { onLoaded });
+    await vi.waitFor(() => expect(els.errorMsg.textContent).toBe("shared.mp4 is not an MP4"));
+
+    expect(new URL(window.location.href).searchParams.get("src")).toBe("https://example.org/shared.mp4");
+  });
+});
+
+type ParseResult = { mp4boxFile: object; info: { videoTracks: { id: number; timescale: number }[] } };
+type Metadata = ReturnType<typeof metadata>;
+
+const PARSED: ParseResult = { mp4boxFile: {}, info: { videoTracks: [{ id: 1, timescale: 600 }] } };
+
+describe("when loads overlap or are cut short", () => {
+  it("keeps the later file when the earlier load finishes after it", async () => {
+    const first = deferred<Metadata>();
+    loadMediabunnyMetadata.mockReturnValueOnce(first.promise);
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const firstLoad = loader.loadFile(videoFile("a.mp4"));
+    await vi.waitFor(() => expect(loadMediabunnyMetadata).toHaveBeenCalledOnce());
+    const firstInput: unknown = loadMediabunnyMetadata.mock.calls[0][0];
+
+    await loader.loadFile(videoFile("b.mp4"));
+    first.resolve(metadata({ duration: 99 }));
+    await firstLoad;
+
+    expect(state.source!.name).toBe("b.mp4");
+    expect(state.duration).toBe(30);
+    expect(state.input).toBe(loadMediabunnyMetadata.mock.calls[1][0]);
+    expect(disposedInputs).toEqual([firstInput]);
+    expect(onLoaded).toHaveBeenCalledOnce();
+    expect(els.miniName.textContent).toBe("b.mp4");
+    expect(els.errorMsg.style.display).toBe("none");
+  });
+
+  it("lets the earlier load write nothing when it finishes first, and the later one everything", async () => {
+    const first = deferred<Metadata>();
+    const second = deferred<Metadata>();
+    loadMediabunnyMetadata.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const firstLoad = loader.loadFile(videoFile("a.mp4"));
+    await vi.waitFor(() => expect(loadMediabunnyMetadata).toHaveBeenCalledTimes(1));
+    const secondLoad = loader.loadFile(videoFile("b.mp4"));
+    await vi.waitFor(() => expect(loadMediabunnyMetadata).toHaveBeenCalledTimes(2));
+
+    first.resolve(metadata({ duration: 99 }));
+    await firstLoad;
+
+    expect(state.source).toBeNull();
+    expect(state.input).toBeNull();
+    expect(onLoaded).not.toHaveBeenCalled();
+    expect(els.app.style.display).toBe("none");
+    expect(els.miniName.textContent).toBe("Reading metadata (mediabunny)…");
+    expect(disposedInputs).toEqual([loadMediabunnyMetadata.mock.calls[0][0]]);
+
+    second.resolve(metadata());
+    await secondLoad;
+
+    expect(state.source!.name).toBe("b.mp4");
+    expect(state.duration).toBe(30);
+    expect(onLoaded).toHaveBeenCalledOnce();
+    expect(els.miniName.textContent).toBe("b.mp4");
+  });
+
+  it("says nothing about a replaced load that then fails, nor how far its parse got", async () => {
+    const first = deferred<ParseResult>();
+    let reportProgress: (p: number) => void = () => {};
+    parseWithMp4Box.mockImplementationOnce((_source: unknown, onProgress: (p: number) => void) => {
+      reportProgress = onProgress;
+      return first.promise;
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const firstLoad = loader.loadFile(videoFile("a.mp4"));
+    await vi.waitFor(() => expect(parseWithMp4Box).toHaveBeenCalledOnce());
+
+    await loader.loadFile(videoFile("b.mp4"));
+    reportProgress(0.5);
+    first.reject(new Error("a.mp4 is broken"));
+    await firstLoad;
+
+    expect(els.miniName.textContent).toBe("b.mp4");
+    expect(els.errorMsg.style.display).toBe("none");
+    expect(els.dropZone.classList.contains("collapsed")).toBe(true);
+    expect(els.app.style.display).toBe("block");
+    expect(state.source!.name).toBe("b.mp4");
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("leaves the newer load's bar alone when a replaced load's parse then succeeds", async () => {
+    const first = deferred<ParseResult>();
+    parseWithMp4Box.mockReturnValueOnce(first.promise);
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const firstLoad = loader.loadFile(videoFile("a.mp4"));
+    await vi.waitFor(() => expect(parseWithMp4Box).toHaveBeenCalledOnce());
+
+    await loader.loadFile(videoFile("b.mp4"));
+    first.resolve(PARSED);
+    await firstLoad;
+
+    expect(els.miniName.textContent).toBe("b.mp4");
+    expect(loadMediabunnyMetadata).toHaveBeenCalledOnce();
+    expect(state.source!.name).toBe("b.mp4");
+  });
+
+  it("opens no mediabunny Input for a load replaced while mediabunny was still loading", async () => {
+    const loading = deferred<void>();
+    mediabunnyLoad.hold = loading.promise;
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const firstLoad = loader.loadFile(videoFile("a.mp4"));
+    await vi.waitFor(() => expect(els.miniName.textContent).toBe("Reading metadata (mediabunny)…"));
+
+    await loader.loadFile(videoFile("b.mp4"));
+    loading.resolve();
+    await firstLoad;
+
+    expect(loadMediabunnyMetadata).toHaveBeenCalledOnce();
+    expect(disposedInputs).toEqual([]);
+    expect(state.source!.name).toBe("b.mp4");
+  });
+
+  it("drops a download that Reset backed out of, rather than opening it when it arrives", async () => {
+    const download = deferred<ChunkedSource>();
+    fromUrl.mockReturnValueOnce(download.promise);
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const pending = loader.loadUrl("https://example.org/remote.mp4");
+
+    els.resetBtn.click();
+    download.resolve(ChunkedSource.fromFile(videoFile("remote.mp4")));
+    await pending;
+
+    expect(parseWithMp4Box).not.toHaveBeenCalled();
+    expect(state.source).toBeNull();
+    expect(onLoaded).not.toHaveBeenCalled();
+    expect(els.app.style.display).toBe("none");
+    expect(els.dropZone.classList.contains("collapsed")).toBe(false);
+    expect(els.miniName.textContent).toBe("");
+    expect(new URL(window.location.href).searchParams.has("src")).toBe(false);
+  });
+
+  it("writes nothing from a load Reset cut short part-way, and releases the Input it had opened", async () => {
+    const meta = deferred<Metadata>();
+    loadMediabunnyMetadata.mockReturnValueOnce(meta.promise);
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const pending = loader.loadFile(videoFile());
+    await vi.waitFor(() => expect(loadMediabunnyMetadata).toHaveBeenCalledOnce());
+
+    els.resetBtn.click();
+    meta.resolve(metadata());
+    await pending;
+
+    expect(disposedInputs).toEqual([loadMediabunnyMetadata.mock.calls[0][0]]);
+    expect(state.input).toBeNull();
+    expect(state.source).toBeNull();
+    expect(state.samples).toEqual([]);
+    expect(onLoaded).not.toHaveBeenCalled();
+    expect(els.app.style.display).toBe("none");
+    expect(els.dropZone.classList.contains("collapsed")).toBe(false);
+    expect(els.miniName.textContent).toBe("");
+  });
+
+  // The previous file's tabs stay up while the next one loads, and a seeking run started there
+  // finds no track in the emptied state and says so in the slot the loader shares with it.
+  it("takes down a failure the previous file's tabs reported while the next file loaded", async () => {
+    const loader = initFileLoadingUi(els, { onLoaded });
+    await loader.loadFile(videoFile("a.mp4"));
+    const parse = deferred<ParseResult>();
+    parseWithMp4Box.mockReturnValueOnce(parse.promise);
+    const pending = loader.loadFile(videoFile("b.mp4"));
+    await vi.waitFor(() => expect(parseWithMp4Box).toHaveBeenCalledTimes(2));
+
+    const slot = document.getElementById("errorMsg")!;
+    slot.textContent = "Seeking test failed: No video track loaded";
+    slot.style.display = "block";
+    parse.resolve(PARSED);
+    await pending;
+
+    expect(state.source!.name).toBe("b.mp4");
+    expect(els.errorMsg.style.display).toBe("none");
+  });
+
+  // What the demos page reads to decide whether to show the tabs when it closes.
+  it("names no file in the state until the load has finished", async () => {
+    const parse = deferred<ParseResult>();
+    parseWithMp4Box.mockReturnValueOnce(parse.promise);
+    const loader = initFileLoadingUi(els, { onLoaded });
+    const pending = loader.loadFile(videoFile());
+    await vi.waitFor(() => expect(parseWithMp4Box).toHaveBeenCalledOnce());
+
+    expect(state.source).toBeNull();
+
+    parse.resolve(PARSED);
+    await pending;
+    expect(state.source!.name).toBe("clip.mp4");
+  });
 });
 
 describe("the drop zone's controls", () => {
@@ -477,5 +779,34 @@ describe("the file picker", () => {
     await vi.waitFor(() => expect(onLoaded).toHaveBeenCalled());
 
     expect(state.source!.name).toBe("input.mp4");
+  });
+
+  // The input stands in for a browser that fires no change event when the pick matches what the
+  // input already holds.
+  it("opens the same file again from the hidden file input after Reset", async () => {
+    const file = videoFile("same.mp4");
+    let selected = "";
+    Object.defineProperty(els.fileInput, "value", {
+      get: (): string => selected,
+      set: (value: string): void => {
+        selected = value;
+      },
+      configurable: true,
+    });
+    vi.spyOn(els.fileInput, "click").mockImplementation(() => {
+      const picked = "C:\\fakepath\\" + file.name;
+      if (selected === picked) return;
+      selected = picked;
+      pickFiles(els.fileInput, [file]);
+    });
+    initFileLoadingUi(els, { onLoaded });
+    els.pickFileBtn.click();
+    await vi.waitFor(() => expect(onLoaded).toHaveBeenCalledOnce());
+
+    els.resetBtn.click();
+    els.pickFileBtn.click();
+
+    await vi.waitFor(() => expect(onLoaded).toHaveBeenCalledTimes(2));
+    expect(state.source!.name).toBe("same.mp4");
   });
 });
