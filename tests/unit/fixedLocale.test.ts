@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 // The unit tests run under en-US whatever the machine's own locale (tests/fixtures/fixedLocale.ts).
-// Each value below is one that a German or Swedish locale formats or orders differently, so a gap in
-// that setup shows here before it shows as a stray failure elsewhere.
+// Each value below is one that a German or Swedish locale formats or orders differently, so on such a
+// machine a gap in that setup shows here before it shows as a stray failure elsewhere. An en-US or
+// C.UTF-8 machine, CI's included, formats them the same way without the setup, so the first test
+// checks that the setup ran at all.
 describe("the unit tests' locale", () => {
+  it("is pinned by the setup file in this worker", () => {
+    expect(Reflect.get(globalThis, Symbol.for("encoding-helper.fixedLocale"))).toBe(true);
+  });
+
   it("formats numbers and dates the en-US way when no locale is given", () => {
     expect((97968.5).toLocaleString()).toBe("97,968.5");
     expect(12345678n.toLocaleString()).toBe("12,345,678");
