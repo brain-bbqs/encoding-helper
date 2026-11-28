@@ -2,6 +2,10 @@ name: Preview
 
 on:
   pull_request:
+    # The first three are what a bare `pull_request` runs on. `closed` is added so the preview
+    # action, left on its default `action: auto`, removes the pull request's directory under
+    # pr-preview/ on gh-pages, which deploy.yml deliberately keeps.
+    types: [opened, synchronize, reopened, closed]
 
 concurrency: preview-${{ github.ref }}
 
@@ -15,16 +19,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Nothing is deployed on close, so there is nothing to build.
       - name: Set up Node
+        if: github.event.action != 'closed'
         uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: npm
 
       - name: Install dependencies
+        if: github.event.action != 'closed'
         run: npm ci
 
       - name: Build
+        if: github.event.action != 'closed'
         run: npm run build
 
       - name: Deploy preview
