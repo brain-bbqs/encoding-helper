@@ -168,6 +168,36 @@ describe("inBrowserEncodeSection", () => {
     expect(encoderBusy()).toBe(false);
   });
 
+  // A dismissal turns down this encode, not the last one, whose result Full Analysis still reports.
+  it("leaves the last encode's result and console as they were when the picker is dismissed", async () => {
+    const { button, log, result } = section();
+    const fold = log.closest<HTMLElement>(".log-details")!;
+    await run(button);
+    const shown = { result: result.innerHTML, log: log.innerHTML, fold: fold.style.display };
+    expect(shown.result).toContain("Encoded Size");
+    expect(shown.fold).toBe("");
+
+    pickSaveTarget.mockResolvedValue(null);
+    await run(button);
+
+    expect({ result: result.innerHTML, log: log.innerHTML, fold: fold.style.display }).toEqual(shown);
+    expect(state.reencodeResult).toEqual({ originalSize: 2_000_000, encodedSize: 1000 });
+  });
+
+  it("leaves a failed encode's note and console as they were when the picker is dismissed", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    runFfmpegEncode.mockRejectedValueOnce(new Error("ffmpeg exited 1"));
+    const { button, log, note } = section();
+    await run(button);
+    const logged = log.innerHTML;
+
+    pickSaveTarget.mockResolvedValue(null);
+    await run(button);
+
+    expect(note.textContent).toBe("Failed: ffmpeg exited 1");
+    expect(log.innerHTML).toBe(logged);
+  });
+
   // Chosen before the encode, the file is open for writing while it runs; an encode that fails
   // writes nothing to it and lets it go rather than leaving it held open.
   it("lets go of the picked file without writing to it when the encode fails", async () => {

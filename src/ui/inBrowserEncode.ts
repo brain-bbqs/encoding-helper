@@ -55,9 +55,6 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
   run.workers.add(defaultFfmpegWorker);
   box.button.disabled = true;
   resetProgressFill(box.progress, box.fill);
-  box.note.textContent = "";
-  box.result.innerHTML = "";
-  clearLog(box.log);
   setFfmpegHandlers(
     (msg) => logLine(box.log, msg, "info"),
     // The bar is the progress; a percentage spelled out beside it is the same number twice.
@@ -75,8 +72,11 @@ async function encodeWholeFile(info: VideoInfo, box: EngineBox): Promise<void> {
     if (!source) throw new Error("No video loaded");
     const saveName = encodedFileName(format, baseNameOf(source.name));
     target = await pickSaveTarget(saveName);
-    // Dismissed: the reader decided against saving, so there is nothing to encode for.
+    // Dismissed: the reader decided against saving, so there is nothing to encode for. The last
+    // encode's note, result and console are left as they were, since Full Analysis still reports it.
     if (!target) return;
+    box.result.innerHTML = "";
+    clearLog(box.log);
     throwIfStopped(run);
     box.note.textContent = "Loading ffmpeg.wasm…";
     await ensureFfmpegLoaded();
