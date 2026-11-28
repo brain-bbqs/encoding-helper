@@ -125,7 +125,7 @@ describe("renderAtomMap", () => {
     const mdat = blockNamed(panel, "mdat");
 
     mdat.dispatchEvent(new Event("mouseenter"));
-    expect(readout(panel)).toBe("mdat — sample data · offset 2,032 · 95.7 KB (97,968 B)");
+    expect(readout(panel)).toBe("mdat (sample data) · offset 2,032 · 95.7 KB (97,968 B)");
     mdat.dispatchEvent(new Event("mouseleave"));
     expect(readout(panel)).toBe(ATOM_MAP_READOUT_HINT);
 
@@ -235,7 +235,7 @@ describe("renderStaticAtomMap", () => {
     const els = Array.from(wrap.querySelectorAll<HTMLElement>(".atom-block"));
     expect(els.map((el) => el.textContent)).toEqual(["ftyp", "moov", "mdat", "mvhd", "trak", "tkhd"]);
     expect(els.map((el) => el.classList[1])).toEqual(["f-other", "f-moov", "f-mdat", "f-moov", "f-moov", "f-moov"]);
-    expect(els[1].title).toBe("moov — index · offset 32 · 2.0 KB (2,000 B)");
+    expect(els[1].title).toBe("moov (index) · offset 32 · 2.0 KB (2,000 B)");
     expect(wrap.querySelector("button")).toBeNull();
     expect(wrap.querySelector(".atom-crumbs")).toBeNull();
     expect(legendLabels(wrap)).toEqual(["moov", "mdat", "other"]);

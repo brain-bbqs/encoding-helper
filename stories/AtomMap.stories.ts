@@ -45,11 +45,11 @@ export default {
 };
 
 export const Progressive = {
-  name: "Progressive file — every box drawn",
+  name: "Progressive file: every box drawn",
   render: () => renderWith(PROGRESSIVE),
 };
 
 export const Fragmented = {
-  name: "Fragmented file — collapsed into counted blocks",
+  name: "Fragmented file: collapsed into counted blocks",
   render: () => renderWith(FRAGMENTED),
 };

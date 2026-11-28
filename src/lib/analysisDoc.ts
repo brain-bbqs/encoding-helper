@@ -116,8 +116,9 @@ function markdownBlock(block: AnalysisBlock): string[] {
       ];
     case "figure":
       // Markdown has nowhere to put an SVG that survives a paste into an issue, so it names the
-      // chart and points at the two renderings that do carry it.
-      return [`_Chart: ${block.caption} — see the HTML or PDF version._`, ""];
+      // chart and points at the two renderings that do carry it. Some captions are whole sentences
+      // already, and a second full stop after theirs would read as a typo.
+      return [`_Chart: ${block.caption}${/[.!?]$/.test(block.caption) ? "" : "."} See the HTML or PDF version._`, ""];
   }
 }
 

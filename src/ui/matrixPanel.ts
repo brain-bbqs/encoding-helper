@@ -90,7 +90,7 @@ function doneFace(cell: MatrixCell, bytes: number, est: SizeEstimate | null): Ce
     // tooltip is left with the one thing it cannot show: what pressing it will cost.
     title: cell.blobs ? "" : releasedNote(cell),
     label:
-      `${describeSettings(cell.combo)} — segment ${fmtBytes(bytes)}` +
+      `${describeSettings(cell.combo)}: segment ${fmtBytes(bytes)}` +
       (est ? ` (${fmtChangeFactor(est.ratio)}), file ≈ ${fmtBytes(est.projectedTotalBytes)}` : "") +
       (cell.elapsedMs != null ? `, ${fmtElapsed(cell.elapsedMs)}` : "") +
       (cell.blobs ? "" : ". " + releasedNote(cell)),
@@ -110,7 +110,7 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
   if (isMeasured(cell)) return doneFace(cell, cell.bytes, est);
   const settings = describeSettings(cell.combo);
   if (cell.status === "running") {
-    const text = `${settings} — encoding now`;
+    const text = `${settings}: encoding now`;
     return {
       main: "…",
       factor: "",
@@ -122,7 +122,7 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
     };
   }
   if (cell.status === "failed") {
-    const text = `${settings} — ${cell.error ?? "failed"}. Click to try it again.`;
+    const text = `${settings}: ${cell.error ?? "failed"}. Click to try it again.`;
     return {
       main: "✕",
       factor: "",
@@ -134,7 +134,7 @@ function cellFace(cell: MatrixCell, est: SizeEstimate | null): CellFace {
     };
   }
   const skipped = cell.status === "skipped";
-  const text = `${settings} — ${skipped ? "not run. Click to encode it." : "queued"}`;
+  const text = `${settings}: ${skipped ? "not run. Click to encode it." : "queued"}`;
   return {
     main: NO_VALUE,
     factor: "",

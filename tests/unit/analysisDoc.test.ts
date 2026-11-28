@@ -205,7 +205,16 @@ describe("renderSectionsToMarkdown", () => {
   });
 
   it("names a chart it cannot carry rather than dropping it silently", () => {
-    expect(md).toContain("_Chart: GOP length per interval");
+    expect(md).toContain("_Chart: GOP length per interval. See the HTML or PDF version._");
+  });
+
+  // The atom map's caption is two sentences of its own.
+  it("ends a chart's caption once when the caption already ends a sentence", () => {
+    const sentence = renderSectionsToMarkdown(
+      [{ title: "Map", blocks: [{ kind: "figure", caption: "Width is a count, not bytes.", element: chart() }] }],
+      META,
+    );
+    expect(sentence).toContain("_Chart: Width is a count, not bytes. See the HTML or PDF version._");
   });
 
   it("escapes a pipe in a value instead of splitting the row", () => {

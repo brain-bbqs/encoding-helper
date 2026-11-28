@@ -297,7 +297,7 @@ function progressBar(panel: HTMLElement): HTMLElement {
 /** The square standing for `cell` in the grid. */
 function square(panel: HTMLElement, cell: MatrixCell): HTMLButtonElement {
   return Array.from(panel.querySelectorAll<HTMLButtonElement>("button.matrix-cell")).find((b) =>
-    (b.getAttribute("aria-label") ?? "").startsWith(describeSettings(cell.combo) + " — "),
+    (b.getAttribute("aria-label") ?? "").startsWith(describeSettings(cell.combo) + ": "),
   )!;
 }
 

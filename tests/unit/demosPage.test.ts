@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 import { demoVideoPath } from "../fixtures/demoPaths";
 import { ChunkedSource } from "../../src/lib/chunkedSource";
 import { assetDownloadUrl, EMBER_DANDISET, type DemoFile, type DemoSet } from "../../src/lib/demoArchive";
+import { infoIcon } from "../../src/lib/dom";
 import { resetState, state } from "../../src/lib/state";
 import { getElements, type AppElements } from "../../src/ui/elements";
 import { initDemosPage, renderDemoBrowser } from "../../src/ui/demosPage";
@@ -361,17 +362,26 @@ describe("initDemosPage", () => {
     expect(window.location.search).toBe("");
   });
 
-  // The page replaces the drop zone, and the button that opens it sits inside the drop zone. The
-  // test listens for clicks on the zone itself, so a click that reached it would show.
+  // The button's click is a click like any other, so it dismisses an explainer left open on the page.
+  it("closes an open info popover when the button is pressed", () => {
+    init();
+    const icon = infoIcon("Explainer");
+    els.introCard.append(icon);
+    icon.querySelector<HTMLButtonElement>(".info-btn")!.click();
+    expect(icon.classList.contains("open")).toBe(true);
+
+    els.browseDemosBtn.click();
+
+    expect(icon.classList.contains("open")).toBe(false);
+    expect(icon.querySelector(".info-btn")!.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("opens over the file picker, records itself in the URL and reads the set from the archive", async () => {
     const pushState = vi.spyOn(window.history, "pushState");
-    const pickerClick = vi.fn();
-    els.dropZone.addEventListener("click", pickerClick);
     els.app.style.display = "block";
     init();
 
     els.browseDemosBtn.click();
-    expect(pickerClick.mock.calls.length).toBe(0);
     expect(window.location.search).toBe("?demos");
     expect(pushState.mock.calls.length).toBe(1);
     expect(els.demosPage.style.display).toBe("block");

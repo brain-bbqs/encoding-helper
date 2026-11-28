@@ -321,11 +321,7 @@ export function initDemosPage(els: AppElements, loader: DemoLoader): void {
     window.scrollTo({ top: 0 });
   };
 
-  els.browseDemosBtn.addEventListener("click", (e) => {
-    // Keeps the click from reaching the drop zone under the button.
-    e.stopPropagation();
-    open(true);
-  });
+  els.browseDemosBtn.addEventListener("click", () => open(true));
 
   window.addEventListener("popstate", () => {
     if (readDemosFromUrl()) open(false);

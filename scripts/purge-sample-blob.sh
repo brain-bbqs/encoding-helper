@@ -11,7 +11,7 @@
 #
 # THIS REWRITES EVERY COMMIT FROM THE ONE THAT ADDED THE FILE ONWARDS. New commit hashes mean every
 # existing clone, every unmerged branch and every open pull request is invalidated. So it is
-# deliberately not something a pull request can do — someone with force-push rights on the default
+# deliberately not something a pull request can do: someone with force-push rights on the default
 # branch has to run it once, with the rest of the work merged or parked first, and everyone else
 # re-clones afterwards.
 #
@@ -19,7 +19,7 @@
 #   -r  repository to rewrite (default: this checkout's `origin` URL)
 #   -w  directory to make the mirror clone in (default: a fresh temporary one)
 #   -f  actually force-push the rewritten history; without it the script stops just before,
-#       leaving the rewritten mirror in place to inspect
+#       leaving the rewritten mirror in place to inspect and printing the command that pushes it
 #   -h  print this help and exit
 #
 # Requires git-filter-repo (https://github.com/newren/git-filter-repo, `pip install git-filter-repo`
@@ -116,7 +116,12 @@ if [ "$DO_PUSH" = 0 ]; then
   echo
   echo "Stopping before the push (no -f given). The rewritten mirror is at:"
   echo "  $MIRROR"
-  echo "Inspect it, then re-run with -f -w $WORKDIR to push it."
+  # Not a re-run with -f: that deletes this mirror and rewrites a fresh clone, so what it pushed
+  # would not be the history that was inspected.
+  echo "Pushing it makes the remote match it exactly, so anything pushed there since the clone above"
+  echo "is lost: a new branch or tag is deleted, and new commits on an existing one are dropped."
+  echo "Inspect it, then push that same mirror, before anything else lands, with:"
+  printf '  git -C %q push --force --mirror %q\n' "$MIRROR" "$REMOTE"
   exit 0
 fi
 

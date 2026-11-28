@@ -9,6 +9,7 @@ import { errorMessage, fmtBytes } from "@brain-bbqs/utils";
 import { readSrcFromUrl, writeSrcToUrl } from "../lib/appUrl";
 import { resetIcon } from "@brain-bbqs/ui";
 import { ChunkedSource } from "../lib/chunkedSource";
+import { carriesFiles, refuseStrayFileDrops } from "../lib/fileDrags";
 import { ensureMediabunny } from "../lib/mediabunny";
 import { loadMediabunnyMetadata } from "../lib/mediabunnyMeta";
 import {
@@ -221,11 +222,7 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
       if (file) void loadFile(file);
     });
   });
-  els.resetBtn.addEventListener("click", (e) => {
-    // Keeps the click from reaching the drop zone under it.
-    e.stopPropagation();
-    resetToDropZone(els);
-  });
+  els.resetBtn.addEventListener("click", () => resetToDropZone(els));
   els.showUrlBtn.addEventListener("click", () => {
     els.urlRow.style.display = els.urlRow.style.display === "none" ? "flex" : "none";
     if (els.urlRow.style.display === "flex") els.urlInput.focus();
@@ -238,17 +235,29 @@ export function initFileLoadingUi(els: AppElements, callbacks: FileLoadingCallba
     if (e.key === "Enter") els.loadUrlBtn.click();
   });
 
+  // Only a drag carrying files is the zone's to take. A link or text dragged onto the URL box inside
+  // it is left to the browser, which puts it in the box. Anywhere else on the zone it has nowhere to
+  // go, and the browser would open it instead, so it is refused: with no drop effect, there is no drop.
   els.dropZone.addEventListener("dragover", (e) => {
+    if (!carriesFiles(e)) {
+      if (e.target !== els.urlInput && e.dataTransfer) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "none";
+      }
+      return;
+    }
     e.preventDefault();
     els.dropZone.classList.add("dragover");
   });
   els.dropZone.addEventListener("dragleave", () => els.dropZone.classList.remove("dragover"));
   els.dropZone.addEventListener("drop", (e) => {
+    if (!carriesFiles(e)) return;
     e.preventDefault();
     els.dropZone.classList.remove("dragover");
     const file = e.dataTransfer?.files[0];
     if (file) void loadFile(file);
   });
+  refuseStrayFileDrops(window);
 
   // A shared link carries ?src=…, so open it the same way the URL box would have.
   const sharedSrc = readSrcFromUrl();

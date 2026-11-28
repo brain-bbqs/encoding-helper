@@ -400,8 +400,12 @@ describe("a pooled core", () => {
     const worker = createFfmpegWorker(1);
     await worker.ensureInput("in.mp4", INPUT);
     core.execError = new Error("Aborted()");
-    await expect(worker.run(ARGS, "out.mp4")).rejects.toThrow(
+    const crashed = worker.run(ARGS, "out.mp4");
+    await expect(crashed).rejects.toThrow(
       /^ffmpeg\.wasm crashed part-way through \(Aborted\(\)\)\. .*a quicker preset or a shorter segment/,
+    );
+    await expect(crashed).rejects.toThrow(
+      "The command itself is sound: run it outside the browser for the exact result.",
     );
     expect(core.terminated).toBe(1);
     // The replacement core's filesystem holds nothing the old one did.
@@ -415,8 +419,12 @@ describe("a pooled core", () => {
   it("names running out of memory as such", async () => {
     const worker = createFfmpegWorker(1);
     core.execError = new Error("RuntimeError: memory access out of bounds");
-    await expect(worker.runToFile(ARGS, "out.mp4")).rejects.toThrow(
-      /^ffmpeg\.wasm ran out of memory \(RuntimeError: memory access out of bounds\)\. .*a smaller resolution/,
+    const failed = worker.runToFile(ARGS, "out.mp4");
+    await expect(failed).rejects.toThrow(
+      /^ffmpeg\.wasm ran out of memory \(RuntimeError: memory access out of bounds\)\. .*A smaller resolution/,
+    );
+    await expect(failed).rejects.toThrow(
+      "the slower the preset. A smaller resolution, fewer or shorter segments, or a quicker preset usually gets through.",
     );
     expect(worker.has("out.mp4")).toBe(false);
     expect(core.terminated).toBe(1);

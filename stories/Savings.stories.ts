@@ -51,12 +51,12 @@ export default {
 };
 
 export const Measured = {
-  name: "Sample table available — projection with a range",
+  name: "Sample table available: projection with a range",
   render: () => renderWith(VARIABLE),
 };
 
 export const Proportional = {
-  name: "No sample table — flat share of the file, no range",
+  name: "No sample table: flat share of the file, no range",
   render: () => renderWith(FLAT),
 };
 

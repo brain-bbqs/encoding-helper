@@ -13,6 +13,13 @@ test.describe("Encoding Helper shell", () => {
     await expect(page.locator("#app")).toBeHidden();
   });
 
+  // A click on the zone itself opens nothing: its buttons are the way in.
+  test("does not draw the drop zone as something to click", async ({ page }) => {
+    await page.goto("/");
+    const cursor = await page.locator("#dropZone").evaluate((zone) => getComputedStyle(zone).cursor);
+    expect(cursor).toBe("auto");
+  });
+
   test("loading a demo file reveals the tabbed app", async ({ page }) => {
     await loadDemo(page);
     await expect(page.locator("#app")).toBeVisible();

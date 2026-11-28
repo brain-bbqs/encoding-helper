@@ -934,6 +934,27 @@ describe("renderAnalysisTab", () => {
     expect(away.defaultPrevented).toBe(false);
   });
 
+  // The frame is a document of its own, so a drag over it never reaches the app's window and the
+  // guard there, and the preview fills most of the tab.
+  it("keeps a file dropped on the preview from being opened by the browser, and leaves text alone", () => {
+    restoreObserver = installObserverStub("ResizeObserver").restore;
+    const el = panel();
+    loadClip();
+    renderAnalysisTab(el);
+    const { doc } = loadPreview(el, 3000);
+    const drag = (type: string, types: string[]): Event => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", { value: { types, files: [] } });
+      doc.body.dispatchEvent(event);
+      return event;
+    };
+
+    expect(drag("dragover", ["Files"]).defaultPrevented).toBe(true);
+    expect(drag("drop", ["Files"]).defaultPrevented).toBe(true);
+    expect(drag("dragover", ["text/plain"]).defaultPrevented).toBe(false);
+    expect(drag("drop", ["text/plain"]).defaultPrevented).toBe(false);
+  });
+
   it("leaves the frame's height alone when it has no document to measure", () => {
     const el = panel();
     loadClip();
