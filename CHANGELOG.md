@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.21
+
+#### 🐛 Bug Fix
+
+- Links dropped on the URL box now fill it, stray file drops no longer open in the browser, and the A/B controls say segment instead of stretch ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.20
 
 #### 🐛 Bug Fix
