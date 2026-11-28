@@ -23,7 +23,7 @@ import { cli, state } from "../../src/lib/state";
 import type { SampleWindow } from "../../src/lib/types";
 import { inBrowserEncodeSection } from "../../src/ui/inBrowserEncode";
 import { acquireWorkers, encodeWindows, prepareRun, runControls, type RunUi } from "../../src/ui/segmentRun";
-import { deferred } from "./helpers/async";
+import { deferred, settle, until } from "./helpers/async";
 import type { CallKind, CoreControl, CoreEvent } from "./helpers/realisticCore";
 
 const ctl = vi.hoisted(
@@ -70,7 +70,6 @@ const WINDOWS: SampleWindow[] = [
   { startSeconds: 0, seconds: 2 },
   { startSeconds: 6, seconds: 2 },
 ];
-const WAIT = { interval: 2, timeout: 3000 };
 
 function loadClip(opts: { keyframes?: boolean; byte?: number } = {}): void {
   const { keyframes = true, byte = OLD } = opts;
@@ -102,10 +101,6 @@ function outcome(p: Promise<unknown>): Promise<string> {
     () => "resolved",
     (err: unknown) => (err instanceof Error ? err.message : String(err)),
   );
-}
-
-async function until(pred: () => boolean): Promise<void> {
-  await vi.waitFor(() => expect(pred()).toBe(true), WAIT);
 }
 
 function seen(kind: CoreEvent["kind"], path?: string | RegExp, core?: number): boolean {
@@ -152,11 +147,6 @@ function staleCalls(): CoreEvent[] {
 /** The core the worker currently has, read off the last one built before this call. */
 function lastCore(): number {
   return ctl.seq;
-}
-
-/** Waits out every reply still on its way, so nothing of one case lands in the next. */
-async function settle(): Promise<void> {
-  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
 }
 
 let ui: RunUi;
