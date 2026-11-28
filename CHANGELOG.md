@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.16
+
+#### 🐛 Bug Fix
+
+- Overlapping, cancelled or failed loads and interrupted seeking tests no longer leave stale tabs, results or errors, and the same file can be picked again ([#89](https://github.com/brain-bbqs/encoding-helper/pull/89))
+
 ## 1.5.15
 
 #### 🚀 Enhancement

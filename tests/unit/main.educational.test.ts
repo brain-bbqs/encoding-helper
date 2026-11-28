@@ -154,7 +154,7 @@ beforeAll(async () => {
   sampledEncode.matrix.scales = [1];
   sampledEncode.duration = 2;
   sampledEncode.segments = 1;
-  el("app").style.display = "";
+  el("app").style.display = "block";
   fileLoading.onLoaded!();
 });
 
@@ -217,7 +217,7 @@ describe("the Educational switch with a file on screen", () => {
 
     setSwitch(false);
     walkTo(false);
-    expect(el("app").style.display).toBe("");
+    expect(el("app").style.display).toBe("block");
     const inspectBoxes = [...el("panel-inspect").querySelectorAll(".teach")];
     expect(inspectBoxes.length).toBeGreaterThan(0);
     expect(inspectBoxes.filter(shown)).toEqual([]);
