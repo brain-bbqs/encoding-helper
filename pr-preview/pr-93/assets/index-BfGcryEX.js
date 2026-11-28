@@ -5,7 +5,7 @@ import{r as e}from"./rolldown-runtime-XKyaHtl9.js";import{t}from"./mp4box-CqdmV6
 
 #### 🐛 Bug Fix
 
-- The address bar keeps a bare \`?demos\`, and What's New and the browser's Back button no longer scroll the demos page up or rebuild Full Analysis ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+- The address bar keeps a bare \`?demos\`, and What's New and the browser's Back button no longer scroll the demos page up or rebuild Full Analysis ([#93](https://github.com/brain-bbqs/encoding-helper/pull/93))
 
 ## 1.5.17
 
