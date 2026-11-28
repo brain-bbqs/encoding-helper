@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.18
+
+#### 🐛 Bug Fix
+
+- Fixed the Full Analysis preview's sizing and links, its sweep table's missing frame rates, uneven number formats, unchecked seek counts, and keyframe-heavy files failing to load ([#PR](https://github.com/brain-bbqs/encoding-helper/pull/PR))
+
 ## 1.5.17
 
 #### 🏠 Internal
