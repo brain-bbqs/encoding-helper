@@ -11,6 +11,7 @@ import { buildMatrixCombos, cliSettings, makeMatrixCells } from "../../src/lib/q
 import { cli, sampledEncode, state } from "../../src/lib/state";
 import type { BoxNode, SeekResult, TrackInfo } from "../../src/lib/types";
 import { renderAnalysisTab } from "../../src/ui/analysisTab";
+import { capArguments } from "./helpers/arguments";
 import { gridRows } from "./helpers/grid";
 
 const downloads: { name: string; text: string }[] = [];
@@ -974,6 +975,21 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("**Uses B-frames (cts ≠ dts)**");
     expect(md).toContain("| Min / Max GOP | – |");
     expect(md).not.toContain("_Chart: GOP length per keyframe interval");
+  });
+
+  // An all-intra recording of an hour or so has more GOPs than Math.min or Math.max can take as the
+  // arguments a spread makes of them; the cap stands in for the engine's at a size a test can reach.
+  it("states the keyframe structure of a file with more GOPs than a call can take arguments", () => {
+    const restore = capArguments(1_000);
+    try {
+      const el = panel();
+      loadClip();
+      state.gopLengths = Array.from({ length: 5_000 }, (_, i) => (i % 7) + 1);
+      renderAnalysisTab(el);
+      expect(markdown(el)).toContain("| Min / Max GOP | 1 / 7 frames |");
+    } finally {
+      restore();
+    }
   });
 
   it("tables a single seek without the scatter plot two would make", () => {

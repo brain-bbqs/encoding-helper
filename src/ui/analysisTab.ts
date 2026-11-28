@@ -41,7 +41,7 @@ import {
   type MatrixOutput,
 } from "../lib/qualityMatrix";
 import { baseNameOf, downloadBlob } from "../lib/save";
-import { describeAvgGop, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
+import { describeAvgGop, gopRange, gopStats, SEEK_TABLE_HEADERS, seekResultRow } from "../lib/seekReport";
 import { currentSizeEstimate, describeSavings, fmtChangeFactor, fmtSignedChange } from "../lib/sizeEstimate";
 import { audioTrackInfo, cli, currentVideoInfo, sampledEncode, state, videoTrackInfo } from "../lib/state";
 import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/types";
@@ -200,6 +200,7 @@ function atomMapSection(): AnalysisSection | null {
 function gopSection(): AnalysisSection | null {
   if (!state.samples.length) return null;
   const { gop, avgGop, fps } = gopStats();
+  const range = gopRange(gop);
   const blocks: AnalysisBlock[] = [
     {
       kind: "kv",
@@ -207,7 +208,7 @@ function gopSection(): AnalysisSection | null {
         ["Total Frames", state.samples.length.toLocaleString()],
         ["Keyframes", state.gopLengths.length.toLocaleString()],
         ["Avg GOP", describeAvgGop(avgGop, fps)],
-        ["Min / Max GOP", gop.length ? `${Math.min(...gop)} / ${Math.max(...gop)} frames` : NO_VALUE],
+        ["Min / Max GOP", range ? `${range.min} / ${range.max} frames` : NO_VALUE],
       ],
     },
     { kind: "badge", ...bFramesBadge() },
