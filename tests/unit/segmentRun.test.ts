@@ -797,7 +797,7 @@ describe("encodeWindows", () => {
   it("refuses with nothing to encode", async () => {
     const ui = controls();
     const encoding = encodeWindows(run, cli, cutInputs([]), acquireWorkers(run, 1, ui), ui, () => {});
-    await expect(encoding).rejects.toThrow("No stretch of video to encode");
+    await expect(encoding).rejects.toThrow("No segment of video to encode");
     expect(core.execs).toEqual([]);
   });
 

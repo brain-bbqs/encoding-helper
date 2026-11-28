@@ -478,7 +478,7 @@ export async function encodeWindows(
   );
 
   throwIfStopped(run);
-  if (!blobs.length || !allFilled(blobs) || !allFilled(measured)) throw new Error("No stretch of video to encode");
+  if (!blobs.length || !allFilled(blobs) || !allFilled(measured)) throw new Error("No segment of video to encode");
   return { blobs, bytes: blobs.reduce((sum, b) => sum + b.size, 0), measured };
 }
 

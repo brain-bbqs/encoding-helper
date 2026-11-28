@@ -287,8 +287,8 @@ function appendReelRuler(wrap: HTMLElement, segments: AbSegment[], reelSpan: num
 /** The buttons that step between sampled stretches, put in the control row. Only there when a run
  * sampled more than one: buttons that cycle a cycle of one say nothing. */
 function appendSegmentNav(controls: HTMLElement, count: number): { prev: HTMLButtonElement; next: HTMLButtonElement } {
-  const prev = iconButton("btn sm sec seg-step", "◀", "Jump to the previous sampled stretch");
-  const next = iconButton("btn sm sec seg-step", "▶", "Jump to the next sampled stretch");
+  const prev = iconButton("btn sm sec seg-step", "◀", "Jump to the previous sampled segment");
+  const next = iconButton("btn sm sec seg-step", "▶", "Jump to the next sampled segment");
   const buttons = h("div", "compare-segment-buttons");
   buttons.append(prev, next);
   if (count > 1) controls.append(buttons);
@@ -413,7 +413,7 @@ function renderAbResult(host: HTMLElement, vt: TrackInfo, settings: EncodeSettin
   scrub.min = "0";
   scrub.max = "1000";
   scrub.value = "0";
-  scrub.setAttribute("aria-label", "Playback position across the sampled stretches");
+  scrub.setAttribute("aria-label", "Playback position across the sampled segments");
   scrubWrap.append(scrub);
   const segmentBands = appendReelRuler(scrubWrap, segments, shownSeconds);
   host.append(scrubWrap);

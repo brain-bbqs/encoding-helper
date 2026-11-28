@@ -381,6 +381,8 @@ describe("loadEncodedIntoAB", () => {
     const host = hostSection();
     await loadSampled(host, 3);
     const [prev, next] = Array.from(host.querySelectorAll<HTMLButtonElement>(".compare-segment-buttons button"));
+    expect(prev.getAttribute("aria-label")).toBe("Jump to the previous sampled segment");
+    expect(next.getAttribute("aria-label")).toBe("Jump to the next sampled segment");
     expect(currentBand(host)).toBe(0);
     next.click();
     expect(currentBand(host)).toBe(1);
@@ -403,6 +405,7 @@ describe("loadEncodedIntoAB", () => {
     // What the bands say, said in words: they sit under the slider and can carry no tooltip of
     // their own, and the slider's own value is a thousandth of a reel.
     const where = "1.50s · Segment 2 of 3 · 4.0s–5.0s in the source";
+    expect(scrub.getAttribute("aria-label")).toBe("Playback position across the sampled segments");
     expect(scrub.getAttribute("aria-valuetext")).toBe(where);
     expect(scrub.title).toBe(where);
   });
