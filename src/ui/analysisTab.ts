@@ -26,15 +26,7 @@ import {
   GOP_HISTOGRAM_CAPTION,
   SEEK_SCATTER_CAPTION,
 } from "../lib/explainers";
-import {
-  describeColorSpace,
-  describeFrameCount,
-  describeFrameRate,
-  fmtBits,
-  fmtDur,
-  fmtSizeChangePct,
-  NO_VALUE,
-} from "../lib/format";
+import { describeColorSpace, describeFrameCount, describeFrameRate, fmtBits, fmtDur, NO_VALUE } from "../lib/format";
 import { describeMetadataTag } from "../lib/metadataTagKb";
 import {
   bestReductionCell,
@@ -56,6 +48,7 @@ import type { AnalysisBlock, AnalysisSection, FactRow, TrackInfo } from "../lib/
 import { faststartBadge, renderStaticAtomMap } from "./atomsTab";
 import { compareSummaryRows } from "./abPanel";
 import { renderBitrateChart } from "./bitrateChart";
+import { fmtElapsed } from "./matrixPanel";
 import {
   AUDIO_TRACK_TITLE,
   audioTrackRows,
@@ -271,7 +264,7 @@ function compareSection(): AnalysisSection | null {
   if (est) {
     items.push(
       ["Original Segment Size", fmtBytes(est.originalSegmentBytes)],
-      ["Segment Change", `${fmtSignedChange(est)} (${fmtChangeFactor(est.ratio)})`],
+      ["Segment Change", `${fmtSignedChange(est.ratio)} (${fmtChangeFactor(est.ratio)})`],
       ["Original File Size", fmtBytes(est.originalTotalBytes)],
       ["Projected Full File", fmtBytes(est.projectedTotalBytes)],
     );
@@ -329,7 +322,7 @@ function matrixSection(): AnalysisSection | null {
           const cell = byKey.get(comboKey(quality, preset, scale, scaler, fps));
           if (!cell) return NO_VALUE;
           const mark = best && cell.combo.key === best.combo.key ? " ★" : "";
-          const took = cell.elapsedMs != null ? ` / ${(cell.elapsedMs / 1000).toFixed(1)}s` : "";
+          const took = cell.elapsedMs != null ? ` / ${fmtElapsed(cell.elapsedMs)}` : "";
           return `${fmtBytes(cell.bytes)}${took}${mark}`;
         }),
       ]);
@@ -359,7 +352,7 @@ function reencodeSection(): AnalysisSection | null {
         items: [
           ["Original Size", fmtBytes(result.originalSize)],
           ["Encoded Size", fmtBytes(result.encodedSize)],
-          ["Change", fmtSizeChangePct(result.originalSize, result.encodedSize)],
+          ["Change", fmtSignedChange(result.encodedSize / result.originalSize)],
         ],
       },
     ],

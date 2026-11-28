@@ -177,6 +177,26 @@ describe("renderBitrateChart time axis", () => {
     // 239 s quarters at 59.75 s, which rounds up to a whole minute.
     expect(xTicks(chartOf(239))).toEqual(["0:00", "1:00", "2:00", "2:59", "3:59"]);
   });
+
+  // The unit is chosen on the length as it would print, so a clip a hair under a minute is read as
+  // the minute it rounds to rather than ending its axis on "60.0s".
+  it("reads a clip that rounds to a minute in minutes and seconds", () => {
+    const svg = renderBitrateChart(
+      computeBitrateTimeline(
+        evenSamples(1199, 59.96, () => 1_000),
+        59.96,
+      )!,
+    );
+    expect(xTicks(svg)).toEqual(["0:00", "0:15", "0:30", "0:45", "1:00"]);
+    expect(texts(svg, ".axis-title")).toContain("Playback time (m:ss)");
+  });
+
+  // The same clock as the sample picker's, which carries the minutes into hours.
+  it("ticks hours, minutes and seconds past an hour", () => {
+    const svg = chartOf(4800);
+    expect(xTicks(svg)).toEqual(["0:00:00", "0:20:00", "0:40:00", "1:00:00", "1:20:00"]);
+    expect(texts(svg, ".axis-title")).toContain("Playback time (h:mm:ss)");
+  });
 });
 
 describe("renderBitrateChart tooltips", () => {

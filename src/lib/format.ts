@@ -8,32 +8,35 @@ export const NO_VALUE = "–";
 /** The frame rate assumed wherever one is needed and the file does not state it. */
 export const FALLBACK_FPS = 30;
 
+// The helpers below that change unit with size pick the unit on the figure as it will print, not
+// as it stands, so a field that rounds up to a whole unit carries into the next one: 119.97 s is
+// "2m 0.0s" rather than "1m 60.0s", and 999,600 bps "1.00 Mbps" rather than "1000 kbps".
+
 export function fmtDur(s: number | null | undefined): string {
   if (s == null) return NO_VALUE;
-  if (s < 60) return s.toFixed(3) + " s";
-  if (s < 3600) return Math.floor(s / 60) + "m " + (s % 60).toFixed(1) + "s";
-  return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m " + Math.round(s % 60) + "s";
+  if (Math.round(s * 1000) < 60_000) return s.toFixed(3) + " s";
+  const tenths = Math.round(s * 10);
+  if (tenths < 36_000) return Math.floor(tenths / 600) + "m " + ((tenths % 600) / 10).toFixed(1) + "s";
+  const whole = Math.round(s);
+  return Math.floor(whole / 3600) + "h " + Math.floor((whole % 3600) / 60) + "m " + (whole % 60) + "s";
 }
 
 export function fmtBits(bps: number | null | undefined): string {
   if (bps == null || !isFinite(bps)) return NO_VALUE;
-  if (bps < 1e3) return Math.round(bps) + " bps";
-  if (bps < 1e6) return (bps / 1e3).toFixed(0) + " kbps";
+  if (Math.round(bps) < 1e3) return Math.round(bps) + " bps";
+  if (Math.round(bps / 1e3) < 1e3) return Math.round(bps / 1e3) + " kbps";
   return (bps / 1e6).toFixed(2) + " Mbps";
 }
 
+/** A frame rate to three decimals, or whole where three decimals would print a whole number anyway. */
 export function fmtRate(fps: number | null | undefined): string {
-  return fps == null ? NO_VALUE : fps % 1 < 0.005 ? Math.round(fps).toString() : fps.toFixed(3);
+  if (fps == null) return NO_VALUE;
+  const whole = Math.round(fps);
+  return Math.abs(fps - whole) < 0.005 ? String(whole) : fps.toFixed(3);
 }
 
 export function fmtMs(ms: number | null | undefined): string {
   return ms == null ? NO_VALUE : ms.toFixed(1) + " ms";
-}
-
-/** How much smaller (or larger) an encode came out, as a signed percentage: "-42.0%" for a saving. */
-export function fmtSizeChangePct(originalSize: number, encodedSize: number): string {
-  const pct = (1 - encodedSize / originalSize) * 100;
-  return (pct >= 0 ? "-" : "+") + Math.abs(pct).toFixed(1) + "%";
 }
 
 /** A track's colour space as "primaries / transfer / matrix", or "–" when the file states none of them. */

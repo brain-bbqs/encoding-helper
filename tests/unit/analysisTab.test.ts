@@ -442,6 +442,19 @@ describe("renderAnalysisTab", () => {
     expect(md.match(/^\| 100%.*$/gm)).toEqual(["| 100%, 15 fps | high (CRF 18) | 58.6 KB ★ |"]);
   });
 
+  // The page's figure for the same time, rather than seconds to a tenth however long it ran.
+  it("times a sweep's squares the way the page does", () => {
+    const el = panel();
+    loadClip();
+    const cells = makeMatrixCells(buildMatrixCombos(["high"], ["fast"]));
+    cells[0].status = "done";
+    cells[0].bytes = 60_000;
+    cells[0].elapsedMs = 95_000;
+    sampledEncode.matrix.cells = cells;
+    renderAnalysisTab(el);
+    expect(markdown(el)).toContain("| high (CRF 18) | 58.6 KB / 1m 35s ★ |");
+  });
+
   // A failed square has run as far as it is going to, so it does not hold the ranking up.
   it("stars the winner once every square has run, failed ones included", () => {
     const el = panel();
@@ -473,7 +486,7 @@ describe("renderAnalysisTab", () => {
     expect(md).toContain("## In-Browser Reencode Result");
     expect(md).toContain("| Original Size | 1.9 MB |");
     expect(md).toContain("| Encoded Size | 976.6 KB |");
-    expect(md).toContain("| Change | -50.0% |");
+    expect(md).toContain("| Change | -50% |");
   });
 
   it("names the downloads after the file they describe", () => {
