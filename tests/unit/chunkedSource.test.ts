@@ -116,6 +116,8 @@ describe("ChunkedSource.fromUrl", () => {
     expect(await named("https://archive.test/api/assets/abc/download/#t=10")).toBe("video");
     // An escape that does not decode is shown as written rather than failing the load.
     expect(await named("https://example.com/a/50%.mp4")).toBe("50%.mp4");
+    // Nothing before the query to name it by.
+    expect(await named("?sig=abc")).toBe("video");
   });
 
   // A HEAD that says nothing about the size has promised nothing about ranges either, and a download
