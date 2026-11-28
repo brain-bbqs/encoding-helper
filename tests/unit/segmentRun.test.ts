@@ -540,6 +540,21 @@ describe("prepareRun", () => {
     expect(core.execs.map((args) => args.at(-1))).toEqual([inputs.names[0], ...inputs.names]);
   });
 
+  // The source's name in the core says only what type of file it is, so one a refused cut left
+  // behind would be cut in place of the next file of that type.
+  it("drops the source when a cut is refused, so the next file is cut from its own bytes", async () => {
+    const ui = controls();
+    const workers = acquireWorkers(run, 1, ui);
+    core.exec = (args) => Promise.resolve(args.includes("copy") ? 1 : 0);
+    await expect(prepareRun(run, WINDOWS, workers, ui)).rejects.toThrow("ffmpeg exited with code 1");
+    expect(workers[0].has("et_in.mp4")).toBe(false);
+
+    core.exec = null;
+    loadClip("other.mp4", 16);
+    await prepareRun(run, WINDOWS, workers, ui);
+    expect(core.writes).toEqual(["et_in.mp4", "et_in.mp4"]);
+  });
+
   it("stops between the cuts and reading them back", async () => {
     const ui = controls();
     const workers = acquireWorkers(run, WINDOWS.length, ui);

@@ -268,36 +268,41 @@ async function cutSnippets(
   ui: RunUi,
 ): Promise<void> {
   const inputName = inputNameFor(source);
-  for (let i = 0; i < windows.length; i++) {
-    const window = windows[i];
-    const name = names[i];
-    throwIfStopped(run);
-    if (cutter.has(name)) continue;
-    ui.note.textContent = "Cutting the sampled video out of the source…";
-    await cutter.ensureInput(inputName, source.data);
-    const args = [
-      "-y",
-      // Ahead of -i, so the seek is a seek: after it, ffmpeg would decode from the start of the
-      // file and throw away everything before the stretch asked for.
-      "-ss",
-      String(window.startSeconds),
-      "-i",
-      inputName,
-      "-t",
-      String(window.seconds),
-      "-c",
-      "copy",
-      // The cut starts on a keyframe, so the copied packets carry timestamps from part-way into the
-      // source; this rebases them to zero, leaving a file that plays from its own beginning.
-      "-avoid_negative_ts",
-      "make_zero",
-      name,
-    ];
-    cutter.setHandlers((msg) => logLine(ui.log, msg, "info"), null);
-    logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
-    await cutter.runToFile(args, name);
+  try {
+    for (let i = 0; i < windows.length; i++) {
+      const window = windows[i];
+      const name = names[i];
+      throwIfStopped(run);
+      if (cutter.has(name)) continue;
+      ui.note.textContent = "Cutting the sampled video out of the source…";
+      await cutter.ensureInput(inputName, source.data);
+      const args = [
+        "-y",
+        // Ahead of -i, so the seek is a seek: after it, ffmpeg would decode from the start of the
+        // file and throw away everything before the stretch asked for.
+        "-ss",
+        String(window.startSeconds),
+        "-i",
+        inputName,
+        "-t",
+        String(window.seconds),
+        "-c",
+        "copy",
+        // The cut starts on a keyframe, so the copied packets carry timestamps from part-way into
+        // the source; this rebases them to zero, leaving a file that plays from its own beginning.
+        "-avoid_negative_ts",
+        "make_zero",
+        name,
+      ];
+      cutter.setHandlers((msg) => logLine(ui.log, msg, "info"), null);
+      logLine(ui.log, "$ ffmpeg " + args.join(" "), "success");
+      await cutter.runToFile(args, name);
+    }
+  } finally {
+    // A refused cut throws past the loop on a core that stays up. Its name says only what type of
+    // file it is, so a source left behind would be cut in place of the next file of that type.
+    await cutter.deleteFile(inputName);
   }
-  await cutter.deleteFile(inputName);
 }
 
 /** The source the cut stretches `names` are cut from, or null when every one of them is already in
